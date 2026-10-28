@@ -16,6 +16,13 @@
 | Soumettre un module à l'approbation | — | ✅ | ✅ |
 | Approuver ou renvoyer un module (publication) | — | — | ✅ |
 | Passer une évaluation accessible | ✅ | — | — |
+| Inscrire un routier (avec ou sans compte) | — | ✅ | ✅ |
+| Rattacher un compte à un profil routier | — | — | ✅ (à confirmer) |
+| Créer / archiver une équipe | — | — | ✅ (à confirmer) |
+| Affecter un routier à une équipe | — | ✅ | ✅ |
+| Préparer une feuille papier, saisir et soumettre un résultat | — | ✅ | ✅ |
+| Rechercher une tentative par code | sa propre tentative | ✅ | ✅ |
+| Décider d'un résultat soumis (`VALIDEE` / `REFUSEE`), rouvrir une décision | — | — | ✅ |
 | Accorder / révoquer un déblocage individuel | — | — | ✅ |
 | Valider officiellement un acquis | — | — | ✅ |
 | Consulter sa propre progression | ✅ | — | — |
@@ -32,6 +39,28 @@ Toutes les permissions sont vérifiées côté serveur.
 4. **Déblocage individuel** : exception nominative accordée par le responsable, motivée, tracée, révocable.
 5. **Validation des acquis** : exclusivement humaine, par le responsable. Un résultat d'évaluation est une information, jamais une décision automatique.
 6. **Audit** : approbations, déblocages, validations et changements d'étape sont journalisés (`AuditLog`).
+
+## Règles identifiées (phase 1 bis — routiers, équipes, évaluations papier)
+
+> Statut : **modèle, contraintes et services implémentés et testés** ; aucune route HTTP ni interface (voir [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)).
+
+| ID | Règle | Énoncé | Garantie |
+| --- | --- | --- | --- |
+| RM-001 | Routier sans compte | Le profil routier est la référence métier. Il existe sans compte ; un compte (facultatif, unique) peut y être rattaché plus tard, sans perte de données ni second profil. Toute évaluation, dérogation ou validation référence le profil. | `scout_profiles.user_id` nullable + unique ; rattachement conditionnel `user_id IS NULL` |
+| RM-002 | Matricule facultatif et unique | Chaîne de caractères (zéros initiaux conservés), facultative, unique si renseignée, normalisée (espaces supprimés, majuscules), jamais générée. Ce n'est ni un identifiant technique ni un code de tentative. | Index unique + CHECK de forme normalisée |
+| RM-003 | Affectation à une équipe | Un routier appartient à au plus une équipe à un instant donné ; il peut être temporairement sans équipe. Pas de multi-paroisse ni multi-district. | Index unique partiel (affectation ouverte) |
+| RM-004 | Historisation des équipes | Un changement d'équipe clôt l'affectation précédente (date de fin, auteur) et en ouvre une nouvelle. Les évaluations restent liées au profil ; l'équipe à une date passée se déduit de l'historique. | Contrainte d'exclusion (périodes sans chevauchement) |
+| RM-005 | Impression des modules | Trois documents : support de cours, questionnaire nominatif, corrigé chef. Le corrigé n'est accessible qu'aux chefs et au responsable. Génération sans service d'IA. | **Documenté** (générateur PDF non développé) |
+| RM-006 | Questionnaire papier nominatif | Un chef ou le responsable prépare une tentative papier (routier, évaluation, version publiée) → statut `PREPAREE`. La feuille affiche communauté, évaluation, code, identité, matricule, équipe à la date de préparation, date prévue, questions et espaces de réponse ; jamais le corrigé. Réimprimer ne crée pas de tentative ; repasser l'évaluation exige une nouvelle préparation explicite. | Service `preparePaper` / `getPaperSheet` (lecture seule) |
+| RM-007 | Code unique de tentative | `NT-AAAA-NNNNNN` (NT = Nikola Tesla, année civile UTC d'émission, rang dans l'année). Généré par le backend, unique, immuable, jamais réutilisé (une tentative annulée garde son code). Identifiant de recherche, **pas un secret** : la recherche par code est soumise aux permissions. | Compteur transactionnel annuel ; unique ; CHECK de format ; trigger d'immutabilité |
+| RM-008 | Saisie de résultat papier | Le chef retrouve la tentative par son code, saisit date de réalisation, réponses, score facultatif, observations, référence de la copie numérisée, puis soumet au responsable. Toute saisie est historisée ; une correction après soumission exige un motif. | Historique `evaluation_attempt_events` en ajout seul |
+| RM-009 | Contrôle de l'éligibilité | Avant toute préparation (avec ou sans compte) : routier existant, version publiée, évaluation de l'étape courante du routier **ou** dérogation active (non révoquée, non expirée) accordée par le responsable avec motif, date, expiration éventuelle, révocation tracée. | Service + `AuditLog` des dérogations |
+| RM-010 | Validation humaine | Un chef saisit, corrige et soumet ; seul le responsable décide (`VALIDEE` / `REFUSEE`). Cette décision porte sur le résultat, pas sur l'étape : aucun statut ne modifie automatiquement la progression. La validation officielle d'un acquis ou d'une étape est un acte distinct du responsable. | Permissions serveur ; aucun accès à `current_stage_id` dans le service |
+| RM-011 | Conservation des résultats | Résultats papier et numériques dans la même table (historique unifié). Une tentative n'est jamais supprimée (annulation = statut `ANNULEE`) ; une tentative décidée n'est modifiable qu'après réouverture motivée par le responsable. | Trigger anti-suppression ; transitions contrôlées |
+| RM-012 | Prévention des doublons | Au plus une tentative non clôturée (`PREPAREE`, `EN_COURS`, `A_CORRIGER`, `SOUMISE`) par routier et par évaluation ; un seul profil par compte ; un matricule par routier. | Index uniques (dont partiel) |
+
+### Cycle de vie d'une tentative
+`PREPAREE → (EN_COURS) → A_CORRIGER → SOUMISE → VALIDEE | REFUSEE` ; `ANNULEE` possible avant décision. Corrections : `SOUMISE → A_CORRIGER` (motif) ; `VALIDEE | REFUSEE → A_CORRIGER` (réouverture par le responsable, motif). Aucune transition ne déclenche de changement d'étape.
 
 ## Référentiel de progression (SAPF-Route)
 
@@ -50,3 +79,9 @@ Ces étapes sont chargées par le seed (`progression_stages`) depuis `@tesla/sha
 - Rôle des chefs dans la consultation des résultats individuels.
 - Qui gère les comptes (responsable ou administrateur technique distinct).
 - Durée de conservation des données et des résultats.
+- **Éligibilité aux évaluations** : la règle provisoire « évaluation de l'étape courante uniquement » est-elle la bonne (et les étapes antérieures, les reprises) ?
+- **Version appliquée** : toute version publiée peut-elle être imprimée, ou seulement la plus récente ?
+- **Dérogation** : valable pour une seule tentative ou jusqu'à expiration/révocation (choix provisoire : jusqu'à expiration/révocation) ?
+- **Format officiel du matricule** (longueur, caractères) : règle provisoire A-Z, 0-9, « . », « / », « - », 32 caractères.
+- **Inscription des routiers et gestion des équipes** : chefs et/ou responsable (choix provisoires dans la matrice ci-dessus).
+- **Accès des chefs aux résultats individuels** : nécessaire pour la saisie papier ; périmètre exact à confirmer.

@@ -36,6 +36,14 @@ npm run db:up | db:migrate | db:seed | db:generate
 ## 7. Règles métier fondamentales
 Voir [docs/BUSINESS_RULES.md](docs/BUSINESS_RULES.md) et `.claude/rules/pedagogy.md`. En bref : publication **uniquement** après approbation du responsable ; évaluations selon la progression sauf déblocage individuel ; validation officielle des acquis **exclusivement humaine** (responsable). Ne jamais inventer une règle pédagogique : la rendre configurable et la signaler.
 
+Règles structurantes du modèle (RM-001 à RM-012) :
+- **Routier sans compte** : le profil routier (`ScoutProfile`) est la référence métier ; le compte (`User`) est facultatif et rattachable plus tard sans créer de second profil. Évaluations, dérogations et validations référencent le **profil**, jamais seulement le compte.
+- **Matricule** : chaîne normalisée, facultative, unique si renseignée, jamais générée ni confondue avec un identifiant technique ou un code de tentative.
+- **Équipe** : au plus une affectation ouverte par routier, historique conservé (`TeamAssignment`).
+- **Tentative papier** : même éligibilité qu'en ligne ; la réimpression ne crée jamais de tentative.
+- **Code unique** `NT-AAAA-NNNNNN` : émis par le backend (compteur transactionnel), immuable, jamais réutilisé, **pas un secret** (recherche protégée par permissions).
+- **Validation officielle humaine** : un chef saisit et soumet ; seul le responsable décide ; aucun statut de tentative ne change l'étape d'un routier.
+
 ## 8. Sécurité
 Autorisation vérifiée côté serveur (le masquage UI ne suffit pas). Aucune donnée réelle, aucun secret dans Git ou les seeds. Pas de cache hors ligne de données personnelles sensibles. Erreurs API sans détail interne.
 

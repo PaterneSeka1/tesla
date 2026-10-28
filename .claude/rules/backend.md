@@ -8,6 +8,8 @@ paths:
 ## Modules NestJS
 - Un dossier par domaine dans `src/modules/<domaine>/` : `<domaine>.module.ts`, `.controller.ts`, `.service.ts`, `dto/`.
 - Modules réservés existants : `auth`, `users`, `pedagogy`, `progression`, `programmes`, `audit`. Les compléter plutôt que d'en créer des doublons.
+- Modules métier : `scouts` (profils routiers, matricules, équipes, affectations) et `evaluations` (tentatives, codes, dérogations).
+- Permissions métier centralisées dans `src/common/permissions.ts` (`assertCan(actor, 'permission')`) ; les services reçoivent un `Actor` (`src/common/actor.ts`).
 - ESM : imports relatifs avec extension `.js`.
 
 ## Contrôleurs légers, services métier
@@ -30,3 +32,4 @@ paths:
 ## Tests
 - Vitest. Unitaires `*.spec.ts` à côté du code ; e2e `test/*.e2e-spec.ts` via `configureApp` + Supertest.
 - Tester au minimum : cas nominal, refus d'autorisation, entrée invalide.
+- Contraintes SQL, triggers et concurrence : tests d'intégration `test/*.int-spec.ts` sur base réelle (`npm run test:int`, `TEST_DATABASE_URL` vers une base `*_test`).

@@ -25,5 +25,22 @@ Format : contexte → décision → conséquence. Ajouter une entrée pour chaqu
 | D17 | **Espaces non protégés en phase 0** | Ils n'affichent aucune donnée personnelle ; un bandeau l'indique. Protection par rôle en phase 1. |
 | D18 | **PostgreSQL exposé sur le port hôte 5433** | Le port 5432 est déjà utilisé par un autre projet sur le poste de développement ; 5433 évite le conflit. Modifiable via `POSTGRES_PORT` et `DATABASE_URL`. |
 
+## 2026-10-28 — Routiers sans compte, équipes, évaluations papier
+
+| # | Décision | Motif / conséquence |
+| --- | --- | --- |
+| D19 | **`ScoutProfile` conservé comme profil routier**, `userId` rendu facultatif ; identité (`firstName`, `lastName`) portée par le profil | Évolution additive plutôt qu'un nouveau modèle : le profil devient la référence métier, le compte un simple accès. Nom et prénom existent aussi sur `User` (compte) ; le profil fait foi pour le suivi. |
+| D20 | **Noms de modèles en anglais** (`Team`, `TeamAssignment`, `EvaluationAttempt`, `EvaluationWaiver`…), valeurs d'enum en français (`PAPIER`, `PREPAREE`…) | Convention existante du code (`User`, `ScoutProfile`, enum `Role` en français). Correspondance documentée dans `DATABASE.md`. |
+| D21 | **Code de tentative par compteur annuel transactionnel** (`attempt_code_counters`, `INSERT … ON CONFLICT DO UPDATE … RETURNING`) | Sûr en concurrence (verrou de ligne), sans boucle de collision, numérotation sans trou visible. Rejeté : séquence PostgreSQL unique (pas de remise à zéro annuelle simple), séquence par année (DDL dynamique), aléatoire (collisions, pas lisible). Année = année civile **UTC** (Abidjan est en UTC+0). |
+| D22 | **Contraintes critiques en base** : CHECK (matricule, code, score), exclusion `btree_gist` (affectations), triggers d'immutabilité et d'ajout seul | Les règles RM-002, RM-004, RM-007, RM-011 restent garanties même hors service (script, futur module). Extension `btree_gist` fournie par l'image PostgreSQL officielle. |
+| D23 | **Preview Prisma `partialIndexes`** pour les index uniques partiels | Sans elle, Prisma ne connaît pas ces index et proposerait de les supprimer à la migration suivante. Risque : fonctionnalité en preview, à surveiller lors des montées de version de Prisma. |
+| D24 | **Statut de tentative ≠ validation d'étape** : `VALIDEE`/`REFUSEE` = décision du responsable sur un résultat ; la validation officielle d'acquis/étape sera un acte distinct (modèle prévu en phase 4) | Respect de la règle « validation exclusivement humaine » ; aucun service n'écrit `current_stage_id`. |
+| D25 | **Historique des tentatives** dans `evaluation_attempt_events` (ajout seul) + `AuditLog` pour les actions sensibles (décision, réouverture, annulation, dérogations, rattachement de compte, matricule) | Les réponses originales et chaque correction restent consultables ; l'audit global reste exploitable. |
+| D26 | **Une tentative ouverte par routier et par évaluation** (index unique partiel) | Évite les doublons accidentels (double clic, deux chefs) ; repasser exige de clore la tentative précédente puis une préparation explicite. |
+| D27 | **Services sans routes HTTP** dans cette phase ; nouveaux modules `scouts` et `evaluations` ; permissions centralisées (`common/permissions.ts`) | Pas d'authentification encore : exposer des routes sans acteur fiable serait dangereux. Les modules réservés (`users` = comptes, `pedagogy` = contenus) ne couvrent pas ces domaines. |
+| D28 | **Tests d'intégration sur base réelle dédiée** (`tesla_test`, `npm run test:int`), hors `npm run test` et hors CI pour l'instant | Les contraintes SQL, triggers et la concurrence ne sont pas testables avec une base simulée. Ajout d'un service PostgreSQL en CI à décider. |
+| D29 | **Recherche par code refusée = 404** pour un routier non titulaire | Ne révèle pas l'existence d'une tentative à partir d'un code deviné. |
+| D30 | **Choix provisoires à confirmer** : éligibilité = étape courante uniquement ; toute version publiée imprimable ; dérogation valable jusqu'à expiration/révocation ; format de matricule ; inscription des routiers par les chefs ; équipes gérées par le responsable ; un chef peut annuler une tentative | Centralisés dans `eligibility.ts` et `permissions.ts` pour être modifiés en un seul endroit. |
+
 ## Décisions pédagogiques en attente (responsable)
 Voir [BUSINESS_RULES.md](BUSINESS_RULES.md#points-en-attente-darbitrage-ne-pas-coder-de-valeur-définitive) : durées d'étape selon l'âge, conditions d'accès aux évaluations, seuils, gestion des comptes, conservation des données.

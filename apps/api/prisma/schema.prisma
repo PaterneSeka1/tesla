@@ -1,9 +1,10 @@
-// Schéma initial de Nikola Tesla Académie.
+// Schéma de Nikola Tesla Académie.
 // Conventions : identifiants UUID v7, tables/colonnes en snake_case, dates en UTC (timestamptz).
 // Voir docs/DATABASE.md avant toute modification.
 
 generator client {
   provider            = "prisma-client"
+  previewFeatures     = ["partialIndexes"]
   output              = "../src/generated/prisma"
   moduleFormat        = "esm"
   importFileExtension = "js"
@@ -39,6 +40,16 @@ model User {
   scoutProfile ScoutProfile?
   auditLogs    AuditLog[]
 
+  teamAssignmentsMade  TeamAssignment[]         @relation("TeamAssignmentAssignedBy")
+  teamAssignmentsEnded TeamAssignment[]         @relation("TeamAssignmentEndedBy")
+  evaluationsPublished EvaluationVersion[]      @relation("EvaluationVersionPublishedBy")
+  attemptsCreated      EvaluationAttempt[]      @relation("AttemptCreatedBy")
+  attemptsRecorded     EvaluationAttempt[]      @relation("AttemptRecordedBy")
+  attemptsDecided      EvaluationAttempt[]      @relation("AttemptDecidedBy")
+  attemptEvents        EvaluationAttemptEvent[]
+  waiversGranted       EvaluationWaiver[]       @relation("WaiverGrantedBy")
+  waiversRevoked       EvaluationWaiver[]       @relation("WaiverRevokedBy")
+
   @@index([role])
   @@map("users")
 }
@@ -61,10 +72,16 @@ model Session {
   @@map("sessions")
 }
 
-/// Profil scout d'un routier (données personnelles minimales).
+/// Profil routier : référence métier (identité, matricule, équipe, progression, résultats).
+/// Existe indépendamment de tout compte : `userId` est facultatif et rattachable plus tard (RM-001).
 model ScoutProfile {
   id             String    @id @default(uuid(7)) @db.Uuid
-  userId         String    @unique @map("user_id") @db.Uuid
+  /// Compte de connexion facultatif (relation 1–1). Le rattachement ne crée jamais de second profil.
+  userId         String?   @unique @map("user_id") @db.Uuid
+  /// Matricule scout : chaîne normalisée (voir normalizeMatricule dans @tesla/shared), unique si renseigné (RM-002).
+  matricule      String?   @unique
+  firstName      String    @map("first_name")
+  lastName       String    @map("last_name")
   /// Utilisée uniquement pour les durées d'étape dépendant de l'âge (règle à arbitrer).
   birthDate      DateTime? @map("birth_date") @db.Date
   joinedAt       DateTime  @map("joined_at") @db.Date
@@ -72,10 +89,14 @@ model ScoutProfile {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  currentStage ProgressionStage? @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
+  user               User?               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  currentStage       ProgressionStage?   @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
+  teamAssignments    TeamAssignment[]
+  evaluationAttempts EvaluationAttempt[]
+  evaluationWaivers  EvaluationWaiver[]
 
   @@index([currentStageId])
+  @@index([lastName, firstName])
   @@map("scout_profiles")
 }
 
@@ -93,6 +114,7 @@ model ProgressionStage {
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   scoutProfiles ScoutProfile[]
+  evaluations   Evaluation[]
 
   @@map("progression_stages")
 }
@@ -115,4 +137,214 @@ model AuditLog {
   @@index([actorId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+/// Équipe de la Communauté Nikola Tesla. Jamais supprimée : archivée (archivedAt).
+model Team {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  name        String    @unique
+  description String?
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  assignments TeamAssignment[]
+
+  @@map("teams")
+}
+
+/// Historique des affectations d'un routier à une équipe (RM-003, RM-004).
+/// Une seule affectation ouverte (endedAt null) par routier ; périodes sans chevauchement
+/// (contrainte d'exclusion PostgreSQL ajoutée en SQL, voir docs/DATABASE.md).
+model TeamAssignment {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  scoutProfileId String    @map("scout_profile_id") @db.Uuid
+  teamId         String    @map("team_id") @db.Uuid
+  startedAt      DateTime  @map("started_at") @db.Timestamptz(3)
+  endedAt        DateTime? @map("ended_at") @db.Timestamptz(3)
+  /// Auteur de l'affectation (null = action système, ex. reprise de données).
+  assignedById   String?   @map("assigned_by_id") @db.Uuid
+  endedById      String?   @map("ended_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  scoutProfile ScoutProfile @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  team         Team         @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  assignedBy   User?        @relation("TeamAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  endedBy      User?        @relation("TeamAssignmentEndedBy", fields: [endedById], references: [id], onDelete: Restrict)
+
+  @@unique([scoutProfileId], map: "team_assignments_one_open_per_scout", where: raw("ended_at IS NULL"))
+  @@index([scoutProfileId, startedAt])
+  @@index([teamId])
+  @@map("team_assignments")
+}
+
+/// Mode de passation d'une évaluation.
+enum EvaluationMode {
+  EN_LIGNE
+  HORS_LIGNE
+  PAPIER
+}
+
+/// Cycle de vie d'une tentative. VALIDEE/REFUSEE = décision pédagogique du responsable sur ce résultat,
+/// distincte de la validation officielle d'une étape (jamais déclenchée automatiquement).
+enum AttemptStatus {
+  PREPAREE
+  EN_COURS
+  A_CORRIGER
+  SOUMISE
+  VALIDEE
+  REFUSEE
+  ANNULEE
+}
+
+/// Évaluation rattachée à une étape de progression (condition d'éligibilité, RM-009).
+/// Le lien vers le module de cours sera ajouté avec le modèle Module (phase 2).
+model Evaluation {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  title     String
+  stageId   String   @map("stage_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  stage    ProgressionStage    @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  versions EvaluationVersion[]
+  attempts EvaluationAttempt[]
+  waivers  EvaluationWaiver[]
+
+  @@index([stageId])
+  @@map("evaluations")
+}
+
+/// Version figée d'un questionnaire. Une version publiée n'est plus modifiée : toute évolution crée une nouvelle version.
+model EvaluationVersion {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  evaluationId  String    @map("evaluation_id") @db.Uuid
+  version       Int
+  /// Questions affichées au routier (sans réponses attendues).
+  questions     Json
+  /// Corrigé et barème : réservés aux chefs et au responsable, jamais imprimés sur la feuille du routier.
+  answerKey     Json?     @map("answer_key")
+  /// Publication après approbation du responsable (workflow développé en phase 2).
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  publishedById String?   @map("published_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  evaluation  Evaluation          @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
+  publishedBy User?               @relation("EvaluationVersionPublishedBy", fields: [publishedById], references: [id], onDelete: Restrict)
+  attempts    EvaluationAttempt[]
+
+  @@unique([evaluationId, version])
+  /// Cible de la clé étrangère composite des tentatives (cohérence version ↔ évaluation).
+  @@unique([id, evaluationId])
+  @@map("evaluation_versions")
+}
+
+/// Tentative d'évaluation, quel que soit le mode (RM-006 à RM-008, RM-011).
+/// Référence le profil routier, jamais seulement le compte. `code` est attribué par le backend,
+/// unique et immuable (trigger SQL) ; la tentative n'est jamais supprimée (annulation = statut ANNULEE).
+model EvaluationAttempt {
+  id                  String         @id @default(uuid(7)) @db.Uuid
+  /// Code public de référence, ex. « NT-2027-000125 » (RM-007). N'est pas un secret.
+  code                String         @unique
+  scoutProfileId      String         @map("scout_profile_id") @db.Uuid
+  evaluationId        String         @map("evaluation_id") @db.Uuid
+  evaluationVersionId String         @map("evaluation_version_id") @db.Uuid
+  mode                EvaluationMode
+  status              AttemptStatus  @default(PREPAREE)
+  /// Date prévue de passation (feuille papier).
+  plannedFor          DateTime?      @map("planned_for") @db.Date
+  /// Date de réalisation par le routier.
+  completedAt         DateTime?      @map("completed_at") @db.Timestamptz(3)
+  /// Date d'enregistrement du résultat dans l'application.
+  recordedAt          DateTime?      @map("recorded_at") @db.Timestamptz(3)
+  answers             Json?
+  score               Decimal?       @db.Decimal(7, 2)
+  maxScore            Decimal?       @map("max_score") @db.Decimal(7, 2)
+  observations        String?
+  /// Clé de stockage de la copie numérisée (stockage des fichiers non encore développé).
+  evidenceFileKey     String?        @map("evidence_file_key")
+  /// Dérogation ayant permis la préparation hors progression, le cas échéant.
+  waiverId            String?        @map("waiver_id") @db.Uuid
+  createdById         String         @map("created_by_id") @db.Uuid
+  recordedById        String?        @map("recorded_by_id") @db.Uuid
+  decidedById         String?        @map("decided_by_id") @db.Uuid
+  decidedAt           DateTime?      @map("decided_at") @db.Timestamptz(3)
+  decisionComment     String?        @map("decision_comment")
+  cancelledAt         DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason        String?        @map("cancel_reason")
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  scoutProfile ScoutProfile             @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  evaluation   Evaluation               @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
+  version      EvaluationVersion        @relation(fields: [evaluationVersionId, evaluationId], references: [id, evaluationId], onDelete: Restrict)
+  waiver       EvaluationWaiver?        @relation(fields: [waiverId], references: [id], onDelete: Restrict)
+  createdBy    User                     @relation("AttemptCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  recordedBy   User?                    @relation("AttemptRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  decidedBy    User?                    @relation("AttemptDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  events       EvaluationAttemptEvent[]
+
+  /// Prévention des doublons (RM-012) : une seule tentative non clôturée par routier et par évaluation.
+  /// Prédicat écrit sous la forme canonique de PostgreSQL pour éviter une fausse dérive du diff Prisma.
+  @@unique([scoutProfileId, evaluationId], map: "evaluation_attempts_one_open_per_scout", where: raw("status = ANY (ARRAY['PREPAREE'::\"AttemptStatus\", 'EN_COURS'::\"AttemptStatus\", 'A_CORRIGER'::\"AttemptStatus\", 'SOUMISE'::\"AttemptStatus\"])"))
+  @@index([scoutProfileId, createdAt])
+  @@index([evaluationId])
+  @@index([evaluationVersionId, evaluationId])
+  @@index([status])
+  @@index([waiverId])
+  @@map("evaluation_attempts")
+}
+
+/// Historique en ajout seul d'une tentative : changements de statut, saisies et corrections (réponses originales conservées).
+model EvaluationAttemptEvent {
+  id         String         @id @default(uuid(7)) @db.Uuid
+  attemptId  String         @map("attempt_id") @db.Uuid
+  actorId    String         @map("actor_id") @db.Uuid
+  fromStatus AttemptStatus? @map("from_status")
+  toStatus   AttemptStatus  @map("to_status")
+  /// Motif obligatoire pour une correction après soumission, une annulation ou une réouverture.
+  reason     String?
+  /// Valeurs saisies à ce moment (réponses, score, observations, date de réalisation).
+  snapshot   Json?
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  attempt EvaluationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  actor   User              @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, createdAt])
+  @@index([actorId])
+  @@map("evaluation_attempt_events")
+}
+
+/// Compteur annuel des codes de tentative (RM-007). Incrémenté atomiquement dans la transaction de création.
+model AttemptCodeCounter {
+  year      Int      @id
+  lastValue Int      @map("last_value")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("attempt_code_counters")
+}
+
+/// Dérogation (déblocage individuel) accordée par le responsable pour une évaluation hors progression (RM-009).
+model EvaluationWaiver {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  scoutProfileId   String    @map("scout_profile_id") @db.Uuid
+  evaluationId     String    @map("evaluation_id") @db.Uuid
+  reason           String
+  grantedById      String    @map("granted_by_id") @db.Uuid
+  grantedAt        DateTime  @default(now()) @map("granted_at") @db.Timestamptz(3)
+  expiresAt        DateTime? @map("expires_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedById      String?   @map("revoked_by_id") @db.Uuid
+  revocationReason String?   @map("revocation_reason")
+
+  scoutProfile ScoutProfile        @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  evaluation   Evaluation          @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
+  grantedBy    User                @relation("WaiverGrantedBy", fields: [grantedById], references: [id], onDelete: Restrict)
+  revokedBy    User?               @relation("WaiverRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+  attempts     EvaluationAttempt[]
+
+  @@index([scoutProfileId, evaluationId])
+  @@index([evaluationId])
+  @@map("evaluation_waivers")
 }
