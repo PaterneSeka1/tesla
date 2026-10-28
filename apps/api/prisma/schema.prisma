@@ -64,7 +64,11 @@ model Session {
 /// Profil scout d'un routier (données personnelles minimales).
 model ScoutProfile {
   id             String    @id @default(uuid(7)) @db.Uuid
-  userId         String    @unique @map("user_id") @db.Uuid
+  userId         String?   @unique @map("user_id") @db.Uuid
+  firstName      String    @map("first_name")
+  lastName       String    @map("last_name")
+  matricule      String?   @unique
+  isActive       Boolean   @default(true) @map("is_active")
   /// Utilisée uniquement pour les durées d'étape dépendant de l'âge (règle à arbitrer).
   birthDate      DateTime? @map("birth_date") @db.Date
   joinedAt       DateTime  @map("joined_at") @db.Date
@@ -72,10 +76,13 @@ model ScoutProfile {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user         User?             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  assignments  TeamAssignment[]
   currentStage ProgressionStage? @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
 
   @@index([currentStageId])
+  @@index([lastName, firstName])
+  @@index([isActive])
   @@map("scout_profiles")
 }
 
@@ -115,4 +122,36 @@ model AuditLog {
   @@index([actorId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+
+/// Équipe de la communauté Nikola Tesla.
+model Team {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  assignments TeamAssignment[]
+
+  @@map("teams")
+}
+
+/// Historique des équipes : une seule affectation ouverte par routier.
+model TeamAssignment {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  scoutId   String    @map("scout_id") @db.Uuid
+  teamId    String    @map("team_id") @db.Uuid
+  startedAt DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  scout ScoutProfile @relation(fields: [scoutId], references: [id], onDelete: Restrict)
+  team  Team         @relation(fields: [teamId], references: [id], onDelete: Restrict)
+
+  @@index([scoutId, startedAt])
+  @@index([teamId, endedAt])
+  @@map("team_assignments")
 }
