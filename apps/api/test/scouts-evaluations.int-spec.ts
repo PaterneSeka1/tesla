@@ -134,14 +134,14 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   });
 
   it('3. impose l’unicité des matricules renseignés, indépendamment de la casse et des espaces', async () => {
-    await newScout(1, { matricule: '0012ab' });
-    await expect(newScout(2, { matricule: ' 00 12AB ' })).rejects.toThrow(ConflictException);
-    const found = await profiles.findByMatricule(chef, '0012ab');
+    await newScout(1, { matricule: '0000012a' });
+    await expect(newScout(2, { matricule: ' 000 0012A ' })).rejects.toThrow(ConflictException);
+    const found = await profiles.findByMatricule(chef, '0000012a');
     expect(found?.lastName).toBe('Fictif1');
     // La base refuse aussi un matricule non normalisé inséré hors service.
     await expect(
       prisma.scoutProfile.create({
-        data: { firstName: 'X', lastName: 'Y', joinedAt: new Date(), matricule: '0012ab' },
+        data: { firstName: 'X', lastName: 'Y', joinedAt: new Date(), matricule: '0000012a' },
       }),
     ).rejects.toThrow();
   });
@@ -222,7 +222,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
 
   it('10. réimprimer ne crée pas de nouvelle tentative et la feuille ne contient jamais le corrigé', async () => {
     const team = await teams.create(responsable, { name: 'Équipe fictive A' });
-    const scout = await newScout(1, { matricule: '000123' });
+    const scout = await newScout(1, { matricule: '0000123A' });
     await teams.assign(chef, {
       scoutProfileId: scout.id,
       teamId: team.id,
@@ -234,7 +234,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     const second = await attempts.getPaperSheet(chef, attempt.code.toLowerCase());
     expect(second).toEqual(first);
     expect(first).toMatchObject({ code: attempt.code, teamName: 'Équipe fictive A', version: 1 });
-    expect(first.scout.matricule).toBe('000123');
+    expect(first.scout.matricule).toBe('0000123A');
     expect(JSON.stringify(first)).not.toContain('Réponse attendue fictive');
     expect(await prisma.evaluationAttempt.count()).toBe(1);
 

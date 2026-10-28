@@ -23,7 +23,7 @@ Dernière mise à jour : 2026-10-28 — phase 1 bis (routiers sans compte, équi
 | Catégorie | État |
 | --- | --- |
 | **Modèles implémentés** | `ScoutProfile` modifié (compte facultatif, identité, matricule) ; nouveaux `Team`, `TeamAssignment`, `Evaluation`, `EvaluationVersion`, `EvaluationAttempt`, `EvaluationAttemptEvent`, `AttemptCodeCounter`, `EvaluationWaiver` ; enums `EvaluationMode`, `AttemptStatus` |
-| **Migrations appliquées** | `20261028212208_teams_matricule_evaluation_attempts` : rejouée sur une base jetable avec un profil existant (reprise vérifiée), appliquée sur la base de développement (`db:deploy`) et sur `tesla_test` ; diff base ↔ schéma vide |
+| **Migrations appliquées** | `20261028222140_matricule_official_format` (format officiel du matricule) ; `20261028212208_teams_matricule_evaluation_attempts` : rejouée sur une base jetable avec un profil existant (reprise vérifiée), appliquée sur la base de développement (`db:deploy`) et sur `tesla_test` ; diff base ↔ schéma vide |
 | **Contraintes** | Unicité matricule + CHECK de format ; affectation ouverte unique + exclusion de chevauchement ; tentative ouverte unique ; code unique + CHECK ; triggers d'immutabilité et d'ajout seul ; FK composite version ↔ évaluation |
 | **Services développés** | `ScoutProfilesService`, `TeamsService`, `EvaluationAttemptsService`, `EvaluationWaiversService` ; émission des codes, transitions, éligibilité, matrice des permissions |
 | **Endpoints développés** | **Aucun** (attente de l'authentification) — contrats prévus dans `API.md` |

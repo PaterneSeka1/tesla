@@ -47,7 +47,7 @@ Toutes les permissions sont vérifiées côté serveur.
 | ID | Règle | Énoncé | Garantie |
 | --- | --- | --- | --- |
 | RM-001 | Routier sans compte | Le profil routier est la référence métier. Il existe sans compte ; un compte (facultatif, unique) peut y être rattaché plus tard, sans perte de données ni second profil. Toute évaluation, dérogation ou validation référence le profil. | `scout_profiles.user_id` nullable + unique ; rattachement conditionnel `user_id IS NULL` |
-| RM-002 | Matricule facultatif et unique | Chaîne de caractères (zéros initiaux conservés), facultative, unique si renseignée, normalisée (espaces supprimés, majuscules), jamais générée. Ce n'est ni un identifiant technique ni un code de tentative. | Index unique + CHECK de forme normalisée |
+| RM-002 | Matricule facultatif et unique | Chaîne de caractères au format officiel **7 chiffres suivis d'une lettre** (ex. `0000001A`, zéros initiaux conservés), facultative, unique si renseignée, normalisée (espaces supprimés, majuscules), jamais générée. Ce n'est ni un identifiant technique ni un code de tentative. | Index unique + CHECK de forme normalisée |
 | RM-003 | Affectation à une équipe | Un routier appartient à au plus une équipe à un instant donné ; il peut être temporairement sans équipe. Pas de multi-paroisse ni multi-district. | Index unique partiel (affectation ouverte) |
 | RM-004 | Historisation des équipes | Un changement d'équipe clôt l'affectation précédente (date de fin, auteur) et en ouvre une nouvelle. Les évaluations restent liées au profil ; l'équipe à une date passée se déduit de l'historique. | Contrainte d'exclusion (périodes sans chevauchement) |
 | RM-005 | Impression des modules | Trois documents : support de cours, questionnaire nominatif, corrigé chef. Le corrigé n'est accessible qu'aux chefs et au responsable. Génération sans service d'IA. | **Documenté** (générateur PDF non développé) |
@@ -82,6 +82,5 @@ Ces étapes sont chargées par le seed (`progression_stages`) depuis `@tesla/sha
 - **Éligibilité aux évaluations** : la règle provisoire « évaluation de l'étape courante uniquement » est-elle la bonne (et les étapes antérieures, les reprises) ?
 - **Version appliquée** : toute version publiée peut-elle être imprimée, ou seulement la plus récente ?
 - **Dérogation** : valable pour une seule tentative ou jusqu'à expiration/révocation (choix provisoire : jusqu'à expiration/révocation) ?
-- **Format officiel du matricule** (longueur, caractères) : règle provisoire A-Z, 0-9, « . », « / », « - », 32 caractères.
 - **Inscription des routiers et gestion des équipes** : chefs et/ou responsable (choix provisoires dans la matrice ci-dessus).
 - **Accès des chefs aux résultats individuels** : nécessaire pour la saisie papier ; périmètre exact à confirmer.

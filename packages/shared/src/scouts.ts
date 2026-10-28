@@ -3,10 +3,10 @@ import { z } from 'zod';
 /**
  * Matricule scout (RM-002) : chaîne, jamais un entier (zéros initiaux conservés), jamais généré par l'application.
  * Normalisation : suppression de tous les espaces, passage en majuscules ; chaîne vide = non renseigné.
- * Le format officiel n'étant pas confirmé, seuls les caractères A-Z, 0-9, « . », « / » et « - » sont admis
- * (même règle que la contrainte SQL `scout_profiles_matricule_format_check`).
+ * Format officiel (confirmé par le responsable, invariable) : 7 chiffres suivis d'une lettre, ex. « 0000001A ».
+ * Même règle que la contrainte SQL `scout_profiles_matricule_format_check`.
  */
-export const MATRICULE_PATTERN = /^[A-Z0-9][A-Z0-9./-]{0,31}$/;
+export const MATRICULE_PATTERN = /^\d{7}[A-Z]$/;
 
 export function normalizeMatricule(raw: string): string | null {
   const value = raw.replace(/\s+/g, '').toUpperCase();
@@ -17,8 +17,7 @@ export const matriculeSchema = z
   .string()
   .transform(normalizeMatricule)
   .refine((value) => value === null || MATRICULE_PATTERN.test(value), {
-    message:
-      'Matricule invalide : lettres, chiffres, « . », « / » ou « - » (32 caractères au plus).',
+    message: 'Matricule invalide : 7 chiffres suivis d’une lettre (ex. 0000001A).',
   });
 
 const personNameSchema = z.string().trim().min(1).max(100);

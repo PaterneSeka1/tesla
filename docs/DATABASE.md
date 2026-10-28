@@ -49,7 +49,7 @@ Ajoutées en fin de migration `20261028212208_teams_matricule_evaluation_attempt
 
 | Contrainte | Table | Effet |
 | --- | --- | --- |
-| `scout_profiles_matricule_format_check` | `scout_profiles` | Matricule nul ou de forme normalisée `^[A-Z0-9][A-Z0-9./-]{0,31}$` : l'unicité ne peut pas être contournée par la casse ou les espaces |
+| `scout_profiles_matricule_format_check` | `scout_profiles` | Matricule nul ou au format officiel `^[0-9]{7}[A-Z]$` (7 chiffres + 1 lettre majuscule) : l'unicité ne peut pas être contournée par la casse ou les espaces (contrainte remplacée par la migration `20261028222140_matricule_official_format`) |
 | `team_assignments_one_open_per_scout` (index unique partiel, déclaré dans Prisma) | `team_assignments` | Une seule affectation `ended_at IS NULL` par routier |
 | `team_assignments_no_overlap` (EXCLUDE, extension `btree_gist`) | `team_assignments` | Aucune période d'affectation chevauchante pour un même routier |
 | `team_assignments_period_check` | `team_assignments` | `ended_at > started_at` |
@@ -94,6 +94,7 @@ La ligne de l'année reste verrouillée jusqu'au `COMMIT` : les créations concu
 | --- | --- | --- |
 | `20261028204443_init` | 5 tables, enum `Role`, index, clés étrangères | Appliquée ; aucun `DROP` |
 | `20261028212208_teams_matricule_evaluation_attempts` | Additive : identité et matricule sur `scout_profiles` (compte facultatif), équipes, affectations, évaluations, versions, tentatives, historique, compteur, dérogations, contraintes SQL | Rejouée sur une base jetable contenant un profil lié à un compte (noms repris, `user_id` conservé) puis appliquée par `db:deploy` sur la base de développement ; diff base ↔ schéma vide ; aucun `DROP` |
+| `20261028222140_matricule_official_format` | Remplace la contrainte de format du matricule par le format officiel (7 chiffres + 1 lettre) ; aucune donnée modifiée, échec volontaire si un matricule existant est non conforme | Appliquée sur la base de développement (aucun matricule existant) et sur `tesla_test` ; diff vide |
 
 Reprise de données de la migration 2 : `first_name`/`last_name` ajoutées nullables, copiées depuis `users`, puis `NOT NULL`. La table des tentatives étant créée par cette migration, aucune tentative historique sans code n'existait ; pour un futur ajout de colonne obligatoire sur des tentatives existantes, générer les valeurs (ex. codes, par ordre de `created_at`) **avant** la contrainte `NOT NULL`, sans toucher aux scores, décisions ni versions.
 
