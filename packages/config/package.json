@@ -1,0 +1,15 @@
+{
+  "name": "@tesla/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Configurations partagées (TypeScript, ESLint)",
+  "type": "module",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./eslint": "./eslint.js"
+  },
+  "dependencies": {
+    "eslint-config-prettier": "^10.1.8",
+    "typescript-eslint": "^8.72.1"
+  }
+}

@@ -1,0 +1,118 @@
+// Schéma initial de Nikola Tesla Académie.
+// Conventions : identifiants UUID v7, tables/colonnes en snake_case, dates en UTC (timestamptz).
+// Voir docs/DATABASE.md avant toute modification.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Rôles applicatifs (synchronisés avec @tesla/shared ROLES).
+enum Role {
+  ROUTIER
+  CHEF
+  RESPONSABLE
+}
+
+/// Compte utilisateur. Un compte n'est jamais supprimé : il est désactivé (isActive = false).
+model User {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  /// Stocké en minuscules (normalisation applicative).
+  email        String    @unique
+  /// Hash du mot de passe (algorithme défini en phase authentification). Null tant que le compte n'est pas activé.
+  passwordHash String?   @map("password_hash")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  role         Role
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions     Session[]
+  scoutProfile ScoutProfile?
+  auditLogs    AuditLog[]
+
+  @@index([role])
+  @@map("users")
+}
+
+/// Session serveur (cookie httpOnly). Seul le hash du jeton est stocké.
+model Session {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  userAgent  String?   @map("user_agent")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Profil scout d'un routier (données personnelles minimales).
+model ScoutProfile {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  userId         String    @unique @map("user_id") @db.Uuid
+  /// Utilisée uniquement pour les durées d'étape dépendant de l'âge (règle à arbitrer).
+  birthDate      DateTime? @map("birth_date") @db.Date
+  joinedAt       DateTime  @map("joined_at") @db.Date
+  currentStageId String?   @map("current_stage_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  currentStage ProgressionStage? @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
+
+  @@index([currentStageId])
+  @@map("scout_profiles")
+}
+
+/// Référentiel des étapes de progression (Noviciat → Départ routier).
+/// Les durées dépendent de l'âge et ne sont pas encore modélisées (arbitrage en attente).
+model ProgressionStage {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  code           String   @unique
+  name           String
+  /// Libellé utilisé dans le programme annuel (ex. « Novices Routiers »).
+  programmeLabel String   @map("programme_label")
+  badge          String?
+  position       Int      @unique
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  scoutProfiles ScoutProfile[]
+
+  @@map("progression_stages")
+}
+
+/// Journal d'audit en ajout seul : aucune mise à jour ni suppression applicative.
+model AuditLog {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  /// Null pour une action système (seed, tâche planifiée).
+  actorId    String?  @map("actor_id") @db.Uuid
+  /// Format « domaine.action », ex. « module.approved ».
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

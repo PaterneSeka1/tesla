@@ -1,0 +1,31 @@
+# Dépendances
+node_modules/
+
+# Builds
+dist/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Client Prisma généré
+apps/api/src/generated/
+
+# Tests
+coverage/
+
+# Environnement (seuls les .env.example sont versionnés)
+.env
+.env.*
+!.env.example
+
+# Journaux
+npm-debug.log*
+*.log
+
+# Système / éditeurs
+.DS_Store
+Thumbs.db
+*.pem
+.idea/

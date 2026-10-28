@@ -1,0 +1,43 @@
+{
+  "name": "tesla",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nikola Tesla Académie — plateforme pédagogique de la Communauté Nikola Tesla (Branche Route, Abidjan)",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10"
+  },
+  "workspaces": [
+    "packages/config",
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "build:shared": "npm run build -w @tesla/shared",
+    "dev": "npm run build:shared && concurrently -k -n api,web -c blue,magenta \"npm run dev -w @tesla/api\" \"npm run dev -w @tesla/web\"",
+    "dev:web": "npm run build:shared && npm run dev -w @tesla/web",
+    "dev:api": "npm run build:shared && npm run dev -w @tesla/api",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present",
+    "test": "npm run build:shared && npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:generate": "npm run db:generate -w @tesla/api",
+    "db:migrate": "npm run db:migrate -w @tesla/api",
+    "db:deploy": "npm run db:deploy -w @tesla/api",
+    "db:seed": "npm run db:seed -w @tesla/api",
+    "db:studio": "npm run db:studio -w @tesla/api"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "concurrently": "^10.0.6",
+    "eslint": "^9.39.5",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3"
+  }
+}

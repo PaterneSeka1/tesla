@@ -1,0 +1,18 @@
+{
+  "extends": "@tesla/config/tsconfig.base.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
+    "declaration": false,
+    "removeComments": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "incremental": true,
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src", "test", "prisma", "prisma.config.ts", "vitest.config.ts"]
+}
