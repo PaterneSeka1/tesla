@@ -12,7 +12,7 @@ paths:
 
 ## Server / Client Components
 - Server Component par défaut. `'use client'` seulement pour l'état, les effets, les événements ou TanStack Query.
-- Pousser `'use client'` au plus bas de l'arbre (ex. `ApiStatus`, `AppNav`, `LoginForm`).
+- Pousser `'use client'` au plus bas de l'arbre (ex. `AppNav`, `LoginForm`).
 - Ne jamais passer de fonction ou composant (icône) d'un Server vers un Client Component : importer la configuration côté client.
 
 ## Données

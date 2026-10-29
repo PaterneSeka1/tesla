@@ -52,13 +52,13 @@ Analyse du modèle : `User.role` est unique, mais la matrice API est **hiérarch
 Aucun modèle multirôle n'est introduit (D86). Il ne deviendrait nécessaire que pour un cas non couvert par la hiérarchie, par exemple un chef qui serait aussi routier évalué. Migration proposée dans ce cas, **non réalisée** : table `UserRole(userId, role)`, `Actor.roles[]`, `can()` testant l'intersection. Conséquences : session et `/auth/me` à faire évoluer, contrat `meResponseSchema` modifié, tests de permissions à réécrire, menu fusionné. À valider par le responsable avant toute réalisation.
 
 ## Menus (`NAVIGATION`)
-- **Routier** : *Mon parcours* (tableau de bord, progression, compétences, activités) · *Apprendre* (modules, évaluations, résultats, hors ligne). Mobile : barre inférieure de 4 accès rapides + menu latéral.
-- **Encadrement** (un seul menu, `navigationFor(user)` retire les entrées non autorisées et les groupes vides) : *Pilotage* (tableau de bord, statistiques, programme, responsables et mandats) · *Validation des contenus* · *Décisions sur les routiers* · *Communauté* · *Rédaction et correction*, repliable · *Référentiels*, repliable (tous les modules, compétences, référentiel d'âge, publications, bibliothèque).
-- **Administration technique** : *Responsables et mandats* uniquement.
-- Le routier dispose en plus de « Mes rattrapages » ; « Modules » devient « Découvrir la Route » (bibliothèque avec filtre de catégorie).
+- **Routier** : *Mon parcours* (tableau de bord, progression, rattrapages, compétences, activités) · *Apprendre* (bibliothèque, évaluations, résultats, hors ligne). Mobile : barre inférieure de 4 accès rapides + menu latéral.
+- **Encadrement** (un seul menu, `navigationFor(user)` retire les entrées non autorisées et les groupes vides) : *Pilotage* (tableau de bord, statistiques, programme annuel, responsables) · *Validation des contenus* · *Décisions* · *Communauté* · *Rédaction et correction* (modules, questionnaires, évaluations papier, corrections, soumissions), repliable · *Référentiels*, repliable (tous les modules, compétences, référentiel d'âge, publications, bibliothèque).
+- **Administration** : *Responsables* uniquement.
+- Libellés courts (D108) : pas de possessif dans le menu du routier (« Progression », « Résultats »…), le groupe donne le contexte ; la bibliothèque garde le même libellé pour tous les rôles.
 - Groupes repliables (D92) : `<details>` natif, repliés par défaut, ouverts lorsqu'ils contiennent la page affichée. Le groupe du tableau de bord n'est jamais repliable (vérifié par `navigation.test.ts`).
 
 Entrées demandées mais absentes faute d'écran (règle : aucune entrée vers un écran inexistant) : « Mon profil », « Utilisateurs et accès », « Paramètres ». Les entrées « Téléchargements » et « Synchronisation » (même page) sont fusionnées en « Hors ligne » ; les anciennes URL restent valides.
 
 ## Cadre
-Un seul `DashboardShell`, monté par `(espaces)/layout.tsx` : il n'est plus remonté à chaque changement de section. Desktop : sidebar groupée, état du serveur, profil et déconnexion en pied. Mobile et tablette (< 1024 px) : en-tête compact (menu, logo, titre de la page), menu latéral (Radix Dialog : focus piégé, Échap, cibles de 44 px).
+Un seul `DashboardShell`, monté par `(espaces)/layout.tsx` : il n'est plus remonté à chaque changement de section. Desktop : sidebar groupée, nom de l'utilisateur et déconnexion en pied (aucun état technique, D108). Mobile et tablette (< 1024 px) : en-tête compact (menu, logo, titre de la page), menu latéral (Radix Dialog : focus piégé, Échap, cibles de 44 px).

@@ -17,10 +17,10 @@ Constats vérifiés dans le code et par une recette Chromium headless (pas d'app
 
 ## Corrections
 - Navigation par rôle : voir [NAVIGATION_ET_PERMISSIONS.md](../FEATURES/NAVIGATION_ET_PERMISSIONS.md) (constats 1 à 4, 6 et 9).
-- Cadre : sidebar groupée (logo, groupes, page active, état du serveur, profil, déconnexion) ; mobile et tablette : en-tête compact et menu latéral accessible (piégeage du focus, Échap, cibles de 44 px), barre inférieure de 4 accès réservée au routier (constat 5).
+- Cadre : sidebar groupée (logo, groupes, page active, profil, déconnexion ; état du serveur retiré par D108) ; mobile et tablette : en-tête compact et menu latéral accessible (piégeage du focus, Échap, cibles de 44 px), barre inférieure de 4 accès réservée au routier (constat 5).
 - Tableaux de bord : cartes KPI cliquables, files d'actions séparées (contenus / décisions sur les routiers), répartitions par équipe et par étape, chronologie des activités, états de chargement (squelettes), vide et erreur communs (constat 7). Toutes les valeurs proviennent de l'API ; aucun graphique décoratif.
 - Hiérarchie : chaque page a un `h1` (titre de page), l'en-tête desktop redondant est supprimé.
-- Thème : palette officielle, `prefers-reduced-motion` respecté, `scroll-padding` sous l'en-tête collant, badge d'état du serveur lisible sur fond bordeaux.
+- Thème : palette officielle, `prefers-reduced-motion` respecté, `scroll-padding` sous l'en-tête collant.
 - Code mort supprimé (constat 8).
 
 ## Non traité

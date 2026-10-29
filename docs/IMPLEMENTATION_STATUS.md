@@ -1,6 +1,6 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-10-29 — **refonte parcours Route et mandats** (âge, rattrapages, sortie à 21 ans, fonctions plein / adjoint / assistant, espace d'encadrement unique), voir [§ Refonte](#refonte--parcours-route-et-mandats-2026-10-29) ; parcours de l'encadrement (file « À faire », frise de l'année, menu allégé), voir [§ Parcours encadrement](#parcours-du-responsable-et-des-chefs-2026-10-29) ; phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
+Dernière mise à jour : 2026-10-29 — **sobriété des interfaces** (textes, libellés et état serveur), voir [§ Sobriété](#sobriété-des-interfaces-2026-10-29) ; **refonte parcours Route et mandats** (âge, rattrapages, sortie à 21 ans, fonctions plein / adjoint / assistant, espace d'encadrement unique), voir [§ Refonte](#refonte--parcours-route-et-mandats-2026-10-29) ; parcours de l'encadrement (file « À faire », frise de l'année, menu allégé), voir [§ Parcours encadrement](#parcours-du-responsable-et-des-chefs-2026-10-29) ; phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
 
 ## Réalisé et vérifié
 
@@ -171,3 +171,17 @@ Non vérifié :
 5. Renseigner les dates de naissance manquantes (indicateur du tableau de bord).
 6. Planifier `npm run jobs:daily -w @tesla/api` une fois par jour (après `npm run build`).
 7. Faire valider les points `A_VALIDER` et fournir les références manquantes ([REFERENTIEL_PEDAGOGIQUE.md](REFERENTIEL_PEDAGOGIQUE.md) § 4).
+
+## Sobriété des interfaces (2026-10-29)
+
+Nettoyage du frontend, sans changement de règle, de workflow, de permission ni d'API (D108) :
+- Badge « Serveur opérationnel · vX » retiré de la sidebar, de l'en-tête mobile et de l'accueil (composant `ApiStatus` et requête `health` côté web supprimés ; endpoint `/api/v1/health` inchangé).
+- `PageHeading` et `EmptyState` : description facultative. ~30 descriptions de page supprimées ou réduites à la règle utile ; ~25 états vides « … apparaîtront ici » allégés.
+- Menu : libellés courts (« Progression », « Résultats », « Responsables », « Décisions »…), rôle interne retiré du pied de menu.
+- Tableaux de bord : sous-titres de cartes, surtitre décoratif et indications redondantes retirés ; files d'action, échéances, alertes et indicateurs conservés.
+- Hors ligne : statuts de synchronisation traduits (plus de code brut), jargon technique retiré ; avertissements de délai, d'effacement et de confidentialité conservés.
+- Erreurs réseau génériques : « Connexion impossible. Vérifiez votre réseau, puis réessayez. » / « Une erreur est survenue. Réessayez. »
+
+Conservé volontairement : règles de validation humaine, avertissements d'irréversibilité, confidentialité des observations et des corrigés, échéances, conflits d'édition, formats de saisie (matricule, code de tentative).
+
+Vérifications : lint, typecheck, `npm run test` (API 146, web 57) et build web réussis. Accueil et connexion contrôlés en Chromium headless à 390 et 1280 px (aucun défilement horizontal). **Non exécuté** : recette visuelle des écrans connectés (identifiants de démonstration non disponibles dans cette session).

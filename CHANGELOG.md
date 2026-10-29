@@ -4,6 +4,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — sobriété des interfaces, 2026-10-29
+- Plus aucun état technique (serveur, version d'API) affiché aux utilisateurs ; supervision inchangée.
+- Titres et libellés de menu raccourcis, descriptions de page limitées aux règles utiles, états vides allégés.
+- Tableaux de bord épurés (sous-titres, surtitres, indications redondantes) ; centre hors ligne avec statuts lisibles.
+- Messages d'erreur réseau plus courts, avec l'action suivante.
+
 ### Ajouté — refonte parcours Route et mandats, 2026-10-29
 - Étape théorique selon l'âge (référentiel versionné), échéances, sortie de la branche à 21 ans sans suppression d'historique, plans de rattrapage avec décision humaine.
 - Fonctions plein / adjoint / assistant par mandats annuels historisés, reconductions explicites illimitées, délégations ; permissions selon la fonction en vigueur.
