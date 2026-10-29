@@ -97,3 +97,18 @@ Format : contexte → décision → conséquence. Ajouter une entrée pour chaqu
 
 ## Décisions pédagogiques en attente (responsable)
 Voir [BUSINESS_RULES.md](BUSINESS_RULES.md#points-en-attente-darbitrage-ne-pas-coder-de-valeur-définitive) : durées d'étape selon l'âge, conditions d'accès aux évaluations, seuils, gestion des comptes, conservation des données.
+
+## 2026-10-29 — Progression, compétences et activités (phase 4)
+
+| # | Décision | Motif / conséquence |
+| --- | --- | --- |
+| D68 | Historique structuré d'étapes immuable, correction par ajout | Décision et actualisation du profil dans une transaction verrouillée ; anciennes décisions reprises depuis l'audit. |
+| D69 | Acquis distinct du résultat de quiz | Proposition avec preuves, décision du responsable, révocation motivée et historisée ; aucune automatisation pédagogique. |
+| D70 | Catégories du programme distinctes des étapes | Correspondances proposées non confirmées ; confirmation explicite par le responsable. Aucune équivalence automatique. |
+| D71 | Référentiel de compétences administrable et initialement vide | Domaines, critères et minimum de preuves à définir par le responsable ; aucune compétence officielle inventée. |
+| D72 | Import Markdown prévisualisé, clé date/titre | Réimport idempotent, refus des erreurs, conservation des modifications manuelles. Source officielle du programme absente du dépôt : séances à fournir. |
+| D73 | Absence de saisie différente d'absence | Présent/absent/excusé explicites ; unicité activité/profil ; saisie groupée journalisée. |
+| D74 | Deux dernières présences renseignées absentes : signal provisoire | Indicateur d'accompagnement uniquement, à confirmer par le responsable ; aucune sanction ou décision automatique. |
+| D75 | Chemins de suivi partagés sous `/administration` | Chef et responsable utilisent les mêmes dossiers et activités, avec actions contrôlées côté API ; pas de doublon de pages `/chef`. |
+
+À arbitrer : référentiel officiel de compétences, correspondances catégories/étapes, conditions et durées de passage, périmètre éventuel des chefs par équipe, signal d'absence D74 et document source du programme annuel.

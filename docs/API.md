@@ -226,4 +226,8 @@ Toutes les erreurs suivent `apiErrorSchema` :
 `code` est stable (exploitable par le web) ; `message` est affichable en français. Les erreurs 5xx ne renvoient aucun détail interne (journalisées côté serveur).
 
 ## Endpoints prévus (non implémentés)
-Gestion des comptes (création, activation, réinitialisation du mot de passe), validation officielle des acquis (phase 4), programme annuel, consultation du journal d'audit, téléversement des copies numérisées, support de cours en PDF serveur (`GET /modules/:slug/print.pdf` ; aujourd'hui : impression navigateur de `/modules/:slug/imprimer`).
+Gestion des comptes (création, activation, réinitialisation du mot de passe), consultation du journal d'audit, téléversement des copies numérisées, support de cours en PDF serveur (`GET /modules/:slug/print.pdf` ; aujourd'hui : impression navigateur de `/modules/:slug/imprimer`).
+
+## Phase 4 — endpoints opérationnels
+
+Les routes de progression, compétences, propositions, études, programmes, activités, présences et tableaux de bord sont exposées sous `/api/v1`, avec session, validation Zod, permissions dans les services et documentation Swagger. Catalogue par domaine : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md). L’édition générale d’un routier refuse un changement d’étape : utiliser `POST /scouts/:id/stage-changes` avec confirmation, motif et étape courante attendue.

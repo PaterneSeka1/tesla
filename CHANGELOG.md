@@ -4,6 +4,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — phase 4, 2026-10-29
+- Progression et historique structuré des étapes, compétences et preuves, propositions et décisions officielles du responsable, révocation tracée ; suivi des modules étudiés, y compris papier et sans compte.
+- Programme annuel : import Markdown prévisualisé et idempotent, correspondances catégories/étapes à confirmer ; activités, comptes rendus, présences groupées et historique.
+- Dossier pédagogique complet, espaces personnels et tableaux de bord par rôle, statistiques réelles filtrables ; navigation et contrats partagés.
+- Migration additive `20261031090000_progression_programme_activities` et tests unitaires/intégration PostgreSQL. Aucun contenu pédagogique officiel généré.
+
+
 ### Ajouté — phase 3 (évaluations, papier, résultats), 2026-10-29
 - Modèle : questionnaires versionnés (états et triggers identiques aux modules), questions, propositions, réponses et corrections, historique des questionnaires ; colonnes de passation et révision de correction sur les tentatives (migration additive `20261030090000_evaluation_engine`, reprise des versions historiques).
 - Moteur de correction déterministe partagé (`gradeObjectiveAnswer`) : choix unique, vrai/faux, choix multiples tout ou rien ou crédit partiel ; réponses libres notées par un chef.

@@ -170,3 +170,7 @@ Les UUID v7 sont générés par le client Prisma (pas de valeur par défaut SQL)
 
 ## Extensions prévues (non créées)
 Progression de lecture, validations officielles d'acquis et d'étape (acte du responsable référençant le profil), historique structuré des étapes (aujourd'hui : `AuditLog` `scout_profile.stage_changed`), stockage des copies numérisées, programme annuel et séances. Chacune sera ajoutée dans la phase qui l'utilise.
+
+## Phase 4 — modèle de suivi
+
+Migration additive `20261031090000_progression_programme_activities` : `ScoutStageChange`, `Competency`, `CompetencyModule`, `CompetencyProposal`, `CompetencyProposalEvent`, `CompetencyEvidence`, `CompetencyValidation`, `ModuleStudy`, `ProgrammeCategory`, `Programme`, `Activity`, `ActivityCategory`, `ActivityModule`, `ActivityCompetency`, `ActivityEvent`, `ActivityAttendance` ; date d’étape sur `ScoutProfile`. Références au profil, transactions, index uniques partiels et triggers d’immuabilité ; reprise de l’audit historique sans réinitialisation. Détails : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md).

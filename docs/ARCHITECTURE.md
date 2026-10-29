@@ -110,3 +110,7 @@ Responsable : examiner ─────────────────► ac
 - Les modes `EN_LIGNE` et `PAPIER` partagent les mêmes tables (`evaluation_attempts`, `attempt_answers`), le même moteur de correction et le même historique ; `HORS_LIGNE` reste réservé (non développé).
 - PDF serveur : **pdfkit** (JavaScript pur, polices standard intégrées aux lecteurs PDF, aucune ressource distante) génère questionnaire, corrigé et grille en mémoire, à la demande, sans stockage. Le support de cours reste imprimé depuis le navigateur (`/modules/[slug]/imprimer`).
 - Les services reçoivent un `Actor` fourni par la garde de session.
+
+## Phase 4 — domaines implémentés
+
+Le module NestJS `progression` gère étapes, référentiel, propositions et études ; `programmes` gère import, activités et présences ; `dashboards` calcule les indicateurs. Contrats Zod dans `packages/shared/src/{progression,programmes,dashboards}.ts`, clients dans `apps/web/src/lib/api/`, composants réutilisés par rôle. Détails : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md).

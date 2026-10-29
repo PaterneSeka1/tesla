@@ -146,3 +146,7 @@ Ces étapes sont chargées par le seed (`progression_stages`) depuis `@tesla/sha
 - **Observations** : liste de catégories souhaitée (aujourd'hui libellé libre) ; tous les chefs sont-ils habilités pour tous les routiers, ou seulement ceux de certaines équipes ?
 - **Répartition chefs / responsable** pour l'inscription et l'affectation (aujourd'hui : responsable seul, D32).
 - **Modules** (choix provisoires, D46, D50, D51, D55) : le responsable peut-il approuver un module dont il est l'auteur ? Un collaborateur peut-il inviter d'autres chefs ? Liste officielle de thèmes ? Hébergeurs de vidéos autorisés ? Retrait d'une approbation non publiée (`APPROUVE → A_CORRIGER`) ?
+
+## Phase 4 — progression et suivi
+
+Les décisions officielles restent exclusivement humaines. Les étapes et validations sont historisées ; aucun score, module étudié ou présence ne provoque de promotion. Les catégories du programme ont une correspondance configurable, non confirmée par défaut. Détails : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md).
