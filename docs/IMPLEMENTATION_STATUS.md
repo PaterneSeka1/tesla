@@ -1,6 +1,6 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-10-29 — phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
+Dernière mise à jour : 2026-10-29 — parcours de l'encadrement (file « À faire », frise de l'année, menu allégé), voir [§ Parcours encadrement](#parcours-du-responsable-et-des-chefs-2026-10-29) ; phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
 
 ## Réalisé et vérifié
 
@@ -112,3 +112,28 @@ Vérifications exécutées :
 - Recette hors ligne `apps/web/test/offline.browser.mjs` rejouée : 13 contrôles réussis (étape de déconnexion adaptée au menu latéral mobile).
 
 Non vérifié : appareils réels (Android, iOS), lecteurs d'écran, contraste mesuré ; parcours métier complets (création de module, approbation, correction) seulement couverts par les tests d'intégration API et non rejoués dans le navigateur pendant cette phase ; « Mon profil », « Utilisateurs et accès » et « Paramètres » non développés.
+
+## Parcours du responsable et des chefs (2026-10-29)
+
+Implémenté (détails : [FEATURES/DASHBOARDS.md](FEATURES/DASHBOARDS.md), [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md), décisions D91–D92) :
+- `/responsable` et `/chef` : bandeau d'accueil, actions rapides, file « À faire maintenant » (éléments réels avec ancienneté et lien vers l'écran qui porte l'action), frise de l'année (programme, jalons, prochaine activité) ; indicateurs en bas de page.
+- API : champs `tasks`, `taskTotal` et `year` ajoutés aux deux tableaux de bord (ajout compatible ; aucune migration, aucune nouvelle permission).
+- Menu : groupes secondaires repliables ; séparation contenus / personnes conservée.
+
+Vérifications exécutées :
+- `npm run lint`, `npm run typecheck`, `npm run build` : réussis.
+- `npm run test` : API 115 tests (17 fichiers), web 44 tests (4 fichiers, dont `formatWaiting` et le groupe du tableau de bord jamais repliable) — réussis.
+- `npm run test:int -w @tesla/api` (`tesla_test`) : 71 tests (6 fichiers) réussis, dont les nouvelles assertions sur `tasks` (types, tri, périmètre du chef) et `year` (activités hors programme exclues des jalons, prochaine activité).
+
+Non vérifié :
+- Recette navigateur (rendu desktop et 390 px, repli du menu au clavier) : non exécutée.
+- Tâches « module / questionnaire renvoyé » et « copie papier » : couvertes par le typage, sans test d'intégration dédié.
+- Frise avec un programme réel importé : non recettée visuellement.
+
+## Accueil, connexion et animations (2026-10-29)
+
+Implémenté : accueil et connexion refondus ; animations CSS (`globals.css` : `animate-rise`, `animate-halo`, `animate-drift`, `animate-shake`, `animate-pop`, `animate-grow`, conteneur `.stagger`) sur toutes les tailles d'écran ; `PageTransition` dans le cadre connecté ; menu, barre du routier, boutons, alertes, lignes de tableau et états vides animés. `PasswordInput` (afficher/masquer) sur la connexion et la phrase du coffre hors ligne. Aucune modification de l'API.
+
+Vérifications exécutées : `npm run lint`, `npm run typecheck`, tests web (44) et build web réussis. Captures Chromium headless (serveur de production local, sans API) de l'accueil et de la connexion en 390 px et 1366 px : aucun défilement horizontal, bascule d'affichage du mot de passe fonctionnelle, alerte affichée lorsque l'API est injoignable ; bascule afficher/masquer contrôlée sur `/connexion` et `/hors-ligne` (type du champ et `aria-pressed`).
+
+Non vérifié : animations des écrans connectés (cadre, tableaux de bord, menu latéral) dans un navigateur ; appareils réels ; fluidité sur téléphone d'entrée de gamme.

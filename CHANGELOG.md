@@ -4,6 +4,17 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — accueil, connexion et animations, 2026-10-29
+- Accueil : bandeau animé (halos, logo auréolé, apparition en cascade), section « Un espace pour chacun » par rôle, principes de la plateforme, pied de page.
+- Connexion : panneau de marque et formulaire côte à côte sur desktop ; sur mobile, bandeau de marque et carte qui remonte. Affichage du mot de passe, indicateur de chargement, secousse de l'alerte en cas d'échec.
+- Animations sur tous les écrans : entrée en cascade de chaque page, blocs des tableaux de bord, titre d'en-tête en fondu, menu latéral animé à l'ouverture et à la fermeture, groupes repliables qui se déplient en douceur, pastille et rebond de l'onglet actif du routier, lignes de tableau, alertes et états vides en fondu, retour visuel au toucher sur les boutons. Aucune dépendance ajoutée ; « réduire les animations » est respecté (délais compris).
+- Composant `PasswordInput` (bouton afficher/masquer, `aria-pressed`) pour le mot de passe de connexion et la phrase locale du coffre hors ligne.
+
+### Modifié — parcours du responsable et des chefs, 2026-10-29
+- Tableaux de bord de l'encadrement recentrés sur l'action : bandeau d'accueil, actions rapides, file « À faire maintenant » d'éléments réels (titre, auteur ou routier, ancienneté, lien direct), frise de l'année construite à partir du programme ; indicateurs déplacés en bas de page.
+- API : `GET /dashboard/responsable` et `GET /dashboard/chef` renvoient en plus `tasks`, `taskTotal` et `year` (ajout compatible, contrat `@tesla/shared`).
+- Menu de l'encadrement allégé : groupes secondaires repliables, programme annuel dans le pilotage du chef, publications regroupées dans les référentiels du responsable.
+
 ### Modifié — navigation par rôle et stabilisation, 2026-10-29
 - Plus d'écran de choix d'espace : chaque rôle arrive sur son tableau de bord après connexion, sur `/`, sur `/connexion` déjà connecté et après une session restaurée ; `?suivant=` n'est suivi que vers une page interne autorisée au rôle.
 - Menu unique groupé par rôle (`lib/navigation.ts`) dans un cadre commun : sidebar desktop, menu latéral mobile, barre d'accès rapides du routier ; le responsable accède aux fonctions des chefs sans changer de menu.

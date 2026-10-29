@@ -45,8 +45,9 @@ Aucun modèle multirôle n'est introduit (D86). Il ne deviendrait nécessaire qu
 
 ## Menus (`NAVIGATION`)
 - **Routier** : *Mon parcours* (tableau de bord, progression, compétences, activités) · *Apprendre* (modules, évaluations, résultats, hors ligne). Mobile : barre inférieure de 4 accès rapides + menu latéral.
-- **Chef** : *Pilotage* (tableau de bord, statistiques) · *Pédagogie* (rédaction, questionnaires, papier, corrections, soumissions, bibliothèque) · *Suivi des routiers* (routiers, équipes, activités, présences, programme, propositions de validation).
-- **Responsable** : *Pilotage* · *Communauté* · *Pédagogie* (dont rédaction et corrections) · *Validation des contenus* (modules, questionnaires, publications) · *Décisions sur les routiers* (résultats, acquis, déblocages). Les validations de contenus et de personnes sont deux groupes distincts.
+- **Chef** : *Pilotage* (tableau de bord, statistiques, programme) · *Suivi des routiers* (routiers, équipes, activités, présences, propositions de validation) · *Rédaction et correction*, repliable (rédaction, questionnaires, papier, corrections, soumissions, bibliothèque).
+- **Responsable** : *Pilotage* · *Validation des contenus* (modules, questionnaires) · *Décisions sur les routiers* (résultats, acquis, déblocages) · *Communauté* · *Rédaction et correction*, repliable · *Référentiels*, repliable (tous les modules, compétences, publications, bibliothèque). Les validations de contenus et de personnes sont deux groupes distincts.
+- Groupes repliables (D92) : `<details>` natif, repliés par défaut, ouverts lorsqu'ils contiennent la page affichée. Le groupe du tableau de bord n'est jamais repliable (vérifié par `navigation.test.ts`).
 
 Entrées demandées mais absentes faute d'écran (règle : aucune entrée vers un écran inexistant) : « Mon profil », « Utilisateurs et accès », « Paramètres ». Les entrées « Téléchargements » et « Synchronisation » (même page) sont fusionnées en « Hors ligne » ; les anciennes URL restent valides.
 
