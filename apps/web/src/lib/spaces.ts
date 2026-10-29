@@ -38,11 +38,25 @@ const LIBRARY_ITEM: NavItem = { href: '/modules', label: 'Bibliothèque', icon: 
 
 /** Évaluations publiées et historique personnel (routier). */
 const LEARNER_EVALUATION_NAV: NavItem[] = [
+  { href: '/progression', label: 'Ma progression', icon: History },
+  { href: '/mes-competences', label: 'Mes compétences', icon: BookOpen },
+  { href: '/mes-activites', label: 'Mes activités', icon: Users },
   { href: '/evaluations', label: 'Évaluations', icon: ClipboardCheck },
   { href: '/mes-resultats', label: 'Mes résultats', icon: Trophy },
 ];
 
 const FOLLOW_UP_NAV: NavItem[] = [
+  { href: '/administration/validations', label: 'Validations des acquis', icon: ClipboardCheck },
+  {
+    href: '/administration/competences',
+    label: 'Compétences',
+    icon: BookOpen,
+    roles: ['RESPONSABLE'],
+  },
+  { href: '/administration/activites', label: 'Activités', icon: ClipboardList },
+  { href: '/administration/presences', label: 'Présences', icon: Users },
+  { href: '/administration/programme-annuel', label: 'Programme annuel', icon: BookOpen },
+  { href: '/administration/statistiques', label: 'Statistiques', icon: LayoutDashboard },
   { href: '/administration/routiers', label: 'Routiers', icon: Users },
   { href: '/administration/equipes', label: 'Équipes', icon: UsersRound },
 ];

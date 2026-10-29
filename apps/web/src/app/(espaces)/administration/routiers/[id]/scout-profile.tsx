@@ -12,10 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { scoutQueryOptions } from '@/lib/api/scouts';
 import { formatDate, formatDateTime, fullName } from '@/lib/format';
-import { ObservationsSection } from './observations-section';
-import { PedagogicalHistory } from './pedagogical-history';
+import { PedagogicalFile } from './pedagogical-file';
 import { ScoutActions } from './scout-actions';
-import { TeamHistory } from './team-history';
 
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -119,12 +117,7 @@ export function ScoutProfileView() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <TeamHistory scoutId={scout.id} />
-        <PedagogicalHistory scoutId={scout.id} />
-      </div>
-
-      <ObservationsSection scoutId={scout.id} />
+      <PedagogicalFile scoutId={scout.id} />
     </>
   );
 }

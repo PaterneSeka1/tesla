@@ -59,9 +59,9 @@ export async function apiFetch<T>(
   return parsed.data;
 }
 
-/** Écriture JSON (POST, PATCH, DELETE) avec réponse validée (`z.null()` pour une réponse 204). */
+/** Écriture JSON (POST, PATCH, PUT, DELETE) avec réponse validée (`z.null()` pour une réponse 204). */
 export function apiSend<T>(
-  method: 'POST' | 'PATCH' | 'DELETE',
+  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
   schema: z.ZodType<T>,
   body: unknown = {},

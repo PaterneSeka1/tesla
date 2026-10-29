@@ -9,7 +9,6 @@ import {
   scoutDetailSchema,
   scoutListItemSchema,
   type ScoutListQuery,
-  scoutPedagogicalHistorySchema,
   stageListResponseSchema,
   teamAssignmentListSchema,
   type UpdateObservationInput,
@@ -36,12 +35,6 @@ export const teamHistoryQueryOptions = (id: string) =>
   queryOptions({
     queryKey: ['scouts', 'detail', id, 'teams'],
     queryFn: () => apiFetch(`/scouts/${id}/teams/history`, teamAssignmentListSchema),
-  });
-
-export const pedagogicalHistoryQueryOptions = (id: string) =>
-  queryOptions({
-    queryKey: ['scouts', 'detail', id, 'pedagogy'],
-    queryFn: () => apiFetch(`/scouts/${id}/pedagogical-history`, scoutPedagogicalHistorySchema),
   });
 
 export const observationsQueryOptions = (id: string, page: number) =>

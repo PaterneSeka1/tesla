@@ -20,5 +20,8 @@ export const config = {
     '/responsable/:path*',
     '/administration/:path*',
     '/modules/:path*',
+    '/progression/:path*',
+    '/mes-competences/:path*',
+    '/mes-activites/:path*',
   ],
 };
