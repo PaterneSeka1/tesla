@@ -11,7 +11,8 @@ Ce dépôt est **Nikola Tesla Académie** : monorepo npm workspaces (Next.js + N
 - Matricule : chaîne facultative, unique, normalisée, jamais générée. Code de tentative `NT-AAAA-NNNNNN` : émis côté serveur uniquement, immuable, jamais réutilisé, jamais traité comme un secret.
 - Une tentative (papier ou numérique) ne modifie jamais automatiquement l'étape d'un routier ; seul le responsable décide et valide.
 - Tests d'intégration sur base dédiée `*_test` uniquement (`npm run test:int -w @tesla/api`) ; jamais `migrate reset` ni `db push` sur une base contenant des données.
-- Aucun secret, mot de passe ou donnée réelle dans le dépôt.
+- Aucun secret, mot de passe ou donnée réelle dans le dépôt (comptes de démonstration : mot de passe fourni par `DEMO_ACCOUNT_PASSWORD` dans le `.env` local).
+- Toute route API exige une session (sauf `@Public()`) et vérifie les permissions dans le service ; toute écriture web passe par `apiSend` (en-tête anti-CSRF).
 - Ne jamais présenter une simulation comme une fonctionnalité réelle ni un test non exécuté comme réussi.
 
 ## Vérifications avant livraison

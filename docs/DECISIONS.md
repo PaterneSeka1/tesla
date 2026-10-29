@@ -44,5 +44,22 @@ Format : contexte → décision → conséquence. Ajouter une entrée pour chaqu
 
 | D31 | **Format officiel du matricule : 7 chiffres + 1 lettre** (`^[0-9]{7}[A-Z]$`), confirmé par le responsable comme invariable | Remplace la règle provisoire de D30. Contrainte SQL remplacée par une nouvelle migration (la précédente, déjà appliquée, n'est pas modifiée). Aucune conversion automatique 0 ↔ O : une saisie non conforme est refusée. |
 
+## 2026-10-29 — Authentification, équipes, routiers, observations
+
+| # | Décision | Motif / conséquence |
+| --- | --- | --- |
+| D32 | **Permissions resserrées** : inscription, modification de fiche, matricule, affectation et gestion des équipes → responsable ; chefs → consultation et observations | Conforme à la mission de phase 1 ; remplace les choix provisoires de D30 (inscription et affectation par les chefs). Toujours modifiable dans `common/permissions.ts`. |
+| D33 | **Sessions serveur opaques** (256 bits, hash SHA-256 en base) plutôt que JWT | Révocation immédiate (déconnexion, compte désactivé), aucun secret de signature à gérer. Durée **absolue** de 12 h (`SESSION_TTL_HOURS`), sans prolongation glissante. |
+| D34 | **Argon2id** (`argon2`, m = 19 Mio, t = 2, p = 1 — recommandation OWASP) | Seule dépendance ajoutée à l'API. Vérification factice pour un compte inconnu (pas de fuite par la durée). |
+| D35 | **CSRF : SameSite=Lax + en-tête `x-tesla-csrf` + contrôle de l'origine** sur les écritures | Un en-tête personnalisé impose un pré-vol CORS refusé aux origines non déclarées ; pas de jeton synchronisé à gérer. |
+| D36 | **Limitation des tentatives en mémoire** (5 échecs / 15 min par IP+e-mail, 20 par IP) | Instance unique sans Redis (D12). Réinitialisée au redémarrage ; `TRUST_PROXY=true` requis derrière Nginx. |
+| D37 | **Protection des pages web optimiste** (`proxy.ts` : présence du cookie) + `SessionGate` (`/auth/me`, rôle) | La sécurité réelle est dans l'API ; le cookie posé par l'API (port 4000) est visible du web (port 3000) car les cookies ignorent le port ; même domaine en production. |
+| D38 | **Swagger généré depuis les schémas Zod** (`z.toJSONSchema`, cible OpenAPI 3.0) | Évite des classes DTO dupliquées ; complète D6. |
+| D39 | **Observations** : visibilité `ENCADREMENT` (chefs + responsable) ou `RESPONSABLE` (responsable + auteur), jamais visibles des routiers ; modification par l'auteur seul, version précédente conservée ; jamais supprimées ; catégorie en **libellé libre** | Aucune liste de catégories n'a été arbitrée (à confirmer). Tous les chefs sont « habilités » (une seule communauté) — à confirmer. |
+| D40 | **Archivage d'équipe** = clôture des affectations ouvertes à la date du jour + `archivedAt`, sans désarchivage | Conserve l'historique ; les routiers concernés restent sans équipe. |
+| D41 | **Désactivation d'un routier** clôt son affectation ouverte ; un routier désactivé ne peut pas être affecté | Évite de compter un routier parti parmi les membres d'une équipe. |
+| D42 | **Changement d'étape** : par `PATCH /scouts/:id` (responsable seul), journalisé `scout_profile.stage_changed` | Historique des étapes via `AuditLog` en attendant le modèle de validation officielle (phase 4, D14/D24). |
+| D43 | **Homonymes** : inscription d'un nom + prénoms identiques (casse ignorée) refusée sauf confirmation explicite (`confirmDuplicate`) | Prévention des doublons sans bloquer de vrais homonymes ; les accents ne sont pas normalisés. |
+
 ## Décisions pédagogiques en attente (responsable)
 Voir [BUSINESS_RULES.md](BUSINESS_RULES.md#points-en-attente-darbitrage-ne-pas-coder-de-valeur-définitive) : durées d'étape selon l'âge, conditions d'accès aux évaluations, seuils, gestion des comptes, conservation des données.

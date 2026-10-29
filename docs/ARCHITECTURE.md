@@ -30,10 +30,13 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 
 | Dossier | Contenu |
 | --- | --- |
-| `app/` | Routes App Router : `/`, `/connexion`, `(espaces)/routier`, `/chef`, `/responsable`, `/hors-ligne`, `manifest.ts`, pages 404/erreur/chargement |
-| `components/ui/` | Primitives shadcn/ui (button, card, badge, alert, input, label, skeleton) |
-| `components/layout/` | `DashboardShell` (structure responsive des espaces), `SpaceNav` |
-| `lib/api/` | `apiFetch` (client typé, erreurs normalisées) et `queryOptions` TanStack Query |
+| `app/` | Routes App Router : `/`, `/connexion`, `(espaces)/routier`, `/chef`, `/responsable`, `(espaces)/administration/{equipes,routiers}` (liste, création, fiche, modification), `/hors-ligne`, `manifest.ts`, pages 404/erreur/chargement |
+| `proxy.ts` | Redirection vers `/connexion` sans cookie de session (contrôle optimiste) |
+| `components/ui/` | Primitives shadcn/ui (button, card, badge, alert, input, label, skeleton, textarea, native-select, table, dialog, toaster) |
+| `components/layout/` | `DashboardShell` (sidebar desktop, navigation horizontale mobile, `SessionGate`), `SpaceNav` |
+| `components/auth/` | `SessionGate` (vérifie `/auth/me` et le rôle, fournit `useSessionUser`), `UserMenu`, `ResponsableOnly` |
+| `components/` | `ConfirmDialog`, `Pagination`, `QueryError`/`TableSkeleton`, `FormField`, `FollowUpOverview` (indicateurs) |
+| `lib/api/` | `apiFetch`/`apiSend` (client typé, cookie, en-tête anti-CSRF, erreurs normalisées) et `queryOptions` par domaine (`auth`, `teams`, `scouts`) |
 | `lib/offline/` | Structure IndexedDB (fondation PWA) |
 | `lib/spaces.ts` | Configuration des espaces et de leur navigation |
 | `public/sw.js` | Service worker (enregistré en production uniquement) |
@@ -45,11 +48,23 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 | `config/` | Validation Zod des variables, chargement du `.env` racine, version |
 | `prisma/` | `PrismaService` (client unique, connexion paresseuse) |
 | `health/` | `GET /api/v1/health` |
-| `common/` | Filtre d'erreurs homogène, journalisation des requêtes, `Actor`, matrice des permissions (`assertCan`), validation Zod, erreurs Prisma |
-| `modules/scouts/` | `ScoutProfilesService` (profils sans compte, matricule, rattachement de compte), `TeamsService` (équipes, affectations, équipe à une date) |
+| `common/` | Filtre d'erreurs homogène, journalisation des requêtes, protection CSRF, `Actor`, matrice des permissions (`assertCan`), validation Zod, schémas OpenAPI dérivés de Zod, erreurs Prisma |
+| `modules/auth/` | `AuthController` (`/auth/login`, `/logout`, `/me`), `AuthService` (sessions), `SessionGuard` (garde globale, `@Public()`, `@CurrentActor()`), `LoginRateLimiter`, Argon2id |
+| `modules/scouts/` | Contrôleurs `/scouts`, `/teams`, `/scouts/:id/observations` ; `ScoutProfilesService` (liste, fiche, inscription, modification, étape, activation, rattachement de compte, historique pédagogique), `TeamsService` (équipes, archivage, affectations, historique), `ObservationsService` |
+| `modules/progression/` | `GET /progression/stages` |
 | `modules/evaluations/` | `EvaluationAttemptsService` (préparation papier, feuille, recherche par code, saisie, soumission, décision, annulation, réouverture), `EvaluationWaiversService`, émission des codes, transitions, éligibilité |
-| `modules/` (autres) | Modules réservés : `auth`, `users`, `pedagogy`, `progression`, `programmes`, `audit` (vides) |
+| `modules/` (autres) | Modules réservés : `users`, `pedagogy`, `programmes`, `audit` (vides) |
 | `app.setup.ts` | Configuration HTTP partagée entre `main.ts` et les tests e2e |
+
+## Authentification
+
+```
+Navigateur ── POST /auth/login (x-tesla-csrf) ──► AuthService : limiteur → Argon2id → INSERT session (hash du jeton)
+           ◄── Set-Cookie tesla_session (httpOnly, SameSite=Lax, Secure en prod)
+Navigateur ── toute requête (cookie) ──► SessionGuard : hash → session valide ? compte actif ? → request.actor
+                                         → contrôleur → service : assertCan(actor, permission) → Prisma (+ AuditLog)
+Web : proxy.ts (cookie présent ?) → SessionGate (/auth/me, rôle) → écrans ; chaque donnée reste filtrée par l'API.
+```
 
 ## Configuration
 
@@ -77,4 +92,4 @@ Responsable : décider ──────────────────►
 - Le code est un identifiant de recherche, pas un secret : toute lecture passe par les permissions.
 - Les modes `EN_LIGNE` et `HORS_LIGNE` partagent la même table et le même historique (circuit numérique développé en phase 4).
 - La génération PDF (support de cours, questionnaire, corrigé chef) se fera côté serveur, sans service d'IA (phase dédiée, voir [ROADMAP.md](ROADMAP.md)).
-- Les services reçoivent un `Actor` ; les routes HTTP seront exposées quand l'authentification (phase 1) fournira cet acteur.
+- Les services reçoivent un `Actor` fourni par la garde de session ; les routes des tentatives restent à exposer (phase 4 bis).

@@ -43,9 +43,11 @@ Règles structurantes du modèle (RM-001 à RM-012) :
 - **Tentative papier** : même éligibilité qu'en ligne ; la réimpression ne crée jamais de tentative.
 - **Code unique** `NT-AAAA-NNNNNN` : émis par le backend (compteur transactionnel), immuable, jamais réutilisé, **pas un secret** (recherche protégée par permissions).
 - **Validation officielle humaine** : un chef saisit et soumet ; seul le responsable décide ; aucun statut de tentative ne change l'étape d'un routier.
+- **Permissions (D32)** : responsable = fiches, matricules, étapes, équipes, affectations, rattachement de compte ; chefs = consultation et observations ; routiers = aucun accès aux fiches.
+- **Observations** : accompagnement, jamais validation ; jamais supprimées ; modifiées par leur auteur seul (versions conservées).
 
 ## 8. Sécurité
-Autorisation vérifiée côté serveur (le masquage UI ne suffit pas). Aucune donnée réelle, aucun secret dans Git ou les seeds. Pas de cache hors ligne de données personnelles sensibles. Erreurs API sans détail interne.
+Autorisation vérifiée côté serveur (le masquage UI ne suffit pas) : garde de session globale (`@Public()` pour les exceptions) + `assertCan` dans les services. Sessions opaques en cookie httpOnly, Argon2id, en-tête `x-tesla-csrf` sur toute écriture. Comptes de démonstration uniquement via `DEMO_ACCOUNT_PASSWORD` local. Aucune donnée réelle, aucun secret dans Git ou les seeds. Pas de cache hors ligne de données personnelles sensibles. Erreurs API sans détail interne.
 
 ## 9. Migrations
 `prisma migrate dev --name <nom>` uniquement ; relire le SQL généré ; aucune migration destructive sans plan validé. Voir `.claude/rules/database.md`.

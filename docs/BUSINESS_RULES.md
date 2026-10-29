@@ -1,6 +1,6 @@
 # Règles métier
 
-> Statut : règles **documentées**, non encore implémentées (sauf mention). Source : cahier de la mission, document SAPF-Route (Atelier pédagogique Branche Route), programme annuel 2026–2027 de la Communauté Nikola Tesla.
+> Statut : règles **documentées** ; celles des routiers, équipes, observations et de l'authentification sont **implémentées** (voir [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)). Source : cahier de la mission, document SAPF-Route (Atelier pédagogique Branche Route), programme annuel 2026–2027 de la Communauté Nikola Tesla.
 
 ## Périmètre
 - Une communauté (Nikola Tesla), une branche (Route), année scoute 2026–2027.
@@ -16,10 +16,16 @@
 | Soumettre un module à l'approbation | — | ✅ | ✅ |
 | Approuver ou renvoyer un module (publication) | — | — | ✅ |
 | Passer une évaluation accessible | ✅ | — | — |
-| Inscrire un routier (avec ou sans compte) | — | ✅ | ✅ |
+| Consulter les fiches, équipes et historiques des routiers | — | ✅ | ✅ |
+| Inscrire / modifier un routier (avec ou sans compte), attribuer le matricule | — | — | ✅ (à confirmer, D32) |
+| Changer l'étape d'un routier (acte officiel journalisé) | — | — | ✅ |
+| Activer / désactiver un profil routier | — | — | ✅ |
 | Rattacher un compte à un profil routier | — | — | ✅ (à confirmer) |
-| Créer / archiver une équipe | — | — | ✅ (à confirmer) |
-| Affecter un routier à une équipe | — | ✅ | ✅ |
+| Créer / modifier / archiver une équipe | — | — | ✅ (à confirmer) |
+| Affecter un routier à une équipe, changer son équipe | — | — | ✅ (à confirmer, D32) |
+| Saisir une observation, modifier la sienne | — | ✅ | ✅ |
+| Lire les observations « chefs et responsable » | — | ✅ | ✅ |
+| Lire les observations « responsable uniquement » | — | auteur seulement | ✅ |
 | Préparer une feuille papier, saisir et soumettre un résultat | — | ✅ | ✅ |
 | Rechercher une tentative par code | sa propre tentative | ✅ | ✅ |
 | Décider d'un résultat soumis (`VALIDEE` / `REFUSEE`), rouvrir une décision | — | — | ✅ |
@@ -42,7 +48,7 @@ Toutes les permissions sont vérifiées côté serveur.
 
 ## Règles identifiées (phase 1 bis — routiers, équipes, évaluations papier)
 
-> Statut : **modèle, contraintes et services implémentés et testés** ; aucune route HTTP ni interface (voir [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)).
+> Statut : RM-001 à RM-004 et RM-012 (profils, équipes) **implémentés de bout en bout** (routes, écrans, tests) ; RM-005 à RM-011 (tentatives) : services testés, **sans route ni écran** (voir [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)).
 
 | ID | Règle | Énoncé | Garantie |
 | --- | --- | --- | --- |
@@ -58,6 +64,17 @@ Toutes les permissions sont vérifiées côté serveur.
 | RM-010 | Validation humaine | Un chef saisit, corrige et soumet ; seul le responsable décide (`VALIDEE` / `REFUSEE`). Cette décision porte sur le résultat, pas sur l'étape : aucun statut ne modifie automatiquement la progression. La validation officielle d'un acquis ou d'une étape est un acte distinct du responsable. | Permissions serveur ; aucun accès à `current_stage_id` dans le service |
 | RM-011 | Conservation des résultats | Résultats papier et numériques dans la même table (historique unifié). Une tentative n'est jamais supprimée (annulation = statut `ANNULEE`) ; une tentative décidée n'est modifiable qu'après réouverture motivée par le responsable. | Trigger anti-suppression ; transitions contrôlées |
 | RM-012 | Prévention des doublons | Au plus une tentative non clôturée (`PREPAREE`, `EN_COURS`, `A_CORRIGER`, `SOUMISE`) par routier et par évaluation ; un seul profil par compte ; un matricule par routier. | Index uniques (dont partiel) |
+
+### Règles de la phase 1 (authentification, fiches, observations)
+
+| ID | Règle | Énoncé | Garantie |
+| --- | --- | --- | --- |
+| RM-013 | Inscription sans compte | Créer une fiche ne demande ni e-mail ni mot de passe et ne crée jamais de compte. Un homonyme exact exige une confirmation explicite. | Contrat `createScoutProfileInputSchema` ; `POSSIBLE_DUPLICATE` |
+| RM-014 | Désactivation | Un profil désactivé reste consultable avec tout son historique ; son affectation ouverte est clôturée ; il ne peut plus être affecté. Réactivation possible. | Service + `AuditLog` |
+| RM-015 | Archivage d'équipe | Archiver clôt les affectations ouvertes (date, auteur) ; l'équipe et l'historique sont conservés ; une équipe archivée ne reçoit plus de membres et n'est plus modifiable. | Transaction + `AuditLog` |
+| RM-016 | Observations | Information d'accompagnement d'un chef ou du responsable, référencée sur le profil. Ne vaut jamais validation d'acquis ni changement d'étape. Jamais visible des routiers ; niveau `RESPONSABLE` lisible par le responsable et l'auteur seulement. Modifiable par son auteur seul ; chaque version précédente est conservée ; jamais supprimée. | Permissions serveur ; triggers SQL |
+| RM-017 | Changement d'étape | Exclusivement le responsable ; journalisé avec l'étape précédente, la nouvelle et l'auteur ; visible dans l'historique pédagogique. Aucune autre action (observation, tentative) ne modifie l'étape. | `scout.setStage` ; `AuditLog` `scout_profile.stage_changed` |
+| RM-018 | Accès | Toute donnée exige une session valide ; le masquage d'un bouton n'est jamais la seule protection. L'e-mail d'un compte rattaché n'est communiqué qu'au responsable. | Garde globale + `assertCan` |
 
 ### Cycle de vie d'une tentative
 `PREPAREE → (EN_COURS) → A_CORRIGER → SOUMISE → VALIDEE | REFUSEE` ; `ANNULEE` possible avant décision. Corrections : `SOUMISE → A_CORRIGER` (motif) ; `VALIDEE | REFUSEE → A_CORRIGER` (réouverture par le responsable, motif). Aucune transition ne déclenche de changement d'étape.
@@ -84,3 +101,5 @@ Ces étapes sont chargées par le seed (`progression_stages`) depuis `@tesla/sha
 - **Dérogation** : valable pour une seule tentative ou jusqu'à expiration/révocation (choix provisoire : jusqu'à expiration/révocation) ?
 - **Inscription des routiers et gestion des équipes** : chefs et/ou responsable (choix provisoires dans la matrice ci-dessus).
 - **Accès des chefs aux résultats individuels** : nécessaire pour la saisie papier ; périmètre exact à confirmer.
+- **Observations** : liste de catégories souhaitée (aujourd'hui libellé libre) ; tous les chefs sont-ils habilités pour tous les routiers, ou seulement ceux de certaines équipes ?
+- **Répartition chefs / responsable** pour l'inscription et l'affectation (aujourd'hui : responsable seul, D32).

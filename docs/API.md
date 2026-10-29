@@ -1,6 +1,6 @@
 # API
 
-Base : `http://localhost:4000/api/v1` · OpenAPI : `/api/docs` (UI) et `/api/docs-json` (JSON), si `SWAGGER_ENABLED=true`.
+Base : `http://localhost:4000/api/v1` · OpenAPI : `/api/docs` (UI) et `/api/docs-json` (JSON), si `SWAGGER_ENABLED=true` (schémas générés depuis les contrats Zod ; authentification par cookie et en-tête `x-tesla-csrf` déclarés).
 
 ## Routes disponibles
 
@@ -18,29 +18,63 @@ Base : `http://localhost:4000/api/v1` · OpenAPI : `/api/docs` (UI) et `/api/doc
 ```
 `status: "degraded"` et `database: "down"` si PostgreSQL est injoignable (délai de connexion : 5 s). Contrat : `healthResponseSchema` (`@tesla/shared`).
 
-Aucune autre route n'est exposée. Les modules `auth`, `users`, `pedagogy`, `progression`, `programmes`, `audit` sont réservés.
+## Authentification et sécurité
 
-## Services métier développés (sans route HTTP)
+Toutes les routes exigent une **session** sauf `GET /health`, `POST /auth/login` et `POST /auth/logout`. Sans session valide : `401 UNAUTHENTICATED`.
 
-Les services ci-dessous sont implémentés et testés sur PostgreSQL, mais **aucune route n'est exposée** tant que l'authentification ne fournit pas l'acteur (`Actor`). Contrats d'entrée : schémas Zod de `@tesla/shared` (`packages/shared/src/scouts.ts`, `evaluations.ts`).
+| Élément | Règle |
+| --- | --- |
+| Cookie | `tesla_session` : httpOnly, `SameSite=Lax`, `Secure` en production, `Path=/`, expiration = fin de session |
+| Session | Jeton opaque 256 bits ; seul son hash SHA-256 est stocké (`sessions`). Durée absolue `SESSION_TTL_HOURS` (12 h par défaut). Invalide si révoquée, expirée ou si le compte est désactivé |
+| Mot de passe | Argon2id |
+| Limitation | 5 échecs / 15 min par (IP, e-mail), 20 par IP → `429 TOO_MANY_LOGIN_ATTEMPTS` (en mémoire) |
+| CSRF | Toute écriture (`POST`, `PATCH`, `PUT`, `DELETE`) exige l'en-tête `x-tesla-csrf: 1` et, si présent, un `Origin` listé dans `CORS_ORIGINS` ; sinon `403 CSRF_REJECTED` |
+| Permissions | Vérifiées par chaque service (`assertCan`) : `403 FORBIDDEN` |
 
-| Service | Méthode | Permission | Contrat d'entrée |
-| --- | --- | --- | --- |
-| `ScoutProfilesService` | `create` | `scout.create` (chef, responsable) | `createScoutProfileInputSchema` |
-| | `setMatricule`, `findByMatricule` | `scout.setMatricule`, `scout.read` | `matriculeSchema` |
-| | `linkAccount` | `scout.linkAccount` (responsable) | `scoutProfileId`, `userId` |
-| `TeamsService` | `create` | `team.manage` (responsable) | `createTeamInputSchema` |
-| | `assign`, `unassign`, `teamAt` | `team.assign` (chef, responsable) | `assignTeamInputSchema` |
-| `EvaluationAttemptsService` | `preparePaper` | `attempt.preparePaper` | `preparePaperAttemptInputSchema` |
-| | `getPaperSheet` | `attempt.preparePaper` | `attemptCodeSchema` |
-| | `findByCode` | `attempt.readAny` ou titulaire | `attemptCodeSchema` |
-| | `recordPaperResult`, `submit`, `cancel` | `attempt.record` / `submit` / `cancel` | `recordPaperResultInputSchema`, `attemptReasonInputSchema` |
-| | `decide`, `reopen` | `attempt.decide` / `reopen` (responsable) | `decideAttemptInputSchema`, `attemptReasonInputSchema` |
-| `EvaluationWaiversService` | `grant`, `revoke` | `waiver.manage` (responsable) | `grantWaiverInputSchema`, `attemptReasonInputSchema` |
+### `POST /api/v1/auth/login`
+Corps `loginInputSchema` `{ email, password }` → `200 { user }` (`meResponseSchema`) et pose du cookie. Erreur unique `401 INVALID_CREDENTIALS` (mot de passe faux, compte inconnu, désactivé ou non activé).
 
-Codes d'erreur métier : `VALIDATION_ERROR` (400), `FORBIDDEN`, `EVALUATION_NOT_ELIGIBLE` (403), `SCOUT_PROFILE_NOT_FOUND`, `USER_NOT_FOUND`, `TEAM_NOT_FOUND`, `EVALUATION_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WAIVER_NOT_FOUND` (404), `MATRICULE_ALREADY_USED`, `PROFILE_ALREADY_LINKED`, `ACCOUNT_ALREADY_LINKED`, `ACCOUNT_NOT_ROUTIER`, `TEAM_NAME_TAKEN`, `TEAM_ARCHIVED`, `ALREADY_IN_TEAM`, `NO_ACTIVE_TEAM`, `ATTEMPT_ALREADY_OPEN`, `ATTEMPT_NOT_PRINTABLE`, `ATTEMPT_NOT_PAPER`, `ATTEMPT_ALREADY_DECIDED`, `ATTEMPT_STATE_CHANGED`, `INVALID_ATTEMPT_TRANSITION`, `WAIVER_ALREADY_REVOKED` (409), `INVALID_ASSIGNMENT_DATE`, `EVALUATION_VERSION_NOT_PUBLISHED`, `ATTEMPT_RESULT_MISSING`, `REASON_REQUIRED`, `INVALID_EXPIRY` (422).
+### `POST /api/v1/auth/logout`
+Révoque la session courante et efface le cookie → `204`.
 
-Un routier qui recherche un code ne lui appartenant pas reçoit `404 ATTEMPT_NOT_FOUND` (l'existence du code n'est pas révélée).
+### `GET /api/v1/auth/me`
+`200 { user: { id, email, firstName, lastName, role, scoutProfileId } }`.
+
+## Routes métier
+
+Pagination des listes : `?page=1&pageSize=20` (max. 100) → `{ items, page, pageSize, total }`. Contrats : `packages/shared/src/{scouts,observations,auth,api}.ts`.
+
+| Méthode et chemin | Permission | Entrée → sortie |
+| --- | --- | --- |
+| `GET /progression/stages` | session | → `stageListResponseSchema` |
+| `GET /teams?search=&status=active\|archived\|all` | chef, responsable | → page de `teamSchema` (avec `memberCount`) |
+| `POST /teams` | responsable | `createTeamInputSchema` → `201 teamDetailSchema` |
+| `GET /teams/:id` | chef, responsable | → `teamDetailSchema` (membres actuels) |
+| `PATCH /teams/:id` | responsable | `updateTeamInputSchema` → `teamDetailSchema` |
+| `POST /teams/:id/archive` | responsable | → `201 teamDetailSchema` (affectations ouvertes clôturées) |
+| `GET /scouts?search=&teamId=&stageId=&status=&account=` | chef, responsable | → page de `scoutListItemSchema`. `search` : chaque mot doit correspondre au nom, aux prénoms ou au matricule ; `teamId`/`stageId` : UUID ou `none` ; `status` : `active` (défaut), `inactive`, `all` ; `account` : `with`, `without`, `all` |
+| `POST /scouts` | responsable (+ étape) | `createScoutProfileInputSchema` → `201 scoutDetailSchema`. Aucun compte créé. `409 POSSIBLE_DUPLICATE` si homonyme : renvoyer avec `confirmDuplicate: true` |
+| `GET /scouts/:id` | chef, responsable | → `scoutDetailSchema` (`account.email` réservé au responsable) |
+| `PATCH /scouts/:id` | responsable ; étape : `scout.setStage` | `updateScoutProfileInputSchema` → `scoutDetailSchema` |
+| `POST /scouts/:id/deactivate` · `/activate` | responsable | → `201 scoutDetailSchema` |
+| `POST /scouts/:id/link-account` | responsable | `linkAccountInputSchema { email }` → `201 scoutDetailSchema` |
+| `GET /scouts/:id/teams/history` | chef, responsable | → `teamAssignmentListSchema` |
+| `POST /scouts/:id/teams/assign` | responsable | `assignTeamBodySchema { teamId, startedAt? }` → `201` historique |
+| `POST /scouts/:id/teams/unassign` | responsable | `unassignTeamBodySchema { endedAt? }` → `201` historique |
+| `GET /scouts/:id/pedagogical-history` | chef, responsable | → `scoutPedagogicalHistorySchema` (tentatives, changements d'étape journalisés) |
+| `GET /scouts/:id/observations` | chef, responsable | → page de `observationSchema` (filtrée selon la visibilité) |
+| `POST /scouts/:id/observations` | chef, responsable | `createObservationInputSchema` → `201 observationSchema` |
+| `PATCH /scouts/:id/observations/:observationId` | auteur uniquement | `updateObservationInputSchema` → `observationSchema` |
+| `GET /scouts/:id/observations/:observationId/revisions` | lecteurs de l'observation | → `observationRevisionListSchema` |
+
+Une observation non visible (niveau `RESPONSABLE` d'un autre auteur) renvoie `404 OBSERVATION_NOT_FOUND` : son existence n'est pas révélée.
+
+### Codes d'erreur
+`VALIDATION_ERROR` (400), `UNAUTHENTICATED`, `INVALID_CREDENTIALS` (401), `FORBIDDEN`, `CSRF_REJECTED`, `OBSERVATION_NOT_AUTHOR`, `EVALUATION_NOT_ELIGIBLE` (403), `SCOUT_PROFILE_NOT_FOUND`, `USER_NOT_FOUND`, `TEAM_NOT_FOUND`, `OBSERVATION_NOT_FOUND`, `EVALUATION_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WAIVER_NOT_FOUND` (404), `MATRICULE_ALREADY_USED`, `POSSIBLE_DUPLICATE`, `PROFILE_ALREADY_LINKED`, `ACCOUNT_ALREADY_LINKED`, `ACCOUNT_NOT_ROUTIER`, `TEAM_NAME_TAKEN`, `TEAM_ARCHIVED`, `TEAM_ALREADY_ARCHIVED`, `ALREADY_IN_TEAM`, `NO_ACTIVE_TEAM`, `SCOUT_INACTIVE`, `SCOUT_ALREADY_ACTIVE`, `SCOUT_ALREADY_INACTIVE`, `OBSERVATION_STATE_CHANGED`, `ATTEMPT_*`, `INVALID_ATTEMPT_TRANSITION`, `WAIVER_ALREADY_REVOKED` (409), `INVALID_ASSIGNMENT_DATE`, `STAGE_NOT_FOUND`, `EVALUATION_VERSION_NOT_PUBLISHED`, `ATTEMPT_RESULT_MISSING`, `REASON_REQUIRED`, `INVALID_EXPIRY` (422), `TOO_MANY_LOGIN_ATTEMPTS` (429).
+
+## Services sans route HTTP (phase 4 bis)
+
+`EvaluationAttemptsService` (préparation papier, feuille, recherche par code, saisie, soumission, décision, annulation, réouverture) et `EvaluationWaiversService` sont implémentés et testés sur PostgreSQL mais **non exposés**. Contrats d'entrée : `packages/shared/src/evaluations.ts`. Un routier qui recherche un code ne lui appartenant pas recevra `404 ATTEMPT_NOT_FOUND`.
 
 ## Conventions
 
@@ -49,7 +83,7 @@ Un routier qui recherche un code ne lui appartenant pas reçoit `404 ATTEMPT_NOT
 | Préfixe | `/api/v1` |
 | Format | JSON ; dates ISO 8601 en UTC |
 | Contrats | Schémas Zod dans `@tesla/shared`, utilisés par l'API et le web |
-| CORS | Origines de `CORS_ORIGINS` uniquement, `credentials: true` (sessions par cookie prévues) |
+| CORS | Origines de `CORS_ORIGINS` uniquement, `credentials: true`, en-têtes `Content-Type`, `Accept`, `x-tesla-csrf` |
 | Journalisation | Méthode, chemin, statut, durée ; jamais le corps des requêtes |
 
 ### Format des erreurs
@@ -66,27 +100,19 @@ Toutes les erreurs suivent `apiErrorSchema` :
 `code` est stable (exploitable par le web) ; `message` est affichable en français. Les erreurs 5xx ne renvoient aucun détail interne (journalisées côté serveur).
 
 ## Endpoints prévus (non implémentés)
-Authentification (`/auth/login`, `/auth/logout`, `/auth/me`), utilisateurs, modules et leçons, soumission/approbation, évaluations en ligne, validations officielles, programme annuel. Chacun sera documenté ici lors de son implémentation.
+Gestion des comptes (création, activation, réinitialisation du mot de passe), modules et leçons, soumission/approbation, évaluations en ligne, validations officielles, programme annuel, consultation du journal d'audit.
 
-### Contrats prévus — routiers, équipes, tentatives, impression
-Projet de routes adossées aux services ci-dessus (**aucune n'existe**). Toutes exigent une session ; permissions identiques aux services.
+### Contrats prévus — tentatives et impression (phase 4 bis)
 
 | Méthode et chemin | Service | Remarque |
 | --- | --- | --- |
-| `POST /routiers` | `ScoutProfilesService.create` | Routier sans compte |
-| `GET /routiers?matricule=` | `findByMatricule` | Matricule normalisé avant recherche |
-| `PATCH /routiers/:id/matricule` | `setMatricule` | Chaîne vide = retrait |
-| `POST /routiers/:id/compte` | `linkAccount` | Body `{ userId }` |
-| `POST /equipes` · `GET /equipes` | `TeamsService.create` | Archivage à prévoir |
-| `POST /affectations` | `assign` | Clôt l'affectation précédente |
-| `DELETE /routiers/:id/affectation-active` | `unassign` | Clôture (aucune suppression) |
-| `GET /routiers/:id/affectations` | — | Historique (à développer) |
-| `POST /tentatives/papier` | `preparePaper` | Renvoie la tentative et son code |
-| `GET /tentatives/code/:code` | `findByCode` | Recherche normalisée |
-| `PUT /tentatives/:id/resultat` | `recordPaperResult` | Motif requis après soumission |
-| `POST /tentatives/:id/soumission` · `/decision` · `/annulation` · `/reouverture` | `submit`, `decide`, `cancel`, `reopen` | |
-| `GET /tentatives/:id/historique` | — | Événements (à développer) |
-| `POST /derogations` · `POST /derogations/:id/revocation` | `EvaluationWaiversService` | Responsable uniquement |
-| `GET /tentatives/code/:code/feuille.pdf` | `getPaperSheet` + générateur PDF | Questionnaire nominatif ; lecture seule, réimpression sans nouvelle tentative |
-| `GET /evaluations/:id/versions/:v/corrige.pdf` | à développer | Corrigé chef : chefs et responsable uniquement |
-| `GET /modules/:id/versions/:v/support.pdf` | à développer | Support de cours (titre, objectifs, étape, leçons, illustrations, activités, références, version) |
+| `POST /attempts/paper` | `preparePaper` | Renvoie la tentative et son code `NT-AAAA-NNNNNN` |
+| `GET /attempts/code/:code` | `findByCode` | Recherche normalisée |
+| `PUT /attempts/:id/result` | `recordPaperResult` | Motif requis après soumission |
+| `POST /attempts/:id/submit` · `/decision` · `/cancel` · `/reopen` | `submit`, `decide`, `cancel`, `reopen` | Décision et réouverture : responsable |
+| `POST /waivers` · `POST /waivers/:id/revoke` | `EvaluationWaiversService` | Responsable uniquement |
+| `GET /attempts/code/:code/sheet.pdf` | `getPaperSheet` + générateur PDF | Questionnaire nominatif ; réimpression sans nouvelle tentative |
+| `GET /evaluations/:id/versions/:v/answer-key.pdf` | à développer | Corrigé : chefs et responsable |
+| `GET /modules/:id/versions/:v/support.pdf` | à développer | Support de cours |
+
+Les chemins sont alignés sur la convention anglaise retenue pour `/teams` et `/scouts` (à confirmer à l'implémentation).
