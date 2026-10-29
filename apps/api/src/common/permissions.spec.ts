@@ -52,3 +52,20 @@ describe('Permissions des routiers, équipes et observations', () => {
     expect(can(routier, 'observation.read')).toBe(false);
   });
 });
+
+describe('Permissions des modules pédagogiques', () => {
+  it('tout utilisateur connecté lit la bibliothèque', () => {
+    for (const actor of [routier, chef, responsable]) expect(can(actor, 'module.read')).toBe(true);
+  });
+
+  it('un chef rédige mais ne décide jamais de la publication', () => {
+    expect(can(chef, 'module.write')).toBe(true);
+    expect(can(chef, 'module.writeAny')).toBe(false);
+    expect(can(chef, 'module.review')).toBe(false);
+    expect(can(responsable, 'module.review')).toBe(true);
+  });
+
+  it('un routier ne rédige pas', () => {
+    expect(can(routier, 'module.write')).toBe(false);
+  });
+});

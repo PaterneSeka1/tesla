@@ -39,6 +39,14 @@ export const PERMISSIONS = {
   'attempt.reopen': ['RESPONSABLE'],
   /** Dérogations : exclusivement le responsable (RM-009). */
   'waiver.manage': ['RESPONSABLE'],
+  /** Bibliothèque : tout utilisateur authentifié lit les modules publiés, sans condition d'étape. */
+  'module.read': ['ROUTIER', 'CHEF', 'RESPONSABLE'],
+  /** Rédaction : créer un module ; modifier ceux dont on est auteur ou collaborateur (périmètre vérifié par le service). */
+  'module.write': ['CHEF', 'RESPONSABLE'],
+  /** Intervenir sur tous les modules, quel qu'en soit l'auteur. */
+  'module.writeAny': ['RESPONSABLE'],
+  /** Approuver, demander des corrections, refuser, publier, archiver : exclusivement le responsable. */
+  'module.review': ['RESPONSABLE'],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
