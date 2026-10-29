@@ -20,7 +20,7 @@ export function ProposalList({
 }: {
   query: Omit<ProposalListQuery, 'page'>;
   emptyTitle: string;
-  emptyDescription: string;
+  emptyDescription?: string;
 }) {
   const [page, setPage] = useState(1);
   const { data, error, isPending, refetch } = useQuery({

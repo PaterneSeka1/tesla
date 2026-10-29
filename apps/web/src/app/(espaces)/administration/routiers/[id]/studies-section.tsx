@@ -79,11 +79,7 @@ export function StudiesSection({ progression }: { progression: ScoutProgression 
         </CardHeader>
         <CardContent className="space-y-2">
           {progression.moduleStudies.length === 0 ? (
-            <EmptyState
-              icon={BookOpen}
-              title="Aucune étude enregistrée"
-              description="Les études de modules apparaîtront ici."
-            />
+            <EmptyState icon={BookOpen} title="Aucune étude enregistrée" />
           ) : (
             progression.moduleStudies.map((study) => (
               <div key={study.id} className="space-y-1 rounded-md border p-3 text-sm">
@@ -138,9 +134,6 @@ export function StudiesSection({ progression }: { progression: ScoutProgression 
       <Card>
         <CardHeader>
           <CardTitle>Enregistrer une étude</CardTitle>
-          <CardDescription>
-            Pour un routier avec ou sans compte (cours papier, séance collective…).
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form

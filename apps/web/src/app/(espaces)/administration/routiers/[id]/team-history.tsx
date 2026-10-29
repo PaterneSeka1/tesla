@@ -5,7 +5,7 @@ import { History } from 'lucide-react';
 import { EmptyState } from '@/components/empty-state';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { teamHistoryQueryOptions } from '@/lib/api/scouts';
 import { formatDate, fullName } from '@/lib/format';
 
@@ -16,9 +16,6 @@ export function TeamHistory({ scoutId }: { scoutId: string }) {
     <Card>
       <CardHeader>
         <CardTitle>Historique des équipes</CardTitle>
-        <CardDescription>
-          Chaque changement clôt l’affectation précédente, qui reste consultable.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         {isPending ? (
@@ -26,11 +23,7 @@ export function TeamHistory({ scoutId }: { scoutId: string }) {
         ) : error ? (
           <QueryError error={error} onRetry={() => void refetch()} />
         ) : data.items.length === 0 ? (
-          <EmptyState
-            icon={History}
-            title="Aucune affectation"
-            description="Ce routier n’a jamais été affecté à une équipe."
-          />
+          <EmptyState icon={History} title="Aucune affectation" />
         ) : (
           <ol className="space-y-3">
             {data.items.map((assignment) => (

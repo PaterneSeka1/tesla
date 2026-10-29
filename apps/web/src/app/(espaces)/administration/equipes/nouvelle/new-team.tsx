@@ -13,10 +13,7 @@ export function NewTeam() {
   return (
     <>
       <BackLink href="/administration/equipes">Équipes</BackLink>
-      <PageHeading
-        title="Nouvelle équipe"
-        description="Le nom doit être unique dans la communauté."
-      />
+      <PageHeading title="Nouvelle équipe" />
       <RequirePermission user={user} permission="team.manage">
         <TeamForm onSaved={(team) => router.push(`/administration/equipes/${team.id}`)} />
       </RequirePermission>

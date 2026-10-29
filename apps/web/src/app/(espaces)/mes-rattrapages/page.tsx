@@ -5,8 +5,8 @@ export default function Page() {
   return (
     <>
       <PageHeading
-        title="Mes rattrapages"
-        description="Modules obligatoires d’étapes antérieures restant à acquérir. Leur étude, leurs évaluations et l’accompagnement de l’encadrement mènent à une décision du responsable."
+        title="Rattrapages"
+        description="Modules obligatoires d’étapes antérieures. Leur acquisition est décidée par le responsable."
       />
       <MyCatchUps />
     </>

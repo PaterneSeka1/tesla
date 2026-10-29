@@ -189,11 +189,7 @@ export function ScoutForm({
           </NativeSelect>
         </FormField>
         {!scout && (
-          <FormField
-            id="teamId"
-            label="Équipe"
-            hint="Facultative ; modifiable ensuite depuis la fiche."
-          >
+          <FormField id="teamId" label="Équipe" hint="Facultative.">
             <NativeSelect {...fieldA11y('teamId', undefined, 'hint')} {...register('teamId')}>
               <option value="">Sans équipe</option>
               {teams.data?.items.map((team) => (

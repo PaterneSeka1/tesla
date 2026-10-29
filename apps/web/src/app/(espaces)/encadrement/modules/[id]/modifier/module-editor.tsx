@@ -154,9 +154,6 @@ export function ModuleEditor() {
       <Card>
         <CardHeader>
           <CardTitle>Informations du module</CardTitle>
-          <CardDescription>
-            Titre, description, étape recommandée, objectifs et prérequis.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <ModuleMetadataForm
@@ -181,10 +178,7 @@ export function ModuleEditor() {
       <Card>
         <CardHeader>
           <CardTitle>Leçons</CardTitle>
-          <CardDescription>
-            Ordonnez les leçons et rédigez leur contenu ; enregistrez chaque leçon avant de la
-            fermer.
-          </CardDescription>
+          <CardDescription>Enregistrez chaque leçon avant de la fermer.</CardDescription>
         </CardHeader>
         <CardContent>
           <LessonsPanel module={module} editable={permissions.canEdit} />

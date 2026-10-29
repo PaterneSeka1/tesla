@@ -16,7 +16,7 @@ export function NewEvaluation() {
       <BackLink href="/encadrement/evaluations">Évaluations</BackLink>
       <PageHeading
         title="Nouveau questionnaire"
-        description="Le questionnaire est créé en brouillon ; vous ajouterez ensuite les questions, les bonnes réponses et les barèmes."
+        description="Créé en brouillon ; questions et barèmes s’ajoutent ensuite."
       />
       <Card>
         <CardContent className="pt-6">

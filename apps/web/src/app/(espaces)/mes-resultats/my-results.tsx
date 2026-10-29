@@ -25,20 +25,13 @@ export function MyResults() {
 
   return (
     <>
-      <PageHeading
-        title="Mes résultats"
-        description="Vos évaluations en ligne et sur papier. Un résultat accompagne votre progression : il ne valide jamais seul une étape."
-      />
+      <PageHeading title="Résultats" description="Un résultat ne valide jamais seul une étape." />
       {isPending ? (
         <TableSkeleton />
       ) : error ? (
         <QueryError error={error} onRetry={() => void refetch()} />
       ) : data.items.length === 0 ? (
-        <EmptyState
-          icon={Trophy}
-          title="Aucune évaluation pour l’instant"
-          description="Vos tentatives apparaîtront ici, y compris celles passées sur papier."
-        />
+        <EmptyState icon={Trophy} title="Aucune évaluation pour l’instant" />
       ) : (
         <>
           <ul className="space-y-3">

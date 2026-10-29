@@ -15,7 +15,7 @@ export function NewScout() {
       <BackLink href="/administration/routiers">Routiers</BackLink>
       <PageHeading
         title="Nouveau routier"
-        description="Le routier est enregistré sans compte : un compte existant pourra être rattaché plus tard depuis sa fiche."
+        description="Enregistré sans compte ; un compte pourra être rattaché depuis la fiche."
       />
       <RequirePermission user={user} permission="scout.create">
         <ScoutForm onSaved={(scout) => router.push(`/administration/routiers/${scout.id}`)} />

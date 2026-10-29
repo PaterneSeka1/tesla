@@ -34,10 +34,7 @@ export function Submissions() {
 
   return (
     <>
-      <PageHeading
-        title="Soumissions"
-        description="Suivi de vos modules soumis à l’approbation du responsable et de ses retours."
-      />
+      <PageHeading title="Soumissions" />
       <Card>
         <CardHeader>
           <CardTitle>Versions en cours de validation</CardTitle>
@@ -51,7 +48,7 @@ export function Submissions() {
             <EmptyState
               icon={Send}
               title="Aucune soumission en cours"
-              description="Soumettez un brouillon depuis sa page d’édition lorsqu’il est prêt."
+              description="Soumettez un brouillon depuis sa page d’édition."
             />
           ) : (
             <ul className="divide-y">

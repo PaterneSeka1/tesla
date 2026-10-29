@@ -74,7 +74,7 @@ export function TeamForm({
       <FormField
         id="team-description"
         label="Description"
-        hint="Facultative, 500 caractères au maximum."
+        hint="Facultative."
         error={errors.description?.message}
       >
         <Textarea

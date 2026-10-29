@@ -39,18 +39,11 @@ function EvaluationsSection({ progression }: { progression: ScoutProgression }) 
     <Card>
       <CardHeader>
         <CardTitle>Évaluations</CardTitle>
-        <CardDescription>
-          Questionnaires en ligne et sur papier. Un résultat est une information : il ne valide ni
-          une compétence ni une étape.
-        </CardDescription>
+        <CardDescription>Un résultat ne valide ni une compétence ni une étape.</CardDescription>
       </CardHeader>
       <CardContent>
         {progression.attempts.length === 0 ? (
-          <EmptyState
-            icon={ClipboardCheck}
-            title="Aucune évaluation"
-            description="Les tentatives papier et en ligne apparaîtront ici."
-          />
+          <EmptyState icon={ClipboardCheck} title="Aucune évaluation" />
         ) : (
           <ul className="space-y-2 text-sm">
             {progression.attempts.map((attempt) => (
@@ -92,16 +85,12 @@ function ActivitiesSection({ progression }: { progression: ScoutProgression }) {
         <CardTitle>Présences et participation</CardTitle>
         <CardDescription>
           {attendance.present} présence(s), {attendance.absent} absence(s), {attendance.excused}{' '}
-          absence(s) excusée(s). Indicateur d’accompagnement : il n’entraîne aucune décision.
+          absence(s) excusée(s). Sans effet sur les décisions.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {attendance.recent.length === 0 ? (
-          <EmptyState
-            icon={CalendarCheck}
-            title="Aucune présence renseignée"
-            description="Les présences saisies sur les activités apparaîtront ici."
-          />
+          <EmptyState icon={CalendarCheck} title="Aucune présence renseignée" />
         ) : (
           <ul className="divide-y text-sm">
             {attendance.recent.map((row) => (
@@ -137,9 +126,6 @@ function TimelineSection({ scoutId }: { scoutId: string }) {
     <Card>
       <CardHeader>
         <CardTitle>Historique complet</CardTitle>
-        <CardDescription>
-          Équipes, étapes, validations, propositions, études, évaluations et compte.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         {isPending ? (
@@ -147,11 +133,7 @@ function TimelineSection({ scoutId }: { scoutId: string }) {
         ) : error ? (
           <QueryError error={error} onRetry={() => void refetch()} />
         ) : data.items.length === 0 ? (
-          <EmptyState
-            icon={History}
-            title="Aucun événement"
-            description="Aucune action enregistrée pour ce routier."
-          />
+          <EmptyState icon={History} title="Aucun événement" />
         ) : (
           <ol className="space-y-2 text-sm">
             {data.items.map((item, index) => (

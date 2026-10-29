@@ -55,7 +55,7 @@ export function CorrectionQueue() {
     <>
       <PageHeading
         title="Corrections"
-        description="Copies à corriger : les questions à choix sont corrigées automatiquement, les réponses rédigées par un chef. Une note n’est jamais une validation officielle."
+        description="Une note n’est jamais une validation officielle."
       />
       <form
         role="search"
@@ -123,11 +123,7 @@ export function CorrectionQueue() {
       ) : error ? (
         <QueryError error={error} onRetry={() => void refetch()} />
       ) : data.items.length === 0 ? (
-        <EmptyState
-          icon={PenLine}
-          title="Aucune copie"
-          description="Aucune tentative ne correspond à ces critères."
-        />
+        <EmptyState icon={PenLine} title="Aucune copie" />
       ) : (
         <>
           <AttemptTable

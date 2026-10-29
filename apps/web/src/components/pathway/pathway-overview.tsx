@@ -42,14 +42,11 @@ export function PathwayOverviewPanel() {
           value={d.catchUps.open}
           hint={`${d.catchUps.overdue} en retard · ${d.catchUps.withoutDeadline} sans échéance validée`}
         />
-        <Figure
-          label="Rattrapages en attente de validation"
-          value={d.catchUps.awaitingValidation}
-        />
+        <Figure label="Rattrapages à valider" value={d.catchUps.awaitingValidation} />
         <Figure
           label="Dates de naissance manquantes"
           value={d.missingBirthDate}
-          hint="Sans elle, ni l’étape théorique ni la sortie ne sont calculables."
+          hint="Empêchent le calcul de l’étape théorique et de la sortie."
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
@@ -82,7 +79,6 @@ export function PathwayOverviewPanel() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Prochaines sorties de la branche</CardTitle>
-            <CardDescription>Par date ; aucun seuil d’alerte n’est encore validé.</CardDescription>
           </CardHeader>
           <CardContent>
             {d.upcomingExits.length === 0 ? (

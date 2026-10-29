@@ -72,7 +72,7 @@ export function NewProposal() {
       <BackLink href="/administration/validations">Validations</BackLink>
       <PageHeading
         title="Proposer une validation"
-        description="Appuyez-vous sur des éléments observables. La proposition n’a aucun effet tant que le responsable n’a pas décidé."
+        description="Appuyez-vous sur des faits observables. Sans effet avant la décision du responsable."
       />
       <Card>
         <CardHeader>

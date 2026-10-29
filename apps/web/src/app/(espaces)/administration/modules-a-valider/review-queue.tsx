@@ -35,10 +35,7 @@ export function ReviewQueue() {
 
   return (
     <RequirePermission user={user} permission="module.review">
-      <PageHeading
-        title="Modules à valider"
-        description="Versions soumises par les chefs : examinez le contenu exact avant toute décision."
-      />
+      <PageHeading title="Modules à approuver" />
       <div role="tablist" aria-label="File de validation" className="flex gap-2">
         {TABS.map(({ value, label }) => (
           <Button
@@ -62,11 +59,6 @@ export function ReviewQueue() {
           <EmptyState
             icon={FileCheck2}
             title={tab === 'SOUMIS' ? 'Aucune soumission en attente' : 'Aucun module à publier'}
-            description={
-              tab === 'SOUMIS'
-                ? 'Les modules soumis par les chefs apparaîtront ici.'
-                : 'Les versions approuvées restent figées ici jusqu’à leur publication.'
-            }
           />
         ) : (
           <ul className="grid gap-3 md:grid-cols-2">

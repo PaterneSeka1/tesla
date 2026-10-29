@@ -29,10 +29,7 @@ export function StatisticsBoard() {
   const d = query.data;
   return (
     <>
-      <PageHeading
-        title="Statistiques pédagogiques"
-        description="Indicateurs calculés sur les données enregistrées ; aucun classement individuel."
-      />
+      <PageHeading title="Statistiques" />
       <div className="flex flex-wrap gap-3">
         <label>
           Équipe actuelle

@@ -34,8 +34,8 @@ export function MyPath({ competenciesOnly = false }: { competenciesOnly?: boolea
   return (
     <>
       <PageHeading
-        title={competenciesOnly ? 'Mes compétences' : 'Ma progression'}
-        description="Une lecture ou un résultat d’évaluation ne valide jamais automatiquement un acquis."
+        title={competenciesOnly ? 'Compétences' : 'Progression'}
+        description="Un acquis n’est jamais validé automatiquement."
       />
       <p>
         {d.scout.firstName} {d.scout.lastName} · {d.scout.stage?.name ?? 'Étape non renseignée'} ·{' '}
@@ -130,10 +130,7 @@ export function MyActivities() {
   const query = useQuery(myActivitiesQueryOptions);
   return (
     <>
-      <PageHeading
-        title="Mes activités"
-        description="Activités prochaines et participations enregistrées."
-      />
+      <PageHeading title="Activités" />
       {query.isPending && <p role="status">Chargement…</p>}
       {query.isError && <p role="alert">Activités indisponibles.</p>}
       {query.data && (

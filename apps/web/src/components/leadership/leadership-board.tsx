@@ -16,7 +16,7 @@ import {
   type SessionUser,
   type UserSummary,
 } from '@tesla/shared';
-import { BadgeCheck, CalendarRange, UserX } from 'lucide-react';
+import { BadgeCheck, UserX } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -578,8 +578,8 @@ export function LeadershipBoard() {
         <Alert variant="info">
           <UserX aria-hidden />
           <AlertDescription>
-            Aucun responsable plein n’est en exercice : les décisions officielles (approbations,
-            validations, déblocages) sont suspendues jusqu’à l’enregistrement d’une nomination.
+            Aucun responsable plein en exercice : les décisions officielles sont suspendues jusqu’à
+            l’enregistrement d’une nomination.
           </AlertDescription>
         </Alert>
       )}
@@ -597,11 +597,7 @@ export function LeadershipBoard() {
         </CardHeader>
         <CardContent>
           {d.current.length === 0 ? (
-            <EmptyState
-              icon={BadgeCheck}
-              title="Aucun mandat en vigueur"
-              description="Enregistrez une nomination ci-dessous."
-            />
+            <EmptyState icon={BadgeCheck} title="Aucun mandat en vigueur" />
           ) : (
             <ul className="stagger space-y-2">
               {d.current.map((mandate) => (
@@ -632,12 +628,8 @@ export function LeadershipBoard() {
       {d.withoutMandate.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Membres de l’encadrement sans mandat</CardTitle>
-            <CardDescription>
-              Consultation, rédaction et accompagnement conservés ; aucune décision officielle. Les
-              anciens comptes repris de l’organisation précédente attendent qu’une fonction soit
-              enregistrée sur information fiable.
-            </CardDescription>
+            <CardTitle>Encadrement sans mandat</CardTitle>
+            <CardDescription>Aucune décision officielle possible sans mandat.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-1 text-sm">
@@ -659,9 +651,8 @@ export function LeadershipBoard() {
           <CardHeader>
             <CardTitle>{draft ? 'Reconduction (préremplie)' : 'Enregistrer un mandat'}</CardTitle>
             <CardDescription>
-              Nomination, reconduction, remplacement ou changement de fonction : toujours un nouveau
-              mandat annuel, sans limite de reconductions. Personne ne consigne sa propre
-              nomination.
+              Toute nomination, reconduction ou changement crée un nouveau mandat annuel. Personne
+              ne consigne sa propre nomination.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -686,8 +677,7 @@ export function LeadershipBoard() {
         <CardHeader>
           <CardTitle>Délégations</CardTitle>
           <CardDescription>
-            Nominatives, limitées dans le temps, révocables ; consenties par le responsable plein en
-            exercice. Elles cessent avec son mandat.
+            Nominatives et révocables ; elles cessent avec le mandat du responsable plein.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -759,12 +749,7 @@ export function LeadershipBoard() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarRange className="size-5" aria-hidden /> Historique des mandats
-          </CardTitle>
-          <CardDescription>
-            Mandats conservés sans limite de durée, par année scoute.
-          </CardDescription>
+          <CardTitle>Historique des mandats</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <FormField id="history-year" label="Année scoute">
@@ -803,8 +788,7 @@ export function LeadershipBoard() {
           <CardHeader>
             <CardTitle>Années scoutes</CardTitle>
             <CardDescription>
-              Calendrier configurable :{' '}
-              {d.scoutYears.map((year) => year.label).join(', ') || 'aucune année déclarée'}.
+              {d.scoutYears.map((year) => year.label).join(', ') || 'Aucune année déclarée.'}
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -18,7 +18,7 @@ export function NewModule() {
       <BackLink href="/encadrement/modules">Mes modules</BackLink>
       <PageHeading
         title="Nouveau module"
-        description="Le module reste un brouillon invisible des routiers jusqu’à son approbation et sa publication par le responsable."
+        description="Brouillon invisible des routiers jusqu’à sa publication par le responsable."
       />
       <Card>
         <CardContent className="pt-6">

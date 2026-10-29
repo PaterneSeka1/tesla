@@ -46,7 +46,7 @@ export function Catalog() {
     <>
       <PageHeading
         title="Bibliothèque"
-        description="Découvrir le scoutisme, la Route et la communauté, puis les modules de chaque étape : tout module publié est accessible quelle que soit votre étape."
+        description="Tout module publié est accessible, quelle que soit votre étape."
       />
       <div className="flex flex-wrap gap-2" role="group" aria-label="Catégorie">
         {(['', ...MODULE_CATEGORIES] as const).map((value) => (
@@ -138,7 +138,7 @@ export function Catalog() {
           description={
             filtered
               ? 'Modifiez la recherche ou les filtres.'
-              : 'Les modules apparaîtront ici après leur approbation et leur publication par le responsable pédagogique.'
+              : 'Les modules apparaissent après leur publication par le responsable.'
           }
         />
       ) : (

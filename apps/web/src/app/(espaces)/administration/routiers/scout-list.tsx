@@ -86,10 +86,7 @@ export function ScoutList() {
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeading
-          title="Routiers"
-          description="Fiches des routiers, avec ou sans compte. Recherche par nom, prénoms ou matricule."
-        />
+        <PageHeading title="Routiers" />
         {userCan(user, 'scout.create') && (
           <Button asChild>
             <Link href="/administration/routiers/nouveau">
@@ -195,11 +192,7 @@ export function ScoutList() {
         <EmptyState
           icon={Users}
           title="Aucun routier"
-          description={
-            filtered
-              ? 'Aucun routier ne correspond à ces critères.'
-              : 'Aucun routier n’est encore enregistré.'
-          }
+          description={filtered ? 'Modifiez la recherche ou les filtres.' : undefined}
         />
       ) : (
         <>

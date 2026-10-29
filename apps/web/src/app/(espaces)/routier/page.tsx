@@ -4,10 +4,7 @@ import { RoutierPedagogyDashboard } from '@/components/progression/pedagogy-dash
 export default function Page() {
   return (
     <>
-      <PageHeading
-        title="Tableau de bord"
-        description="Votre parcours dans la Communauté Nikola Tesla."
-      />
+      <PageHeading title="Tableau de bord" />
       <MyPathwayOverview />
       <RoutierPedagogyDashboard />
     </>

@@ -56,14 +56,7 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeading
-          title={review ? 'Tous les modules' : 'Mes modules'}
-          description={
-            review
-              ? 'Ensemble des modules de la communauté, publiés ou en cours de rédaction.'
-              : 'Modules dont vous êtes l’auteur ou sur lesquels vous êtes invité à collaborer.'
-          }
-        />
+        <PageHeading title={review ? 'Tous les modules' : 'Mes modules'} />
         <Button asChild>
           <Link href="/encadrement/modules/nouveau">
             <Plus aria-hidden />
@@ -128,9 +121,7 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
           icon={FilePenLine}
           title="Aucun module"
           description={
-            deferredSearch || status !== 'all'
-              ? 'Aucun module ne correspond à ces critères.'
-              : 'Créez un premier module : il restera un brouillon jusqu’à sa soumission et son approbation.'
+            deferredSearch || status !== 'all' ? 'Modifiez la recherche ou les filtres.' : undefined
           }
         />
       ) : (

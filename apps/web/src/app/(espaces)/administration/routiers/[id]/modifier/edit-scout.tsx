@@ -26,10 +26,7 @@ export function EditScout() {
         <QueryError error={error} onRetry={() => void refetch()} />
       ) : (
         <>
-          <PageHeading
-            title={`Modifier — ${fullName(scout)}`}
-            description="Les modifications sont journalisées."
-          />
+          <PageHeading title={`Modifier — ${fullName(scout)}`} />
           <RequirePermission user={user} permission="scout.update">
             <ScoutForm
               scout={scout}

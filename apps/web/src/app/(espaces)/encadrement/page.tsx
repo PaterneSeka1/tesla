@@ -3,10 +3,7 @@ import { StaffDashboard } from '@/components/pathway/staff-dashboard';
 export default function Page() {
   return (
     <>
-      <PageHeading
-        title="Tableau de bord"
-        description="Suivi pédagogique de la communauté Nikola Tesla."
-      />
+      <PageHeading title="Tableau de bord" />
       <StaffDashboard />
     </>
   );

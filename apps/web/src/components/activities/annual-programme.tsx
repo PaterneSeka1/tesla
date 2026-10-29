@@ -36,7 +36,7 @@ export function AnnualProgramme() {
     <>
       <PageHeading
         title="Programme annuel"
-        description="Import vérifiable depuis le document approuvé. Aucune séance n’est générée automatiquement."
+        description="Aucune séance n’est générée automatiquement."
       />
       {programmes.isPending && <p role="status">Chargement…</p>}
       {programmes.isError && <p role="alert">Programme indisponible.</p>}

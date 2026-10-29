@@ -6,7 +6,7 @@ export default function Page() {
     <>
       <PageHeading
         title="Référentiel d’âge"
-        description="Périodes d’étape selon l’âge, sortie de la branche et délais : seules les règles confirmées y figurent, avec leur source."
+        description="Seules les règles confirmées y figurent, avec leur source."
       />
       <AgeRulesView />
     </>

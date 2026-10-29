@@ -177,11 +177,7 @@ export function ObservationsSection({ scoutId }: { scoutId: string }) {
         ) : error ? (
           <QueryError error={error} onRetry={() => void refetch()} />
         ) : data.items.length === 0 ? (
-          <EmptyState
-            icon={MessageSquareText}
-            title="Aucune observation"
-            description="Aucune observation visible n’a été saisie pour ce routier."
-          />
+          <EmptyState icon={MessageSquareText} title="Aucune observation" />
         ) : (
           <>
             <ul className="space-y-3">

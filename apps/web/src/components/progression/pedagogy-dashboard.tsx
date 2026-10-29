@@ -142,11 +142,7 @@ function Upcoming({ items }: { items: ActivitySummary[] }) {
   return (
     <Panel title="Prochaines activités">
       {items.length === 0 ? (
-        <EmptyState
-          icon={CalendarDays}
-          title="Aucune activité planifiée"
-          description="Les activités à venir apparaîtront ici."
-        />
+        <EmptyState icon={CalendarDays} title="Aucune activité planifiée" />
       ) : (
         <ol className="space-y-3 border-l-2 border-tesla-sable pl-4">
           {items.map((activity) => (
@@ -170,16 +166,9 @@ function Upcoming({ items }: { items: ActivitySummary[] }) {
 
 function FollowUp({ items }: { items: FollowUpItem[] }) {
   return (
-    <Panel
-      title="Accompagnement"
-      description="Faits à examiner par l’encadrement ; aucune sanction ni décision automatique."
-    >
+    <Panel title="Accompagnement" description="Aucune décision automatique.">
       {items.length === 0 ? (
-        <EmptyState
-          icon={HeartHandshake}
-          title="Aucun signal enregistré"
-          description="Les routiers à accompagner apparaîtront ici."
-        />
+        <EmptyState icon={HeartHandshake} title="Aucun signal enregistré" />
       ) : (
         <ul className="divide-y">
           {items.map((item) => (
@@ -311,7 +300,7 @@ export function ResponsablePedagogyDashboard() {
         <Upcoming items={query.data.upcomingActivities} />
       </div>
 
-      <SectionTitle>La communauté en chiffres</SectionTitle>
+      <SectionTitle>En chiffres</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           label="Routiers actifs"
@@ -330,7 +319,6 @@ export function ResponsablePedagogyDashboard() {
         <Kpi
           label="Modules étudiés"
           value={statistics.moduleStudies}
-          hint="Études enregistrées"
           href="/administration/statistiques"
           icon={BookOpen}
         />
@@ -344,10 +332,7 @@ export function ResponsablePedagogyDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel
-          title="Validation des contenus"
-          description="Modules et questionnaires soumis par les chefs."
-        >
+        <Panel title="Validation des contenus">
           <ul className="-mx-3">
             <ActionRow
               label="Modules à approuver"
@@ -363,10 +348,7 @@ export function ResponsablePedagogyDashboard() {
             />
           </ul>
         </Panel>
-        <Panel
-          title="Décisions sur les routiers"
-          description="Résultats, acquis et présences : décisions humaines uniquement."
-        >
+        <Panel title="Décisions">
           <ul className="-mx-3">
             <ActionRow
               label="Résultats à examiner"
@@ -429,10 +411,7 @@ export function ChefPedagogyDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel
-          title="Mes propositions de validation"
-          description="La décision officielle appartient au responsable pédagogique."
-        >
+        <Panel title="Mes propositions" description="Seul le responsable décide.">
           <ul className="-mx-3">
             <ActionRow
               label="En attente de décision"
@@ -470,11 +449,7 @@ export function ChefPedagogyDashboard() {
         </Panel>
         <Panel title="Mes observations récentes">
           {d.recentObservations.length === 0 ? (
-            <EmptyState
-              icon={MessageSquareText}
-              title="Aucune observation"
-              description="Vos observations d’accompagnement apparaîtront ici."
-            />
+            <EmptyState icon={MessageSquareText} title="Aucune observation" />
           ) : (
             <ul className="divide-y">
               {d.recentObservations.map((observation) => (
@@ -573,7 +548,7 @@ export function RoutierPedagogyDashboard() {
       <EmptyState
         icon={UserX}
         title="Compte non rattaché"
-        description="Votre compte n’est pas encore rattaché à un profil routier. Contactez le responsable pédagogique."
+        description="Demandez le rattachement de votre compte au responsable."
       />
     );
 
@@ -593,14 +568,12 @@ export function RoutierPedagogyDashboard() {
         <Kpi
           label="Compétences validées"
           value={d.acquiredCompetencies.length}
-          hint="Validations officielles"
           href="/mes-competences"
           icon={Medal}
         />
         <Kpi
-          label="Résultats communiqués"
+          label="Résultats récents"
           value={d.recentResults.length}
-          hint="Récents"
           href="/mes-resultats"
           icon={Trophy}
         />
@@ -608,15 +581,12 @@ export function RoutierPedagogyDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel
-          title="Modules recommandés"
-          description="Modules publiés de votre étape, pas encore étudiés."
-        >
+        <Panel title="Modules recommandés" description="De votre étape, pas encore étudiés.">
           {d.recommendedModules.length === 0 ? (
             <EmptyState
               icon={BookOpen}
               title="Aucune recommandation"
-              description="La bibliothèque reste ouverte à tous les modules publiés."
+              description="Tous les modules publiés restent accessibles."
             />
           ) : (
             <ul className="-mx-3">
@@ -637,11 +607,7 @@ export function RoutierPedagogyDashboard() {
         </Panel>
         <Panel title="Résultats récents" description="Un résultat ne valide jamais une étape.">
           {d.recentResults.length === 0 ? (
-            <EmptyState
-              icon={Trophy}
-              title="Aucun résultat communiqué"
-              description="Vos résultats examinés par le responsable apparaîtront ici."
-            />
+            <EmptyState icon={Trophy} title="Aucun résultat communiqué" />
           ) : (
             <ul className="divide-y">
               {d.recentResults.map((result) => (

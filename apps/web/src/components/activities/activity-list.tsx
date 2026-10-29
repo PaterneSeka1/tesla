@@ -38,10 +38,7 @@ export function ActivityList({ presences = false }: { presences?: boolean }) {
   );
   return (
     <>
-      <PageHeading
-        title={presences ? 'Présences à renseigner' : 'Activités'}
-        description="Programme annuel et activités supplémentaires de la communauté."
-      />
+      <PageHeading title={presences ? 'Présences à renseigner' : 'Activités'} />
       <div className="flex flex-wrap gap-3">
         <label>
           Rechercher

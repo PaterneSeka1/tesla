@@ -49,7 +49,7 @@ export function CompetenciesSection({ progression }: { progression: ScoutProgres
             <EmptyState
               icon={BadgeCheck}
               title="Référentiel vide"
-              description="Le responsable n’a encore saisi aucune compétence active."
+              description="Aucune compétence active."
             />
           ) : (
             <ul className="divide-y text-sm">

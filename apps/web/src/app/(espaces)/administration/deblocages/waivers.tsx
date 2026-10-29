@@ -18,7 +18,7 @@ import { Pagination } from '@/components/pagination';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -93,14 +93,11 @@ export function Waivers() {
     <RequirePermission user={user} permission="waiver.manage">
       <PageHeading
         title="Déblocages"
-        description="Autoriser individuellement un routier à passer une évaluation hors de son étape. La limite de tentatives continue de s’appliquer."
+        description="Autorise un routier à passer une évaluation hors de son étape. La limite de tentatives reste appliquée."
       />
       <Card>
         <CardHeader>
           <CardTitle>Accorder un déblocage</CardTitle>
-          <CardDescription>
-            Le motif est conservé dans l’historique et le journal d’audit.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -207,11 +204,7 @@ export function Waivers() {
       ) : waivers.error ? (
         <QueryError error={waivers.error} onRetry={() => void waivers.refetch()} />
       ) : waivers.data.items.length === 0 ? (
-        <EmptyState
-          icon={Unlock}
-          title="Aucun déblocage"
-          description="Aucun déblocage dans cette catégorie."
-        />
+        <EmptyState icon={Unlock} title="Aucun déblocage" />
       ) : (
         <>
           <ul className="space-y-2">

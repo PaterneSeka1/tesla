@@ -83,7 +83,7 @@ export function PaperPreparation() {
       <BackLink href="/encadrement/evaluations">Évaluations</BackLink>
       <PageHeading
         title="Évaluation papier"
-        description="Pour un routier avec ou sans compte : mêmes règles d’éligibilité qu’en ligne. Le code de tentative est attribué par le serveur."
+        description="Avec ou sans compte : mêmes règles d’éligibilité qu’en ligne."
       />
 
       <Card>
@@ -186,8 +186,8 @@ export function PaperPreparation() {
           <CardHeader>
             <CardTitle>2. Évaluation publiée</CardTitle>
             <CardDescription>
-              Éligibilité de {selectedScout ? fullName(selectedScout) : 'ce routier'}, calculée par
-              le serveur (étape actuelle ou dérogation active du responsable).
+              Éligibilité de {selectedScout ? fullName(selectedScout) : 'ce routier'} : étape
+              actuelle ou déblocage actif.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -199,7 +199,7 @@ export function PaperPreparation() {
               <EmptyState
                 icon={Printer}
                 title="Aucune évaluation publiée"
-                description="Une évaluation doit être approuvée et publiée par le responsable avant d’être imprimée."
+                description="Seule une évaluation publiée peut être imprimée."
               />
             ) : (
               <ul className="space-y-2" role="radiogroup" aria-label="Évaluation">
@@ -257,8 +257,8 @@ export function PaperPreparation() {
           <CardHeader>
             <CardTitle>3. Créer la tentative et imprimer</CardTitle>
             <CardDescription>
-              Un code unique sera attribué ; vous pourrez ensuite télécharger le questionnaire A4,
-              le corrigé et la grille de correction.
+              Un code unique sera attribué, puis le questionnaire, le corrigé et la grille seront
+              téléchargeables.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-end gap-3">

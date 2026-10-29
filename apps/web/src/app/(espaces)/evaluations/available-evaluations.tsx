@@ -39,7 +39,7 @@ export function AvailableEvaluations() {
     <>
       <PageHeading
         title="Évaluations"
-        description="Les évaluations complètent les modules et les activités : elles s’ouvrent selon votre étape ou sur décision du responsable."
+        description="Ouvertes selon votre étape ou sur décision du responsable."
       />
       <form
         role="search"
@@ -89,11 +89,7 @@ export function AvailableEvaluations() {
       ) : error ? (
         <QueryError error={error} onRetry={() => void refetch()} />
       ) : data.items.length === 0 ? (
-        <EmptyState
-          icon={ClipboardCheck}
-          title="Aucune évaluation"
-          description="Aucune évaluation publiée ne correspond à ces critères."
-        />
+        <EmptyState icon={ClipboardCheck} title="Aucune évaluation" />
       ) : (
         <>
           <ul className="grid gap-3 md:grid-cols-2">

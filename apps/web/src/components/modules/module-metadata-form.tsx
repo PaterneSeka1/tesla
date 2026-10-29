@@ -147,12 +147,7 @@ export function ModuleMetadataForm({
           </FormField>
         </div>
         <div className="md:col-span-2">
-          <FormField
-            id="module-summary"
-            label="Description"
-            hint="Présentation du module affichée dans la bibliothèque."
-            error={errors.summary?.message}
-          >
+          <FormField id="module-summary" label="Description" error={errors.summary?.message}>
             <Textarea
               rows={3}
               maxLength={2000}

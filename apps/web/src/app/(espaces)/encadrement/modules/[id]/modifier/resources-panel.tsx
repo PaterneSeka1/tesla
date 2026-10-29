@@ -69,11 +69,7 @@ export function ResourcesPanel({
   return (
     <div className="space-y-4">
       {resources.length === 0 ? (
-        <EmptyState
-          icon={Link2}
-          title="Aucune ressource"
-          description="Images, documents, vidéos externes ou liens de référence associés au module ou à une leçon."
-        />
+        <EmptyState icon={Link2} title="Aucune ressource" />
       ) : (
         <ResourceList
           resources={resources.map((resource) => ({
@@ -162,7 +158,7 @@ export function ResourcesPanel({
               onChange={(event) => setUrl(event.target.value)}
             />
             <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-              Vidéos : YouTube ou Vimeo uniquement. Aucun fichier n’est stocké sur le serveur.
+              Vidéos : YouTube ou Vimeo uniquement.
             </p>
           </div>
           <div className="space-y-1 md:col-span-2">

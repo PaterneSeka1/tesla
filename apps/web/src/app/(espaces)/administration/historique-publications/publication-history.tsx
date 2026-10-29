@@ -33,20 +33,13 @@ export function PublicationHistory() {
 
   return (
     <RequirePermission user={user} permission="module.review">
-      <PageHeading
-        title="Historique des publications"
-        description="Décisions du responsable : approbations, corrections, refus, publications et archivages."
-      />
+      <PageHeading title="Historique des publications" />
       {isPending ? (
         <TableSkeleton />
       ) : error ? (
         <QueryError error={error} onRetry={() => void refetch()} />
       ) : data.items.length === 0 ? (
-        <EmptyState
-          icon={History}
-          title="Aucune décision"
-          description="Aucune décision n’a encore été prise."
-        />
+        <EmptyState icon={History} title="Aucune décision" />
       ) : (
         <>
           <Table>

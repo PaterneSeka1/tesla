@@ -105,17 +105,7 @@ export function CatchUpList({
   audience: 'routier' | 'encadrement';
 }) {
   if (obligations.length === 0) {
-    return (
-      <EmptyState
-        icon={CheckCircle2}
-        title="Aucun rattrapage"
-        description={
-          audience === 'routier'
-            ? 'Aucun module obligatoire d’une étape antérieure ne reste à acquérir.'
-            : 'Aucun module obligatoire d’une étape antérieure ne reste à acquérir pour ce routier.'
-        }
-      />
-    );
+    return <EmptyState icon={CheckCircle2} title="Aucun rattrapage" />;
   }
   return (
     <div className="space-y-3">

@@ -45,10 +45,7 @@ export function TeamList() {
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeading
-          title="Équipes"
-          description="Équipes de la Communauté Nikola Tesla et leurs membres."
-        />
+        <PageHeading title="Équipes" />
         {userCan(user, 'team.manage') && (
           <Button asChild>
             <Link href="/administration/equipes/nouvelle">
@@ -111,8 +108,8 @@ export function TeamList() {
           title="Aucune équipe"
           description={
             deferredSearch || status !== 'active'
-              ? 'Aucune équipe ne correspond à ces critères.'
-              : 'Aucune équipe n’a encore été créée.'
+              ? 'Modifiez la recherche ou les filtres.'
+              : undefined
           }
         />
       ) : (

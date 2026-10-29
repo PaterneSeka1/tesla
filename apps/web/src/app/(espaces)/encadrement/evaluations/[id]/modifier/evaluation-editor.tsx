@@ -194,9 +194,6 @@ export function EvaluationEditor() {
       <Card>
         <CardHeader>
           <CardTitle>Informations</CardTitle>
-          <CardDescription>
-            Titre, consignes, étape concernée, module évalué, durée et nombre de tentatives.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <EvaluationSettingsForm

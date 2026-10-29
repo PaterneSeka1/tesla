@@ -32,7 +32,7 @@ export function ResultReviewQueue() {
     <RequirePermission user={user} permission="attempt.decide">
       <PageHeading
         title="Résultats à examiner"
-        description="Accepter un résultat corrigé n’est pas valider officiellement un acquis ni changer l’étape d’un routier : ces décisions restent des actes distincts."
+        description="Accepter un résultat ne valide aucun acquis et ne change pas l’étape du routier."
       />
       <div className="max-w-md space-y-1">
         <Label htmlFor="pending-search">Rechercher</Label>
@@ -59,11 +59,7 @@ export function ResultReviewQueue() {
       ) : error ? (
         <QueryError error={error} onRetry={() => void refetch()} />
       ) : data.items.length === 0 ? (
-        <EmptyState
-          icon={ClipboardCheck}
-          title="Aucun résultat en attente"
-          description="Les copies corrigées et soumises par les chefs apparaîtront ici."
-        />
+        <EmptyState icon={ClipboardCheck} title="Aucun résultat en attente" />
       ) : (
         <>
           <AttemptTable

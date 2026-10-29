@@ -53,9 +53,7 @@ export function EvaluationList({ review = false }: { review?: boolean }) {
         <PageHeading
           title={review ? 'Toutes les évaluations' : 'Évaluations'}
           description={
-            review
-              ? 'Questionnaires de la communauté, publiés ou en cours de rédaction.'
-              : 'Questionnaires que vous rédigez. Un questionnaire n’est passé par les routiers qu’après approbation et publication par le responsable.'
+            review ? undefined : 'Visible des routiers après publication par le responsable.'
           }
         />
         <div className="flex flex-wrap gap-2">
@@ -132,9 +130,7 @@ export function EvaluationList({ review = false }: { review?: boolean }) {
           icon={ClipboardList}
           title="Aucun questionnaire"
           description={
-            deferredSearch || status !== 'all'
-              ? 'Aucun questionnaire ne correspond à ces critères.'
-              : 'Créez un premier questionnaire : il restera un brouillon jusqu’à sa soumission.'
+            deferredSearch || status !== 'all' ? 'Modifiez la recherche ou les filtres.' : undefined
           }
         />
       ) : (

@@ -250,10 +250,7 @@ export function CompetenciesAdmin() {
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeading
-          title="Référentiel de compétences"
-          description="Compétences, critères observables et nombre minimal d’éléments justificatifs, fixés par le responsable."
-        />
+        <PageHeading title="Compétences" />
         {isResponsable && editing !== 'new' && (
           <Button onClick={() => setEditing('new')}>
             <Plus aria-hidden />
@@ -266,8 +263,7 @@ export function CompetenciesAdmin() {
           <CardHeader>
             <CardTitle>Nouvelle compétence</CardTitle>
             <CardDescription>
-              Les domaines proposés par la mission sont des exemples : aucune liste officielle n’est
-              imposée.
+              Domaines proposés à titre d’exemple ; aucune liste officielle n’est imposée.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -312,11 +308,7 @@ export function CompetenciesAdmin() {
         <EmptyState
           icon={BadgeCheck}
           title="Aucune compétence"
-          description={
-            isResponsable
-              ? 'Créez la première compétence du référentiel.'
-              : 'Le responsable n’a encore saisi aucune compétence.'
-          }
+          description={isResponsable ? 'Créez la première compétence du référentiel.' : undefined}
         />
       ) : (
         <>

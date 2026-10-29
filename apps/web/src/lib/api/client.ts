@@ -39,7 +39,7 @@ export async function apiFetch<T>(
     throw new ApiError(
       0,
       'NETWORK_ERROR',
-      'Impossible de joindre le serveur. Vérifiez votre connexion.',
+      'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
     );
   }
 
@@ -49,12 +49,12 @@ export async function apiFetch<T>(
     const error = apiErrorSchema.safeParse(body);
     if (error.success)
       throw new ApiError(error.data.statusCode, error.data.code, error.data.message);
-    throw new ApiError(response.status, 'UNKNOWN_ERROR', 'Une erreur inattendue est survenue.');
+    throw new ApiError(response.status, 'UNKNOWN_ERROR', 'Une erreur est survenue. Réessayez.');
   }
 
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    throw new ApiError(response.status, 'INVALID_RESPONSE', 'Réponse du serveur inattendue.');
+    throw new ApiError(response.status, 'INVALID_RESPONSE', 'Une erreur est survenue. Réessayez.');
   }
   return parsed.data;
 }

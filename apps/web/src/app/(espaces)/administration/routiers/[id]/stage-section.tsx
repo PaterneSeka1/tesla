@@ -56,13 +56,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 function StageHistory({ changes }: { changes: StageChange[] }) {
   if (changes.length === 0) {
-    return (
-      <EmptyState
-        icon={Flag}
-        title="Aucune étape enregistrée"
-        description="L’étape initiale et chaque décision du responsable apparaîtront ici."
-      />
-    );
+    return <EmptyState icon={Flag} title="Aucune étape enregistrée" />;
   }
   return (
     <ol className="space-y-2 text-sm">
@@ -159,8 +153,7 @@ function ChangeStageForm({ progression }: { progression: ScoutProgression }) {
       <CardHeader>
         <CardTitle>Décision de changement d’étape</CardTitle>
         <CardDescription>
-          Acte officiel du responsable, jamais automatique. Aucun seuil n’est imposé : la décision
-          s’appuie sur votre appréciation du dossier ci-dessous.
+          Acte officiel du responsable, jamais automatique, fondé sur le dossier ci-dessous.
         </CardDescription>
       </CardHeader>
       <CardContent>

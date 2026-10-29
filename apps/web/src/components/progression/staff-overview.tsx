@@ -78,8 +78,7 @@ export function StaffHero({
   return (
     <div className="grid gap-4 rounded-xl bg-tesla-bordeaux p-5 text-white shadow-sm md:grid-cols-[1fr_auto] md:items-center">
       <div>
-        <p className="text-xs tracking-wider text-tesla-or uppercase">Communauté Nikola Tesla</p>
-        <p className="mt-1 text-2xl font-semibold">Bonjour {firstName}</p>
+        <p className="text-2xl font-semibold">Bonjour {firstName}</p>
         <p className="mt-1 text-sm text-tesla-sable">
           {taskTotal === 0
             ? 'Rien ne vous attend pour le moment.'
@@ -151,19 +150,15 @@ export function TaskInbox({
             {total}
           </Badge>
         </CardTitle>
-        <CardDescription>
-          {total > tasks.length
-            ? `Les ${tasks.length} plus anciens sur ${total}. Les décisions se prennent dans chaque écran.`
-            : 'Du plus ancien au plus récent. Les décisions se prennent dans chaque écran.'}
-        </CardDescription>
+        {total > tasks.length && (
+          <CardDescription>
+            Les {tasks.length} plus anciens sur {total}.
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent>
         {tasks.length === 0 ? (
-          <EmptyState
-            icon={PartyPopper}
-            title="Tout est à jour"
-            description="Les soumissions, copies et présences à traiter apparaîtront ici."
-          />
+          <EmptyState icon={PartyPopper} title="Tout est à jour" />
         ) : (
           <ul className="-mx-3 divide-y">
             {tasks.map((task) => {
@@ -235,7 +230,7 @@ export function YearTimeline({ year, className }: { year: YearOverview; classNam
           <EmptyState
             icon={CalendarDays}
             title="Aucune activité au programme"
-            description="Importez ou complétez le programme annuel pour suivre l’avancement de l’année."
+            description="Importez le programme annuel pour suivre l’année."
           />
         ) : (
           <>
