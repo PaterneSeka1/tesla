@@ -3,7 +3,6 @@ import {
   BarChart3,
   BookOpen,
   BadgeCheck,
-  Compass,
   Route,
   Undo2,
   CalendarCheck,
@@ -158,18 +157,18 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
       label: 'Mon parcours',
       items: [
         { href: '/routier', label: 'Tableau de bord', icon: LayoutDashboard },
-        { href: '/progression', label: 'Ma progression', icon: GraduationCap },
-        { href: '/mes-rattrapages', label: 'Mes rattrapages', icon: Undo2 },
-        { href: '/mes-competences', label: 'Mes compétences', icon: Medal },
-        { href: '/mes-activites', label: 'Mes activités', icon: CalendarDays },
+        { href: '/progression', label: 'Progression', icon: GraduationCap },
+        { href: '/mes-rattrapages', label: 'Rattrapages', icon: Undo2 },
+        { href: '/mes-competences', label: 'Compétences', icon: Medal },
+        { href: '/mes-activites', label: 'Activités', icon: CalendarDays },
       ],
     },
     {
       label: 'Apprendre',
       items: [
-        { href: '/modules', label: 'Découvrir la Route', icon: Compass },
-        { href: '/evaluations', label: 'Mes évaluations', icon: ClipboardCheck },
-        { href: '/mes-resultats', label: 'Mes résultats', icon: Trophy },
+        LIBRARY,
+        { href: '/evaluations', label: 'Évaluations', icon: ClipboardCheck },
+        { href: '/mes-resultats', label: 'Résultats', icon: Trophy },
         { href: '/hors-ligne', label: 'Hors ligne', icon: CloudDownload },
       ],
     },
@@ -181,12 +180,7 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
         { href: '/encadrement', label: 'Tableau de bord', icon: LayoutDashboard },
         { href: '/administration/statistiques', label: 'Statistiques', icon: BarChart3 },
         { href: '/administration/programme-annuel', label: 'Programme annuel', icon: CalendarDays },
-        {
-          href: '/mandats',
-          label: 'Responsables et mandats',
-          icon: BadgeCheck,
-          permission: 'mandate.read',
-        },
+        { href: '/mandats', label: 'Responsables', icon: BadgeCheck, permission: 'mandate.read' },
       ],
     },
     {
@@ -208,7 +202,7 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
       ],
     },
     {
-      label: 'Décisions sur les routiers',
+      label: 'Décisions',
       items: [
         {
           href: '/administration/evaluations-a-valider',
@@ -238,11 +232,11 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
       label: 'Rédaction et correction',
       collapsible: true,
       items: [
-        { href: '/encadrement/modules', label: 'Rédaction des modules', icon: FilePenLine },
+        { href: '/encadrement/modules', label: 'Modules', icon: FilePenLine },
         { href: '/encadrement/evaluations', label: 'Questionnaires', icon: ClipboardList },
         { href: '/encadrement/evaluations/papier', label: 'Évaluations papier', icon: Printer },
         { href: '/encadrement/corrections', label: 'Corrections', icon: PenLine },
-        { href: '/encadrement/soumissions', label: 'Mes soumissions', icon: Send },
+        { href: '/encadrement/soumissions', label: 'Soumissions', icon: Send },
       ],
     },
     {
@@ -274,8 +268,8 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
   ],
   ADMINISTRATEUR: [
     {
-      label: 'Administration technique',
-      items: [{ href: '/mandats', label: 'Responsables et mandats', icon: BadgeCheck }],
+      label: 'Administration',
+      items: [{ href: '/mandats', label: 'Responsables', icon: BadgeCheck }],
     },
   ],
 };
