@@ -58,6 +58,123 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Animations d'interface (désactivées par « réduire les animations », voir plus bas). */
+  --animate-rise: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-fade: fade 0.35s ease-out both;
+  --animate-halo: halo 2.8s ease-out infinite;
+  --animate-drift: drift 14s ease-in-out infinite alternate;
+  --animate-shake: shake 0.4s ease-in-out;
+  --animate-pop: pop 0.35s cubic-bezier(0.3, 1.6, 0.6, 1);
+  --animate-grow: grow 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Auréole autour du logo : un anneau doré qui s'élargit et s'efface. */
+@keyframes halo {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--tesla-or) 55%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 22px color-mix(in oklab, var(--tesla-or) 0%, transparent);
+  }
+}
+
+/* Halos lumineux décoratifs des bandeaux de marque. */
+@keyframes drift {
+  from {
+    transform: translate3d(-6%, -4%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(8%, 6%, 0) scale(1.15);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.7);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Délai en cascade : style={{ '--stagger': n }} sur l'élément animé. */
+.animate-rise {
+  animation-delay: calc(var(--stagger, 0) * 70ms);
+}
+
+/*
+ * Apparition en cascade des blocs d'un écran : chaque enfant direct d'un conteneur `.stagger`
+ * monte à son tour (huit délais, les suivants avec le dernier).
+ */
+.stagger > * {
+  animation: var(--animate-rise);
+}
+.stagger > :nth-child(2) {
+  animation-delay: 60ms;
+}
+.stagger > :nth-child(3) {
+  animation-delay: 120ms;
+}
+.stagger > :nth-child(4) {
+  animation-delay: 180ms;
+}
+.stagger > :nth-child(5) {
+  animation-delay: 240ms;
+}
+.stagger > :nth-child(6) {
+  animation-delay: 300ms;
+}
+.stagger > :nth-child(7) {
+  animation-delay: 360ms;
+}
+.stagger > :nth-child(n + 8) {
+  animation-delay: 420ms;
 }
 
 @layer base {
@@ -85,6 +202,7 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }

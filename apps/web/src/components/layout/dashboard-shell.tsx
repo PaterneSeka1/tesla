@@ -2,6 +2,7 @@ import { SessionGate } from '@/components/auth/session-gate';
 import { UserMenu } from '@/components/auth/user-menu';
 import { ApiStatus } from '@/components/api-status';
 import { BrandLogo } from '@/components/brand-logo';
+import { PageTransition } from './page-transition';
 import { AppNav, BottomNavSpacer, CurrentPageTitle, MobileMenu, RoutierBottomNav } from './app-nav';
 
 /**
@@ -60,7 +61,13 @@ export function DashboardShell({
           id="contenu"
           className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:p-0"
         >
-          {offline ? children : <SessionGate>{children}</SessionGate>}
+          {offline ? (
+            <PageTransition>{children}</PageTransition>
+          ) : (
+            <SessionGate>
+              <PageTransition>{children}</PageTransition>
+            </SessionGate>
+          )}
         </main>
         <BottomNavSpacer offline={offline} />
       </div>

@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/password-input';
 import { OfflineAttempt } from './offline-attempt';
 import { OfflineReader } from './offline-reader';
 import {
@@ -152,9 +152,8 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
               : 'Connectez-vous en tant que routier, puis créez une phrase locale distincte du mot de passe du compte (12 caractères minimum).'}
           </p>
           <label htmlFor="offline-phrase">Phrase de déverrouillage locale</label>
-          <Input
+          <PasswordInput
             id="offline-phrase"
-            type="password"
             autoComplete="off"
             value={phrase}
             onChange={(e) => setPhrase(e.target.value)}

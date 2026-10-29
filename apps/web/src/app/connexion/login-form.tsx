@@ -2,12 +2,13 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleAlert } from 'lucide-react';
+import { CircleAlert, LoaderCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { FormField, fieldA11y } from '@/components/form-field';
+import { PasswordInput } from '@/components/password-input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,8 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
+  // Chaque échec rejoue la secousse de l'alerte (clé React).
+  const [failures, setFailures] = useState(0);
   const session = useQuery(meQueryOptions);
   const requested = searchParams.get('suivant');
 
@@ -53,6 +56,7 @@ export function LoginForm() {
       router.replace(resolvePostLoginPath(me.user, requested));
     } catch (error) {
       setServerError(error instanceof Error ? error.message : 'Connexion impossible.');
+      setFailures((count) => count + 1);
     }
   };
 
@@ -77,20 +81,25 @@ export function LoginForm() {
         />
       </FormField>
       <FormField id="password" label="Mot de passe" error={errors.password?.message}>
-        <Input
-          type="password"
+        <PasswordInput
           autoComplete="current-password"
           {...fieldA11y('password', errors.password?.message)}
           {...register('password')}
         />
       </FormField>
       {serverError && (
-        <Alert variant="destructive" aria-live="assertive">
+        <Alert key={failures} variant="destructive" aria-live="assertive" className="animate-shake">
           <CircleAlert aria-hidden />
           <AlertDescription>{serverError}</AlertDescription>
         </Alert>
       )}
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full transition-transform active:scale-[0.97]"
+        disabled={isSubmitting}
+      >
+        {isSubmitting && <LoaderCircle className="animate-spin" aria-hidden />}
         {isSubmitting ? 'Connexion…' : 'Se connecter'}
       </Button>
     </form>

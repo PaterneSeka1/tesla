@@ -1,27 +1,82 @@
+import { BookOpen, CloudDownload, GraduationCap } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Suspense } from 'react';
+import { BrandBackdrop } from '@/components/brand-backdrop';
 import { BrandLogo } from '@/components/brand-logo';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoginForm } from './login-form';
 
 export const metadata: Metadata = { title: 'Connexion' };
 
+const stagger = (index: number) => ({ '--stagger': index }) as React.CSSProperties;
+
+const HIGHLIGHTS = [
+  { label: 'Modules approuvés, lisibles hors ligne', icon: BookOpen },
+  { label: 'Évaluations en ligne ou sur papier', icon: CloudDownload },
+  { label: 'Progression suivie toute l’année', icon: GraduationCap },
+] as const;
+
+/**
+ * Connexion. Mobile : bandeau de marque puis carte du formulaire qui remonte par-dessus.
+ * Desktop : panneau de marque à gauche, formulaire à droite.
+ */
 export default function LoginPage() {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-tesla-sable/40 px-4 py-10">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="items-center text-center">
-          <BrandLogo size={80} className="mx-auto mb-2" />
-          <CardTitle className="text-xl">Connexion</CardTitle>
-          <CardDescription>Accédez à votre tableau de bord Nikola Tesla Académie.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="flex min-h-dvh flex-col bg-background lg:grid lg:grid-cols-2">
+      <section className="relative isolate overflow-hidden bg-tesla-bordeaux px-6 pt-12 pb-20 text-white lg:flex lg:flex-col lg:justify-center lg:p-12">
+        <BrandBackdrop className="-z-10" />
+        <div className="mx-auto flex max-w-md flex-col items-center gap-4 text-center lg:items-start lg:text-left">
+          <div className="animate-rise">
+            <BrandLogo size={88} className="animate-halo ring-4 ring-tesla-or/40" />
+          </div>
+          <div className="animate-rise space-y-1" style={stagger(1)}>
+            <p className="text-xs tracking-[0.2em] text-tesla-or uppercase">
+              Communauté Nikola Tesla
+            </p>
+            <p className="text-2xl font-bold sm:text-3xl">
+              Nikola Tesla <span className="text-tesla-or">Académie</span>
+            </p>
+          </div>
+          <ul className="hidden space-y-3 pt-4 lg:block">
+            {HIGHLIGHTS.map(({ label, icon: Icon }, index) => (
+              <li
+                key={label}
+                className="animate-rise flex items-center gap-3 text-tesla-sable"
+                style={stagger(index + 2)}
+              >
+                <span className="rounded-lg bg-white/10 p-2 text-tesla-or">
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <main className="relative -mt-10 flex flex-1 items-start justify-center px-4 pb-10 lg:mt-0 lg:items-center">
+        <div
+          className="animate-rise w-full max-w-sm rounded-2xl border bg-card p-6 shadow-xl lg:shadow-none lg:border-0 lg:bg-transparent"
+          style={stagger(2)}
+        >
+          <h1 className="text-xl font-semibold text-tesla-bordeaux">Connexion</h1>
+          <p className="mt-1 mb-6 text-sm text-muted-foreground">
+            Accédez à votre tableau de bord.
+          </p>
           <Suspense fallback={<Skeleton className="h-56" />}>
             <LoginForm />
           </Suspense>
-        </CardContent>
-      </Card>
-    </main>
+          <p className="mt-6 text-center text-sm">
+            <Link
+              href="/"
+              className="text-muted-foreground underline-offset-4 hover:text-tesla-rouge hover:underline"
+            >
+              Retour à l’accueil
+            </Link>
+          </p>
+        </div>
+      </main>
+    </div>
   );
 }
