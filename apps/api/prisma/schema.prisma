@@ -473,44 +473,54 @@ model EvaluationVersionEvent {
 /// Référence le profil routier, jamais seulement le compte. `code` est attribué par le backend,
 /// unique et immuable (trigger SQL) ; la tentative n'est jamais supprimée (annulation = statut ANNULEE).
 model EvaluationAttempt {
-  id                  String         @id @default(uuid(7)) @db.Uuid
+  id                       String         @id @default(uuid(7)) @db.Uuid
   /// Code public de référence, ex. « NT-2027-000125 » (RM-007). N'est pas un secret.
-  code                String         @unique
-  scoutProfileId      String         @map("scout_profile_id") @db.Uuid
-  evaluationId        String         @map("evaluation_id") @db.Uuid
-  evaluationVersionId String         @map("evaluation_version_id") @db.Uuid
-  mode                EvaluationMode
-  status              AttemptStatus  @default(PREPAREE)
+  code                     String         @unique
+  scoutProfileId           String         @map("scout_profile_id") @db.Uuid
+  evaluationId             String         @map("evaluation_id") @db.Uuid
+  evaluationVersionId      String         @map("evaluation_version_id") @db.Uuid
+  mode                     EvaluationMode
+  status                   AttemptStatus  @default(PREPAREE)
   /// Date prévue de passation (feuille papier).
-  plannedFor          DateTime?      @map("planned_for") @db.Date
+  plannedFor               DateTime?      @map("planned_for") @db.Date
   /// Ouverture du questionnaire en ligne par le routier.
-  startedAt           DateTime?      @map("started_at") @db.Timestamptz(3)
+  startedAt                DateTime?      @map("started_at") @db.Timestamptz(3)
   /// Remise des réponses par le routier (en ligne) ; pour le papier, voir `completedAt`.
-  submittedAt         DateTime?      @map("submitted_at") @db.Timestamptz(3)
+  submittedAt              DateTime?      @map("submitted_at") @db.Timestamptz(3)
   /// Contrôle de concurrence optimiste de la correction (incrémenté à chaque enregistrement).
-  correctionRevision  Int            @default(1) @map("correction_revision")
+  correctionRevision       Int            @default(1) @map("correction_revision")
   /// Date de réalisation par le routier.
-  completedAt         DateTime?      @map("completed_at") @db.Timestamptz(3)
+  completedAt              DateTime?      @map("completed_at") @db.Timestamptz(3)
   /// Dernier enregistrement de la correction dans l'application.
-  recordedAt          DateTime?      @map("recorded_at") @db.Timestamptz(3)
+  recordedAt               DateTime?      @map("recorded_at") @db.Timestamptz(3)
   /// Format antérieur à la phase 3 (réponses en JSON) : conservé pour l'historique ; voir `AttemptAnswer`.
-  answers             Json?
-  score               Decimal?       @db.Decimal(7, 2)
-  maxScore            Decimal?       @map("max_score") @db.Decimal(7, 2)
-  observations        String?
+  answers                  Json?
+  score                    Decimal?       @db.Decimal(7, 2)
+  maxScore                 Decimal?       @map("max_score") @db.Decimal(7, 2)
+  observations             String?
   /// Clé de stockage de la copie numérisée (stockage des fichiers non encore développé).
-  evidenceFileKey     String?        @map("evidence_file_key")
+  evidenceFileKey          String?        @map("evidence_file_key")
   /// Dérogation ayant permis la préparation hors progression, le cas échéant.
-  waiverId            String?        @map("waiver_id") @db.Uuid
-  createdById         String         @map("created_by_id") @db.Uuid
-  recordedById        String?        @map("recorded_by_id") @db.Uuid
-  decidedById         String?        @map("decided_by_id") @db.Uuid
-  decidedAt           DateTime?      @map("decided_at") @db.Timestamptz(3)
-  decisionComment     String?        @map("decision_comment")
-  cancelledAt         DateTime?      @map("cancelled_at") @db.Timestamptz(3)
-  cancelReason        String?        @map("cancel_reason")
-  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  waiverId                 String?        @map("waiver_id") @db.Uuid
+  createdById              String         @map("created_by_id") @db.Uuid
+  recordedById             String?        @map("recorded_by_id") @db.Uuid
+  decidedById              String?        @map("decided_by_id") @db.Uuid
+  decidedAt                DateTime?      @map("decided_at") @db.Timestamptz(3)
+  decisionComment          String?        @map("decision_comment")
+  cancelledAt              DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason             String?        @map("cancel_reason")
+  /// Réservation hors ligne (phase 5) : autorisation opaque, délai, idempotence et horodatages distincts.
+  offlineAuthorization     String?        @unique @map("offline_authorization") @db.Uuid
+  offlineIssuedAt          DateTime?      @map("offline_issued_at") @db.Timestamptz(3)
+  offlineExpiresAt         DateTime?      @map("offline_expires_at") @db.Timestamptz(3)
+  offlineOperationId       String?        @unique @map("offline_operation_id") @db.Uuid
+  offlinePayloadHash       String?        @map("offline_payload_hash")
+  offlineDeviceSubmittedAt DateTime?      @map("offline_device_submitted_at") @db.Timestamptz(3)
+  offlineReceivedAt        DateTime?      @map("offline_received_at") @db.Timestamptz(3)
+  offlineDecidedAt         DateTime?      @map("offline_decided_at") @db.Timestamptz(3)
+  offlineDecisionCode      String?        @map("offline_decision_code")
+  createdAt                DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   scoutProfile   ScoutProfile             @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
   evaluation     Evaluation               @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
