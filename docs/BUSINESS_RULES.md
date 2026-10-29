@@ -1,6 +1,6 @@
 # Règles métier
 
-> Statut : règles **documentées** ; celles des routiers, équipes, observations et de l'authentification sont **implémentées** (voir [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)). Source : cahier de la mission, document SAPF-Route (Atelier pédagogique Branche Route), programme annuel 2026–2027 de la Communauté Nikola Tesla.
+> Statut : règles **documentées** ; celles des routiers, équipes, observations, de l'authentification et des modules pédagogiques sont **implémentées** (voir [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)). Source : cahier de la mission, document SAPF-Route (Atelier pédagogique Branche Route), programme annuel 2026–2027 de la Communauté Nikola Tesla.
 
 ## Périmètre
 - Une communauté (Nikola Tesla), une branche (Route), année scoute 2026–2027.
@@ -12,9 +12,11 @@
 | --- | :---: | :---: | :---: |
 | Consulter les modules publiés | ✅ | ✅ | ✅ |
 | Télécharger un module pour lecture hors ligne | ✅ | ✅ | ✅ |
-| Créer / modifier un module (brouillon) | — | ✅ | ✅ |
-| Soumettre un module à l'approbation | — | ✅ | ✅ |
-| Approuver ou renvoyer un module (publication) | — | — | ✅ |
+| Créer un module ; modifier un brouillon dont on est auteur ou collaborateur | — | ✅ | ✅ (tous les modules) |
+| Inviter / retirer un chef collaborateur | — | auteur du module | ✅ |
+| Soumettre un module à l'approbation | — | auteur, collaborateur | ✅ |
+| Approuver, demander des corrections, refuser, publier, archiver un module | — | — | ✅ |
+| Consulter la file de validation et l'historique des publications | — | — | ✅ |
 | Passer une évaluation accessible | ✅ | — | — |
 | Consulter les fiches, équipes et historiques des routiers | — | ✅ | ✅ |
 | Inscrire / modifier un routier (avec ou sans compte), attribuer le matricule | — | — | ✅ (à confirmer, D32) |
@@ -39,7 +41,7 @@ Toutes les permissions sont vérifiées côté serveur.
 
 ## Règles
 
-1. **Publication** : un module n'est visible des routiers qu'une fois **approuvé** par le responsable. Cycle prévu : `BROUILLON → SOUMIS → PUBLIÉ` (ou `SOUMIS → À_REVOIR` avec motif). Toute modification d'un module publié crée une nouvelle version soumise à approbation.
+1. **Publication** : un module n'est visible des routiers qu'une fois **approuvé puis publié** par le responsable. Cycle implémenté : `BROUILLON → SOUMIS → APPROUVE → PUBLIE → ARCHIVE`, avec `SOUMIS → A_CORRIGER | REFUSE` (motif) et `A_CORRIGER → BROUILLON`. Toute modification d'un module publié crée une nouvelle version soumise à approbation (voir [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md)).
 2. **Consultation libre** des modules publiés, sans condition de progression.
 3. **Évaluations contrôlées** : accessibles selon l'étape de progression du routier.
 4. **Déblocage individuel** : exception nominative accordée par le responsable, motivée, tracée, révocable.
@@ -76,6 +78,20 @@ Toutes les permissions sont vérifiées côté serveur.
 | RM-017 | Changement d'étape | Exclusivement le responsable ; journalisé avec l'étape précédente, la nouvelle et l'auteur ; visible dans l'historique pédagogique. Aucune autre action (observation, tentative) ne modifie l'étape. | `scout.setStage` ; `AuditLog` `scout_profile.stage_changed` |
 | RM-018 | Accès | Toute donnée exige une session valide ; le masquage d'un bouton n'est jamais la seule protection. L'e-mail d'un compte rattaché n'est communiqué qu'au responsable. | Garde globale + `assertCan` |
 
+### Règles de la phase 2 (modules pédagogiques)
+
+| ID | Règle | Énoncé | Garantie |
+| --- | --- | --- | --- |
+| RM-019 | Rédaction | Un chef crée un module et rédige les modules dont il est auteur ou collaborateur ; il ne voit pas les brouillons des autres. Le responsable intervient sur tous. | `editableModulesWhere`, `resolveAccess` (404 hors périmètre) |
+| RM-020 | Publication réservée | Seul le responsable approuve, demande des corrections (motif), refuse (motif), publie et archive (motif). | `module.review` + `AuditLog` |
+| RM-021 | Version figée | Une version soumise, approuvée, publiée, refusée ou archivée n'est plus modifiable ; seule une version `BROUILLON` l'est. | Service + trigger `module_versions_guard` / `module_draft_content_guard` |
+| RM-022 | Publication atomique | Publier exige une version approuvée ; la version précédente est archivée dans la même transaction ; jamais deux versions publiées. | Verrou du module, index unique partiel, trigger du pointeur |
+| RM-023 | Nouvelle version | Modifier un module publié crée une version de travail (copie) ; la version publiée reste visible et inchangée jusqu'à la publication de la suivante. Une seule version de travail par module. | Index unique partiel |
+| RM-024 | Concurrence | Toute modification repose sur la révision lue ; une révision périmée est refusée, jamais écrasée. | `revision` (version, leçon) |
+| RM-025 | Consultation libre | Tout utilisateur connecté lit tous les modules publiés, quelle que soit son étape ; l'étape n'est qu'une recommandation. Aucun brouillon n'est exposé. | `module.read` ; catalogue limité à la version publiée |
+| RM-026 | Contenu sûr | Contenu structuré par liste blanche ; aucun HTML exécutable ; liens http(s)/mailto, images https ; ressources par URL externe, vidéos sur hébergeurs autorisés. | `lessonDocumentSchema`, `createResourceInputSchema`, CHECK SQL |
+| RM-027 | Traçabilité | Création, soumission, reprise et décisions historisées (ajout seul) ; décisions et collaborations journalisées. | `module_version_events`, `audit_logs` |
+
 ### Cycle de vie d'une tentative
 `PREPAREE → (EN_COURS) → A_CORRIGER → SOUMISE → VALIDEE | REFUSEE` ; `ANNULEE` possible avant décision. Corrections : `SOUMISE → A_CORRIGER` (motif) ; `VALIDEE | REFUSEE → A_CORRIGER` (réouverture par le responsable, motif). Aucune transition ne déclenche de changement d'étape.
 
@@ -103,3 +119,4 @@ Ces étapes sont chargées par le seed (`progression_stages`) depuis `@tesla/sha
 - **Accès des chefs aux résultats individuels** : nécessaire pour la saisie papier ; périmètre exact à confirmer.
 - **Observations** : liste de catégories souhaitée (aujourd'hui libellé libre) ; tous les chefs sont-ils habilités pour tous les routiers, ou seulement ceux de certaines équipes ?
 - **Répartition chefs / responsable** pour l'inscription et l'affectation (aujourd'hui : responsable seul, D32).
+- **Modules** (choix provisoires, D46, D50, D51, D55) : le responsable peut-il approuver un module dont il est l'auteur ? Un collaborateur peut-il inviter d'autres chefs ? Liste officielle de thèmes ? Hébergeurs de vidéos autorisés ? Retrait d'une approbation non publiée (`APPROUVE → A_CORRIGER`) ?

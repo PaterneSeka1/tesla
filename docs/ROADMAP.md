@@ -4,8 +4,8 @@
 | --- | --- | --- |
 | **0 — Fondations** | Monorepo, Next.js, NestJS, Prisma, PWA de base, CI, documentation | ✅ en cours de validation |
 | **1 — Authentification, équipes, routiers** | Connexion, sessions httpOnly, garde de rôle API et web, comptes de démonstration ; équipes, fiches routiers sans compte, affectations, observations, tableaux de bord | ✅ implémenté et testé — reste : gestion des comptes (création, activation, mot de passe) |
-| **2 — Modules et publication** | Modules, leçons, versions ; workflow brouillon → soumis → publié / à revoir ; approbation par le responsable ; journal d'audit | ⏳ |
-| **3 — Consultation et hors ligne** | Catalogue des modules publiés, lecteur, téléchargement IndexedDB, mise à jour des versions, progression de lecture | ⏳ |
+| **2 — Modules et publication** | Modules, leçons, versions, ressources, collaborateurs ; éditeur structuré ; workflow brouillon → soumis → approuvé → publié (corrections, refus, archivage) ; publication atomique ; historique des décisions ; bibliothèque, lecteur, impression navigateur | ✅ implémenté et testé (2026-10-29) — voir [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md) |
+| **3 — Consultation et hors ligne** | Téléchargement IndexedDB des modules publiés, mise à jour des versions, progression de lecture (catalogue et lecteur livrés en phase 2) | ⏳ |
 | **1 bis — Routiers, équipes, évaluations papier (modèle)** | Profil routier sans compte, matricule, équipes et historique, tentatives multimodes, code `NT-AAAA-NNNNNN`, dérogations, contraintes SQL, services et tests d'intégration | ✅ ; routes et écrans des routiers/équipes livrés en phase 1, tentatives en phase 4 bis |
 | **4 — Évaluations et progression** | Moteur de quiz, accès selon l'étape, déblocages individuels, validation humaine des acquis, historique des étapes | ⏳ (règles à arbitrer) |
 | **1 ter — Comptes** | Création et désactivation des comptes par le responsable, activation, réinitialisation du mot de passe, révocation des sessions | ⏳ |

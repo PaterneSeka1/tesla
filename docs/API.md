@@ -69,8 +69,61 @@ Pagination des listes : `?page=1&pageSize=20` (max. 100) → `{ items, page, pag
 
 Une observation non visible (niveau `RESPONSABLE` d'un autre auteur) renvoie `404 OBSERVATION_NOT_FOUND` : son existence n'est pas révélée.
 
+## Modules pédagogiques
+
+Contrats : `packages/shared/src/{modules,lesson-content}.ts`. Workflow : [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md). Les actions visant une version portent son `versionId` (et la `revision` lue pour les modifications) : aucune ambiguïté sur la version concernée.
+
+### Bibliothèque (toute session : routier, chef, responsable)
+
+Seule la version publiée courante est exposée ; un module sans version publiée (brouillon, soumis…) renvoie `404 MODULE_NOT_FOUND`. Aucune condition d'étape.
+
+| Méthode et chemin | Entrée → sortie |
+| --- | --- |
+| `GET /modules?search=&stageId=&theme=&page=&pageSize=` | → `catalogPageSchema` (`items`, pagination, `themes` disponibles, `myStageId` du routier connecté) |
+| `GET /modules/:slug` | → `catalogModuleDetailSchema` (objectifs, prérequis, leçons, ressources du module) |
+| `GET /modules/:slug/lessons/:lessonId` | → `catalogLessonSchema` (contenu, ressources, leçons précédente et suivante) |
+| `GET /modules/:slug/print` | → `printableModuleSchema` (tout le contenu publié, pour l'impression A4) |
+
+### Espace éditorial (chefs, responsable)
+
+Un chef n'accède qu'aux modules dont il est auteur ou collaborateur (sinon `404 MODULE_NOT_FOUND`) ; le responsable accède à tous. Routier : `403`.
+
+| Méthode et chemin | Entrée → sortie |
+| --- | --- |
+| `GET /editor/modules?search=&status=&page=` | `status` : état d'une version, `working`, `published` ou `all` → page de `editorModuleListItemSchema` |
+| `POST /editor/modules` | `createModuleInputSchema` → `201 editorModuleDetailSchema` (version 1 en brouillon) |
+| `GET /editor/modules/:id` | → `editorModuleDetailSchema` (version de travail ou la plus récente, versions, collaborateurs, historique, `permissions`) |
+| `PATCH /editor/modules/:id` | `updateModuleVersionInputSchema { versionId, revision, … }` → `editorModuleDetailSchema` |
+| `GET /editor/modules/:id/versions/:versionId` | → `moduleVersionDetailSchema` (contenu exact d'une version) |
+| `POST /editor/modules/:id/versions` | → `201` : nouvelle version de travail copiée de la version publiée |
+| `POST /editor/modules/:id/resume` | `{ versionId }` → `201` : `A_CORRIGER → BROUILLON` |
+| `POST /editor/modules/:id/submit` | `submitModuleInputSchema { versionId, revision, note? }` → `201` : `BROUILLON → SOUMIS` |
+| `POST /editor/modules/:id/lessons` | `createLessonInputSchema { versionId, title, durationMinutes?, content? }` → `201` |
+| `POST /editor/modules/:id/lessons/reorder` | `reorderLessonsInputSchema { versionId, lessonIds }` (liste complète) → `201` |
+| `PATCH /editor/lessons/:id` | `updateLessonInputSchema { revision, title?, durationMinutes?, content? }` → `204` |
+| `DELETE /editor/lessons/:id?revision=` | → `204` (ressources de la leçon retirées) |
+| `POST /editor/modules/:id/resources` | `createResourceInputSchema { versionId, lessonId?, kind, title, url, description? }` → `201` |
+| `DELETE /editor/resources/:id` | → `204` |
+| `GET /editor/chefs` | → `chefCandidateListSchema` (chefs actifs) |
+| `POST /editor/modules/:id/collaborators` | `{ userId }` → `201` (auteur ou responsable) |
+| `DELETE /editor/modules/:id/collaborators/:userId` | → `204` (retrait daté, historique conservé) |
+| `GET /editor/activity` | → `moduleActivityListSchema` (20 derniers événements des modules accessibles) |
+
+### Approbation (responsable uniquement, sinon `403`)
+
+| Méthode et chemin | Entrée → sortie |
+| --- | --- |
+| `GET /admin/modules/submissions?status=SOUMIS\|APPROUVE` | → `submissionListSchema` (la plus ancienne soumission d'abord) |
+| `GET /admin/modules/:id/review` | → `moduleReviewSchema` (module complet + version en ligne pour comparaison) |
+| `POST /admin/modules/:id/approve` | `{ versionId, comment? }` → `204` |
+| `POST /admin/modules/:id/request-changes` | `{ versionId, comment }` (motif obligatoire) → `204` |
+| `POST /admin/modules/:id/reject` | `{ versionId, comment }` → `204` |
+| `POST /admin/modules/:id/publish` | `{ versionId }` → `204` (atomique ; remplace et archive la version en ligne) |
+| `POST /admin/modules/:id/archive` | `{ versionId, comment }` → `204` (version en ligne uniquement) |
+| `GET /admin/modules/history?page=` | → page de `publicationHistoryItemSchema` (décisions) |
+
 ### Codes d'erreur
-`VALIDATION_ERROR` (400), `UNAUTHENTICATED`, `INVALID_CREDENTIALS` (401), `FORBIDDEN`, `CSRF_REJECTED`, `OBSERVATION_NOT_AUTHOR`, `EVALUATION_NOT_ELIGIBLE` (403), `SCOUT_PROFILE_NOT_FOUND`, `USER_NOT_FOUND`, `TEAM_NOT_FOUND`, `OBSERVATION_NOT_FOUND`, `EVALUATION_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WAIVER_NOT_FOUND` (404), `MATRICULE_ALREADY_USED`, `POSSIBLE_DUPLICATE`, `PROFILE_ALREADY_LINKED`, `ACCOUNT_ALREADY_LINKED`, `ACCOUNT_NOT_ROUTIER`, `TEAM_NAME_TAKEN`, `TEAM_ARCHIVED`, `TEAM_ALREADY_ARCHIVED`, `ALREADY_IN_TEAM`, `NO_ACTIVE_TEAM`, `SCOUT_INACTIVE`, `SCOUT_ALREADY_ACTIVE`, `SCOUT_ALREADY_INACTIVE`, `OBSERVATION_STATE_CHANGED`, `ATTEMPT_*`, `INVALID_ATTEMPT_TRANSITION`, `WAIVER_ALREADY_REVOKED` (409), `INVALID_ASSIGNMENT_DATE`, `STAGE_NOT_FOUND`, `EVALUATION_VERSION_NOT_PUBLISHED`, `ATTEMPT_RESULT_MISSING`, `REASON_REQUIRED`, `INVALID_EXPIRY` (422), `TOO_MANY_LOGIN_ATTEMPTS` (429).
+`VALIDATION_ERROR` (400), `UNAUTHENTICATED`, `INVALID_CREDENTIALS` (401), `FORBIDDEN`, `CSRF_REJECTED`, `OBSERVATION_NOT_AUTHOR`, `EVALUATION_NOT_ELIGIBLE` (403), `SCOUT_PROFILE_NOT_FOUND`, `USER_NOT_FOUND`, `TEAM_NOT_FOUND`, `OBSERVATION_NOT_FOUND`, `MODULE_NOT_FOUND`, `MODULE_VERSION_NOT_FOUND`, `LESSON_NOT_FOUND`, `RESOURCE_NOT_FOUND`, `COLLABORATOR_NOT_FOUND`, `EVALUATION_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WAIVER_NOT_FOUND` (404), `MATRICULE_ALREADY_USED`, `POSSIBLE_DUPLICATE`, `PROFILE_ALREADY_LINKED`, `ACCOUNT_ALREADY_LINKED`, `ACCOUNT_NOT_ROUTIER`, `TEAM_NAME_TAKEN`, `TEAM_ARCHIVED`, `TEAM_ALREADY_ARCHIVED`, `ALREADY_IN_TEAM`, `NO_ACTIVE_TEAM`, `SCOUT_INACTIVE`, `SCOUT_ALREADY_ACTIVE`, `SCOUT_ALREADY_INACTIVE`, `OBSERVATION_STATE_CHANGED`, `ATTEMPT_*`, `INVALID_ATTEMPT_TRANSITION`, `WAIVER_ALREADY_REVOKED`, `EDIT_CONFLICT`, `VERSION_NOT_EDITABLE`, `INVALID_TRANSITION`, `VERSION_NOT_APPROVED`, `WORKING_VERSION_EXISTS`, `ALREADY_COLLABORATOR`, `SLUG_UNAVAILABLE` (409), `INVALID_ASSIGNMENT_DATE`, `STAGE_NOT_FOUND`, `EVALUATION_VERSION_NOT_PUBLISHED`, `ATTEMPT_RESULT_MISSING`, `REASON_REQUIRED`, `INVALID_EXPIRY`, `MODULE_INCOMPLETE`, `TOO_MANY_LESSONS`, `INVALID_COLLABORATOR` (422), `TOO_MANY_LOGIN_ATTEMPTS` (429).
 
 ## Services sans route HTTP (phase 4 bis)
 
@@ -100,7 +153,7 @@ Toutes les erreurs suivent `apiErrorSchema` :
 `code` est stable (exploitable par le web) ; `message` est affichable en français. Les erreurs 5xx ne renvoient aucun détail interne (journalisées côté serveur).
 
 ## Endpoints prévus (non implémentés)
-Gestion des comptes (création, activation, réinitialisation du mot de passe), modules et leçons, soumission/approbation, évaluations en ligne, validations officielles, programme annuel, consultation du journal d'audit.
+Gestion des comptes (création, activation, réinitialisation du mot de passe), évaluations en ligne, validations officielles, programme annuel, consultation du journal d'audit.
 
 ### Contrats prévus — tentatives et impression (phase 4 bis)
 
@@ -113,6 +166,6 @@ Gestion des comptes (création, activation, réinitialisation du mot de passe), 
 | `POST /waivers` · `POST /waivers/:id/revoke` | `EvaluationWaiversService` | Responsable uniquement |
 | `GET /attempts/code/:code/sheet.pdf` | `getPaperSheet` + générateur PDF | Questionnaire nominatif ; réimpression sans nouvelle tentative |
 | `GET /evaluations/:id/versions/:v/answer-key.pdf` | à développer | Corrigé : chefs et responsable |
-| `GET /modules/:id/versions/:v/support.pdf` | à développer | Support de cours |
+| `GET /modules/:slug/print.pdf` | à développer | Support de cours en PDF serveur (aujourd'hui : impression navigateur de `/modules/:slug/imprimer`) |
 
 Les chemins sont alignés sur la convention anglaise retenue pour `/teams` et `/scouts` (à confirmer à l'implémentation).

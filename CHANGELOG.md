@@ -4,6 +4,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — phase 2 (modules pédagogiques et publication), 2026-10-29
+- Modèle : modules, versions, leçons, ressources externes, collaborateurs, historique des versions et décisions (migration additive `20261029120000_pedagogical_modules`, contraintes SQL et triggers : contenu figé hors brouillon, transitions contrôlées, une version de travail et une version publiée par module).
+- API : bibliothèque `/modules` (versions publiées uniquement), rédaction `/editor/*`, approbation `/admin/modules/*` (approuver, demander des corrections, refuser, publier de façon atomique, archiver, historique) ; concurrence optimiste (`409 EDIT_CONFLICT`) ; journalisation des décisions ; documentation Swagger.
+- Contrats partagés : `lessonDocumentSchema` (liste blanche du contenu enrichi), schémas des modules, transitions.
+- Web : éditeur de cours Tiptap, espace chef (`/chef/modules`, création, édition, aperçu, soumissions, tableau de bord éditorial), écrans du responsable (`/administration/modules-a-valider`, révision, tous les modules, historique des publications), bibliothèque (`/modules`, détail, lecteur, version imprimable A4), navigation par rôle.
+- Tests : 11 tests d'intégration HTTP des modules, tests unitaires du contenu, des transitions et des permissions ; recette navigateur des 15 critères de la phase.
+
+### Modifié — phase 2, 2026-10-29
+- Espace chef ouvert au responsable pour la rédaction ; entrées de navigation filtrables par rôle ; lien actif déterminé par la correspondance la plus précise.
+- `apiSend` accepte `DELETE` ; cadre de l'application masqué à l'impression.
+- Dépendances web : `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/extension-image` (3.31.4, versions épinglées).
+
 ### Ajouté — phase 1 (authentification, équipes, routiers, observations), 2026-10-29
 - Authentification : `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` ; mots de passe Argon2id ; sessions serveur (jeton haché, cookie httpOnly SameSite=Lax, Secure en production, expiration et révocation) ; limitation des tentatives ; protection CSRF (en-tête `x-tesla-csrf` + contrôle d'origine) ; garde globale.
 - Routes `/teams`, `/scouts`, affectations (`/scouts/:id/teams/…`), observations (`/scouts/:id/observations`), historique pédagogique, référentiel des étapes ; documentation Swagger générée depuis les contrats Zod.

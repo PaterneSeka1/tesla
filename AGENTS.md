@@ -10,6 +10,7 @@ Ce dépôt est **Nikola Tesla Académie** : monorepo npm workspaces (Next.js + N
 - Le profil routier (`ScoutProfile`) existe sans compte ; toute donnée pédagogique le référence. Ne jamais créer de second profil lors du rattachement d'un compte.
 - Matricule : chaîne facultative, unique, normalisée, jamais générée. Code de tentative `NT-AAAA-NNNNNN` : émis côté serveur uniquement, immuable, jamais réutilisé, jamais traité comme un secret.
 - Une tentative (papier ou numérique) ne modifie jamais automatiquement l'étape d'un routier ; seul le responsable décide et valide.
+- Modules : un chef rédige et soumet, seul le responsable approuve et publie ; une version hors brouillon n'est jamais modifiée (nouvelle version) ; contenu des leçons en JSON validé par `lessonDocumentSchema`, rendu sans `dangerouslySetInnerHTML`.
 - Tests d'intégration sur base dédiée `*_test` uniquement (`npm run test:int -w @tesla/api`) ; jamais `migrate reset` ni `db push` sur une base contenant des données.
 - Aucun secret, mot de passe ou donnée réelle dans le dépôt (comptes de démonstration : mot de passe fourni par `DEMO_ACCOUNT_PASSWORD` dans le `.env` local).
 - Toute route API exige une session (sauf `@Public()`) et vérifie les permissions dans le service ; toute écriture web passe par `apiSend` (en-tête anti-CSRF).

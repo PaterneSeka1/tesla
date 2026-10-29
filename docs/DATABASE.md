@@ -20,9 +20,15 @@ PostgreSQL 18 (Docker Compose en développement) · Prisma 7 avec `@prisma/adapt
 | `EvaluationAttemptEvent` (`evaluation_attempt_events`) | Historique d'une tentative | Ajout seul (trigger) : `fromStatus`, `toStatus`, `actorId`, `reason`, `snapshot` (valeurs saisies) |
 | `AttemptCodeCounter` (`attempt_code_counters`) | Compteur annuel des codes | `year` (PK), `lastValue` (1 à 999 999) |
 | `EvaluationWaiver` (`evaluation_waivers`) | Dérogation (déblocage individuel) | `reason`, `grantedById`, `grantedAt`, `expiresAt`, `revokedAt`, `revokedById`, `revocationReason` |
+| `PedagogicalModule` (`pedagogical_modules`) | Module pédagogique | `number` (SERIAL, code `MOD-001`), `slug` unique et stable, `createdById`, `publishedVersionId` (unique, nullable : version en ligne) |
+| `ModuleVersion` (`module_versions`) | Version éditoriale | `(moduleId, version)` unique ; `status` (`ModuleVersionStatus`) ; titre, `summary`, `objectives` (text[]), `prerequisites`, `durationMinutes`, `stageId` (étape recommandée), `theme` (libellé libre) ; `revision` (concurrence optimiste) ; `basedOnVersionId` ; auteurs et dates de soumission, approbation, publication, archivage ; `submissionNote` |
+| `ModuleLesson` (`module_lessons`) | Leçon ordonnée | `versionId`, `position` (0…n, contiguë), `title`, `content` (JSONB validé par liste blanche), `durationMinutes`, `revision`, `createdById`, `updatedById` |
+| `ModuleResource` (`module_resources`) | Ressource externe | `versionId`, `lessonId` (null = module), `kind` (`IMAGE`, `DOCUMENT`, `VIDEO`, `LIEN`), `title`, `url`, `description` |
+| `ModuleCollaborator` (`module_collaborators`) | Chef collaborateur | `moduleId`, `userId`, `addedById` ; retrait par `removedAt`/`removedById` (jamais supprimé) ; une invitation active par chef et par module |
+| `ModuleVersionEvent` (`module_version_events`) | Historique des versions et décisions | Ajout seul : `action` (`ModuleVersionAction`), `fromStatus`, `toStatus`, `actorId`, `comment` |
 | `AuditLog` (`audit_logs`) | Journal | Ajout seul ; `actorId` null = action système ; index `(entityType, entityId)`, `actorId`, `createdAt` |
 
-Enums : `Role`, `ObservationVisibility` (`ENCADREMENT`, `RESPONSABLE`), `EvaluationMode` (`EN_LIGNE`, `HORS_LIGNE`, `PAPIER`), `AttemptStatus` (`PREPAREE`, `EN_COURS`, `A_CORRIGER`, `SOUMISE`, `VALIDEE`, `REFUSEE`, `ANNULEE`). Synchronisation avec `@tesla/shared` vérifiée par des tests.
+Enums : `Role`, `ObservationVisibility` (`ENCADREMENT`, `RESPONSABLE`), `ModuleVersionStatus` (`BROUILLON`, `SOUMIS`, `A_CORRIGER`, `REFUSE`, `APPROUVE`, `PUBLIE`, `ARCHIVE`), `ModuleVersionAction` (`CREEE`, `SOUMISE`, `REPRISE`, `CORRECTIONS_DEMANDEES`, `REFUSEE`, `APPROUVEE`, `PUBLIEE`, `REMPLACEE`, `ARCHIVEE`), `ModuleResourceKind`, `EvaluationMode` (`EN_LIGNE`, `HORS_LIGNE`, `PAPIER`), `AttemptStatus` (`PREPAREE`, `EN_COURS`, `A_CORRIGER`, `SOUMISE`, `VALIDEE`, `REFUSEE`, `ANNULEE`). Synchronisation avec `@tesla/shared` vérifiée par des tests.
 
 Noms de modèles en anglais (convention du code) : `ScoutProfile` = profil routier, `Team` = équipe, `TeamAssignment` = affectation, `EvaluationAttempt` = tentative d'évaluation, `EvaluationWaiver` = dérogation.
 
@@ -46,6 +52,14 @@ erDiagram
   EvaluationWaiver |o--o{ EvaluationAttempt : "autorise"
   User ||--o{ EvaluationAttemptEvent : auteur
   User ||--o{ AuditLog : auteur
+  PedagogicalModule ||--o{ ModuleVersion : versions
+  PedagogicalModule |o--o| ModuleVersion : "version publiée (au plus une)"
+  ModuleVersion ||--o{ ModuleLesson : "leçons ordonnées"
+  ModuleVersion ||--o{ ModuleResource : ressources
+  ModuleLesson |o--o{ ModuleResource : "ressources de la leçon"
+  PedagogicalModule ||--o{ ModuleCollaborator : collaborateurs
+  ModuleVersion ||--o{ ModuleVersionEvent : "historique (ajout seul)"
+  ProgressionStage |o--o{ ModuleVersion : "étape recommandée"
 ```
 
 ## Contraintes SQL complémentaires
@@ -68,6 +82,21 @@ Ajoutées en fin de migration `20261028212208_teams_matricule_evaluation_attempt
 | `scout_observations_content_check` (migration `20261028230000`) | `scout_observations` | Contenu non vide ≤ 5 000 caractères ; catégorie nulle ou 1 à 80 caractères |
 | Trigger `scout_observations_guard` | `scout_observations` | Suppression interdite ; `scout_profile_id`, `author_id`, `created_at` immuables |
 | Trigger `scout_observation_revisions_append_only` | `scout_observation_revisions` | Ni mise à jour ni suppression |
+
+Ajoutées en fin de migration `20261029120000_pedagogical_modules` :
+
+| Contrainte | Table | Effet |
+| --- | --- | --- |
+| `module_versions_one_working_per_module` (index unique partiel) | `module_versions` | Une seule version `BROUILLON`/`SOUMIS`/`A_CORRIGER`/`APPROUVE` par module |
+| `module_versions_one_published_per_module` (index unique partiel) | `module_versions` | Une seule version `PUBLIE` par module |
+| `module_versions_values_check`, `module_lessons_values_check` | — | Numéro, révision, position, titre (1 à 150), durée (1 à 6 000 min), contenu JSON objet |
+| `module_resources_url_check` | `module_resources` | URL `http(s)://` ≤ 2 000 caractères |
+| `pedagogical_modules_slug_check` | `pedagogical_modules` | Slug `a-z0-9` séparé par des tirets, ≤ 80 |
+| `module_collaborators_one_active` (index unique partiel) | `module_collaborators` | Une invitation active par chef et par module |
+| Trigger `module_versions_guard` | `module_versions` | Suppression interdite ; module, numéro, auteur, origine immuables ; contenu modifiable seulement à l'état `BROUILLON` ; transitions d'état limitées au workflow |
+| Trigger `module_draft_content_guard` | `module_lessons`, `module_resources` | Insertion, modification, suppression seulement dans une version `BROUILLON` ; jamais de changement de version |
+| Trigger `pedagogical_modules_published_guard` | `pedagogical_modules` | Suppression interdite ; `published_version_id` désigne une version `PUBLIE` du même module |
+| Trigger `module_version_events_append_only` | `module_version_events` | Ni mise à jour ni suppression |
 
 L'index unique partiel est déclaré avec la preview Prisma `partialIndexes` ; son prédicat est écrit sous la forme canonique de PostgreSQL pour éviter une fausse dérive.
 
@@ -103,6 +132,7 @@ La ligne de l'année reste verrouillée jusqu'au `COMMIT` : les créations concu
 | `20261028204443_init` | 5 tables, enum `Role`, index, clés étrangères | Appliquée ; aucun `DROP` |
 | `20261028212208_teams_matricule_evaluation_attempts` | Additive : identité et matricule sur `scout_profiles` (compte facultatif), équipes, affectations, évaluations, versions, tentatives, historique, compteur, dérogations, contraintes SQL | Rejouée sur une base jetable contenant un profil lié à un compte (noms repris, `user_id` conservé) puis appliquée par `db:deploy` sur la base de développement ; diff base ↔ schéma vide ; aucun `DROP` |
 | `20261028230000_scout_status_observations` | Additive : `scout_profiles.is_active` (défaut `true`, profils existants conservés actifs), enum `ObservationVisibility`, tables `scout_observations` et `scout_observation_revisions`, CHECK et triggers | Appliquée sur `tesla_test` puis sur la base de développement (`db:deploy`) ; diff base ↔ schéma vide ; aucun `DROP` |
+| `20261029120000_pedagogical_modules` | Additive : enums `ModuleVersionStatus`, `ModuleVersionAction`, `ModuleResourceKind` ; tables des modules, versions, leçons, ressources, collaborateurs, historique ; CHECK et triggers | Appliquée sur `tesla_test` puis sur la base de développement (`db:deploy`) ; diff base ↔ schéma vide ; aucun `DROP` |
 | `20261028222140_matricule_official_format` | Remplace la contrainte de format du matricule par le format officiel (7 chiffres + 1 lettre) ; aucune donnée modifiée, échec volontaire si un matricule existant est non conforme | Appliquée sur la base de développement (aucun matricule existant) et sur `tesla_test` ; diff vide |
 
 Reprise de données de la migration 2 : `first_name`/`last_name` ajoutées nullables, copiées depuis `users`, puis `NOT NULL`. La table des tentatives étant créée par cette migration, aucune tentative historique sans code n'existait ; pour un futur ajout de colonne obligatoire sur des tentatives existantes, générer les valeurs (ex. codes, par ordre de `created_at`) **avant** la contrainte `NOT NULL`, sans toucher aux scores, décisions ni versions.
@@ -116,4 +146,4 @@ Les UUID v7 sont générés par le client Prisma (pas de valeur par défaut SQL)
 `npm run test:int -w @tesla/api` avec `TEST_DATABASE_URL` vers une base dont le nom finit par `_test` (refus sinon). Les migrations y sont appliquées par `migrate deploy`, puis les tables sont vidées (`TRUNCATE`) avant chaque test.
 
 ## Extensions prévues (non créées)
-Modules, versions de module, leçons, questions structurées, validations officielles d'acquis et d'étape (acte du responsable référençant le profil), historique structuré des étapes (aujourd'hui : `AuditLog` `scout_profile.stage_changed`), stockage des copies numérisées, programme annuel et séances. Chacune sera ajoutée dans la phase qui l'utilise.
+Lien évaluation ↔ module, progression de lecture, questions structurées, validations officielles d'acquis et d'étape (acte du responsable référençant le profil), historique structuré des étapes (aujourd'hui : `AuditLog` `scout_profile.stage_changed`), stockage des copies numérisées, programme annuel et séances. Chacune sera ajoutée dans la phase qui l'utilise.

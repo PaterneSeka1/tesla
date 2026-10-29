@@ -45,6 +45,7 @@ Règles structurantes du modèle (RM-001 à RM-012) :
 - **Validation officielle humaine** : un chef saisit et soumet ; seul le responsable décide ; aucun statut de tentative ne change l'étape d'un routier.
 - **Permissions (D32)** : responsable = fiches, matricules, étapes, équipes, affectations, rattachement de compte ; chefs = consultation et observations ; routiers = aucun accès aux fiches.
 - **Observations** : accompagnement, jamais validation ; jamais supprimées ; modifiées par leur auteur seul (versions conservées).
+- **Modules** : seule une version `BROUILLON` est modifiable (triggers) ; une version de travail et une version publiée au plus par module ; publication atomique par le responsable ; contenu des leçons en JSON par liste blanche (`lessonDocumentSchema`), jamais de HTML. Voir `docs/FEATURES/WORKFLOW_PUBLICATION.md`.
 
 ## 8. Sécurité
 Autorisation vérifiée côté serveur (le masquage UI ne suffit pas) : garde de session globale (`@Public()` pour les exceptions) + `assertCan` dans les services. Sessions opaques en cookie httpOnly, Argon2id, en-tête `x-tesla-csrf` sur toute écriture. Comptes de démonstration uniquement via `DEMO_ACCOUNT_PASSWORD` local. Aucune donnée réelle, aucun secret dans Git ou les seeds. Pas de cache hors ligne de données personnelles sensibles. Erreurs API sans détail interne.

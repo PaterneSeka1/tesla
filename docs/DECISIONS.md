@@ -61,5 +61,23 @@ Format : contexte → décision → conséquence. Ajouter une entrée pour chaqu
 | D42 | **Changement d'étape** : par `PATCH /scouts/:id` (responsable seul), journalisé `scout_profile.stage_changed` | Historique des étapes via `AuditLog` en attendant le modèle de validation officielle (phase 4, D14/D24). |
 | D43 | **Homonymes** : inscription d'un nom + prénoms identiques (casse ignorée) refusée sauf confirmation explicite (`confirmDuplicate`) | Prévention des doublons sans bloquer de vrais homonymes ; les accents ne sont pas normalisés. |
 
+## 2026-10-29 — Modules pédagogiques et publication (phase 2)
+
+| # | Décision | Motif / conséquence |
+| --- | --- | --- |
+| D44 | **Éditeur Tiptap 3.31.4** (version épinglée, publiée un mois avant), contenu stocké en **JSON ProseMirror** validé par liste blanche Zod partagée, rendu par un composant React dédié | Éditeur structuré éprouvé, compatible React 19 ; aucun HTML stocké ni interprété (`dangerouslySetInnerHTML` proscrit). Dépendances limitées au web (`@tiptap/react`, `pm`, `starter-kit`, `extension-image`), chargées seulement sur les pages d'édition. Rejeté : HTML assaini (risque résiduel, dépendance de nettoyage), éditeur maison (coût). |
+| D45 | **Étape recommandée et thème portés par la version**, slug fixé à la création du module | Changer l'étape d'un module publié passe par l'approbation ; les URL de la bibliothèque restent stables malgré un changement de titre. |
+| D46 | **États** `BROUILLON`, `SOUMIS`, `A_CORRIGER`, `REFUSE`, `APPROUVE`, `PUBLIE`, `ARCHIVE` ; reprise explicite `A_CORRIGER → BROUILLON` ; le responsable peut aussi retirer une approbation non publiée (`APPROUVE → A_CORRIGER`, motif) | Évite qu'une version approuvée devenue inadaptée bloque le module. Le remplacement par une nouvelle publication archive l'ancienne (événement `REMPLACEE`). À confirmer. |
+| D47 | **Une seule version de travail par module** ; nouvelle version = copie de la version publiée (à défaut, de la plus récente) ; les leçons copiées reçoivent de nouveaux identifiants | Pas de branches concurrentes. Conséquence : un lien direct vers une leçon d'une version remplacée renvoie 404 (le module reste accessible par son slug). |
+| D48 | **Concurrence optimiste** : `revision` sur la version (informations) et sur chaque leçon ; verrous `FOR UPDATE`/`FOR SHARE` sur la version ; réordonnancement par liste complète ; enregistrement explicite (pas d'autosauvegarde) | Deux chefs peuvent rédiger des leçons différentes simultanément ; aucune écriture n'écrase silencieusement une autre (409 + rechargement proposé). |
+| D49 | **Garanties en base** : triggers (contenu figé hors brouillon, transitions, pointeur de publication, historique en ajout seul), index uniques partiels (une version de travail, une version publiée) | Règles RM-021 à RM-023 maintenues même hors service (script SQL). Cohérent avec D22. |
+| D50 | **Collaborateurs** : l'auteur et le responsable invitent ou retirent ; le collaborateur rédige et soumet ; un chef non invité ne voit pas le module (404) | Moindre privilège ; à confirmer (un collaborateur peut-il inviter ?). |
+| D51 | **Ressources par URL externe uniquement** ; vidéos limitées à YouTube et Vimeo (`ALLOWED_VIDEO_HOSTS`, liste provisoire) ; images de leçon en `https` | Aucun fichier lourd sur le VPS (D12) ; pas de service de stockage à ce stade. Les vidéos sont proposées en lien, pas intégrées (pas d'iframe ni de CSP à étendre). |
+| D52 | **Le responsable accède à l'espace de rédaction** (`/chef/modules`) en plus de ses écrans de validation | Les règles autorisent le responsable à créer et modifier ; un seul éditeur à maintenir. |
+| D53 | **Impression par le navigateur** (`/modules/:slug/imprimer`, `@media print`, A4) ; PDF serveur reporté | Suffisant pour le support de cours ; pas de moteur PDF sur le VPS à ce stade. |
+| D54 | **Progression de lecture non modélisée** | Facultative selon la mission ; nécessiterait un modèle lié au profil routier (à décider avec le hors-ligne, phase 3). |
+| D55 | **Thème en libellé libre**, filtre construit à partir des thèmes des modules publiés | Aucune liste officielle de thèmes n'est arbitrée ; les thèmes de la mission sont des exemples. |
+| D56 | **Code interne `MOD-NNN`** dérivé d'une séquence PostgreSQL (`SERIAL`) | Lisible, unique ; un numéro peut être sauté si une création échoue (sans conséquence). |
+
 ## Décisions pédagogiques en attente (responsable)
 Voir [BUSINESS_RULES.md](BUSINESS_RULES.md#points-en-attente-darbitrage-ne-pas-coder-de-valeur-définitive) : durées d'étape selon l'âge, conditions d'accès aux évaluations, seuils, gestion des comptes, conservation des données.

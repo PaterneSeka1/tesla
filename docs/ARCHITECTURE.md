@@ -30,15 +30,16 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 
 | Dossier | Contenu |
 | --- | --- |
-| `app/` | Routes App Router : `/`, `/connexion`, `(espaces)/routier`, `/chef`, `/responsable`, `(espaces)/administration/{equipes,routiers}` (liste, création, fiche, modification), `/hors-ligne`, `manifest.ts`, pages 404/erreur/chargement |
+| `app/` | Routes App Router : `/`, `/connexion`, `(espaces)/routier`, `/chef` (+ `/chef/modules`, `/chef/modules/nouveau`, `/chef/modules/[id]/{modifier,apercu}`, `/chef/soumissions`), `/responsable`, `(espaces)/administration/{equipes,routiers}` (liste, création, fiche, modification), `(espaces)/administration/{modules,modules-a-valider,modules/[id]/revision,historique-publications}`, `(espaces)/modules` (bibliothèque : `/modules`, `/modules/[slug]`, `/modules/[slug]/lecons/[id]`, `/modules/[slug]/imprimer`), `/hors-ligne`, `manifest.ts`, pages 404/erreur/chargement |
 | `proxy.ts` | Redirection vers `/connexion` sans cookie de session (contrôle optimiste) |
 | `components/ui/` | Primitives shadcn/ui (button, card, badge, alert, input, label, skeleton, textarea, native-select, table, dialog, toaster) |
 | `components/layout/` | `DashboardShell` (sidebar desktop, navigation horizontale mobile, `SessionGate`), `SpaceNav` |
 | `components/auth/` | `SessionGate` (vérifie `/auth/me` et le rôle, fournit `useSessionUser`), `UserMenu`, `ResponsableOnly` |
+| `components/modules/` | `LessonEditor` (Tiptap), `LessonContent` (rendu sûr du JSON), `ModuleVersionView`, `ModuleMetadataForm`, `EditorModuleList`, `ModuleHistory`, `ResourceList`, `CommentDialog`, `ModuleStatusBadge`, tableaux de bord éditorial et de validation, `useModuleAction` |
 | `components/` | `ConfirmDialog`, `Pagination`, `QueryError`/`TableSkeleton`, `FormField`, `FollowUpOverview` (indicateurs) |
-| `lib/api/` | `apiFetch`/`apiSend` (client typé, cookie, en-tête anti-CSRF, erreurs normalisées) et `queryOptions` par domaine (`auth`, `teams`, `scouts`) |
+| `lib/api/` | `apiFetch`/`apiSend` (client typé, cookie, en-tête anti-CSRF, erreurs normalisées) et `queryOptions` par domaine (`auth`, `teams`, `scouts`, `modules`) |
 | `lib/offline/` | Structure IndexedDB (fondation PWA) |
-| `lib/spaces.ts` | Configuration des espaces et de leur navigation |
+| `lib/spaces.ts` | Configuration des espaces (dont `bibliotheque`) et de leur navigation ; entrées réservées à un rôle (`roles`) filtrées par `SpaceNav` |
 | `public/sw.js` | Service worker (enregistré en production uniquement) |
 
 ## API (`apps/api/src`)
@@ -53,7 +54,8 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 | `modules/scouts/` | Contrôleurs `/scouts`, `/teams`, `/scouts/:id/observations` ; `ScoutProfilesService` (liste, fiche, inscription, modification, étape, activation, rattachement de compte, historique pédagogique), `TeamsService` (équipes, archivage, affectations, historique), `ObservationsService` |
 | `modules/progression/` | `GET /progression/stages` |
 | `modules/evaluations/` | `EvaluationAttemptsService` (préparation papier, feuille, recherche par code, saisie, soumission, décision, annulation, réouverture), `EvaluationWaiversService`, émission des codes, transitions, éligibilité |
-| `modules/` (autres) | Modules réservés : `users`, `pedagogy`, `programmes`, `audit` (vides) |
+| `modules/pedagogy/` | Contrôleurs `/modules` (bibliothèque), `/editor` (rédaction), `/admin/modules` (approbation) ; `ModuleCatalogService`, `ModuleEditorService`, `ModuleReviewService` ; `module-common.ts` (accès, verrous, historique, présentation) |
+| `modules/` (autres) | Modules réservés : `users`, `programmes`, `audit` (vides) |
 | `app.setup.ts` | Configuration HTTP partagée entre `main.ts` et les tests e2e |
 
 ## Authentification
@@ -65,6 +67,20 @@ Navigateur ── toute requête (cookie) ──► SessionGuard : hash → sess
                                          → contrôleur → service : assertCan(actor, permission) → Prisma (+ AuditLog)
 Web : proxy.ts (cookie présent ?) → SessionGate (/auth/me, rôle) → écrans ; chaque donnée reste filtrée par l'API.
 ```
+
+## Modules pédagogiques
+
+```
+Chef ── /editor/* (session + module.write) ──► ModuleEditorService : resolveAccess (auteur | collaborateur | responsable)
+                                              → verrou de la version → contrôle d'état et de révision → écriture
+                                              → module_version_events (+ AuditLog pour la soumission)
+Responsable ── /admin/modules/* (module.review) ──► ModuleReviewService : verrou → transition → événement + AuditLog
+                                                   publication : archive l'ancienne + publie + bascule le pointeur (1 transaction)
+Tous ── /modules/* (module.read) ──► ModuleCatalogService : version publiée courante uniquement
+PostgreSQL : triggers (contenu figé hors brouillon, transitions, pointeur), index uniques partiels (1 version de travail, 1 publiée)
+```
+
+Le contenu des leçons circule en JSON validé par `lessonDocumentSchema` (même schéma côté web et API) et est rendu en éléments React, sans HTML interprété. Détail : [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md).
 
 ## Configuration
 
@@ -91,5 +107,5 @@ Responsable : décider ──────────────────►
 - Le code de tentative est **toujours** émis par le serveur, dans la même transaction que la tentative ; le web ne fait que l'afficher et le saisir.
 - Le code est un identifiant de recherche, pas un secret : toute lecture passe par les permissions.
 - Les modes `EN_LIGNE` et `HORS_LIGNE` partagent la même table et le même historique (circuit numérique développé en phase 4).
-- La génération PDF (support de cours, questionnaire, corrigé chef) se fera côté serveur, sans service d'IA (phase dédiée, voir [ROADMAP.md](ROADMAP.md)).
+- Le support de cours s'imprime déjà depuis le navigateur (`/modules/[slug]/imprimer`, A4). La génération PDF serveur (support de cours, questionnaire, corrigé chef) se fera sans service d'IA (phase dédiée, voir [ROADMAP.md](ROADMAP.md)).
 - Les services reçoivent un `Actor` fourni par la garde de session ; les routes des tentatives restent à exposer (phase 4 bis).
