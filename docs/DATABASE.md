@@ -146,7 +146,7 @@ La ligne de l'année reste verrouillée jusqu'au `COMMIT` : les créations concu
 | --- | --- |
 | `npm run db:migrate -- --name <nom>` | Créer et appliquer une migration (développement) |
 | `npm run db:deploy` | Appliquer les migrations existantes (CI/production) |
-| `npm run db:seed` | Seed idempotent : étapes de progression ; comptes de démonstration fictifs `*.demo@tesla.test` uniquement hors production et si `DEMO_ACCOUNT_PASSWORD` est défini localement |
+| `npm run db:seed` | Seed idempotent : étapes de progression, programme, modules « Bases du scoutisme » ; 25 comptes de démonstration fictifs `*.demo@tesla.test` (1 responsable, `chef1`–`chef4`, `routier.demo` sans profil, `routier01`–`routier19` avec profil réparti sur les quatre étapes) uniquement hors production et si `DEMO_ACCOUNT_PASSWORD` est défini localement ; un profil existant n'est jamais modifié, aucune équipe créée |
 | `npm run db:generate` | Régénérer le client |
 
 | Migration | Contenu | Vérification |
