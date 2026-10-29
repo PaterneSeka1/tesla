@@ -1,6 +1,6 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-10-29 — parcours de l'encadrement (file « À faire », frise de l'année, menu allégé), voir [§ Parcours encadrement](#parcours-du-responsable-et-des-chefs-2026-10-29) ; phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
+Dernière mise à jour : 2026-10-29 — **refonte parcours Route et mandats** (âge, rattrapages, sortie à 21 ans, fonctions plein / adjoint / assistant, espace d'encadrement unique), voir [§ Refonte](#refonte--parcours-route-et-mandats-2026-10-29) ; parcours de l'encadrement (file « À faire », frise de l'année, menu allégé), voir [§ Parcours encadrement](#parcours-du-responsable-et-des-chefs-2026-10-29) ; phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
 
 ## Réalisé et vérifié
 
@@ -137,3 +137,37 @@ Implémenté : accueil et connexion refondus ; animations CSS (`globals.css` : `
 Vérifications exécutées : `npm run lint`, `npm run typecheck`, tests web (44) et build web réussis. Captures Chromium headless (serveur de production local, sans API) de l'accueil et de la connexion en 390 px et 1366 px : aucun défilement horizontal, bascule d'affichage du mot de passe fonctionnelle, alerte affichée lorsque l'API est injoignable ; bascule afficher/masquer contrôlée sur `/connexion` et `/hors-ligne` (type du champ et `aria-pressed`).
 
 Non vérifié : animations des écrans connectés (cadre, tableaux de bord, menu latéral) dans un navigateur ; appareils réels ; fluidité sur téléphone d'entrée de gamme.
+
+## Refonte — parcours Route et mandats (2026-10-29)
+
+Branche `feat/refonte-parcours-route-mandats`. Détails : [REFERENTIEL_PEDAGOGIQUE.md](REFERENTIEL_PEDAGOGIQUE.md) (audit, matrice de traçabilité), [FEATURES/PROGRESSION_PAR_AGE.md](FEATURES/PROGRESSION_PAR_AGE.md), [FEATURES/RATTRAPAGE.md](FEATURES/RATTRAPAGE.md), [FEATURES/MANDATS_RESPONSABLES.md](FEATURES/MANDATS_RESPONSABLES.md), décisions D93–D107.
+
+Implémenté :
+- Moteur d'âge pur et déterministe (Abidjan, 29 février, mois calendaires), référentiel d'âge versionné et figé, version `2026.1` limitée aux deux règles fournies.
+- Étape théorique, étape officielle et écart distincts ; échéances ; sortie à 21 ans calculée à la lecture et enregistrée par un traitement idempotent (`MembershipService`, `npm run jobs:daily -w @tesla/api`), historique intégralement conservé.
+- Plans de rattrapage idempotents, statuts calculés, décision humaine motivée ; éligibilité `ELIGIBLE_RATTRAPAGE` et `SORTI_BRANCHE`.
+- Rôles d'accès `ROUTIER`/`ENCADREMENT`/`ADMINISTRATEUR`, fonctions par mandats annuels (un seul plein, reconductions illimitées et explicites, fins anticipées, changements de fonction), délégations ; permissions recalculées à chaque requête, exposées par `/auth/me`.
+- Typologie des modules (catégorie, obligation, source officielle) dans le workflow existant ; catalogue « Découvrir la Route » (21 brouillons, aucun contenu inventé).
+- Web : espace unique `/encadrement` (anciennes URL redirigées), menu filtré par permissions, `/mandats`, `/mes-rattrapages`, `/administration/referentiel-age`, bloc « Mon parcours », section parcours de la fiche, indicateurs de parcours, filtre de catégorie de la bibliothèque, formulaire de typologie.
+- Deux migrations additives appliquées sur une copie (`tesla_refonte_check`), puis `tesla_test` et `tesla` ; diff schéma ↔ base vide. Seed exécuté sur `tesla` (référentiel `2026.1`, 21 brouillons), réexécution sans écriture vérifiée.
+
+Vérifications exécutées :
+- `npm run lint`, `npm run typecheck`, `npm run build` (API et web) : réussis.
+- `npm run test` : API 146 tests (18 fichiers ; nouveaux : moteur d'âge, statut et origine des rattrapages, écart d'étapes, éligibilité, fonctions et délégations, synchronisation des enums), web 57 tests (4 fichiers ; navigation réécrite pour les nouveaux profils) — réussis.
+- `npm run test:int -w @tesla/api` (`tesla_test`) : **79 tests (7 fichiers) réussis**, dont 71 existants adaptés au nouveau modèle et 8 nouveaux (`test/refonte.int-spec.ts`) : reprise des anciens comptes sans droit officiel, un seul plein (service et contrainte), auto-nomination refusée, dix reconductions successives, retour d'un ancien plein, immutabilité, fin anticipée et perte immédiate des droits, changement de fonction, délégation limitée et révocation, étape théorique sans et avec référentiel, inscription tardive et rattrapage idempotent, décision humaine, sortie à 21 ans (veille/jour, idempotence, historique conservé), typologie et catalogue sans doublon ni exposition aux routiers.
+
+Non vérifié :
+- **Recette navigateur** des nouveaux écrans (`/mandats`, `/mes-rattrapages`, fiche, tableau de bord, bibliothèque) : non exécutée ; rendu mobile non contrôlé visuellement.
+- Traitement `jobs:daily` : non exécuté en conditions réelles (logique couverte par les tests d'intégration via `MembershipService` et `PathwayService`) ; aucune planification (cron) installée.
+- Création d'un référentiel d'âge par l'interface : API seulement (pas de formulaire web).
+- Libellés « chef » / « responsable » subsistant dans certains textes d'écrans antérieurs (sens inchangé : encadrement / personne habilitée).
+- Base jetable `tesla_refonte_check` laissée en place (suppression non effectuée sans autorisation).
+
+### Mise en service
+1. Sauvegarder la base, puis `npm run db:deploy -w @tesla/api` (deux migrations, additives).
+2. Créer un compte d'administration technique (rôle `ADMINISTRATEUR`) : la gestion des comptes n'étant pas développée, par le seed de démonstration hors production ou par une opération SQL encadrée en production.
+3. Dans `/mandats` (administration technique) : déclarer l'année scoute en cours, puis consigner la nomination du responsable plein avec l'autorité de nomination. **Jusque-là, aucune décision officielle n'est possible** (D107).
+4. Le responsable plein consigne l'adjoint et les assistants, résout les comptes « sans mandat », et délègue si nécessaire.
+5. Renseigner les dates de naissance manquantes (indicateur du tableau de bord).
+6. Planifier `npm run jobs:daily -w @tesla/api` une fois par jour (après `npm run build`).
+7. Faire valider les points `A_VALIDER` et fournir les références manquantes ([REFERENTIEL_PEDAGOGIQUE.md](REFERENTIEL_PEDAGOGIQUE.md) § 4).

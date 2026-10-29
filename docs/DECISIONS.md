@@ -134,3 +134,25 @@ Voir [BUSINESS_RULES.md](BUSINESS_RULES.md#points-en-attente-darbitrage-ne-pas-c
 | D85 | Seed pédagogique en ajout seul, piloté par un code source stable | Code `NT-SCOUT-Mxx` dans `module_source_imports` ; module existant jamais modifié, écarts signalés par empreinte canonique ; leçons sans contenu source laissées vides (soumission bloquée) ; notes éditoriales hors contenu publié ; image Morse transcrite plutôt qu'importée (droits non établis, pas de stockage de fichiers). |
 
 À arbitrer : référentiel officiel de compétences, correspondances catégories/étapes, conditions et durées de passage, périmètre éventuel des chefs par équipe, signal d'absence D74 et document source du programme annuel.
+
+## 2026-10-29 — Refonte : progression par l'âge, rattrapages, mandats (branche `feat/refonte-parcours-route-mandats`)
+
+Statut `A_VALIDER` : choix provisoire, appliqué faute de source, à confirmer par le responsable. Traçabilité complète : [REFERENTIEL_PEDAGOGIQUE.md](REFERENTIEL_PEDAGOGIQUE.md).
+
+| # | Décision | Motif / conséquence |
+| --- | --- | --- |
+| D93 | Rôles d'accès `ROUTIER`, `ENCADREMENT`, `ADMINISTRATEUR` ; la fonction (plein, adjoint, assistant) vient d'un mandat | Migration additive : valeurs `CHEF`/`RESPONSABLE` conservées dans l'enum PostgreSQL (aucune suppression) mais interdites par CHECK ; ancien rôle gardé dans `users.legacy_role`. Remplace D86 (pas de multirôle) : un seul compte par personne, quelle que soit sa fonction. |
+| D94 | Habilitations calculées à chaque requête : `OFFICIEL` = plein en exercice ou délégation ; `ENCADREMENT` seul = consultation, rédaction, préparation, accompagnement | Aucune dépendance à une tâche planifiée. **A_VALIDER** : un membre sans mandat garde-t-il ces droits (choix actuel : oui, la désactivation du compte retire l'accès) ? |
+| D95 | Appartenance à la branche distincte de `isActive` : `membership_status` + événements en ajout seul | Sortie le jour du 21e anniversaire, calculée aussi à la lecture ; affectation d'équipe close ; rien n'est supprimé ; aucune étape attribuée. **A_VALIDER** : droits après la sortie (actuel : connexion et consultation, évaluations refusées). |
+| D96 | Référentiel d'âge versionné, figé dès sa mise en vigueur | `2026.1` ne contient que les deux règles fournies (noviciat d'un mois à 18 ans, sortie à 21 ans) ; autres périodes, délai de rattrapage et seuil d'alerte nuls (bloqués par l'absence du manuel). |
+| D97 | Dates civiles d'Abidjan ; né un 29 février → anniversaire le 1er mars ; mois calendaire ramené au dernier jour du mois | **A_VALIDER** (choix techniques explicites et testés). |
+| D98 | Obligation de rattrapage = module obligatoire publié d'une étape dont la période théorique est échue | Création idempotente (lecture et traitement quotidien), jamais supprimée ; statut calculé ; `ACQUIS`/`NON_APPLICABLE` par décision humaine motivée ; échéance nulle sans délai validé, plafonnée à la sortie. **A_VALIDER** : l'obligation ouverte rend accessible l'évaluation du module (`ELIGIBLE_RATTRAPAGE`). |
+| D99 | Typologie portée par la version du module (`category`, `obligation`, `official_source`) | Passe par l'approbation et la publication comme le reste du contenu ; « obligatoire » exige un module d'étape avec source officielle (CHECK) ; sans source = contenu non homologué, signalé dans la bibliothèque. |
+| D100 | Années scoutes déclarées, sans chevauchement, aucune date codée | Calendrier configurable par l'administration technique. |
+| D101 | Mandat de plein consigné par l'administration technique, autorité de nomination obligatoire ; adjoint et assistants consignés par le plein en exercice ou l'administration technique ; auto-nomination refusée | **A_VALIDER** : autorité habilitée à nommer et forme de l'acte. |
+| D102 | Un seul plein et une seule fonction par personne à une date (exclusions PostgreSQL) ; mandat immuable sauf fin anticipée ; reconduction = nouveau mandat explicite, illimitée | Préremplissage sans écriture ; confirmation obligatoire. |
+| D103 | Délégations nominatives du plein, bornées par son mandat, révocables ; permissions `PLEIN` non délégables | **A_VALIDER** : l'adjoint n'a aucun droit officiel par défaut. |
+| D104 | Catalogue « Découvrir la Route » : 21 brouillons transversaux sans contenu ; intitulés 1–3 couverts par M01/M02 | Leçon vide « À rédiger » (soumission bloquée) ; aucune valeur officielle. |
+| D105 | Espace d'encadrement unique `/encadrement` ; `/chef/*` et `/responsable` redirigés ; menu filtré par permissions | L'administration technique n'accède qu'à `/mandats`. |
+| D106 | Traitement quotidien `jobs:daily` (sorties, plans de rattrapage) en complément des calculs à la lecture | À planifier sur le serveur (cron) ; idempotent, journalisé. |
+| D107 | Aucun mandat attribué d'office à la migration | Décisions officielles suspendues jusqu'à la première nomination consignée (voir la mise en service dans IMPLEMENTATION_STATUS). |

@@ -53,7 +53,9 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 | `common/` | Filtre d'erreurs homogène, journalisation des requêtes, protection CSRF, `Actor`, matrice des permissions (`assertCan`), validation Zod, schémas OpenAPI dérivés de Zod, erreurs Prisma |
 | `modules/auth/` | `AuthController` (`/auth/login`, `/logout`, `/me`), `AuthService` (sessions), `SessionGuard` (garde globale, `@Public()`, `@CurrentActor()`), `LoginRateLimiter`, Argon2id |
 | `modules/scouts/` | Contrôleurs `/scouts`, `/teams`, `/scouts/:id/observations` ; `ScoutProfilesService` (liste, fiche, inscription, modification, étape, activation, rattachement de compte, historique pédagogique), `TeamsService` (équipes, archivage, affectations, historique), `ObservationsService` |
-| `modules/progression/` | `GET /progression/stages` |
+| `modules/progression/` | Étapes, historique des étapes, compétences, études ; `PathwayService` (étape théorique par l'âge, plan de rattrapage, indicateurs de parcours, référentiel d'âge), `MembershipService` (sortie de la branche), `age-rules.ts` (référentiel en vigueur, appartenance effective) |
+| `modules/leadership/` | `LeadershipService` : années scoutes, mandats (plein, adjoint, assistants), reconductions, fins anticipées, délégations ; `leadership-rules.ts` (validité à une date) |
+| `jobs/daily.ts` | Traitement quotidien idempotent (`npm run jobs:daily -w @tesla/api`) : sorties de branche, plans de rattrapage |
 | `modules/evaluations/` | Contrôleurs `/editor/evaluations`, `/admin/evaluations`, `/evaluations` + `/attempts` + `/me/attempts`, `/paper-attempts` + `/corrections` + `/admin/attempts`, `/admin/waivers` ; services `EvaluationEditorService` (rédaction), `EvaluationReviewService` (approbation, publication), `EvaluationSessionsService` (passation en ligne), `EvaluationAttemptsService` (papier, correction, examen), `EvaluationWaiversService` ; `eligibility.ts` (fonction pure), `attempt-answers.ts` (validation, correction objective), `attempt-code.ts`, `paper-pdf.ts` (pdfkit) |
 | `modules/pedagogy/` | Contrôleurs `/modules` (bibliothèque), `/editor` (rédaction), `/admin/modules` (approbation) ; `ModuleCatalogService`, `ModuleEditorService`, `ModuleReviewService` ; `module-common.ts` (accès, verrous, historique, présentation) |
 | `modules/` (autres) | Modules réservés : `users`, `programmes`, `audit` (vides) |
@@ -122,3 +124,9 @@ Le module NestJS `progression` gère étapes, référentiel, propositions et ét
 - **Service worker `v2`** : pré-cache de la coquille et de ses ressources statiques ; `/api` et `/connexion` jamais interceptés.
 
 Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).
+
+## Refonte 2026-10-29 — âge, rattrapages, mandats
+- **Calculs purs partagés** (`packages/shared/src/age-progression.ts`, `permissions.ts`, `pathway.ts`) : âge, échéances, étape théorique, statut de rattrapage, écart d'étapes et matrice de permissions sont des fonctions déterministes testées sans base ; les services n'ajoutent que la lecture et l'écriture transactionnelles.
+- **Habilitations** : `SessionGuard` construit l'`Actor` (`role`, `leaderFunction`, `delegated`) à chaque requête via `AuthService.resolveAuthority` ; `assertCan` s'appuie sur `hasPermission` (@tesla/shared), aussi utilisé par le web pour l'affichage (`/auth/me` → `permissions`).
+- **Lecture d'abord** : appartenance, étape théorique, statuts de rattrapage, mandats et délégations sont évalués à la lecture ; `jobs/daily.ts` n'enregistre que les événements et obligations (idempotent).
+- **Web** : espace unique `/encadrement` (anciennes URL redirigées), `/mandats`, `/mes-rattrapages`, `/administration/referentiel-age` ; `lib/navigation.ts` filtre le menu par permissions (`navigationFor`). Voir [FEATURES/MANDATS_RESPONSABLES.md](FEATURES/MANDATS_RESPONSABLES.md), [FEATURES/PROGRESSION_PAR_AGE.md](FEATURES/PROGRESSION_PAR_AGE.md), [FEATURES/RATTRAPAGE.md](FEATURES/RATTRAPAGE.md).

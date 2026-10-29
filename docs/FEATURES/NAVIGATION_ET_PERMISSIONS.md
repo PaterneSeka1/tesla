@@ -1,7 +1,9 @@
-# Navigation et permissions (phase 6)
+# Navigation et permissions (phase 6, refonte du 2026-10-29)
+
+> **Refonte** : rôles d'accès `ROUTIER`, `ENCADREMENT`, `ADMINISTRATEUR` ; décisions selon la fonction du mandat et les délégations (D93–D105, [MANDATS_RESPONSABLES.md](MANDATS_RESPONSABLES.md)). Les sections ci-dessous sont à jour ; la section « Utilisateurs à plusieurs responsabilités » est remplacée par le modèle de mandats.
 
 ## Principe
-L'utilisateur ne choisit jamais d'espace : son rôle (`User.role`, lu par `/auth/me`) détermine son tableau de bord et son menu. La navigation web n'est qu'un confort d'affichage ; l'API reste l'autorité (garde de session globale + `assertCan`, `apps/api/src/common/permissions.ts`).
+L'utilisateur ne choisit jamais d'espace : son rôle d'accès (`User.role`, lu par `/auth/me`) détermine son tableau de bord et son menu ; ses permissions effectives (`/auth/me` → `permissions`, calculées par l'API selon le mandat en vigueur et les délégations) filtrent les entrées et écrans de décision. La navigation web n'est qu'un confort d'affichage ; l'API reste l'autorité (garde de session globale + `assertCan`, `apps/api/src/common/permissions.ts`).
 
 Source unique côté web : `apps/web/src/lib/navigation.ts` (tests : `navigation.test.ts`).
 
@@ -9,8 +11,10 @@ Source unique côté web : `apps/web/src/lib/navigation.ts` (tests : `navigation
 | Rôle | Tableau de bord (`DEFAULT_ROUTES`) |
 | --- | --- |
 | ROUTIER | `/routier` |
-| CHEF | `/chef` |
-| RESPONSABLE | `/responsable` |
+| ENCADREMENT | `/encadrement` (plein, adjoint, assistants, membres sans mandat) |
+| ADMINISTRATEUR | `/mandats` |
+
+Anciennes adresses : `/chef`, `/chef/*` et `/responsable` sont redirigées vers `/encadrement` (`next.config.ts`).
 
 `getDefaultRouteForUser(user)` et `resolvePostLoginPath(user, suivant)` : la page demandée (`?suivant=`) n'est conservée que si elle est interne (`safeInternalPath`) **et** autorisée au rôle (`canAccessPath`) ; sinon, tableau de bord du rôle.
 
@@ -30,13 +34,17 @@ Source unique côté web : `apps/web/src/lib/navigation.ts` (tests : `navigation
 ## Accès par chemin (`ACCESS_RULES`)
 La règle la plus précise l'emporte (règle exacte, puis préfixe le plus long ; `/evaluations` n'ouvre pas `/evaluations-a-valider`).
 
-| Chemin | Rôles |
-| --- | --- |
-| `/modules` | tous |
-| `/routier`, `/evaluations`, `/mes-resultats`, `/progression`, `/mes-competences`, `/mes-activites`, `/hors-ligne` (+ alias `/telechargements`, `/synchronisation`) | ROUTIER |
-| `/chef/*`, `/administration/*` | CHEF, RESPONSABLE |
-| `/chef` (exact) | CHEF (le responsable a son propre tableau de bord) |
-| `/responsable`, `/administration/{modules-a-valider, modules, historique-publications, evaluations, evaluations-a-valider, deblocages}` | RESPONSABLE |
+| Chemin | Rôles | Permission exigée |
+| --- | --- | --- |
+| `/modules` | ROUTIER, ENCADREMENT | — |
+| `/routier`, `/evaluations`, `/mes-resultats`, `/progression`, `/mes-rattrapages`, `/mes-competences`, `/mes-activites`, `/hors-ligne` (+ alias) | ROUTIER | — |
+| `/encadrement/*`, `/administration/*` | ENCADREMENT | — |
+| `/mandats` | ENCADREMENT, ADMINISTRATEUR | `mandate.read` |
+| `/administration/referentiel-age` | ENCADREMENT | `ageRules.read` |
+| `/administration/{modules-a-valider, modules, historique-publications}` | ENCADREMENT | `module.review` |
+| `/administration/evaluations` | ENCADREMENT | `evaluation.review` |
+| `/administration/evaluations-a-valider` | ENCADREMENT | `attempt.decide` |
+| `/administration/deblocages` | ENCADREMENT | `waiver.manage` |
 
 ## Utilisateurs à plusieurs responsabilités
 Analyse du modèle : `User.role` est unique, mais la matrice API est **hiérarchique** : RESPONSABLE détient toutes les permissions de CHEF (`module.write`, `evaluation.write`, `attempt.preparePaper`, `attempt.record`, `observation.create`, `activity.manage`, `competency.propose`, etc.). Un responsable qui rédige, prépare une évaluation papier ou corrige le fait donc avec son unique compte et son unique menu, sans changer d'espace.
@@ -45,8 +53,9 @@ Aucun modèle multirôle n'est introduit (D86). Il ne deviendrait nécessaire qu
 
 ## Menus (`NAVIGATION`)
 - **Routier** : *Mon parcours* (tableau de bord, progression, compétences, activités) · *Apprendre* (modules, évaluations, résultats, hors ligne). Mobile : barre inférieure de 4 accès rapides + menu latéral.
-- **Chef** : *Pilotage* (tableau de bord, statistiques, programme) · *Suivi des routiers* (routiers, équipes, activités, présences, propositions de validation) · *Rédaction et correction*, repliable (rédaction, questionnaires, papier, corrections, soumissions, bibliothèque).
-- **Responsable** : *Pilotage* · *Validation des contenus* (modules, questionnaires) · *Décisions sur les routiers* (résultats, acquis, déblocages) · *Communauté* · *Rédaction et correction*, repliable · *Référentiels*, repliable (tous les modules, compétences, publications, bibliothèque). Les validations de contenus et de personnes sont deux groupes distincts.
+- **Encadrement** (un seul menu, `navigationFor(user)` retire les entrées non autorisées et les groupes vides) : *Pilotage* (tableau de bord, statistiques, programme, responsables et mandats) · *Validation des contenus* · *Décisions sur les routiers* · *Communauté* · *Rédaction et correction*, repliable · *Référentiels*, repliable (tous les modules, compétences, référentiel d'âge, publications, bibliothèque).
+- **Administration technique** : *Responsables et mandats* uniquement.
+- Le routier dispose en plus de « Mes rattrapages » ; « Modules » devient « Découvrir la Route » (bibliothèque avec filtre de catégorie).
 - Groupes repliables (D92) : `<details>` natif, repliés par défaut, ouverts lorsqu'ils contiennent la page affichée. Le groupe du tableau de bord n'est jamais repliable (vérifié par `navigation.test.ts`).
 
 Entrées demandées mais absentes faute d'écran (règle : aucune entrée vers un écran inexistant) : « Mon profil », « Utilisateurs et accès », « Paramètres ». Les entrées « Téléchargements » et « Synchronisation » (même page) sont fusionnées en « Hors ligne » ; les anciennes URL restent valides.

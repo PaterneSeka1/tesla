@@ -4,6 +4,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — refonte parcours Route et mandats, 2026-10-29
+- Étape théorique selon l'âge (référentiel versionné), échéances, sortie de la branche à 21 ans sans suppression d'historique, plans de rattrapage avec décision humaine.
+- Fonctions plein / adjoint / assistant par mandats annuels historisés, reconductions explicites illimitées, délégations ; permissions selon la fonction en vigueur.
+- Typologie des modules (découverte, étape, complémentaire ; obligation ; source officielle) et catalogue « Découvrir la Route » en brouillons.
+- Écrans : responsables et mandats, mes rattrapages, référentiel d'âge, parcours sur le tableau de bord du routier et la fiche, indicateurs de parcours.
+- API : `/age-rules`, `/scouts/:id/pathway`, `/me/pathway`, `/statistics/pathways`, `/catch-ups/:id/decision`, `/membership/apply-exits`, `/leadership`, `/mandates`, `/scout-years`, `/delegations` ; `GET /auth/me` expose `leaderFunction` et `permissions`.
+
+### Modifié — refonte, 2026-10-29
+- Rôles `CHEF` et `RESPONSABLE` remplacés par le rôle `ENCADREMENT` (ancien rôle conservé) ; aucun mandat attribué d'office.
+- Espaces `/chef` et `/responsable` fusionnés dans `/encadrement` (redirections).
+- Seed : comptes fictifs renommés, compte d'administration technique, référentiel d'âge `2026.1`.
+
 ### Modifié — accueil, connexion et animations, 2026-10-29
 - Accueil : bandeau animé (halos, logo auréolé, apparition en cascade), section « Un espace pour chacun » par rôle, principes de la plateforme, pied de page.
 - Connexion : panneau de marque et formulaire côte à côte sur desktop ; sur mobile, bandeau de marque et carte qui remonte. Affichage du mot de passe, indicateur de chargement, secousse de l'alerte en cas d'échec.

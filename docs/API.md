@@ -247,3 +247,27 @@ Gestion des comptes (création, activation, réinitialisation du mot de passe), 
 ## Phase 4 — endpoints opérationnels
 
 Les routes de progression, compétences, propositions, études, programmes, activités, présences et tableaux de bord sont exposées sous `/api/v1`, avec session, validation Zod, permissions dans les services et documentation Swagger. Catalogue par domaine : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md). L’édition générale d’un routier refuse un changement d’étape : utiliser `POST /scouts/:id/stage-changes` avec confirmation, motif et étape courante attendue.
+
+## Refonte 2026-10-29 — parcours, rattrapages, mandats
+
+`GET /auth/me` renvoie en plus `leaderFunction` et `permissions` (affichage uniquement).
+
+| Méthode et route | Permission | Objet |
+| --- | --- | --- |
+| `GET /age-rules` | `ageRules.read` | Référentiels d'âge (version applicable et historique) |
+| `POST /age-rules`, `POST /age-rules/:id/activate` | `ageRules.manage` | Créer un brouillon ; mettre en vigueur (`confirm: true`, référentiel figé) |
+| `GET /scouts/:id/pathway` | `catchUp.read` | Parcours : âge, étapes théorique et officielle, écart, échéances, appartenance, modules de l'étape, rattrapages (synchronisation idempotente) |
+| `GET /me/pathway` | `progression.readOwn` | Mon parcours (routier) |
+| `GET /statistics/pathways?teamId=` | `statistics.read` | Indicateurs de parcours |
+| `POST /catch-ups/:id/decision` | `catchUp.decide` | `ACQUIS` ou `NON_APPLICABLE`, motif, `confirm: true` ; `409 CATCH_UP_ALREADY_DECIDED` |
+| `POST /membership/apply-exits` | `membership.apply` | Appliquer les sorties échues (idempotent) |
+| `GET /leadership` | `mandate.read` | Encadrement en exercice, vacances, comptes sans mandat, délégations |
+| `GET /mandates?scoutYearId=&userId=` | `mandate.read` | Historique des mandats |
+| `POST /mandates` | `mandate.recordPlein` (plein) / `mandate.recordTeam` | Nomination, reconduction, remplacement, changement de fonction ; `409 PLEIN_OVERLAP`, `409 MANDATE_OVERLAP`, `403 SELF_APPOINTMENT`, `400 PREVIOUS_MANDATE_MISMATCH` |
+| `POST /mandates/:id/end` | idem selon la fonction | Fin anticipée (`409 MANDATE_ALREADY_ENDED`) |
+| `GET /mandates/:id/reconduction` | idem | Préremplissage de l'année suivante (aucune écriture) |
+| `POST /scout-years` | `scoutYear.manage` | Déclarer une année scoute (`409 SCOUT_YEAR_CONFLICT`) |
+| `GET /delegations` | `delegation.read` | Délégations |
+| `POST /delegations`, `POST /delegations/:id/revoke` | `delegation.manage` | Déléguer ; révoquer |
+
+Modules : `category`, `obligation`, `officialSource` sur la création, la modification et le détail d'une version (`400 MODULE_TYPOLOGY_INVALID`) ; bibliothèque : filtre `?category=` et champs `category`, `obligation`, `official`. Éligibilité : nouveaux statuts `ELIGIBLE_RATTRAPAGE` et `SORTI_BRANCHE`.

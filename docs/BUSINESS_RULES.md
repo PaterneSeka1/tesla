@@ -8,6 +8,8 @@
 
 ## Rôles et permissions
 
+> **Refonte 2026-10-29 (D93–D94)** : la colonne « Chef » vaut désormais pour **tout membre de l'encadrement** (rôle `ENCADREMENT`, avec ou sans mandat) ; la colonne « Responsable » pour le **responsable plein en exercice** ou une personne titulaire d'une **délégation** sur l'action concernée. Matrice de référence : `packages/shared/src/permissions.ts`.
+
 | Action | Routier | Chef | Responsable |
 | --- | :---: | :---: | :---: |
 | Consulter les modules publiés | ✅ | ✅ | ✅ |
@@ -39,7 +41,7 @@
 | Accorder / révoquer un déblocage individuel | — | — | ✅ |
 | Valider officiellement un acquis | — | — | ✅ |
 
-Le responsable détient toutes les permissions des chefs (matrice `apps/api/src/common/permissions.ts`) : il exerce les fonctions de rédaction, de préparation papier et de correction avec son unique compte, sans changer d'espace (D86). Navigation : [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md).
+Le responsable plein détient toutes les permissions de l'encadrement (matrice `packages/shared/src/permissions.ts`) : il rédige, prépare le papier et corrige avec son unique compte, dans l'espace unique `/encadrement` (D105). Navigation : [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md).
 | Consulter sa propre progression | ✅ | — | — |
 | Consulter la progression des routiers | — | ✅ | ✅ |
 | Gérer les comptes | — | — | ✅ (à confirmer) |
@@ -173,3 +175,11 @@ Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).
 - Une réexécution n'écrase jamais un module importé : elle signale les écarts.
 
 Détails : [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md).
+
+## Refonte 2026-10-29 — âge, rattrapages, mandats
+- **Étape théorique** : déterminée par l'âge (date de naissance) et le référentiel d'âge en vigueur, jamais par la date d'entrée ; distincte de l'étape officielle, de la progression pédagogique et du rattrapage. Voir [FEATURES/PROGRESSION_PAR_AGE.md](FEATURES/PROGRESSION_PAR_AGE.md).
+- **Noviciat** : du 18e anniversaire à un mois calendaire plus tard (règle fournie, à rapprocher du manuel). L'échéance ne valide rien.
+- **Sortie** : le jour du 21e anniversaire, le routier n'est plus membre actif ; historique intégralement conservé ; aucune étape attribuée.
+- **Rattrapage** : modules obligatoires (source officielle exigée) d'étapes dont la période est échue ; acquis seulement par décision humaine. Voir [FEATURES/RATTRAPAGE.md](FEATURES/RATTRAPAGE.md).
+- **Encadrement** : tous sont responsables (plein, adjoint, assistants) ; un seul plein à la fois, reconductible sans limite par un nouveau mandat explicite ; décisions officielles réservées au plein en exercice ou à ses délégataires. Voir [FEATURES/MANDATS_RESPONSABLES.md](FEATURES/MANDATS_RESPONSABLES.md).
+- Règles non confirmées et sources manquantes : [REFERENTIEL_PEDAGOGIQUE.md](REFERENTIEL_PEDAGOGIQUE.md) et décisions D93–D107.

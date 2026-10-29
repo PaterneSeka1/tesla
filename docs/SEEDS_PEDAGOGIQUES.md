@@ -70,3 +70,8 @@ Fichiers : `apps/api/prisma/seeds/scoutisme-base.seed.ts` (contenu), `source-mod
 3. Rédiger les leçons vides, vérifier les points signalés, ajuster étape et objectifs.
 4. Soumettre (chef collaborateur ou responsable), puis approuver et publier par le responsable (`/administration/modules-a-valider`). Chaque décision est attribuée à une personne.
 5. Préparer les évaluations dans le workflow habituel.
+
+## Catalogue « Découvrir la Route » (2026-10-29, D104)
+`prisma/seeds/decouverte.seed.ts` : 21 modules transversaux (`NT-DEC-A04` à `NT-DEC-D24`), en `BROUILLON`, catégorie `TRANSVERSAL`, sans étape, sans source officielle (contenu non homologué), une leçon vide « À rédiger » chacun et une note éditoriale « à compléter ». Aucun texte généré. Les intitulés 1 à 3 du catalogue sont couverts par `NT-SCOUT-M01` et `NT-SCOUT-M02` (pas de doublon). Même mécanisme d'import (ajout seul, empreinte, rapport d'écarts, `--dry-run`). Exécuté sur `tesla` (21 créations), réexécution sans écriture vérifiée.
+
+Le seed principal crée aussi, une seule fois, le référentiel d'âge `2026.1` (`prisma/seeds/age-rules.seed.ts`) et un compte fictif d'administration technique (`admin.demo@tesla.test`, si `DEMO_ACCOUNT_PASSWORD` est défini). Aucun mandat n'est créé.

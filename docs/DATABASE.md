@@ -6,7 +6,7 @@ PostgreSQL 18 (Docker Compose en développement) · Prisma 7 avec `@prisma/adapt
 
 | Modèle (table) | Rôle | Points notables |
 | --- | --- | --- |
-| `User` (`users`) | Compte de connexion | `email` unique (minuscules), `role` (`ROUTIER`/`CHEF`/`RESPONSABLE`), `passwordHash` (Argon2id) nullable = compte non activé, `lastLoginAt`, jamais supprimé (`isActive`) |
+| `User` (`users`) | Compte de connexion | `email` unique (minuscules), `role` (`ROUTIER`/`ENCADREMENT`/`ADMINISTRATEUR` ; `CHEF`/`RESPONSABLE` historiques interdits par CHECK), `legacy_role`, `passwordHash` (Argon2id) nullable = compte non activé, `lastLoginAt`, jamais supprimé (`isActive`) |
 | `Session` (`sessions`) | Session serveur | Seul `tokenHash` (SHA-256 du jeton du cookie) est stocké ; `expiresAt` (durée absolue `SESSION_TTL_HOURS`), `revokedAt` (déconnexion), `lastUsedAt` ; supprimée avec l'utilisateur (`Cascade`) |
 | `ScoutProfile` (`scout_profiles`) | **Profil routier** (référence métier) | `userId` **facultatif** et unique ; `firstName`, `lastName` ; `matricule` facultatif, unique, forme normalisée (CHECK) ; `joinedAt`, `birthDate`, `currentStageId` ; `isActive` (désactivation sans suppression) |
 | `ScoutObservation` (`scout_observations`) | Observation d'accompagnement | `scoutProfileId` (profil), `authorId`, `observedOn`, `content`, `category` (libellé libre facultatif), `visibility` (`ENCADREMENT`/`RESPONSABLE`), `editedAt` ; jamais supprimée ; routier, auteur et date de saisie immuables (trigger) |
@@ -200,3 +200,18 @@ Migration additive `20261102090000_module_source_imports` (aucune donnée exista
 - Table `module_source_imports` (1–1 avec le module) : code stable `source_key` unique (ex. `NT-SCOUT-M01`), document, SHA-256 et pages sources, notes éditoriales (JSON, jamais transmises aux routiers), instantané importé et empreinte canonique. **Ajout seul** (trigger `module_source_imports_append_only`).
 
 Appliquée sur `tesla` et `tesla_test` ; diff schéma ↔ base vide. Voir [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md).
+
+## Refonte 2026-10-29 — migrations `20261103090000_roles_encadrement` et `20261103091000_route_age_mandates`
+Migrations **additives** (aucune table, colonne ni valeur d'enum supprimée), testées sur une copie de la base de développement (`tesla_refonte_check`), puis appliquées sur `tesla_test` et `tesla` ; diff schéma ↔ base vide.
+
+1. `roles_encadrement` : `ALTER TYPE "Role" ADD VALUE` `ENCADREMENT`, `ADMINISTRATEUR` (migration séparée : une valeur ajoutée n'est utilisable qu'après validation de la transaction).
+2. `route_age_mandates` :
+   - Reprise : `CHEF`/`RESPONSABLE` → `ENCADREMENT`, ancien rôle dans `users.legacy_role` ; `users_role_current_check`, `users_legacy_role_check`. Aucun mandat créé.
+   - `module_versions` : `category`, `obligation`, `official_source` ; CHECK `module_versions_stage_category_check`, `module_versions_mandatory_source_check` ; `module_versions_guard` étendu (champs figés hors brouillon).
+   - `age_rule_sets`, `age_stage_rules` : référentiel versionné ; CHECK de valeurs, d'activation et de période ; triggers `age_rule_sets_guard` (figé en vigueur, jamais supprimé) et `age_stage_rules_guard` (règles modifiables en brouillon seulement).
+   - `scout_profiles.membership_status`, `branch_exited_on` (CHECK de cohérence) ; `route_membership_events` en ajout seul (unicité routier/nature/date).
+   - `catch_up_obligations` : unicité routier/module, CHECK de décision, trigger (origine et décision immuables, jamais supprimée).
+   - `scout_years` (libellé, période, exclusion `scout_years_no_overlap`, ajout seul) ; `leadership_mandates` (CHECK de période, d'autorité et de fin ; exclusions `leadership_mandates_one_plein` et `leadership_mandates_one_per_user` via `btree_gist` ; trigger : seule une fin anticipée, une fois) ; `delegations` (CHECK de période, permissions non vides, parties distinctes, révocation ; trigger : seule une révocation, une fois).
+   - Fonction `append_only_guard()` réutilisable.
+
+Retour arrière : la migration étant additive, un retour du code antérieur exigerait de rétablir les rôles (`UPDATE users SET role = legacy_role::"Role"` après suppression de la contrainte) — opération à planifier et valider, jamais automatique.

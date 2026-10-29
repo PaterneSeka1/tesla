@@ -3,7 +3,7 @@
 Point d'entrée de Claude Code. Court par design : les détails sont dans `.claude/rules/` (chargées selon les chemins modifiés) et `docs/`.
 
 ## 1. Projet
-Plateforme pédagogique de la **Communauté Nikola Tesla** (Branche Route, District Requin de Sable, Abidjan), année scoute 2026–2027 : 25 routiers, 4 chefs, 1 responsable pédagogique, une seule communauté. Indépendante de SCOUT-NDPST (ne jamais modifier ce projet).
+Plateforme pédagogique de la **Communauté Nikola Tesla** (Branche Route, District Requin de Sable, Abidjan), année scoute 2026–2027 : 25 routiers, un encadrement de responsables (plein, adjoint, assistants), une seule communauté. Indépendante de SCOUT-NDPST (ne jamais modifier ce projet).
 
 ## 2. Architecture
 Monorepo npm workspaces : `apps/web` (Next.js PWA) ↔ REST `/api/v1` ↔ `apps/api` (NestJS) ↔ PostgreSQL (Prisma). Contrats partagés dans `packages/shared`. Détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -43,13 +43,14 @@ Règles structurantes du modèle (RM-001 à RM-012) :
 - **Tentative papier** : même éligibilité qu'en ligne ; la réimpression ne crée jamais de tentative.
 - **Code unique** `NT-AAAA-NNNNNN` : émis par le backend (compteur transactionnel), immuable, jamais réutilisé, **pas un secret** (recherche protégée par permissions).
 - **Validation officielle humaine** : un chef saisit et soumet ; seul le responsable décide ; aucun statut de tentative ne change l'étape d'un routier.
-- **Permissions (D32)** : responsable = fiches, matricules, étapes, équipes, affectations, rattachement de compte ; chefs = consultation et observations ; routiers = aucun accès aux fiches.
+- **Encadrement et permissions (D32, D93–D103)** : rôles d'accès `ROUTIER`, `ENCADREMENT`, `ADMINISTRATEUR` ; fonctions plein / adjoint / assistant par **mandat annuel historisé** (un seul plein à une date, reconduction explicite et illimitée) ; décisions officielles (fiches, matricules, étapes, équipes, affectations, rattachement, approbations, validations) = plein en exercice ou délégation ; tout l'encadrement consulte, rédige et observe ; routiers = aucun accès aux fiches. Matrice : `packages/shared/src/permissions.ts`.
+- **Âge et rattrapage** : étape théorique calculée selon l'âge (référentiel versionné), distincte de l'étape officielle ; sortie de la branche le jour du 21e anniversaire sans suppression ; obligations de rattrapage décidées par un humain. Voir `docs/REFERENTIEL_PEDAGOGIQUE.md`.
 - **Observations** : accompagnement, jamais validation ; jamais supprimées ; modifiées par leur auteur seul (versions conservées).
 - **Modules** : seule une version `BROUILLON` est modifiable (triggers) ; une version de travail et une version publiée au plus par module ; publication atomique par le responsable ; contenu des leçons en JSON par liste blanche (`lessonDocumentSchema`), jamais de HTML. Voir `docs/FEATURES/WORKFLOW_PUBLICATION.md`.
 - **Évaluations** : même workflow que les modules (chef rédige et soumet, responsable approuve et publie, seule une version `BROUILLON` est modifiable) ; éligibilité calculée côté serveur (étape ou déblocage actif) ; corrigé et barèmes jamais transmis au routier ni imprimés sur sa feuille ; correction objective déterministe (`gradeObjectiveAnswer`), réponses libres notées par un humain, aucune IA ; « résultat accepté » (`VALIDEE`) n'est jamais une validation d'acquis. Voir `docs/FEATURES/EVALUATION_WORKFLOW.md`.
 
 ## 8. Sécurité
-Autorisation vérifiée côté serveur (le masquage UI ne suffit pas) : garde de session globale (`@Public()` pour les exceptions) + `assertCan` dans les services. Sessions opaques en cookie httpOnly, Argon2id, en-tête `x-tesla-csrf` sur toute écriture. Comptes de démonstration uniquement via `DEMO_ACCOUNT_PASSWORD` local. Aucune donnée réelle, aucun secret dans Git ou les seeds. Navigation web par rôle uniquement (`apps/web/src/lib/navigation.ts`, aucun choix d'espace), alignée sur la matrice API, qui reste l'autorité. Pas de cache hors ligne de données personnelles sensibles : le hors ligne passe par le coffre IndexedDB chiffré du routier, jamais par le cache du service worker (voir `docs/OFFLINE_FIRST.md`). Erreurs API sans détail interne.
+Autorisation vérifiée côté serveur (le masquage UI ne suffit pas) : garde de session globale (`@Public()` pour les exceptions) + `assertCan` dans les services. Sessions opaques en cookie httpOnly, Argon2id, en-tête `x-tesla-csrf` sur toute écriture. Comptes de démonstration uniquement via `DEMO_ACCOUNT_PASSWORD` local. Aucune donnée réelle, aucun secret dans Git ou les seeds. Navigation web par rôle d'accès et permissions effectives (`apps/web/src/lib/navigation.ts`, espace d'encadrement unique `/encadrement`, aucun choix d'espace), alignée sur la matrice API, qui reste l'autorité. Pas de cache hors ligne de données personnelles sensibles : le hors ligne passe par le coffre IndexedDB chiffré du routier, jamais par le cache du service worker (voir `docs/OFFLINE_FIRST.md`). Erreurs API sans détail interne.
 
 ## 9. Migrations
 `prisma migrate dev --name <nom>` uniquement ; relire le SQL généré ; aucune migration destructive sans plan validé. Voir `.claude/rules/database.md`.
