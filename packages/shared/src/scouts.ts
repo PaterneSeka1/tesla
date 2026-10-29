@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { paginationQuerySchema, searchQuerySchema, userSummarySchema } from './api.js';
-import { EVALUATION_MODES, ATTEMPT_STATUSES } from './evaluations.js';
+import { EVALUATION_MODES, ATTEMPT_STATUSES } from './evaluation-enums.js';
 
 /**
  * Matricule scout (RM-002) : chaîne, jamais un entier (zéros initiaux conservés), jamais généré par l'application.
