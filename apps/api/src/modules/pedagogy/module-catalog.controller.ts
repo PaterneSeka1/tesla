@@ -1,6 +1,7 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Header, Param, Query } from '@nestjs/common';
 import { ApiCookieAuth, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import {
+  offlineModulePackageSchema,
   type CatalogLesson,
   catalogLessonSchema,
   type CatalogModuleDetail,
@@ -43,6 +44,16 @@ export class ModuleCatalogController {
   @ApiOkResponse({ schema: openApiSchema(catalogModuleDetailSchema) })
   get(@CurrentActor() actor: Actor, @Param('slug') slug: string): Promise<CatalogModuleDetail> {
     return this.catalog.get(actor, slug);
+  }
+
+  @Get(':slug/offline-package')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    summary: 'Paquet publié complet et empreinte SHA-256 pour téléchargement explicite',
+  })
+  @ApiOkResponse({ schema: openApiSchema(offlineModulePackageSchema) })
+  offlinePackage(@CurrentActor() actor: Actor, @Param('slug') slug: string) {
+    return this.catalog.offlinePackage(actor, slug);
   }
 
   @Get(':slug/print')

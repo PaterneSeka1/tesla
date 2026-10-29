@@ -1,3 +1,5 @@
+import { OfflineController } from './offline.controller.js';
+import { OfflineService } from './offline.service.js';
 import { Module } from '@nestjs/common';
 import { ScoutsModule } from '../scouts/scouts.module.js';
 import { EvaluationAttemptsController } from './evaluation-attempts.controller.js';
@@ -19,6 +21,7 @@ import { EvaluationWaiversService } from './evaluation-waivers.service.js';
 @Module({
   imports: [ScoutsModule],
   controllers: [
+    OfflineController,
     EvaluationEditorController,
     EvaluationReviewController,
     EvaluationSessionsController,
@@ -26,6 +29,7 @@ import { EvaluationWaiversService } from './evaluation-waivers.service.js';
     EvaluationWaiversController,
   ],
   providers: [
+    OfflineService,
     EvaluationEditorService,
     EvaluationReviewService,
     EvaluationSessionsService,

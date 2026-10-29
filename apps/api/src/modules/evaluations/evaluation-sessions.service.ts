@@ -236,7 +236,11 @@ export class EvaluationSessionsService {
       where: { id: attemptId },
       include: { ...sessionInclude, scoutProfile: { select: { userId: true } } },
     });
-    if (!attempt || attempt.mode !== 'EN_LIGNE' || attempt.scoutProfile.userId !== actor.userId) {
+    if (
+      !attempt ||
+      !['EN_LIGNE', 'HORS_LIGNE'].includes(attempt.mode) ||
+      attempt.scoutProfile.userId !== actor.userId
+    ) {
       throw attemptNotFound();
     }
     const questions = await loadVersionQuestions(this.prisma, attempt.evaluationVersionId);

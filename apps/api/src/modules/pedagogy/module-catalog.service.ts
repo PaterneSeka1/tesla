@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { offlineModulePackageSchema, printableModuleSchema } from '@tesla/shared';
 import { Injectable } from '@nestjs/common';
 import {
   type CatalogLesson,
@@ -191,6 +193,19 @@ export class ModuleCatalogService {
       })),
       resources: version.resources,
     };
+  }
+
+  async offlinePackage(actor: Actor, slug: string) {
+    const content = printableModuleSchema.parse(await this.printable(actor, slug));
+    const version = await this.prisma.moduleVersion.findFirstOrThrow({
+      where: { module: { slug }, version: content.version },
+      select: { id: true },
+    });
+    return offlineModulePackageSchema.parse({
+      versionId: version.id,
+      content,
+      digest: createHash('sha256').update(JSON.stringify(content)).digest('hex'),
+    });
   }
 
   /** Module par slug et sa version publiée ; 404 si aucune version n'est publiée. */

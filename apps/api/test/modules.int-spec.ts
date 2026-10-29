@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { offlineModulePackageSchema } from '@tesla/shared';
 import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import {
@@ -693,5 +695,21 @@ describe('Modules pédagogiques (intégration PostgreSQL)', () => {
     it('exige une session', async () => {
       await request(app.getHttpServer()).get('/api/v1/modules').expect(401);
     });
+  });
+  it('paquet hors ligne publié : version exacte, contenu complet et empreinte vérifiable', async () => {
+    const chef = await loginAs('CHEF');
+    const responsable = await loginAs('RESPONSABLE');
+    const routier = await loginAs('ROUTIER');
+    const module = await publishedModule(chef, responsable);
+    const pkg = await json(
+      routier.get(`/modules/${module.slug}/offline-package`),
+      200,
+      offlineModulePackageSchema,
+    );
+    expect(pkg.versionId).toBe(module.current.id);
+    expect(pkg.content.lessons.length).toBeGreaterThan(0);
+    expect(createHash('sha256').update(JSON.stringify(pkg.content)).digest('hex')).toBe(pkg.digest);
+    const draft = await createModule(chef);
+    await routier.get(`/modules/${draft.slug}/offline-package`).expect(404);
   });
 });

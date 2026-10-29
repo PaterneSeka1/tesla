@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { offlineEvaluationPackageSchema, offlineStatusSchema } from '@tesla/shared';
 import { inflateSync } from 'node:zlib';
 import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -812,5 +814,190 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
       .expect((response) => expect([401, 403]).toContain(response.status));
     // Entrée invalide.
     await chef.post('/editor/evaluations', { title: 'x', stageId: 'pas-un-uuid' }).expect(400);
+  });
+  it('hors ligne : réservation concurrente, absence de corrigé, propriétaire, idempotence et correction serveur', async () => {
+    const chef = await loginAs('CHEF');
+    const responsable = await loginAs('RESPONSABLE');
+    const routier = await loginAs('ROUTIER');
+    const autre = await loginAs('ROUTIER');
+    const evaluation = await publish(chef, responsable, await draftEvaluation(chef));
+    const prepared = await Promise.all(
+      [0, 1].map(() =>
+        json(
+          routier.post(`/offline/evaluations/${evaluation.id}/prepare`),
+          200,
+          offlineEvaluationPackageSchema,
+        ),
+      ),
+    );
+    const pkg = prepared[0]!;
+    expect(prepared[1]!.session.id).toBe(pkg.session.id);
+    expect(JSON.stringify(pkg)).not.toMatch(/isCorrect|points|guidance|expectedAnswer/);
+    expect(await prisma.evaluationAttempt.count()).toBe(1);
+    await autre.get(`/offline/attempts/${pkg.session.id}/status`).expect(404);
+    await chef.post(`/offline/evaluations/${evaluation.id}/prepare`).expect(403);
+    await routier.post(`/attempts/${pkg.session.id}/submit`).expect(404);
+    const payload = {
+      operationId: randomUUID(),
+      authorization: pkg.authorization,
+      versionId: pkg.versionId,
+      deviceSubmittedAt: new Date().toISOString(),
+      answers: pkg.session.questions.map((q, i) => ({
+        questionId: q.id,
+        optionIds: i === 0 ? [q.options[0]!.id] : [],
+        text: i === 3 ? 'Servir' : null,
+      })),
+    };
+    await autre.post(`/offline/attempts/${pkg.session.id}/sync`, payload).expect(404);
+    await routier
+      .post(`/offline/attempts/${pkg.session.id}/sync`, { ...payload, score: 100 })
+      .expect(400);
+    await routier
+      .post(`/offline/attempts/${pkg.session.id}/sync`, { ...payload, versionId: randomUUID() })
+      .expect(409);
+    await routier
+      .post(`/offline/attempts/${pkg.session.id}/sync`, {
+        ...payload,
+        answers: payload.answers.slice(1),
+      })
+      .expect(409);
+    const results = await Promise.all(
+      [0, 1].map(() =>
+        json(
+          routier.post(`/offline/attempts/${pkg.session.id}/sync`, payload),
+          200,
+          offlineStatusSchema,
+        ),
+      ),
+    );
+    expect(results.every((r) => r.syncStatus === 'SYNCHRONISE')).toBe(true);
+    await routier
+      .post(`/offline/attempts/${pkg.session.id}/sync`, { ...payload, operationId: randomUUID() })
+      .expect(409);
+    await routier
+      .post(`/offline/attempts/${pkg.session.id}/sync`, {
+        ...payload,
+        answers: payload.answers.map((a) => ({ ...a, text: null })),
+      })
+      .expect(409);
+    const stored = await prisma.evaluationAttempt.findUniqueOrThrow({
+      where: { id: pkg.session.id },
+    });
+    expect(stored.status).toBe('A_CORRIGER');
+    expect(Number(stored.score)).toBe(2);
+    expect(stored.offlineReceivedAt).not.toBeNull();
+    expect(
+      (await prisma.scoutProfile.findUniqueOrThrow({ where: { id: routier.profile!.id } }))
+        .currentStageId,
+    ).toBe(stages.NOVICIAT);
+    expect(
+      await prisma.evaluationAttemptEvent.count({
+        where: { attemptId: pkg.session.id, toStatus: 'A_CORRIGER' },
+      }),
+    ).toBe(1);
+    const mine = await json(
+      routier.get('/me/offline-sync/status'),
+      200,
+      offlineStatusSchema.array(),
+    );
+    expect(mine).toMatchObject([{ id: pkg.session.id, syncStatus: 'SYNCHRONISE' }]);
+    expect(
+      await json(autre.get('/me/offline-sync/status'), 200, offlineStatusSchema.array()),
+    ).toEqual([]);
+    await routier.post('/auth/logout').expect(204);
+    await routier.post(`/offline/attempts/${pkg.session.id}/sync`, payload).expect(401);
+  });
+
+  it('hors ligne : expiration et révocation conservées comme décisions serveur, hors progression refusé', async () => {
+    const chef = await loginAs('CHEF');
+    const responsable = await loginAs('RESPONSABLE');
+    const routier = await loginAs('ROUTIER', 'COMPAGNONNAGE');
+    const evaluation = await publish(chef, responsable, await draftEvaluation(chef));
+    await routier.post(`/offline/evaluations/${evaluation.id}/prepare`).expect(403);
+    const waiver = (
+      await responsable
+        .post('/admin/waivers', {
+          scoutProfileId: routier.profile!.id,
+          evaluationId: evaluation.id,
+          reason: 'Dérogation fictive hors ligne',
+        })
+        .expect(201)
+    ).body as { id: string };
+    const pkg = await json(
+      routier.post(`/offline/evaluations/${evaluation.id}/prepare`),
+      200,
+      offlineEvaluationPackageSchema,
+    );
+    await responsable
+      .post(`/admin/waivers/${waiver.id}/revoke`, { reason: 'Révocation fictive' })
+      .expect(200);
+    const makePayload = (p: typeof pkg) => ({
+      operationId: randomUUID(),
+      authorization: p.authorization,
+      versionId: p.versionId,
+      deviceSubmittedAt: new Date().toISOString(),
+      answers: p.session.questions.map((q) => ({ questionId: q.id })),
+    });
+    const rejected = await json(
+      routier.post(`/offline/attempts/${pkg.session.id}/sync`, makePayload(pkg)),
+      200,
+      offlineStatusSchema,
+    );
+    expect(rejected).toMatchObject({
+      syncStatus: 'REJETE',
+      code: 'AUTHORIZATION_REVOKED',
+      status: 'ANNULEE',
+    });
+    const eligible = await loginAs('ROUTIER');
+    const expiring = await json(
+      eligible.post(`/offline/evaluations/${evaluation.id}/prepare`),
+      200,
+      offlineEvaluationPackageSchema,
+    );
+    await prisma.evaluationAttempt.update({
+      where: { id: expiring.session.id },
+      data: { offlineExpiresAt: new Date(Date.now() - 1000) },
+    });
+    const expired = await json(
+      eligible.post(`/offline/attempts/${expiring.session.id}/sync`, makePayload(expiring)),
+      200,
+      offlineStatusSchema,
+    );
+    expect(expired).toMatchObject({ syncStatus: 'REJETE', code: 'AUTHORIZATION_EXPIRED' });
+    expect(await prisma.attemptAnswer.count()).toBe(0);
+  });
+
+  it('hors ligne : une nouvelle publication conserve le questionnaire exact de la réservation', async () => {
+    const chef = await loginAs('CHEF');
+    const responsable = await loginAs('RESPONSABLE');
+    const routier = await loginAs('ROUTIER');
+    const evaluation = await publish(chef, responsable, await draftEvaluation(chef));
+    const pkg = await json(
+      routier.post(`/offline/evaluations/${evaluation.id}/prepare`),
+      200,
+      offlineEvaluationPackageSchema,
+    );
+    const next = await json(
+      chef.post(`/editor/evaluations/${evaluation.id}/versions`),
+      201,
+      editorEvaluationDetailSchema,
+    );
+    await publish(chef, responsable, next);
+    const response = await json(
+      routier.post(`/offline/attempts/${pkg.session.id}/sync`, {
+        operationId: randomUUID(),
+        authorization: pkg.authorization,
+        versionId: pkg.versionId,
+        deviceSubmittedAt: new Date().toISOString(),
+        answers: pkg.session.questions.map((q) => ({ questionId: q.id })),
+      }),
+      200,
+      offlineStatusSchema,
+    );
+    expect(response.syncStatus).toBe('SYNCHRONISE');
+    expect(
+      (await prisma.evaluationAttempt.findUniqueOrThrow({ where: { id: pkg.session.id } }))
+        .evaluationVersionId,
+    ).toBe(pkg.versionId);
   });
 });
