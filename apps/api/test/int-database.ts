@@ -22,7 +22,9 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(`TRUNCATE
     module_version_events, module_resources, module_lessons, module_collaborators, module_versions,
     pedagogical_modules,
-    evaluation_attempt_events, evaluation_attempts, evaluation_waivers, evaluation_versions, evaluations,
+    attempt_answers, evaluation_attempt_events, evaluation_attempts, evaluation_waivers,
+    evaluation_version_events, evaluation_answer_options, evaluation_questions, evaluation_versions,
+    evaluations,
     attempt_code_counters, team_assignments, teams, scout_observation_revisions, scout_observations,
     scout_profiles, sessions, audit_logs, users,
     progression_stages CASCADE`);

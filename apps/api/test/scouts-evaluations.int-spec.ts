@@ -28,6 +28,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   let evaluationId: string;
   let versionV1: string;
   let versionDraft: string;
+  let questionV1: string;
 
   beforeAll(() => {
     prisma = createTestPrisma();
@@ -58,21 +59,40 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
       data: { title: 'Quiz fictif du Noviciat', stageId: stageIds.NOVICIAT! },
     });
     evaluationId = evaluation.id;
-    versionV1 = (
-      await prisma.evaluationVersion.create({
+    // Version 1 rédigée puis publiée en suivant les transitions autorisées par le trigger.
+    const v1 = await prisma.evaluationVersion.create({
+      data: { evaluationId, version: 1, title: 'Quiz fictif du Noviciat' },
+    });
+    versionV1 = v1.id;
+    questionV1 = (
+      await prisma.evaluationQuestion.create({
         data: {
-          evaluationId,
-          version: 1,
-          questions: [{ id: 'q1', text: 'Question fictive ?' }],
-          answerKey: { q1: 'Réponse attendue fictive' },
-          publishedAt: new Date(),
-          publishedById: respUser.id,
+          versionId: v1.id,
+          position: 0,
+          type: 'REPONSE_COURTE',
+          prompt: 'Question fictive ?',
+          points: 2,
+          expectedAnswer: 'Réponse attendue fictive',
+          createdById: chefUser.id,
         },
       })
     ).id;
+    for (const status of ['SOUMIS', 'APPROUVE', 'PUBLIE'] as const) {
+      await prisma.evaluationVersion.update({
+        where: { id: v1.id },
+        data: {
+          status,
+          ...(status === 'PUBLIE' && { publishedAt: new Date(), publishedById: respUser.id }),
+        },
+      });
+    }
+    await prisma.evaluation.update({
+      where: { id: evaluationId },
+      data: { publishedVersionId: v1.id },
+    });
     versionDraft = (
       await prisma.evaluationVersion.create({
-        data: { evaluationId, version: 2, questions: [{ id: 'q1', text: 'Brouillon ?' }] },
+        data: { evaluationId, version: 2, title: 'Brouillon fictif' },
       })
     ).id;
   });
@@ -89,7 +109,21 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   const prepare = (scoutProfileId: string, actor: Actor = chef) =>
     attempts.preparePaper(actor, { scoutProfileId, evaluationId, evaluationVersionId: versionV1 });
 
-  const result = { completedAt: '2027-01-09T10:00:00.000Z', answers: { q1: 'Réponse manuscrite' } };
+  /** Saisie d'une copie papier (révision lue en base, comme le ferait l'écran de correction). */
+  const record = async (code: string, text = 'Réponse manuscrite', extra: object = {}) => {
+    const { correctionRevision } = await prisma.evaluationAttempt.findUniqueOrThrow({
+      where: { code },
+    });
+    return attempts.saveCorrection(chef, code, {
+      correctionRevision,
+      completedAt: '2027-01-09T10:00:00.000Z',
+      answers: [{ questionId: questionV1, text }],
+      grades: [{ questionId: questionV1, awardedPoints: 1.5 }],
+      ...extra,
+    });
+  };
+  const revisionOf = async (code: string) =>
+    (await prisma.evaluationAttempt.findUniqueOrThrow({ where: { code } })).correctionRevision;
 
   it('1. crée un routier sans compte', async () => {
     const scout = await newScout(1);
@@ -230,12 +264,20 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     });
     const attempt = await prepare(scout.id);
 
-    const first = await attempts.getPaperSheet(chef, attempt.code);
-    const second = await attempts.getPaperSheet(chef, attempt.code.toLowerCase());
+    const first = await attempts.paperDocumentData(chef, attempt.code, 'questionnaire');
+    const second = await attempts.paperDocumentData(
+      chef,
+      attempt.code.toLowerCase(),
+      'questionnaire',
+    );
     expect(second).toEqual(first);
     expect(first).toMatchObject({ code: attempt.code, teamName: 'Équipe fictive A', version: 1 });
     expect(first.scout.matricule).toBe('0000123A');
     expect(JSON.stringify(first)).not.toContain('Réponse attendue fictive');
+    expect(first.questions[0]).toMatchObject({ points: null, expectedAnswer: null });
+    // Le corrigé, lui, contient la réponse attendue (chefs uniquement).
+    const key = await attempts.paperDocumentData(chef, attempt.code, 'corrige');
+    expect(JSON.stringify(key)).toContain('Réponse attendue fictive');
     expect(await prisma.evaluationAttempt.count()).toBe(1);
 
     // Doublon : une seconde préparation explicite est refusée tant que la première est ouverte (RM-012).
@@ -245,7 +287,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   it('11–12. recherche par code protégée par les permissions', async () => {
     const scout = await newScout(1);
     const attempt = await prepare(scout.id);
-    const found = await attempts.findByCode(chef, ` ${attempt.code.toLowerCase()} `);
+    const found = await attempts.detail(chef, { code: ` ${attempt.code.toLowerCase()} ` });
     expect(found.id).toBe(attempt.id);
 
     const stranger = await prisma.user.create({
@@ -256,13 +298,19 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
         role: 'ROUTIER',
       },
     });
-    await expect(
-      attempts.findByCode({ userId: stranger.id, role: 'ROUTIER' }, attempt.code),
-    ).rejects.toThrow(NotFoundException);
-    await expect(
-      attempts.getPaperSheet({ userId: stranger.id, role: 'ROUTIER' }, attempt.code),
-    ).rejects.toThrow(ForbiddenException);
-    await expect(attempts.findByCode(chef, 'NT-12')).rejects.toThrow(BadRequestException);
+    const routier = { userId: stranger.id, role: 'ROUTIER' } as const;
+    await expect(attempts.detail(routier, { code: attempt.code })).rejects.toThrow(
+      ForbiddenException,
+    );
+    for (const document of ['questionnaire', 'corrige', 'grille'] as const) {
+      await expect(attempts.paperDocumentData(routier, attempt.code, document)).rejects.toThrow(
+        ForbiddenException,
+      );
+    }
+    await expect(attempts.detail(chef, { code: 'NT-12' })).rejects.toThrow(BadRequestException);
+    await expect(attempts.detail(chef, { code: 'NT-2000-999999' })).rejects.toThrow(
+      NotFoundException,
+    );
 
     const owner = await prisma.user.create({
       data: {
@@ -272,19 +320,17 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
         role: 'ROUTIER',
       },
     });
+    // Même titulaire, un routier n'accède jamais à la copie corrigée (corrigé compris) : il consulte
+    // son historique via /me/attempts.
     await profiles.linkAccount(responsable, scout.id, owner.id);
-    expect(
-      (await attempts.findByCode({ userId: owner.id, role: 'ROUTIER' }, attempt.code)).id,
-    ).toBe(attempt.id);
+    await expect(
+      attempts.detail({ userId: owner.id, role: 'ROUTIER' }, { code: attempt.code }),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('13. conserve la version exacte du questionnaire et refuse une version non publiée', async () => {
     const scout = await newScout(1);
     const attempt = await prepare(scout.id);
-    await prisma.evaluationVersion.update({
-      where: { id: versionDraft },
-      data: { publishedAt: new Date() },
-    });
     expect(
       (await prisma.evaluationAttempt.findUniqueOrThrow({ where: { id: attempt.id } }))
         .evaluationVersionId,
@@ -296,10 +342,6 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
       }),
     ).rejects.toThrow();
 
-    await prisma.evaluationVersion.update({
-      where: { id: versionDraft },
-      data: { publishedAt: null },
-    });
     const other = await newScout(2);
     await expect(
       attempts.preparePaper(chef, {
@@ -313,26 +355,29 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   it('14–15. circuit complet : seul le responsable décide, sans changement d’étape automatique', async () => {
     const scout = await newScout(1);
     const attempt = await prepare(scout.id);
-    await expect(attempts.submit(chef, attempt.id)).rejects.toThrow(ConflictException);
-    await attempts.recordPaperResult(chef, attempt.id, { ...result, score: 14, maxScore: 20 });
-    await attempts.submit(chef, attempt.id);
+    await expect(
+      attempts.submitReview(chef, attempt.code, { correctionRevision: 1 }),
+    ).rejects.toThrow(ConflictException);
+    const recorded = await record(attempt.code);
+    expect(recorded).toMatchObject({ status: 'A_CORRIGER', score: 1.5, maxScore: 2 });
+    await attempts.submitReview(chef, attempt.code, {
+      correctionRevision: recorded.correctionRevision,
+    });
 
-    await expect(attempts.decide(chef, attempt.id, { decision: 'VALIDEE' })).rejects.toThrow(
-      ForbiddenException,
-    );
-    const decided = await attempts.decide(responsable, attempt.id, { decision: 'VALIDEE' });
+    await expect(attempts.acceptReview(chef, attempt.id, {})).rejects.toThrow(ForbiddenException);
+    const decided = await attempts.acceptReview(responsable, attempt.id, {});
     expect(decided.status).toBe('VALIDEE');
 
     const after = await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } });
     expect(after.currentStageId).toBe(stageIds.NOVICIAT);
-    expect(await prisma.auditLog.count({ where: { action: 'evaluation_attempt.decided' } })).toBe(
-      1,
-    );
+    expect(
+      await prisma.auditLog.count({ where: { action: 'evaluation_attempt.review_accepted' } }),
+    ).toBe(1);
 
     // Aucune modification silencieuse après décision : réouverture tracée par le responsable uniquement.
-    await expect(
-      attempts.recordPaperResult(chef, attempt.id, { ...result, reason: 'Contournement' }),
-    ).rejects.toThrow(ConflictException);
+    await expect(record(attempt.code, 'Autre', { reason: 'Contournement' })).rejects.toThrow(
+      ConflictException,
+    );
     await expect(attempts.reopen(chef, attempt.id, { reason: 'Erreur de saisie' })).rejects.toThrow(
       ForbiddenException,
     );
@@ -354,23 +399,19 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   it('correction après soumission : motif obligatoire et réponses originales conservées', async () => {
     const scout = await newScout(1);
     const attempt = await prepare(scout.id);
-    await attempts.recordPaperResult(chef, attempt.id, result);
-    await attempts.submit(chef, attempt.id);
-    await expect(
-      attempts.recordPaperResult(chef, attempt.id, { ...result, answers: { q1: 'Corrigée' } }),
-    ).rejects.toThrow(UnprocessableEntityException);
-    await attempts.recordPaperResult(chef, attempt.id, {
-      ...result,
-      answers: { q1: 'Corrigée' },
-      reason: 'Transcription erronée',
+    await record(attempt.code);
+    await attempts.submitReview(chef, attempt.code, {
+      correctionRevision: await revisionOf(attempt.code),
     });
+    await expect(record(attempt.code, 'Corrigée')).rejects.toThrow(UnprocessableEntityException);
+    await record(attempt.code, 'Corrigée', { reason: 'Transcription erronée' });
 
     const snapshots = await prisma.evaluationAttemptEvent.findMany({
       where: { attemptId: attempt.id, snapshot: { not: undefined } },
       orderBy: { createdAt: 'asc' },
     });
     const answers = snapshots
-      .map((e) => (e.snapshot as { answers?: Record<string, string> } | null)?.answers?.q1)
+      .map((e) => (e.snapshot as { answers?: { text: string }[] } | null)?.answers?.[0]?.text)
       .filter(Boolean);
     expect(answers).toEqual(['Réponse manuscrite', 'Corrigée']);
   });
@@ -390,7 +431,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     const attempt = await prepare(scout.id);
     expect(attempt.waiverId).toBe(waiver.id);
 
-    await attempts.cancel(chef, attempt.id, { reason: 'Annulation fictive' });
+    await attempts.cancel(chef, attempt.code, { reason: 'Annulation fictive' });
     await waivers.revoke(responsable, waiver.id, { reason: 'Révocation fictive' });
     await expect(prepare(scout.id)).rejects.toThrow(ForbiddenException);
     expect(await prisma.auditLog.count({ where: { entityType: 'EvaluationWaiver' } })).toBe(2);
@@ -399,7 +440,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   it('17. conservation : tentatives et historique non supprimables, code immuable et jamais réutilisé', async () => {
     const scout = await newScout(1);
     const first = await prepare(scout.id);
-    await attempts.cancel(chef, first.id, { reason: 'Feuille perdue' });
+    await attempts.cancel(chef, first.code, { reason: 'Feuille perdue' });
     const second = await prepare(scout.id);
 
     expect(second.code).not.toBe(first.code);

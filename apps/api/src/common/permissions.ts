@@ -30,11 +30,13 @@ export const PERMISSIONS = {
   /** Lire les observations de niveau « responsable » rédigées par d'autres. */
   'observation.readRestricted': ['RESPONSABLE'],
   'attempt.preparePaper': ['CHEF', 'RESPONSABLE'],
+  /** Copies, corrigés, grilles de correction : jamais les routiers. */
   'attempt.readAny': ['CHEF', 'RESPONSABLE'],
+  /** Saisir ou corriger un résultat (tous les chefs de la communauté, à confirmer). */
   'attempt.record': ['CHEF', 'RESPONSABLE'],
   'attempt.submit': ['CHEF', 'RESPONSABLE'],
   'attempt.cancel': ['CHEF', 'RESPONSABLE'],
-  /** Décision pédagogique sur un résultat : exclusivement le responsable (RM-010). */
+  /** Examen d'un résultat corrigé (accepter, demander une nouvelle correction) : exclusivement le responsable. */
   'attempt.decide': ['RESPONSABLE'],
   'attempt.reopen': ['RESPONSABLE'],
   /** Dérogations : exclusivement le responsable (RM-009). */
@@ -47,6 +49,15 @@ export const PERMISSIONS = {
   'module.writeAny': ['RESPONSABLE'],
   /** Approuver, demander des corrections, refuser, publier, archiver : exclusivement le responsable. */
   'module.review': ['RESPONSABLE'],
+  /** Liste des évaluations publiées (sans corrigé). L'accès au questionnaire dépend de l'éligibilité. */
+  'evaluation.read': ['ROUTIER', 'CHEF', 'RESPONSABLE'],
+  /** Passer une évaluation en ligne : routier avec profil, après contrôle d'éligibilité. */
+  'evaluation.take': ['ROUTIER'],
+  /** Rédiger un questionnaire ; modifier ceux dont on est auteur ou rédacteur du module évalué. */
+  'evaluation.write': ['CHEF', 'RESPONSABLE'],
+  'evaluation.writeAny': ['RESPONSABLE'],
+  /** Approuver, demander des corrections, refuser, publier, archiver un questionnaire. */
+  'evaluation.review': ['RESPONSABLE'],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
