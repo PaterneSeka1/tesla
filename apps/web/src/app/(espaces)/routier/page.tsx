@@ -1,4 +1,4 @@
-import { ClipboardCheck, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { PROGRESSION_STAGES } from '@tesla/shared';
 import Link from 'next/link';
 import { PageHeading } from '@/components/page-heading';
@@ -11,13 +11,7 @@ const FEATURES: PlannedFeature[] = [
     title: 'Lecture hors ligne',
     description: 'Modules téléchargés sur l’appareil pour une lecture sans connexion.',
     icon: Download,
-    phase: 'Phase 3',
-  },
-  {
-    title: 'Évaluations accessibles',
-    description: 'Évaluations ouvertes selon votre progression ou un déblocage individuel.',
-    icon: ClipboardCheck,
-    phase: 'Phase 4',
+    phase: 'Phase 3 bis',
   },
 ];
 
@@ -39,6 +33,23 @@ export default function RoutierDashboardPage() {
         <CardContent>
           <Button asChild>
             <Link href="/modules">Ouvrir la bibliothèque</Link>
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Évaluations</CardTitle>
+          <CardDescription>
+            Questionnaires ouverts selon votre étape ou sur déblocage du responsable, et historique
+            de vos résultats (en ligne comme sur papier).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link href="/evaluations">Mes évaluations</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/mes-resultats">Mes résultats</Link>
           </Button>
         </CardContent>
       </Card>

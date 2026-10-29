@@ -1,16 +1,10 @@
-import { BadgeCheck, History, KeyRound } from 'lucide-react';
+import { BadgeCheck, History } from 'lucide-react';
 import { FollowUpOverview } from '@/components/follow-up-overview';
 import { ReviewOverview } from '@/components/modules/review-overview';
 import { PageHeading } from '@/components/page-heading';
 import { PlannedFeatures, type PlannedFeature } from '@/components/planned-features';
 
 const FEATURES: PlannedFeature[] = [
-  {
-    title: 'Déblocages individuels',
-    description: 'Accès exceptionnel d’un routier à une évaluation, avec justification.',
-    icon: KeyRound,
-    phase: 'Phase 4',
-  },
   {
     title: 'Validation des acquis',
     description: 'Validation officielle, exclusivement humaine, des acquis des routiers.',

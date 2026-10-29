@@ -31,3 +31,16 @@ export function formatDuration(minutes: number): string {
   const rest = minutes % 60;
   return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`;
 }
+
+const pointsFormatter = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
+
+/** Barème ou note : 1 → « 1 pt », 2.5 → « 2,5 pts ». */
+export function formatPoints(value: number): string {
+  return `${pointsFormatter.format(value)} pt${value > 1 ? 's' : ''}`;
+}
+
+/** Score sur barème : « 6,5 / 8 ». */
+export function formatScore(score: number | null, maxScore: number | null): string {
+  if (score === null || maxScore === null) return '—';
+  return `${pointsFormatter.format(score)} / ${pointsFormatter.format(maxScore)}`;
+}

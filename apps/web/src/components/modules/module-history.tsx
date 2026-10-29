@@ -7,14 +7,17 @@ import Link from 'next/link';
 import { formatDateTime, fullName } from '@/lib/format';
 import { ModuleStatusBadge } from './module-status-badge';
 
-/** Historique des versions et des décisions (ajout seul côté serveur). */
+type HistoryVersion = Pick<ModuleVersionSummary, 'id' | 'version' | 'status'> &
+  ({ lessonCount: number } | { questionCount: number });
+
+/** Historique des versions et des décisions (modules et questionnaires ; ajout seul côté serveur). */
 export function ModuleHistory({
   events,
   versions,
   versionHref,
 }: {
   events: ModuleEvent[];
-  versions: ModuleVersionSummary[];
+  versions: HistoryVersion[];
   /** Lien vers le contenu exact d'une version (aperçu). */
   versionHref?: (versionId: string) => string;
 }) {
@@ -69,7 +72,9 @@ export function ModuleHistory({
                   `Version ${version.version}`
                 )}
                 <span className="block text-xs text-muted-foreground">
-                  {version.lessonCount} leçon{version.lessonCount > 1 ? 's' : ''}
+                  {'lessonCount' in version
+                    ? `${version.lessonCount} leçon${version.lessonCount > 1 ? 's' : ''}`
+                    : `${version.questionCount} question${version.questionCount > 1 ? 's' : ''}`}
                 </span>
               </span>
               <ModuleStatusBadge status={version.status} />
