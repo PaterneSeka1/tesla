@@ -38,6 +38,8 @@ const LIBRARY_ITEM: NavItem = { href: '/modules', label: 'Bibliothèque', icon: 
 
 /** Évaluations publiées et historique personnel (routier). */
 const LEARNER_EVALUATION_NAV: NavItem[] = [
+  { href: '/telechargements', label: 'Téléchargements', icon: BookOpen },
+  { href: '/synchronisation', label: 'Synchronisation', icon: History },
   { href: '/progression', label: 'Ma progression', icon: History },
   { href: '/mes-competences', label: 'Mes compétences', icon: BookOpen },
   { href: '/mes-activites', label: 'Mes activités', icon: Users },

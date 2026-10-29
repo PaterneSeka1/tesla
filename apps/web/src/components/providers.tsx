@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Toaster } from '@/components/ui/toaster';
+import { OfflineRuntime } from '@/components/offline-runtime';
 import { ApiError } from '@/lib/api/client';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -23,7 +24,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster>{children}</Toaster>
+      <Toaster>
+        <OfflineRuntime />
+        {children}
+      </Toaster>
     </QueryClientProvider>
   );
 }

@@ -1,65 +1,91 @@
-/**
- * Structure IndexedDB de la PWA (fondation, non encore utilisée par les écrans).
- * Voir docs/OFFLINE_FIRST.md. Aucune donnée personnelle sensible ne doit y être stockée.
- */
+/** Schéma v2 : les anciennes fondations v1 restent intactes et ne sont plus utilisées. */
 export const OFFLINE_DB_NAME = 'tesla-academie';
-export const OFFLINE_DB_VERSION = 1;
-
-export const OFFLINE_STORES = {
-  /** Modules publiés téléchargés pour lecture hors ligne. */
-  modules: 'modules',
-  /** Leçons des modules téléchargés (index par module). */
-  lessons: 'lessons',
-  /** Actions en attente de synchronisation (ex. progression de lecture). */
-  syncQueue: 'syncQueue',
-} as const;
-
-export interface OfflineModule {
-  id: string;
-  /** Version publiée : sert à détecter une mise à jour côté serveur. */
-  version: number;
-  title: string;
-  downloadedAt: string;
-}
-
-export interface OfflineLesson {
-  id: string;
-  moduleId: string;
-  position: number;
-  title: string;
-  content: string;
-}
-
-export interface SyncQueueItem {
-  id?: number;
-  type: string;
-  payload: unknown;
-  createdAt: string;
-}
-
+export const OFFLINE_DB_VERSION = 2;
 export function openOfflineDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
+    if (!globalThis.indexedDB) {
+      reject(new Error('Stockage hors ligne indisponible sur ce navigateur.'));
+      return;
+    }
     const request = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
-
     request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(OFFLINE_STORES.modules)) {
-        db.createObjectStore(OFFLINE_STORES.modules, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(OFFLINE_STORES.lessons)) {
-        const lessons = db.createObjectStore(OFFLINE_STORES.lessons, { keyPath: 'id' });
-        lessons.createIndex('byModule', 'moduleId');
-      }
-      if (!db.objectStoreNames.contains(OFFLINE_STORES.syncQueue)) {
-        const queue = db.createObjectStore(OFFLINE_STORES.syncQueue, {
-          keyPath: 'id',
-          autoIncrement: true,
-        });
-        queue.createIndex('byCreatedAt', 'createdAt');
+      for (const store of ['records', 'settings']) {
+        if (!request.result.objectStoreNames.contains(store))
+          request.result.createObjectStore(store, { keyPath: 'id' });
       }
     };
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('Ouverture IndexedDB impossible.'));
+    request.onsuccess = () => {
+      request.result.onversionchange = () => request.result.close();
+      resolve(request.result);
+    };
+    request.onerror = () => reject(request.error ?? new Error('Stockage local inaccessible.'));
+    request.onblocked = () =>
+      reject(new Error('Fermez les autres onglets pour mettre à jour le stockage local.'));
+  });
+}
+export async function dbRead<T>(store: string, id?: string): Promise<T> {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const request =
+      id === undefined ? tx.objectStore(store).getAll() : tx.objectStore(store).get(id);
+    tx.oncomplete = () => {
+      db.close();
+      resolve(request.result as T);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+/** Comparaison de révision dans la même transaction : protège les brouillons entre onglets. */
+export async function dbWrite(
+  store: string,
+  value: { id: string; revision?: number },
+  expectedRevision?: number,
+): Promise<void> {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const table = tx.objectStore(store);
+    if (expectedRevision === undefined) table.put(value);
+    else {
+      const read = table.get(value.id);
+      read.onsuccess = () => {
+        const previous = read.result as { revision: number } | undefined;
+        if ((previous?.revision ?? 0) !== expectedRevision) tx.abort();
+        else table.put(value);
+      };
+    }
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onabort = tx.onerror = () => {
+      db.close();
+      reject(
+        new Error(
+          tx.error?.name === 'QuotaExceededError'
+            ? 'Espace insuffisant. Supprimez un module, puis recommencez.'
+            : 'Enregistrement impossible ou conflit entre onglets. Rechargez avant de continuer.',
+        ),
+      );
+    };
+  });
+}
+export async function dbDelete(store: string, id: string): Promise<void> {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(id);
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
   });
 }

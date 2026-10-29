@@ -91,6 +91,13 @@ export function EvaluationIntro() {
               </AlertDescription>
             </Alert>
           )}
+          {eligibility?.allowed && (!open || open.mode === 'HORS_LIGNE') && (
+            <Button asChild variant="outline">
+              <Link href={`/evaluations/${data.id}/preparer`}>
+                Préparer ou reprendre hors ligne
+              </Link>
+            </Button>
+          )}
           {canStart && (
             <Button asChild size="lg">
               <Link href={`/evaluations/${data.id}/passer`}>

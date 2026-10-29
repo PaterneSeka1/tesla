@@ -12,8 +12,10 @@ import { SpaceNav } from './space-nav';
 export function DashboardShell({
   space,
   children,
+  offline = false,
 }: {
   space: SpaceKey;
+  offline?: boolean;
   children: React.ReactNode;
 }) {
   const config = SPACES[space];
@@ -58,7 +60,7 @@ export function DashboardShell({
         </header>
 
         <main id="contenu" className="flex-1 space-y-6 px-4 py-6 lg:px-8 print:p-0">
-          <SessionGate roles={config.roles}>{children}</SessionGate>
+          {offline ? children : <SessionGate roles={config.roles}>{children}</SessionGate>}
         </main>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BookOpenText, Clock, Printer, Sparkles, Target } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { DownloadModuleButton } from '@/components/download-module-button';
 import { BackLink } from '@/components/back-link';
 import { ResourceList } from '@/components/modules/resource-list';
 import { QueryError, TableSkeleton } from '@/components/query-state';
@@ -77,6 +78,7 @@ export function ModuleDetail() {
         </div>
       </header>
 
+      <DownloadModuleButton slug={module.slug} />
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <Card>
           <CardHeader>

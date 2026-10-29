@@ -6,6 +6,8 @@ import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { lockVault } from '@/lib/offline/vault';
+import { listAttempts } from '@/lib/offline/attempts';
 import { logout } from '@/lib/api/auth';
 import { meQueryOptions } from '@/lib/api/auth';
 
@@ -19,6 +21,15 @@ export function UserMenu() {
   if (!data) return null;
 
   const onLogout = async () => {
+    const copies = await listAttempts().catch(() => []);
+    if (
+      copies.some((a) => a.status !== 'SYNCHRONISE') &&
+      !window.confirm(
+        'Des réponses restent sur cet appareil. Elles seront conservées chiffrées et verrouillées ; gardez votre phrase locale pour les retrouver. Se déconnecter ?',
+      )
+    )
+      return;
+    lockVault();
     setPending(true);
     try {
       await logout();

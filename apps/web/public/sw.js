@@ -1,6 +1,6 @@
 // Service worker de Nikola Tesla Académie — fondation PWA (voir docs/OFFLINE_FIRST.md).
 // Règles : aucune réponse d'API ni page HTML personnalisée n'est mise en cache.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const STATIC_CACHE = `tesla-static-${VERSION}`;
 const OFFLINE_URL = '/hors-ligne';
 const PRECACHE_URLS = [
@@ -15,7 +15,15 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then(async (cache) => {
+        await cache.addAll(PRECACHE_URLS);
+        const shell = await cache.match(OFFLINE_URL);
+        const html = await shell.text();
+        const assets = [
+          ...html.matchAll(/(?:src|href)=["']([^"']*\/_next\/static\/[^"']+)["']/g),
+        ].map((match) => new URL(match[1].replaceAll('&amp;', '&'), self.location.origin).href);
+        await cache.addAll([...new Set(assets)]);
+      })
       .then(() => self.skipWaiting()),
   );
 });
@@ -48,6 +56,8 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // API et ressources externes : réseau direct
+
+  if (url.pathname.startsWith('/api/') || url.pathname === '/connexion') return;
 
   // Navigation : réseau d'abord, page hors ligne en repli (le HTML n'est jamais mis en cache).
   if (request.mode === 'navigate') {

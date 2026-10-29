@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type AttemptSession, isObjectiveQuestion } from '@tesla/shared';
+import { type AttemptSession } from '@tesla/shared';
 import { ArrowLeft, ArrowRight, CircleCheck, Save, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -11,10 +11,9 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { AnswerFields } from '@/components/evaluations/answer-fields';
 import { useToast } from '@/components/ui/toaster';
 import { saveAnswers, startAttempt, submitAttempt } from '@/lib/api/evaluations';
-import { cn } from '@/lib/utils';
 
 type Answers = Record<string, { optionIds: string[]; text: string }>;
 
@@ -133,16 +132,6 @@ export function TakeEvaluation() {
     setDirty(true);
   };
 
-  const choose = (optionId: string, checked: boolean) => {
-    const single = question.type !== 'CHOIX_MULTIPLE';
-    const optionIds = single
-      ? [optionId]
-      : checked
-        ? [...answer.optionIds, optionId]
-        : answer.optionIds.filter((value) => value !== optionId);
-    update({ optionIds });
-  };
-
   const submit = async (): Promise<boolean> => {
     try {
       const result = await submitAttempt(session.id, payload());
@@ -198,59 +187,7 @@ export function TakeEvaluation() {
         aria-labelledby={headingId}
         className="space-y-4 rounded-lg border bg-card p-4 sm:p-6"
       >
-        <h3
-          id={headingId}
-          className="text-lg font-semibold whitespace-pre-line text-tesla-bordeaux"
-        >
-          {question.prompt}
-        </h3>
-        {isObjectiveQuestion(question.type) ? (
-          <fieldset className="space-y-2">
-            <legend className="text-sm text-muted-foreground">
-              {question.type === 'CHOIX_MULTIPLE'
-                ? 'Plusieurs réponses possibles.'
-                : question.type === 'VRAI_FAUX'
-                  ? 'Vrai ou faux ?'
-                  : 'Une seule réponse.'}
-            </legend>
-            {question.options.map((option) => {
-              const checked = answer.optionIds.includes(option.id);
-              return (
-                <label
-                  key={option.id}
-                  className={cn(
-                    'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50',
-                    checked ? 'border-tesla-rouge bg-tesla-sable/40' : 'hover:border-tesla-or',
-                  )}
-                >
-                  <input
-                    type={question.type === 'CHOIX_MULTIPLE' ? 'checkbox' : 'radio'}
-                    name={question.id}
-                    className="size-5 accent-tesla-rouge"
-                    checked={checked}
-                    onChange={(event) => choose(option.id, event.target.checked)}
-                  />
-                  <span>{option.label}</span>
-                </label>
-              );
-            })}
-          </fieldset>
-        ) : (
-          <div className="space-y-1">
-            <label htmlFor={`${headingId}-text`} className="text-sm text-muted-foreground">
-              {question.type === 'REPONSE_COURTE'
-                ? 'Votre réponse (quelques mots)'
-                : 'Votre réponse rédigée'}
-            </label>
-            <Textarea
-              id={`${headingId}-text`}
-              rows={question.type === 'REPONSE_COURTE' ? 3 : 8}
-              maxLength={5000}
-              value={answer.text}
-              onChange={(event) => update({ text: event.target.value })}
-            />
-          </div>
-        )}
+        <AnswerFields question={question} answer={answer} onChange={update} />
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
