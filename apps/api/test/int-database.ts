@@ -21,7 +21,8 @@ export function createTestPrisma(): PrismaService {
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(`TRUNCATE
     evaluation_attempt_events, evaluation_attempts, evaluation_waivers, evaluation_versions, evaluations,
-    attempt_code_counters, team_assignments, teams, scout_profiles, sessions, audit_logs, users,
+    attempt_code_counters, team_assignments, teams, scout_observation_revisions, scout_observations,
+    scout_profiles, sessions, audit_logs, users,
     progression_stages CASCADE`);
   for (const stage of PROGRESSION_STAGES) {
     await prisma.progressionStage.create({

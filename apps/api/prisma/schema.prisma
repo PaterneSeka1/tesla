@@ -40,15 +40,17 @@ model User {
   scoutProfile ScoutProfile?
   auditLogs    AuditLog[]
 
-  teamAssignmentsMade  TeamAssignment[]         @relation("TeamAssignmentAssignedBy")
-  teamAssignmentsEnded TeamAssignment[]         @relation("TeamAssignmentEndedBy")
-  evaluationsPublished EvaluationVersion[]      @relation("EvaluationVersionPublishedBy")
-  attemptsCreated      EvaluationAttempt[]      @relation("AttemptCreatedBy")
-  attemptsRecorded     EvaluationAttempt[]      @relation("AttemptRecordedBy")
-  attemptsDecided      EvaluationAttempt[]      @relation("AttemptDecidedBy")
+  teamAssignmentsMade  TeamAssignment[]           @relation("TeamAssignmentAssignedBy")
+  teamAssignmentsEnded TeamAssignment[]           @relation("TeamAssignmentEndedBy")
+  evaluationsPublished EvaluationVersion[]        @relation("EvaluationVersionPublishedBy")
+  attemptsCreated      EvaluationAttempt[]        @relation("AttemptCreatedBy")
+  attemptsRecorded     EvaluationAttempt[]        @relation("AttemptRecordedBy")
+  attemptsDecided      EvaluationAttempt[]        @relation("AttemptDecidedBy")
   attemptEvents        EvaluationAttemptEvent[]
-  waiversGranted       EvaluationWaiver[]       @relation("WaiverGrantedBy")
-  waiversRevoked       EvaluationWaiver[]       @relation("WaiverRevokedBy")
+  waiversGranted       EvaluationWaiver[]         @relation("WaiverGrantedBy")
+  waiversRevoked       EvaluationWaiver[]         @relation("WaiverRevokedBy")
+  observationsWritten  ScoutObservation[]
+  observationRevisions ScoutObservationRevision[]
 
   @@index([role])
   @@map("users")
@@ -86,6 +88,8 @@ model ScoutProfile {
   birthDate      DateTime? @map("birth_date") @db.Date
   joinedAt       DateTime  @map("joined_at") @db.Date
   currentStageId String?   @map("current_stage_id") @db.Uuid
+  /// Profil désactivé (départ, inactivité) : conservé avec tout son historique, jamais supprimé.
+  isActive       Boolean   @default(true) @map("is_active")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -94,8 +98,10 @@ model ScoutProfile {
   teamAssignments    TeamAssignment[]
   evaluationAttempts EvaluationAttempt[]
   evaluationWaivers  EvaluationWaiver[]
+  observations       ScoutObservation[]
 
   @@index([currentStageId])
+  @@index([isActive])
   @@index([lastName, firstName])
   @@map("scout_profiles")
 }
@@ -347,4 +353,59 @@ model EvaluationWaiver {
   @@index([scoutProfileId, evaluationId])
   @@index([evaluationId])
   @@map("evaluation_waivers")
+}
+
+/// Niveau d'accès d'une observation pédagogique (aucune observation n'est visible des routiers).
+enum ObservationVisibility {
+  /// Chefs et responsable.
+  ENCADREMENT
+  /// Responsable et auteur uniquement.
+  RESPONSABLE
+}
+
+/// Observation d'accompagnement saisie par un chef ou le responsable sur un routier.
+/// Information pédagogique, jamais une validation officielle. Jamais supprimée (trigger) ;
+/// chaque modification conserve l'état précédent dans `scout_observation_revisions`.
+model ScoutObservation {
+  id             String                @id @default(uuid(7)) @db.Uuid
+  scoutProfileId String                @map("scout_profile_id") @db.Uuid
+  authorId       String                @map("author_id") @db.Uuid
+  /// Date de l'observation (fait observé), distincte de la date de saisie.
+  observedOn     DateTime              @map("observed_on") @db.Date
+  content        String
+  /// Libellé libre facultatif (aucune liste de catégories n'a été arbitrée).
+  category       String?
+  visibility     ObservationVisibility @default(ENCADREMENT)
+  /// Date de la dernière modification du contenu (null si jamais modifiée).
+  editedAt       DateTime?             @map("edited_at") @db.Timestamptz(3)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  scoutProfile ScoutProfile               @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  author       User                       @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  revisions    ScoutObservationRevision[]
+
+  @@index([scoutProfileId, observedOn])
+  @@index([authorId])
+  @@map("scout_observations")
+}
+
+/// État d'une observation avant chaque modification (ajout seul, trigger SQL).
+model ScoutObservationRevision {
+  id            String                @id @default(uuid(7)) @db.Uuid
+  observationId String                @map("observation_id") @db.Uuid
+  /// Auteur de la modification ayant remplacé cet état.
+  editorId      String                @map("editor_id") @db.Uuid
+  observedOn    DateTime              @map("observed_on") @db.Date
+  content       String
+  category      String?
+  visibility    ObservationVisibility
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  observation ScoutObservation @relation(fields: [observationId], references: [id], onDelete: Restrict)
+  editor      User             @relation(fields: [editorId], references: [id], onDelete: Restrict)
+
+  @@index([observationId, createdAt])
+  @@index([editorId])
+  @@map("scout_observation_revisions")
 }
