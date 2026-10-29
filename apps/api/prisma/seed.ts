@@ -1,11 +1,13 @@
 /**
  * Seed de développement, idempotent (peut être relancé sans dupliquer les données).
- * - Données de référence : étapes de progression.
+ * - Données de référence : étapes de progression, catégories du programme annuel (correspondance avec
+ *   les étapes chargée « à confirmer », jamais confirmée par le seed) et programme 2026–2027 (vide :
+ *   les séances officielles s'importent depuis le document du programme, aucune n'est inventée).
  * - Comptes de démonstration synthétiques, uniquement hors production et si DEMO_ACCOUNT_PASSWORD
  *   est défini dans l'environnement local (jamais versionné). Aucun routier ni aucune équipe n'est créé.
  */
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PROGRESSION_STAGES } from '@tesla/shared';
+import { PROGRAMME_CATEGORIES, PROGRESSION_STAGES } from '@tesla/shared';
 import { type Role } from '../src/generated/prisma/enums.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { hashPassword } from '../src/modules/auth/password.js';
@@ -43,6 +45,30 @@ try {
     });
   }
   console.log(`Seed : ${PROGRESSION_STAGES.length} étapes de progression.`);
+
+  for (const category of PROGRAMME_CATEGORIES) {
+    const stage = await prisma.progressionStage.findUniqueOrThrow({
+      where: { code: category.proposedStageCode },
+    });
+    // Une catégorie existante n'est jamais modifiée : sa correspondance relève du responsable.
+    await prisma.programmeCategory.upsert({
+      where: { code: category.code },
+      create: {
+        code: category.code,
+        label: category.label,
+        position: category.order,
+        stageId: stage.id,
+        correspondenceValidated: false,
+      },
+      update: {},
+    });
+  }
+  await prisma.programme.upsert({
+    where: { code: '2026-2027' },
+    create: { code: '2026-2027', title: 'Programme annuel 2026–2027' },
+    update: {},
+  });
+  console.log(`Seed : ${PROGRAMME_CATEGORIES.length} catégories du programme, programme 2026–2027.`);
 
   const demoPassword = process.env.DEMO_ACCOUNT_PASSWORD;
   if (process.env.NODE_ENV === 'production') {

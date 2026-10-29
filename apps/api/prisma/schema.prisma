@@ -76,6 +76,23 @@ model User {
   evaluationVersionEvents     EvaluationVersionEvent[]
   answersGraded               AttemptAnswer[]
 
+  stageChangesDecided          ScoutStageChange[]
+  competenciesCreated          Competency[]              @relation("CompetencyCreatedBy")
+  competenciesUpdated          Competency[]              @relation("CompetencyUpdatedBy")
+  competencyProposals          CompetencyProposal[]      @relation("CompetencyProposalProposedBy")
+  competencyProposalsDecided   CompetencyProposal[]      @relation("CompetencyProposalDecidedBy")
+  competencyProposalEvents     CompetencyProposalEvent[]
+  competencyEvidencesAdded     CompetencyEvidence[]
+  competencyValidationsDecided CompetencyValidation[]    @relation("CompetencyValidationDecidedBy")
+  competencyValidationsRevoked CompetencyValidation[]    @relation("CompetencyValidationRevokedBy")
+  moduleStudiesRecorded        ModuleStudy[]             @relation("ModuleStudyRecordedBy")
+  moduleStudiesCancelled       ModuleStudy[]             @relation("ModuleStudyCancelledBy")
+  programmeCategoriesUpdated   ProgrammeCategory[]
+  activitiesCreated            Activity[]                @relation("ActivityCreatedBy")
+  activitiesUpdated            Activity[]                @relation("ActivityUpdatedBy")
+  activityEvents               ActivityEvent[]
+  attendancesRecorded          ActivityAttendance[]
+
   @@index([role])
   @@map("users")
 }
@@ -101,28 +118,35 @@ model Session {
 /// Profil routier : référence métier (identité, matricule, équipe, progression, résultats).
 /// Existe indépendamment de tout compte : `userId` est facultatif et rattachable plus tard (RM-001).
 model ScoutProfile {
-  id             String    @id @default(uuid(7)) @db.Uuid
+  id                String    @id @default(uuid(7)) @db.Uuid
   /// Compte de connexion facultatif (relation 1–1). Le rattachement ne crée jamais de second profil.
-  userId         String?   @unique @map("user_id") @db.Uuid
+  userId            String?   @unique @map("user_id") @db.Uuid
   /// Matricule scout : chaîne normalisée (voir normalizeMatricule dans @tesla/shared), unique si renseigné (RM-002).
-  matricule      String?   @unique
-  firstName      String    @map("first_name")
-  lastName       String    @map("last_name")
+  matricule         String?   @unique
+  firstName         String    @map("first_name")
+  lastName          String    @map("last_name")
   /// Utilisée uniquement pour les durées d'étape dépendant de l'âge (règle à arbitrer).
-  birthDate      DateTime? @map("birth_date") @db.Date
-  joinedAt       DateTime  @map("joined_at") @db.Date
-  currentStageId String?   @map("current_stage_id") @db.Uuid
+  birthDate         DateTime? @map("birth_date") @db.Date
+  joinedAt          DateTime  @map("joined_at") @db.Date
+  currentStageId    String?   @map("current_stage_id") @db.Uuid
+  /// Date d'effet de l'étape courante (renseignée par chaque décision de l'historique des étapes).
+  currentStageSince DateTime? @map("current_stage_since") @db.Date
   /// Profil désactivé (départ, inactivité) : conservé avec tout son historique, jamais supprimé.
-  isActive       Boolean   @default(true) @map("is_active")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user               User?               @relation(fields: [userId], references: [id], onDelete: Restrict)
-  currentStage       ProgressionStage?   @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
-  teamAssignments    TeamAssignment[]
-  evaluationAttempts EvaluationAttempt[]
-  evaluationWaivers  EvaluationWaiver[]
-  observations       ScoutObservation[]
+  user                  User?                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  currentStage          ProgressionStage?      @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
+  teamAssignments       TeamAssignment[]
+  evaluationAttempts    EvaluationAttempt[]
+  evaluationWaivers     EvaluationWaiver[]
+  observations          ScoutObservation[]
+  stageChanges          ScoutStageChange[]
+  competencyProposals   CompetencyProposal[]
+  competencyValidations CompetencyValidation[]
+  moduleStudies         ModuleStudy[]
+  attendances           ActivityAttendance[]
 
   @@index([currentStageId])
   @@index([isActive])
@@ -143,9 +167,13 @@ model ProgressionStage {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  scoutProfiles  ScoutProfile[]
-  evaluations    Evaluation[]
-  moduleVersions ModuleVersion[]
+  scoutProfiles       ScoutProfile[]
+  evaluations         Evaluation[]
+  moduleVersions      ModuleVersion[]
+  stageChangesFrom    ScoutStageChange[]  @relation("StageChangeFrom")
+  stageChangesTo      ScoutStageChange[]  @relation("StageChangeTo")
+  competencies        Competency[]
+  programmeCategories ProgrammeCategory[]
 
   @@map("progression_stages")
 }
@@ -493,6 +521,7 @@ model EvaluationAttempt {
   decidedBy      User?                    @relation("AttemptDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
   events         EvaluationAttemptEvent[]
   attemptAnswers AttemptAnswer[]
+  evidences      CompetencyEvidence[]
 
   /// Prévention des doublons (RM-012) : une seule tentative non clôturée par routier et par évaluation.
   /// Prédicat écrit sous la forme canonique de PostgreSQL pour éviter une fausse dérive du diff Prisma.
@@ -620,6 +649,7 @@ model ScoutObservation {
   scoutProfile ScoutProfile               @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
   author       User                       @relation(fields: [authorId], references: [id], onDelete: Restrict)
   revisions    ScoutObservationRevision[]
+  evidences    CompetencyEvidence[]
 
   @@index([scoutProfileId, observedOn])
   @@index([authorId])
@@ -699,6 +729,9 @@ model PedagogicalModule {
   collaborators    ModuleCollaborator[]
   events           ModuleVersionEvent[]
   evaluations      Evaluation[]
+  competencies     CompetencyModule[]
+  studies          ModuleStudy[]
+  activities       ActivityModule[]
 
   @@index([createdById])
   @@map("pedagogical_modules")
@@ -753,6 +786,7 @@ model ModuleVersion {
   resources          ModuleResource[]
   events             ModuleVersionEvent[]
   evaluationVersions EvaluationVersion[]
+  studies            ModuleStudy[]
 
   @@unique([moduleId, version])
   /// Une seule version de travail (non close) par module.
@@ -859,4 +893,489 @@ model ModuleVersionEvent {
   @@index([actorId])
   @@index([createdAt])
   @@map("module_version_events")
+}
+
+// ─── Phase 4 : progression, compétences, programme annuel, activités ─────────────
+// Voir docs/FEATURES/PROGRESSION.md, COMPETENCES.md, PROGRAMME_ANNUEL.md, SUIVI_ACTIVITES.md.
+
+/// Nature d'une entrée de l'historique des étapes.
+enum StageChangeKind {
+  /// Étape initiale saisie à l'inscription.
+  INSCRIPTION
+  /// Décision motivée du responsable.
+  DECISION
+  /// Correction exceptionnelle d'une décision antérieure (référencée, jamais supprimée).
+  CORRECTION
+  /// Changement antérieur à la phase 4, repris du journal d'audit (motif non saisi à l'époque).
+  REPRISE
+}
+
+/// Historique immuable des étapes d'un routier (ajout seul, trigger). Chaque entrée est écrite dans la
+/// même transaction que la mise à jour de `scout_profiles.current_stage_id`.
+model ScoutStageChange {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  scoutProfileId    String          @map("scout_profile_id") @db.Uuid
+  kind              StageChangeKind
+  fromStageId       String?         @map("from_stage_id") @db.Uuid
+  toStageId         String?         @map("to_stage_id") @db.Uuid
+  /// Date d'effet (date de la cérémonie ou de la décision).
+  effectiveOn       DateTime        @map("effective_on") @db.Date
+  /// Null uniquement pour une reprise sans auteur connu.
+  decidedById       String?         @map("decided_by_id") @db.Uuid
+  reason            String
+  observations      String?
+  /// Éléments justificatifs examinés (texte libre : compétences, évaluations, observations).
+  evidence          String?
+  ceremonyReference String?         @map("ceremony_reference")
+  /// Décision corrigée par cette entrée (CORRECTION uniquement).
+  correctsChangeId  String?         @unique @map("corrects_change_id") @db.Uuid
+  decidedAt         DateTime        @default(now()) @map("decided_at") @db.Timestamptz(3)
+
+  scoutProfile ScoutProfile      @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  fromStage    ProgressionStage? @relation("StageChangeFrom", fields: [fromStageId], references: [id], onDelete: Restrict)
+  toStage      ProgressionStage? @relation("StageChangeTo", fields: [toStageId], references: [id], onDelete: Restrict)
+  decidedBy    User?             @relation(fields: [decidedById], references: [id], onDelete: Restrict)
+  corrects     ScoutStageChange? @relation("StageChangeCorrection", fields: [correctsChangeId], references: [id], onDelete: Restrict)
+  correctedBy  ScoutStageChange? @relation("StageChangeCorrection")
+
+  @@index([scoutProfileId, decidedAt])
+  @@index([fromStageId])
+  @@index([toStageId])
+  @@index([decidedById])
+  @@map("scout_stage_changes")
+}
+
+/// Compétence du référentiel administrable. Aucune compétence n'est créée automatiquement :
+/// le référentiel est saisi par le responsable.
+model Competency {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  /// Code lisible choisi par le responsable (ex. « SERV-01 »), unique.
+  code               String   @unique
+  name               String
+  description        String   @default("")
+  /// Domaine en libellé libre (aucune liste officielle arbitrée).
+  domain             String?
+  stageId            String?  @map("stage_id") @db.Uuid
+  observableCriteria String[] @map("observable_criteria")
+  /// Nombre minimal d'éléments justificatifs exigés pour soumettre une proposition (fixé par le responsable).
+  minEvidenceCount   Int      @default(1) @map("min_evidence_count")
+  isActive           Boolean  @default(true) @map("is_active")
+  position           Int      @default(0)
+  createdById        String   @map("created_by_id") @db.Uuid
+  updatedById        String?  @map("updated_by_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  stage       ProgressionStage?      @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  createdBy   User                   @relation("CompetencyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy   User?                  @relation("CompetencyUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  modules     CompetencyModule[]
+  activities  ActivityCompetency[]
+  proposals   CompetencyProposal[]
+  validations CompetencyValidation[]
+
+  @@index([stageId, position])
+  @@index([isActive])
+  @@map("competencies")
+}
+
+/// Modules pédagogiques associés à une compétence.
+model CompetencyModule {
+  competencyId String   @map("competency_id") @db.Uuid
+  moduleId     String   @map("module_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  competency Competency        @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+  module     PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  @@id([competencyId, moduleId])
+  @@index([moduleId])
+  @@map("competency_modules")
+}
+
+/// État d'une proposition de validation (chef → responsable).
+enum CompetencyProposalStatus {
+  EN_ATTENTE
+  COMPLEMENT_DEMANDE
+  APPROUVEE
+  REFUSEE
+  RETIREE
+}
+
+enum CompetencyProposalAction {
+  SOUMISE
+  PREUVE_AJOUTEE
+  COMPLEMENT_DEMANDE
+  RESOUMISE
+  APPROUVEE
+  REFUSEE
+  RETIREE
+}
+
+/// Proposition de validation d'une compétence, appuyée sur des éléments observables.
+/// Au plus une proposition ouverte par routier et par compétence (index unique partiel).
+model CompetencyProposal {
+  id              String                   @id @default(uuid(7)) @db.Uuid
+  scoutProfileId  String                   @map("scout_profile_id") @db.Uuid
+  competencyId    String                   @map("competency_id") @db.Uuid
+  proposedById    String                   @map("proposed_by_id") @db.Uuid
+  status          CompetencyProposalStatus @default(EN_ATTENTE)
+  justification   String
+  /// Dernier commentaire du responsable (demande de complément, refus, approbation).
+  decisionComment String?                  @map("decision_comment")
+  decidedById     String?                  @map("decided_by_id") @db.Uuid
+  decidedAt       DateTime?                @map("decided_at") @db.Timestamptz(3)
+  /// Concurrence optimiste (ajout de preuves, décision).
+  revision        Int                      @default(1)
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  scoutProfile ScoutProfile              @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  competency   Competency                @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+  proposedBy   User                      @relation("CompetencyProposalProposedBy", fields: [proposedById], references: [id], onDelete: Restrict)
+  decidedBy    User?                     @relation("CompetencyProposalDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  evidences    CompetencyEvidence[]
+  events       CompetencyProposalEvent[]
+  validation   CompetencyValidation?
+
+  @@unique([scoutProfileId, competencyId], map: "competency_proposals_one_open", where: raw("status = ANY (ARRAY['EN_ATTENTE'::\"CompetencyProposalStatus\", 'COMPLEMENT_DEMANDE'::\"CompetencyProposalStatus\"])"))
+  @@index([status, createdAt])
+  @@index([competencyId])
+  @@index([proposedById])
+  @@index([decidedById])
+  @@map("competency_proposals")
+}
+
+/// Historique d'une proposition (ajout seul, trigger).
+model CompetencyProposalEvent {
+  id         String                    @id @default(uuid(7)) @db.Uuid
+  proposalId String                    @map("proposal_id") @db.Uuid
+  actorId    String                    @map("actor_id") @db.Uuid
+  action     CompetencyProposalAction
+  fromStatus CompetencyProposalStatus? @map("from_status")
+  toStatus   CompetencyProposalStatus  @map("to_status")
+  comment    String?
+  createdAt  DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  proposal CompetencyProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  actor    User               @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([proposalId, createdAt])
+  @@index([actorId])
+  @@map("competency_proposal_events")
+}
+
+/// Nature d'un élément justificatif.
+enum EvidenceKind {
+  OBSERVATION
+  EVALUATION
+  ACTIVITE
+  ETUDE_MODULE
+  AUTRE
+}
+
+/// Élément justificatif d'une proposition : référence à une donnée existante du même routier,
+/// ou description libre (AUTRE). Jamais supprimé (trigger).
+model CompetencyEvidence {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  proposalId    String       @map("proposal_id") @db.Uuid
+  kind          EvidenceKind
+  observationId String?      @map("observation_id") @db.Uuid
+  attemptId     String?      @map("attempt_id") @db.Uuid
+  activityId    String?      @map("activity_id") @db.Uuid
+  moduleStudyId String?      @map("module_study_id") @db.Uuid
+  description   String?
+  addedById     String       @map("added_by_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  proposal    CompetencyProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  observation ScoutObservation?  @relation(fields: [observationId], references: [id], onDelete: Restrict)
+  attempt     EvaluationAttempt? @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  activity    Activity?          @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  moduleStudy ModuleStudy?       @relation(fields: [moduleStudyId], references: [id], onDelete: Restrict)
+  addedBy     User               @relation(fields: [addedById], references: [id], onDelete: Restrict)
+
+  @@index([proposalId])
+  @@index([observationId])
+  @@index([attemptId])
+  @@index([activityId])
+  @@index([moduleStudyId])
+  @@index([addedById])
+  @@map("competency_evidences")
+}
+
+/// Décision officielle du responsable sur une compétence.
+enum CompetencyDecision {
+  ACQUIS
+  A_RETRAVAILLER
+}
+
+/// Validation officielle d'une compétence (acte humain du responsable). Jamais supprimée : une
+/// erreur se corrige par révocation motivée (trigger). Au plus une validation ACQUIS active par
+/// routier et par compétence (index unique partiel).
+model CompetencyValidation {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  scoutProfileId   String             @map("scout_profile_id") @db.Uuid
+  competencyId     String             @map("competency_id") @db.Uuid
+  proposalId       String             @unique @map("proposal_id") @db.Uuid
+  decision         CompetencyDecision
+  justification    String
+  /// Instantané des éléments examinés au moment de la décision.
+  examinedEvidence Json               @map("examined_evidence")
+  decidedById      String             @map("decided_by_id") @db.Uuid
+  decidedAt        DateTime           @default(now()) @map("decided_at") @db.Timestamptz(3)
+  revokedAt        DateTime?          @map("revoked_at") @db.Timestamptz(3)
+  revokedById      String?            @map("revoked_by_id") @db.Uuid
+  revocationReason String?            @map("revocation_reason")
+
+  scoutProfile ScoutProfile       @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  competency   Competency         @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+  proposal     CompetencyProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  decidedBy    User               @relation("CompetencyValidationDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  revokedBy    User?              @relation("CompetencyValidationRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+
+  @@unique([scoutProfileId, competencyId], map: "competency_validations_one_active_acquired", where: raw("decision = 'ACQUIS'::\"CompetencyDecision\" AND revoked_at IS NULL"))
+  @@index([scoutProfileId, decidedAt])
+  @@index([competencyId])
+  @@index([decidedById])
+  @@index([revokedById])
+  @@map("competency_validations")
+}
+
+/// Modalité d'étude d'un module.
+enum StudyMode {
+  LECTURE_NUMERIQUE
+  LECTURE_HORS_LIGNE
+  COURS_PAPIER
+  FORMATION_COLLECTIVE
+}
+
+/// Étude d'un module par un routier (information de suivi, jamais une maîtrise ni une validation).
+/// Enregistrée par un chef (routier avec ou sans compte) ou déclarée par le routier lui-même.
+/// Jamais supprimée : une saisie erronée est annulée avec motif.
+model ModuleStudy {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  scoutProfileId  String    @map("scout_profile_id") @db.Uuid
+  moduleId        String    @map("module_id") @db.Uuid
+  moduleVersionId String?   @map("module_version_id") @db.Uuid
+  mode            StudyMode
+  studiedOn       DateTime  @map("studied_on") @db.Date
+  activityId      String?   @map("activity_id") @db.Uuid
+  observation     String?
+  recordedById    String    @map("recorded_by_id") @db.Uuid
+  cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById   String?   @map("cancelled_by_id") @db.Uuid
+  cancelReason    String?   @map("cancel_reason")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  scoutProfile  ScoutProfile         @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  module        PedagogicalModule    @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  moduleVersion ModuleVersion?       @relation(fields: [moduleVersionId], references: [id], onDelete: Restrict)
+  activity      Activity?            @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  recordedBy    User                 @relation("ModuleStudyRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  cancelledBy   User?                @relation("ModuleStudyCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+  evidences     CompetencyEvidence[]
+
+  @@unique([scoutProfileId, moduleId, studiedOn, mode], map: "module_studies_one_active", where: raw("cancelled_at IS NULL"))
+  @@index([scoutProfileId, studiedOn])
+  @@index([moduleId])
+  @@index([moduleVersionId])
+  @@index([activityId])
+  @@index([recordedById])
+  @@index([cancelledById])
+  @@map("module_studies")
+}
+
+/// Catégorie utilisée par le programme annuel (ex. « Novices Routiers »). Sa correspondance avec
+/// une étape du manuel n'est pas présumée : elle reste « à confirmer » tant que le responsable ne l'a
+/// pas validée, et aucune règle automatique n'en dépend.
+model ProgrammeCategory {
+  id                      String   @id @default(uuid(7)) @db.Uuid
+  code                    String   @unique
+  label                   String   @unique
+  /// Étape correspondante proposée (null = aucune).
+  stageId                 String?  @map("stage_id") @db.Uuid
+  correspondenceValidated Boolean  @default(false) @map("correspondence_validated")
+  position                Int      @unique
+  updatedById             String?  @map("updated_by_id") @db.Uuid
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  stage      ProgressionStage?  @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  updatedBy  User?              @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+  activities ActivityCategory[]
+
+  @@index([stageId])
+  @@map("programme_categories")
+}
+
+/// Programme annuel (ex. 2026–2027). Les séances sont des activités d'origine PROGRAMME.
+model Programme {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  code      String    @unique
+  title     String
+  startsOn  DateTime? @map("starts_on") @db.Date
+  endsOn    DateTime? @map("ends_on") @db.Date
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  activities Activity[]
+
+  @@map("programmes")
+}
+
+enum ActivityOrigin {
+  PROGRAMME
+  SUPPLEMENTAIRE
+}
+
+enum ActivityStatus {
+  PLANIFIEE
+  REPORTEE
+  REALISEE
+  ANNULEE
+}
+
+enum ActivityAction {
+  CREEE
+  IMPORTEE
+  MODIFIEE
+  STATUT_MODIFIE
+  PRESENCES_ENREGISTREES
+}
+
+/// Activité (séance du programme annuel ou activité supplémentaire). Jamais supprimée : annulée.
+model Activity {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  programmeId      String?        @map("programme_id") @db.Uuid
+  origin           ActivityOrigin
+  /// Clé d'import idempotent (date + titre normalisé) ; null pour une activité saisie à la main.
+  importKey        String?        @unique @map("import_key")
+  title            String
+  theme            String?
+  description      String         @default("")
+  objectives       String[]
+  plannedOn        DateTime       @map("planned_on") @db.Date
+  plannedLocation  String?        @map("planned_location")
+  /// Responsable de l'activité (libellé libre : la personne peut ne pas avoir de compte).
+  leaderLabel      String?        @map("leader_label")
+  status           ActivityStatus @default(PLANIFIEE)
+  heldOn           DateTime?      @map("held_on") @db.Date
+  location         String?
+  contentDone      String?        @map("content_done")
+  difficulties     String?
+  observations     String?
+  report           String?
+  statusReason     String?        @map("status_reason")
+  /// Renseigné dès qu'une modification manuelle touche une activité importée : l'import ne la remplace plus.
+  manuallyEditedAt DateTime?      @map("manually_edited_at") @db.Timestamptz(3)
+  revision         Int            @default(1)
+  createdById      String         @map("created_by_id") @db.Uuid
+  updatedById      String?        @map("updated_by_id") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  programme    Programme?           @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  createdBy    User                 @relation("ActivityCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User?                @relation("ActivityUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  categories   ActivityCategory[]
+  modules      ActivityModule[]
+  competencies ActivityCompetency[]
+  events       ActivityEvent[]
+  attendances  ActivityAttendance[]
+  studies      ModuleStudy[]
+  evidences    CompetencyEvidence[]
+
+  @@index([plannedOn])
+  @@index([status, plannedOn])
+  @@index([programmeId])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("activities")
+}
+
+model ActivityCategory {
+  activityId String @map("activity_id") @db.Uuid
+  categoryId String @map("category_id") @db.Uuid
+
+  activity Activity          @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  category ProgrammeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([activityId, categoryId])
+  @@index([categoryId])
+  @@map("activity_categories")
+}
+
+model ActivityModule {
+  activityId String @map("activity_id") @db.Uuid
+  moduleId   String @map("module_id") @db.Uuid
+
+  activity Activity          @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  module   PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  @@id([activityId, moduleId])
+  @@index([moduleId])
+  @@map("activity_modules")
+}
+
+/// Compétence visée (prévue) ou observée pendant l'activité.
+model ActivityCompetency {
+  activityId   String  @map("activity_id") @db.Uuid
+  competencyId String  @map("competency_id") @db.Uuid
+  observed     Boolean @default(false)
+
+  activity   Activity   @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+
+  @@id([activityId, competencyId])
+  @@index([competencyId])
+  @@map("activity_competencies")
+}
+
+/// Historique des modifications sensibles d'une activité (ajout seul, trigger).
+model ActivityEvent {
+  id         String          @id @default(uuid(7)) @db.Uuid
+  activityId String          @map("activity_id") @db.Uuid
+  actorId    String          @map("actor_id") @db.Uuid
+  action     ActivityAction
+  fromStatus ActivityStatus? @map("from_status")
+  toStatus   ActivityStatus? @map("to_status")
+  comment    String?
+  changes    Json?
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  actor    User     @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([activityId, createdAt])
+  @@index([actorId])
+  @@map("activity_events")
+}
+
+/// Présence d'un routier à une activité. L'absence de ligne signifie « non renseigné » (jamais
+/// « absent » par défaut). Une seule ligne par routier et par activité.
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  EXCUSE
+}
+
+model ActivityAttendance {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  activityId     String           @map("activity_id") @db.Uuid
+  scoutProfileId String           @map("scout_profile_id") @db.Uuid
+  status         AttendanceStatus
+  note           String?
+  recordedById   String           @map("recorded_by_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  activity     Activity     @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  scoutProfile ScoutProfile @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  recordedBy   User         @relation(fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@unique([activityId, scoutProfileId])
+  @@index([scoutProfileId])
+  @@index([recordedById])
+  @@map("activity_attendances")
 }
