@@ -10,6 +10,16 @@ import { ApiError, apiSend } from '@/lib/api/client';
 import { assertOnlineOwner, ownerId, readRecord, recordIds, writeRecord } from './vault';
 
 export type SyncState = 'LOCAL' | 'EN_ATTENTE' | 'EN_COURS' | 'SYNCHRONISE' | 'REJETE' | 'CONFLIT';
+
+/** Libellés affichés au routier (les codes restent internes). */
+export const SYNC_STATE_LABELS: Record<SyncState, string> = {
+  LOCAL: 'En cours sur cet appareil',
+  EN_ATTENTE: 'À synchroniser',
+  EN_COURS: 'Synchronisation en cours',
+  SYNCHRONISE: 'Synchronisée',
+  REJETE: 'Rejetée',
+  CONFLIT: 'Conflit à résoudre',
+};
 export interface LocalAttempt {
   package: OfflineEvaluationPackage;
   answers: SaveAnswersInput['answers'];
@@ -113,7 +123,7 @@ export async function syncAttempts(manual = false) {
               ? 'Session expirée. Reconnectez-vous avec le même compte puis synchronisez manuellement.'
               : error instanceof Error
                 ? error.message
-                : 'Serveur indisponible.',
+                : 'Synchronisation impossible pour le moment.',
           },
           row.revision,
         );
@@ -144,7 +154,7 @@ export async function syncAttempts(manual = false) {
           input,
         );
         if (!['SYNCHRONISE', 'REJETE'].includes(server.syncStatus))
-          throw new Error('Le serveur n’a pas confirmé la réception.');
+          throw new Error('Réception non confirmée. Réessayez la synchronisation.');
         await writeRecord(
           id,
           {

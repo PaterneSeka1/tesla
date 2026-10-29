@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { PageHeading } from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/password-input';
 import { OfflineAttempt } from './offline-attempt';
@@ -9,6 +10,7 @@ import {
   type LocalAttempt,
   listAttempts,
   prepareEvaluation,
+  SYNC_STATE_LABELS,
   syncAttempts,
 } from '@/lib/offline/attempts';
 import {
@@ -133,10 +135,10 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
   const pending = attempts.filter((a) => !['LOCAL', 'SYNCHRONISE'].includes(a.status)).length;
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Mes contenus hors ligne</h1>
+      <PageHeading title="Hors ligne" />
       <p role="status">
-        {online ? 'Réseau détecté (réception serveur à confirmer)' : 'Mode hors ligne'} · {pending}{' '}
-        copie(s) à synchroniser ou résoudre
+        {online ? 'Réseau disponible' : 'Hors ligne'} · {pending} copie(s) à synchroniser ou
+        résoudre
       </p>
       {!unlocked ? (
         <form
@@ -149,7 +151,7 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
           <p>
             {exists
               ? 'Déverrouillez les données conservées sur cet appareil.'
-              : 'Connectez-vous en tant que routier, puis créez une phrase locale distincte du mot de passe du compte (12 caractères minimum).'}
+              : 'Créez une phrase locale, distincte de votre mot de passe (12 caractères minimum).'}
           </p>
           <label htmlFor="offline-phrase">Phrase de déverrouillage locale</label>
           <PasswordInput
@@ -177,9 +179,7 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
               onClick={() =>
                 void run(async () => {
                   await syncAttempts(true);
-                  setMessage(
-                    'Vérification des remises terminée. Consultez chaque statut ci-dessous.',
-                  );
+                  setMessage('Synchronisation terminée. Vérifiez chaque statut ci-dessous.');
                 })
               }
             >
@@ -212,8 +212,8 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
             <section className="space-y-3 rounded border p-4">
               <h2 className="font-semibold">Préparer cette évaluation</h2>
               <p>
-                L’autorisation réserve une tentative pendant 24 heures. Les réponses doivent
-                parvenir au serveur dans ce délai. Les droits seront revérifiés.
+                Une tentative est réservée pendant 24 heures : vos réponses doivent être
+                synchronisées dans ce délai.
               </p>
               <Button
                 disabled={busy || !online}
@@ -233,14 +233,11 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">Téléchargements ({downloads.length})</h2>
             <p>
-              {storage} · Contenus :{' '}
-              {Math.ceil(downloads.reduce((sum, m) => sum + m.estimatedBytes, 0) / 1024)} Ko estimés
-              avant chiffrement.
+              {storage} ·{' '}
+              {Math.ceil(downloads.reduce((sum, m) => sum + m.estimatedBytes, 0) / 1024)} Ko
             </p>
             {downloads.length === 0 && (
-              <p>
-                Aucun module disponible hors ligne. Ouvrez un module en ligne pour le télécharger.
-              </p>
+              <p>Aucun module téléchargé. Ouvrez un module en ligne pour le télécharger.</p>
             )}
             {downloads.map((m) => (
               <div
@@ -248,7 +245,7 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
                 className="flex flex-wrap items-center gap-3 rounded border p-3"
               >
                 <a className="underline" href={`/hors-ligne#module:${m.package.content.slug}`}>
-                  {m.package.content.title} · v{m.package.content.version} · disponible hors ligne
+                  {m.package.content.title} · v{m.package.content.version}
                 </a>
                 {updates.includes(m.package.content.slug) && (
                   <Button
@@ -275,7 +272,7 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
             ))}
           </section>
           <section className="space-y-3">
-            <h2 className="text-xl font-semibold">Tentatives et synchronisation</h2>
+            <h2 className="text-xl font-semibold">Tentatives</h2>
             {attempts.length === 0 && <p>Aucune évaluation préparée sur cet appareil.</p>}
             {attempts.map((a) => (
               <div key={a.package.session.id} className="rounded border p-3">
@@ -283,10 +280,11 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
                   {a.package.session.evaluation.title} · {a.package.session.code}
                 </a>
                 <p>
-                  {a.status} · {a.retries} envoi(s) échoué(s)
+                  {SYNC_STATE_LABELS[a.status]}
+                  {a.retries > 0 && ` · ${a.retries} envoi(s) échoué(s)`}
                 </p>
                 {a.server?.decidedAt && (
-                  <p>Décision serveur : {new Date(a.server.decidedAt).toLocaleString('fr-FR')}</p>
+                  <p>Traitée le {new Date(a.server.decidedAt).toLocaleString('fr-FR')}</p>
                 )}
                 {a.lastError && (
                   <p role="alert">
@@ -310,32 +308,26 @@ export function OfflineHub({ prepareId }: { prepareId?: string }) {
         </p>
       )}
       <section className="space-y-2 rounded border p-4 text-sm text-muted-foreground">
-        <h2 className="font-semibold">Confidentialité et conservation</h2>
+        <h2 className="font-semibold">Confidentialité</h2>
         <p>
-          Le texte, les images et vos réponses sont chiffrés sur cet appareil (AES-GCM). La phrase
-          locale n’est pas envoyée au serveur. Verrouillez avant de partager votre appareil. Un
-          appareil ou une application compromis peut accéder aux données pendant le déverrouillage.
+          Contenus et réponses sont chiffrés sur cet appareil ; la phrase locale n’est jamais
+          transmise. Verrouillez avant de prêter votre appareil.
         </p>
         <p>
-          Le navigateur peut effacer les données locales. N’effacez pas le stockage et ne
-          désinstallez pas l’application avant confirmation de synchronisation. Les copies rejetées
-          restent conservées. Aucune réponse n’est supprimée pour libérer de l’espace.
+          N’effacez pas les données du navigateur et ne désinstallez pas l’application avant la
+          synchronisation de vos copies.
         </p>
-        <p>
-          Les ressources externes et vidéos restent indisponibles hors ligne. Installation :
-          utilisez « Installer l’application » si proposé par le navigateur ; sur iOS, le menu de
-          partage peut proposer « Sur l’écran d’accueil ». La prise en charge dépend du navigateur.
-        </p>
+        <p>Vidéos et ressources externes ne sont pas disponibles hors ligne.</p>
       </section>
       <div className="flex flex-wrap gap-4">
         <Link href="/modules" className="underline">
-          Bibliothèque en ligne
+          Bibliothèque
         </Link>
         <Link href="/evaluations" className="underline">
           Évaluations
         </Link>
         <Link href="/mes-resultats" className="underline">
-          Résultats officiels
+          Résultats
         </Link>
         <Link href="/connexion" className="underline">
           Se connecter

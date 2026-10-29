@@ -2,7 +2,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnswerFields } from '@/components/evaluations/answer-fields';
 import { Button } from '@/components/ui/button';
-import { type LocalAttempt, saveLocalAnswers, submitLocal } from '@/lib/offline/attempts';
+import {
+  type LocalAttempt,
+  saveLocalAnswers,
+  submitLocal,
+  SYNC_STATE_LABELS,
+} from '@/lib/offline/attempts';
 import { readRecord } from '@/lib/offline/vault';
 
 export function OfflineAttempt({ id }: { id: string }) {
@@ -29,7 +34,7 @@ export function OfflineAttempt({ id }: { id: string }) {
             row.value.status === 'LOCAL'
               ? 'Réponses enregistrées sur cet appareil.'
               : (row.value.server?.message ??
-                  'Copie remise localement ; en attente de confirmation serveur.'),
+                  'Copie remise sur cet appareil ; en attente de synchronisation.'),
           );
         }
       } catch (e) {
@@ -61,7 +66,7 @@ export function OfflineAttempt({ id }: { id: string }) {
   async function submit() {
     if (
       !window.confirm(
-        'Remettre définitivement cette copie ? Elle sera immuable et attendra la confirmation du serveur.',
+        'Remettre définitivement cette copie ? Elle ne sera plus modifiable et devra être synchronisée.',
       )
     )
       return;
@@ -86,11 +91,11 @@ export function OfflineAttempt({ id }: { id: string }) {
     <section className="space-y-4 rounded-lg border p-4">
       <h2 className="text-xl font-semibold">{item.package.session.evaluation.title}</h2>
       <p>
-        {item.package.session.code} · version {item.package.session.version} · {item.status}
+        {item.package.session.code} · version {item.package.session.version} ·{' '}
+        {SYNC_STATE_LABELS[item.status]}
       </p>
       <p className="text-sm">
-        Réception serveur exigée avant le {new Date(item.package.expiresAt).toLocaleString('fr-FR')}
-        . L’heure de l’appareil ne prouve pas l’heure réelle de réalisation.
+        À synchroniser avant le {new Date(item.package.expiresAt).toLocaleString('fr-FR')}.
       </p>
       <p className="whitespace-pre-line">{item.package.session.evaluation.instructions}</p>
       <p>
