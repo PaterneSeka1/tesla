@@ -148,6 +148,13 @@ describe('navigation', () => {
     expect(labels).toContain('Décisions sur les routiers');
   });
 
+  it.each(ROLES)('garde le tableau de bord de %s dans un groupe toujours visible', (role) => {
+    const group = NAVIGATION[role].find((g) =>
+      g.items.some((item) => item.href === DEFAULT_ROUTES[role]),
+    );
+    expect(group?.collapsible).toBeFalsy();
+  });
+
   it('limite la barre mobile à quatre entrées du menu routier', () => {
     const routierHrefs = NAVIGATION.ROUTIER.flatMap((group) => group.items.map((i) => i.href));
     expect(ROUTIER_BOTTOM_NAV).toHaveLength(4);

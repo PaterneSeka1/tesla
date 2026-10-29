@@ -21,13 +21,16 @@ import {
   Medal,
   MessageSquareText,
   PenLine,
+  Printer,
   ShieldCheck,
+  UserPlus,
   Trophy,
   Users,
   UserX,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { EmptyState } from '@/components/empty-state';
 import { QueryError } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +44,13 @@ import {
 import { formatDate, formatScore, fullName } from '@/lib/format';
 import { listDownloads } from '@/lib/offline/downloads';
 import { ownerId } from '@/lib/offline/vault';
+import {
+  type QuickAction,
+  QuickActions,
+  StaffHero,
+  TaskInbox,
+  YearTimeline,
+} from './staff-overview';
 
 // Tous les indicateurs proviennent de l'API (docs/FEATURES/DASHBOARDS.md) : aucune valeur
 // d'exemple, aucun classement entre routiers.
@@ -61,7 +71,7 @@ function Kpi({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-3 rounded-xl border bg-card p-4 shadow-xs transition-colors hover:border-tesla-or focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="group flex items-start gap-3 rounded-xl border bg-card p-4 shadow-xs transition-all hover:border-tesla-or active:scale-[0.98] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <span className="rounded-lg bg-tesla-sable/60 p-2 text-tesla-rouge">
         <Icon className="size-5" aria-hidden />
@@ -93,7 +103,7 @@ function ActionRow({
     <li>
       <Link
         href={href}
-        className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+        className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 transition-transform hover:bg-muted active:scale-[0.98] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <span className="flex-1 text-sm">{label}</span>
@@ -257,14 +267,51 @@ function DashboardSkeleton() {
 
 const formatRate = (rate: number | null) => (rate === null ? '—' : `${Math.round(rate * 100)} %`);
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="pt-2 text-sm font-semibold text-muted-foreground">{children}</h2>;
+}
+
+const RESPONSABLE_ACTIONS: readonly QuickAction[] = [
+  { href: '/administration/routiers/nouveau', label: 'Nouveau routier', icon: UserPlus },
+  { href: '/administration/activites', label: 'Activités', icon: CalendarDays },
+  { href: '/administration/presences', label: 'Présences', icon: CalendarCheck },
+  { href: '/chef/evaluations/papier', label: 'Copie papier', icon: Printer },
+];
+
+const CHEF_ACTIONS: readonly QuickAction[] = [
+  { href: '/administration/routiers', label: 'Noter une observation', icon: MessageSquareText },
+  { href: '/administration/validations/nouvelle', label: 'Proposer une compétence', icon: Medal },
+  { href: '/chef/evaluations/papier', label: 'Copie papier', icon: Printer },
+  { href: '/chef/modules/nouveau', label: 'Nouveau module', icon: FilePenLine },
+];
+
 export function ResponsablePedagogyDashboard() {
+  const user = useSessionUser();
   const query = useQuery(responsableDashboardQueryOptions);
   if (query.isPending) return <DashboardSkeleton />;
   if (query.isError) return <QueryError error={query.error} onRetry={() => void query.refetch()} />;
-  const { statistics, contentQueue, pedagogyQueue } = query.data;
+  const { statistics, contentQueue, pedagogyQueue, tasks, taskTotal, year } = query.data;
 
   return (
-    <div className="space-y-6">
+    <div className="stagger space-y-6">
+      <StaffHero
+        firstName={user.firstName}
+        taskTotal={taskTotal}
+        nextActivity={year.nextActivity}
+      />
+      <QuickActions actions={RESPONSABLE_ACTIONS} />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <TaskInbox tasks={tasks} total={taskTotal} className="lg:col-span-2" />
+        <YearTimeline year={year} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <FollowUp items={query.data.followUp} />
+        <Upcoming items={query.data.upcomingActivities} />
+      </div>
+
+      <SectionTitle>La communauté en chiffres</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           label="Routiers actifs"
@@ -356,48 +403,29 @@ export function ResponsablePedagogyDashboard() {
       </div>
 
       <Distributions statistics={statistics} />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Upcoming items={query.data.upcomingActivities} />
-        <FollowUp items={query.data.followUp} />
-      </div>
     </div>
   );
 }
 
 export function ChefPedagogyDashboard() {
+  const user = useSessionUser();
   const query = useQuery(chefDashboardQueryOptions);
   if (query.isPending) return <DashboardSkeleton />;
   if (query.isError) return <QueryError error={query.error} onRetry={() => void query.refetch()} />;
   const d = query.data;
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi
-          label="Routiers suivis"
-          value={d.activeScouts}
-          href="/administration/routiers"
-          icon={Users}
-        />
-        <Kpi
-          label="Modules en préparation"
-          value={d.modulesInProgress}
-          href="/chef/modules"
-          icon={FilePenLine}
-        />
-        <Kpi
-          label="Copies à corriger"
-          value={d.correctionsToDo}
-          href="/chef/corrections"
-          icon={PenLine}
-        />
-        <Kpi
-          label="Présences à renseigner"
-          value={d.attendanceToRecord.length}
-          href="/administration/presences"
-          icon={CalendarCheck}
-        />
+    <div className="stagger space-y-6">
+      <StaffHero
+        firstName={user.firstName}
+        taskTotal={d.taskTotal}
+        nextActivity={d.year.nextActivity}
+      />
+      <QuickActions actions={CHEF_ACTIONS} />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <TaskInbox tasks={d.tasks} total={d.taskTotal} className="lg:col-span-2" />
+        <YearTimeline year={d.year} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -473,8 +501,36 @@ export function ChefPedagogyDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Upcoming items={d.upcomingActivities} />
         <FollowUp items={d.followUp} />
+        <Upcoming items={d.upcomingActivities} />
+      </div>
+
+      <SectionTitle>En chiffres</SectionTitle>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi
+          label="Routiers suivis"
+          value={d.activeScouts}
+          href="/administration/routiers"
+          icon={Users}
+        />
+        <Kpi
+          label="Modules en préparation"
+          value={d.modulesInProgress}
+          href="/chef/modules"
+          icon={FilePenLine}
+        />
+        <Kpi
+          label="Copies à corriger"
+          value={d.correctionsToDo}
+          href="/chef/corrections"
+          icon={PenLine}
+        />
+        <Kpi
+          label="Présences à renseigner"
+          value={d.attendanceToRecord.length}
+          href="/administration/presences"
+          icon={CalendarCheck}
+        />
       </div>
     </div>
   );
@@ -522,7 +578,7 @@ export function RoutierPedagogyDashboard() {
     );
 
   return (
-    <div className="space-y-6">
+    <div className="stagger space-y-6">
       <div className="rounded-xl bg-tesla-bordeaux p-5 text-white shadow-sm">
         <p className="text-xs tracking-wider text-tesla-or uppercase">Étape actuelle</p>
         <p className="mt-1 text-2xl font-semibold">{d.stage?.name ?? 'Étape non renseignée'}</p>
@@ -568,7 +624,7 @@ export function RoutierPedagogyDashboard() {
                 <li key={module.id}>
                   <Link
                     href={`/modules/${module.slug}`}
-                    className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 transition-transform hover:bg-muted active:scale-[0.98] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                   >
                     <Badge variant="secondary">{module.code}</Badge>
                     <span className="flex-1 text-sm">{module.title}</span>

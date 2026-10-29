@@ -128,6 +128,8 @@ export interface NavItem {
 export interface NavGroup {
   label: string;
   items: readonly NavItem[];
+  /** Groupe secondaire replié par défaut (déplié s'il contient la page affichée). */
+  collapsible?: boolean;
 }
 
 const LIBRARY: NavItem = { href: '/modules', label: 'Bibliothèque', icon: Library };
@@ -185,22 +187,26 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
   CHEF: [
     {
       label: 'Pilotage',
-      items: [{ href: '/chef', label: 'Tableau de bord', icon: LayoutDashboard }, STATISTICS],
-    },
-    {
-      label: 'Pédagogie',
       items: [
-        ...WRITING,
-        { href: '/chef/soumissions', label: 'Mes soumissions', icon: Send },
-        LIBRARY,
+        { href: '/chef', label: 'Tableau de bord', icon: LayoutDashboard },
+        STATISTICS,
+        PROGRAMME,
       ],
     },
     {
       label: 'Suivi des routiers',
       items: [
         ...COMMUNITY.items,
-        PROGRAMME,
         { href: '/administration/validations', label: 'Propositions de validation', icon: Medal },
+      ],
+    },
+    {
+      label: 'Rédaction et correction',
+      collapsible: true,
+      items: [
+        ...WRITING,
+        { href: '/chef/soumissions', label: 'Mes soumissions', icon: Send },
+        LIBRARY,
       ],
     },
   ],
@@ -211,16 +217,6 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
         { href: '/responsable', label: 'Tableau de bord', icon: LayoutDashboard },
         STATISTICS,
         PROGRAMME,
-      ],
-    },
-    COMMUNITY,
-    {
-      label: 'Pédagogie',
-      items: [
-        ...WRITING,
-        { href: '/administration/modules', label: 'Tous les modules', icon: Library },
-        { href: '/administration/competences', label: 'Compétences', icon: GraduationCap },
-        LIBRARY,
       ],
     },
     {
@@ -237,7 +233,6 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
           label: 'Questionnaires à approuver',
           icon: ClipboardCheck,
         },
-        { href: '/administration/historique-publications', label: 'Publications', icon: History },
       ],
     },
     {
@@ -250,6 +245,22 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
         },
         { href: '/administration/validations', label: 'Acquis à valider', icon: Medal },
         { href: '/administration/deblocages', label: 'Déblocages', icon: Unlock },
+      ],
+    },
+    COMMUNITY,
+    {
+      label: 'Rédaction et correction',
+      collapsible: true,
+      items: WRITING,
+    },
+    {
+      label: 'Référentiels',
+      collapsible: true,
+      items: [
+        { href: '/administration/modules', label: 'Tous les modules', icon: Library },
+        { href: '/administration/competences', label: 'Compétences', icon: GraduationCap },
+        { href: '/administration/historique-publications', label: 'Publications', icon: History },
+        LIBRARY,
       ],
     },
   ],

@@ -24,6 +24,16 @@ export function authorName(person: { firstName: string; lastName: string } | nul
   return person ? fullName(person) : 'Import système';
 }
 
+/** Ancienneté d'une attente en jours calendaires : « aujourd’hui », « depuis hier », « depuis 5 jours ». */
+export function formatWaiting(since: string, now: Date = new Date()): string {
+  const days = Math.floor(
+    (Date.parse(now.toISOString().slice(0, 10)) - Date.parse(since.slice(0, 10))) / 86_400_000,
+  );
+  if (days <= 0) return 'aujourd’hui';
+  if (days === 1) return 'depuis hier';
+  return `depuis ${days} jours`;
+}
+
 /** Date du jour au format AAAA-MM-JJ (valeur par défaut des champs date). */
 export function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
