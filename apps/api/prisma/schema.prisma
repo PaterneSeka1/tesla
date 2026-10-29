@@ -52,6 +52,20 @@ model User {
   observationsWritten  ScoutObservation[]
   observationRevisions ScoutObservationRevision[]
 
+  modulesCreated             PedagogicalModule[]  @relation("ModuleCreatedBy")
+  moduleVersionsCreated      ModuleVersion[]      @relation("ModuleVersionCreatedBy")
+  moduleVersionsUpdated      ModuleVersion[]      @relation("ModuleVersionUpdatedBy")
+  moduleVersionsSubmitted    ModuleVersion[]      @relation("ModuleVersionSubmittedBy")
+  moduleVersionsApproved     ModuleVersion[]      @relation("ModuleVersionApprovedBy")
+  moduleVersionsPublished    ModuleVersion[]      @relation("ModuleVersionPublishedBy")
+  moduleLessonsCreated       ModuleLesson[]       @relation("ModuleLessonCreatedBy")
+  moduleLessonsUpdated       ModuleLesson[]       @relation("ModuleLessonUpdatedBy")
+  moduleResourcesCreated     ModuleResource[]
+  moduleCollaborations       ModuleCollaborator[] @relation("ModuleCollaboratorUser")
+  moduleCollaboratorsAdded   ModuleCollaborator[] @relation("ModuleCollaboratorAddedBy")
+  moduleCollaboratorsRemoved ModuleCollaborator[] @relation("ModuleCollaboratorRemovedBy")
+  moduleVersionEvents        ModuleVersionEvent[]
+
   @@index([role])
   @@map("users")
 }
@@ -119,8 +133,9 @@ model ProgressionStage {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  scoutProfiles ScoutProfile[]
-  evaluations   Evaluation[]
+  scoutProfiles  ScoutProfile[]
+  evaluations    Evaluation[]
+  moduleVersions ModuleVersion[]
 
   @@map("progression_stages")
 }
@@ -408,4 +423,217 @@ model ScoutObservationRevision {
   @@index([observationId, createdAt])
   @@index([editorId])
   @@map("scout_observation_revisions")
+}
+
+/// État éditorial d'une version de module (docs/FEATURES/WORKFLOW_PUBLICATION.md).
+/// Seul le responsable fait passer une version de SOUMIS à APPROUVE, A_CORRIGER ou REFUSE, puis à PUBLIE ou ARCHIVE.
+enum ModuleVersionStatus {
+  BROUILLON
+  SOUMIS
+  A_CORRIGER
+  REFUSE
+  APPROUVE
+  PUBLIE
+  ARCHIVE
+}
+
+/// Action enregistrée dans l'historique d'une version (ajout seul).
+enum ModuleVersionAction {
+  CREEE
+  SOUMISE
+  REPRISE
+  CORRECTIONS_DEMANDEES
+  REFUSEE
+  APPROUVEE
+  PUBLIEE
+  REMPLACEE
+  ARCHIVEE
+}
+
+/// Nature d'une ressource pédagogique : toujours une URL externe (aucun fichier lourd stocké sur le serveur).
+enum ModuleResourceKind {
+  IMAGE
+  DOCUMENT
+  VIDEO
+  LIEN
+}
+
+/// Module pédagogique stable. Son contenu est porté par ses versions ; seule la version désignée par
+/// `publishedVersionId` est visible des routiers.
+model PedagogicalModule {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  /// Numéro séquentiel attribué par PostgreSQL ; code interne affiché « MOD-001 ».
+  number             Int      @unique @default(autoincrement())
+  /// Identifiant d'URL fixé à la création, stable même si le titre change dans une version ultérieure.
+  slug               String   @unique
+  createdById        String   @map("created_by_id") @db.Uuid
+  /// Version publiée courante (au plus une ; null = module invisible des routiers).
+  publishedVersionId String?  @unique @map("published_version_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  createdBy        User                 @relation("ModuleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  publishedVersion ModuleVersion?       @relation("ModulePublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
+  versions         ModuleVersion[]      @relation("ModuleVersions")
+  collaborators    ModuleCollaborator[]
+  events           ModuleVersionEvent[]
+
+  @@index([createdById])
+  @@map("pedagogical_modules")
+}
+
+/// Version éditoriale d'un module. Modifiable uniquement à l'état BROUILLON (trigger SQL) ;
+/// toute modification d'un module publié passe par une nouvelle version.
+model ModuleVersion {
+  id               String              @id @default(uuid(7)) @db.Uuid
+  moduleId         String              @map("module_id") @db.Uuid
+  version          Int
+  status           ModuleVersionStatus @default(BROUILLON)
+  title            String
+  summary          String              @default("")
+  objectives       String[]
+  prerequisites    String?
+  /// Durée indicative en minutes.
+  durationMinutes  Int?                @map("duration_minutes")
+  /// Étape recommandée (information de lecture : la consultation n'est jamais bloquée par la progression).
+  stageId          String?             @map("stage_id") @db.Uuid
+  /// Thème : libellé libre facultatif (aucune liste officielle arbitrée).
+  theme            String?
+  /// Contrôle de concurrence optimiste : incrémenté à chaque modification des informations du brouillon.
+  revision         Int                 @default(1)
+  /// Version dont le contenu a été repris à la création.
+  basedOnVersionId String?             @map("based_on_version_id") @db.Uuid
+  createdById      String              @map("created_by_id") @db.Uuid
+  updatedById      String?             @map("updated_by_id") @db.Uuid
+  submittedAt      DateTime?           @map("submitted_at") @db.Timestamptz(3)
+  submittedById    String?             @map("submitted_by_id") @db.Uuid
+  submissionNote   String?             @map("submission_note")
+  approvedAt       DateTime?           @map("approved_at") @db.Timestamptz(3)
+  approvedById     String?             @map("approved_by_id") @db.Uuid
+  publishedAt      DateTime?           @map("published_at") @db.Timestamptz(3)
+  publishedById    String?             @map("published_by_id") @db.Uuid
+  /// Date de retrait (archivage ou remplacement par une nouvelle version publiée).
+  archivedAt       DateTime?           @map("archived_at") @db.Timestamptz(3)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  module          PedagogicalModule    @relation("ModuleVersions", fields: [moduleId], references: [id], onDelete: Restrict)
+  publishedFor    PedagogicalModule?   @relation("ModulePublishedVersion")
+  stage           ProgressionStage?    @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  basedOn         ModuleVersion?       @relation("ModuleVersionBasedOn", fields: [basedOnVersionId], references: [id], onDelete: Restrict)
+  derivedVersions ModuleVersion[]      @relation("ModuleVersionBasedOn")
+  createdBy       User                 @relation("ModuleVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy       User?                @relation("ModuleVersionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  submittedBy     User?                @relation("ModuleVersionSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
+  approvedBy      User?                @relation("ModuleVersionApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  publishedBy     User?                @relation("ModuleVersionPublishedBy", fields: [publishedById], references: [id], onDelete: Restrict)
+  lessons         ModuleLesson[]
+  resources       ModuleResource[]
+  events          ModuleVersionEvent[]
+
+  @@unique([moduleId, version])
+  /// Une seule version de travail (non close) par module.
+  @@unique([moduleId], map: "module_versions_one_working_per_module", where: raw("status = ANY (ARRAY['BROUILLON'::\"ModuleVersionStatus\", 'SOUMIS'::\"ModuleVersionStatus\", 'A_CORRIGER'::\"ModuleVersionStatus\", 'APPROUVE'::\"ModuleVersionStatus\"])"))
+  /// Une seule version publiée par module.
+  @@unique([moduleId], map: "module_versions_one_published_per_module", where: raw("status = 'PUBLIE'::\"ModuleVersionStatus\""))
+  @@index([status])
+  @@index([stageId])
+  @@index([basedOnVersionId])
+  @@map("module_versions")
+}
+
+/// Leçon ordonnée d'une version. Contenu : document structuré (JSON) validé par liste blanche, jamais du HTML.
+model ModuleLesson {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  versionId       String   @map("version_id") @db.Uuid
+  /// Rang dans la version (0, 1, 2…), maintenu contigu par le service.
+  position        Int
+  title           String
+  content         Json
+  durationMinutes Int?     @map("duration_minutes")
+  /// Contrôle de concurrence optimiste de la leçon.
+  revision        Int      @default(1)
+  createdById     String   @map("created_by_id") @db.Uuid
+  updatedById     String?  @map("updated_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  version   ModuleVersion    @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  createdBy User             @relation("ModuleLessonCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?            @relation("ModuleLessonUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  resources ModuleResource[]
+
+  @@index([versionId, position])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("module_lessons")
+}
+
+/// Ressource associée à une version (ou à une de ses leçons) : URL externe uniquement.
+model ModuleResource {
+  id          String             @id @default(uuid(7)) @db.Uuid
+  versionId   String             @map("version_id") @db.Uuid
+  /// Null = ressource du module ; sinon ressource de la leçon.
+  lessonId    String?            @map("lesson_id") @db.Uuid
+  kind        ModuleResourceKind
+  title       String
+  url         String
+  description String?
+  createdById String             @map("created_by_id") @db.Uuid
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  version   ModuleVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  lesson    ModuleLesson? @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  createdBy User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([versionId])
+  @@index([lessonId])
+  @@index([createdById])
+  @@map("module_resources")
+}
+
+/// Chef autorisé à rédiger un module (en plus de son auteur). Retrait daté, jamais supprimé.
+model ModuleCollaborator {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  moduleId    String    @map("module_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  addedById   String    @map("added_by_id") @db.Uuid
+  removedAt   DateTime? @map("removed_at") @db.Timestamptz(3)
+  removedById String?   @map("removed_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  module    PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  user      User              @relation("ModuleCollaboratorUser", fields: [userId], references: [id], onDelete: Restrict)
+  addedBy   User              @relation("ModuleCollaboratorAddedBy", fields: [addedById], references: [id], onDelete: Restrict)
+  removedBy User?             @relation("ModuleCollaboratorRemovedBy", fields: [removedById], references: [id], onDelete: Restrict)
+
+  @@unique([moduleId, userId], map: "module_collaborators_one_active", where: raw("removed_at IS NULL"))
+  @@index([userId])
+  @@index([addedById])
+  @@index([removedById])
+  @@map("module_collaborators")
+}
+
+/// Historique des versions et des décisions (ajout seul, trigger SQL).
+model ModuleVersionEvent {
+  id         String               @id @default(uuid(7)) @db.Uuid
+  moduleId   String               @map("module_id") @db.Uuid
+  versionId  String               @map("version_id") @db.Uuid
+  actorId    String               @map("actor_id") @db.Uuid
+  action     ModuleVersionAction
+  fromStatus ModuleVersionStatus? @map("from_status")
+  toStatus   ModuleVersionStatus  @map("to_status")
+  /// Motif (obligatoire pour une demande de correction, un refus ou un archivage) ou note de soumission.
+  comment    String?
+  createdAt  DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  module  PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  version ModuleVersion     @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  actor   User              @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([moduleId, createdAt])
+  @@index([versionId, createdAt])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("module_version_events")
 }
