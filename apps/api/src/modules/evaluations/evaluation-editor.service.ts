@@ -25,7 +25,7 @@ import {
   WORKING_MODULE_STATUSES,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
-import { assertCan } from '../../common/permissions.js';
+import { assertCan, can } from '../../common/permissions.js';
 import { isForeignKeyViolation, isUniqueViolation } from '../../common/prisma-errors.js';
 import { parseInput } from '../../common/validation.js';
 import { type Prisma } from '../../generated/prisma/client.js';
@@ -550,7 +550,7 @@ export class EvaluationEditorService {
     const published = row.versions.find((version) => version.id === row.publishedVersionId);
     const access: EvaluationAccess =
       knownAccess ??
-      (actor.role === 'RESPONSABLE'
+      (can(actor, 'evaluation.writeAny')
         ? 'RESPONSABLE'
         : row.createdById === actor.userId
           ? 'AUTEUR'

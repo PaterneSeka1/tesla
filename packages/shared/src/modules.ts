@@ -163,6 +163,49 @@ const objectivesSchema = z
   )
   .max(20, { error: '20 objectifs au maximum.' });
 
+/** Typologie (D99). Synchronisé avec l'enum Prisma `ModuleCategory`. Le rattrapage n'en est pas une. */
+export const MODULE_CATEGORIES = ['TRANSVERSAL', 'ETAPE', 'COMPLEMENTAIRE'] as const;
+
+export type ModuleCategory = (typeof MODULE_CATEGORIES)[number];
+
+export const MODULE_CATEGORY_LABELS: Record<ModuleCategory, string> = {
+  TRANSVERSAL: 'Découverte (toutes étapes)',
+  ETAPE: 'Parcours d’étape',
+  COMPLEMENTAIRE: 'Complémentaire',
+};
+
+/** Synchronisé avec l'enum Prisma `ModuleObligation` ; null = non précisé. */
+export const MODULE_OBLIGATIONS = ['OBLIGATOIRE', 'FACULTATIF'] as const;
+
+export type ModuleObligation = (typeof MODULE_OBLIGATIONS)[number];
+
+export const MODULE_OBLIGATION_LABELS: Record<ModuleObligation, string> = {
+  OBLIGATOIRE: 'Obligatoire',
+  FACULTATIF: 'Facultatif',
+};
+
+/**
+ * Cohérence de la typologie (également imposée en base) : un module d'étape a une étape ; un module
+ * obligatoire est un module d'étape appuyé sur une source officielle. Renvoie le message d'erreur.
+ */
+export function moduleTypologyError(fields: {
+  category: ModuleCategory | null;
+  obligation: ModuleObligation | null;
+  stageId: string | null;
+  officialSource: string | null;
+}): string | null {
+  if (fields.category === 'ETAPE' && !fields.stageId) {
+    return 'Un module de parcours d’étape doit indiquer son étape.';
+  }
+  if (
+    fields.obligation === 'OBLIGATOIRE' &&
+    (fields.category !== 'ETAPE' || !fields.stageId || !fields.officialSource)
+  ) {
+    return 'Un module obligatoire doit relever d’une étape et citer sa source officielle (manuel, édition).';
+  }
+  return null;
+}
+
 /** Informations éditoriales d'une version (titre, description, objectifs…). */
 const moduleMetadataShape = {
   title: titleSchema,
@@ -172,6 +215,10 @@ const moduleMetadataShape = {
   durationMinutes: durationSchema.nullable(),
   stageId: z.uuid().nullable(),
   theme: optionalText(80).nullable(),
+  category: z.enum(MODULE_CATEGORIES).nullable(),
+  obligation: z.enum(MODULE_OBLIGATIONS).nullable(),
+  /** Référence du document officiel ; null = contenu éditorial non homologué. */
+  officialSource: optionalText(500).nullable(),
 };
 
 export const createModuleInputSchema = z.object({
@@ -182,6 +229,9 @@ export const createModuleInputSchema = z.object({
   durationMinutes: moduleMetadataShape.durationMinutes.optional(),
   stageId: moduleMetadataShape.stageId.optional(),
   theme: moduleMetadataShape.theme.optional(),
+  category: moduleMetadataShape.category.optional(),
+  obligation: moduleMetadataShape.obligation.optional(),
+  officialSource: moduleMetadataShape.officialSource.optional(),
 });
 
 export type CreateModuleInput = z.input<typeof createModuleInputSchema>;
@@ -199,6 +249,9 @@ export const updateModuleVersionInputSchema = z
     durationMinutes: moduleMetadataShape.durationMinutes.optional(),
     stageId: moduleMetadataShape.stageId.optional(),
     theme: moduleMetadataShape.theme.optional(),
+    category: moduleMetadataShape.category.optional(),
+    obligation: moduleMetadataShape.obligation.optional(),
+    officialSource: moduleMetadataShape.officialSource.optional(),
   })
   .refine(
     ({ versionId: _v, revision: _r, ...fields }) =>
@@ -335,6 +388,7 @@ export const catalogQuerySchema = paginationQuerySchema.extend({
     .max(80)
     .optional()
     .transform((value) => value || undefined),
+  category: z.enum(MODULE_CATEGORIES).optional(),
 });
 
 export type CatalogQuery = z.input<typeof catalogQuerySchema>;
@@ -350,6 +404,7 @@ export const moduleVersionSummarySchema = z.object({
   title: z.string(),
   stage: stageSummarySchema.nullable(),
   theme: z.string().nullable(),
+  category: z.enum(MODULE_CATEGORIES).nullable(),
   lessonCount: z.number().int().nonnegative(),
   updatedAt: z.iso.datetime(),
   submittedAt: z.iso.datetime().nullable(),
@@ -415,6 +470,9 @@ export const moduleVersionDetailSchema = z.object({
   durationMinutes: z.number().int().nullable(),
   stage: stageSummarySchema.nullable(),
   theme: z.string().nullable(),
+  category: z.enum(MODULE_CATEGORIES).nullable(),
+  obligation: z.enum(MODULE_OBLIGATIONS).nullable(),
+  officialSource: z.string().nullable(),
   revision: z.number().int(),
   basedOnVersion: z.number().int().nullable(),
   createdBy: userSummarySchema.nullable(),
@@ -561,6 +619,10 @@ export const catalogModuleSchema = z.object({
   summary: z.string(),
   stage: stageSummarySchema.nullable(),
   theme: z.string().nullable(),
+  category: z.enum(MODULE_CATEGORIES).nullable(),
+  obligation: z.enum(MODULE_OBLIGATIONS).nullable(),
+  /** Faux = contenu éditorial non homologué (aucune source officielle citée). */
+  official: z.boolean(),
   durationMinutes: z.number().int().nullable(),
   lessonCount: z.number().int().nonnegative(),
   publishedAt: z.iso.datetime(),

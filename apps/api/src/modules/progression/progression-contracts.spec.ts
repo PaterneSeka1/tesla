@@ -202,9 +202,24 @@ describe('Analyse du programme annuel (Markdown)', () => {
 });
 
 describe('Permissions de la phase 4', () => {
-  const chef = { userId: 'chef', role: 'CHEF' } as const;
-  const responsable = { userId: 'resp', role: 'RESPONSABLE' } as const;
-  const routier = { userId: 'routier', role: 'ROUTIER' } as const;
+  const chef = {
+    userId: 'chef',
+    role: 'ENCADREMENT',
+    leaderFunction: 'ASSISTANT',
+    delegated: [],
+  } as const;
+  const responsable = {
+    userId: 'resp',
+    role: 'ENCADREMENT',
+    leaderFunction: 'PLEIN',
+    delegated: [],
+  } as const;
+  const routier = {
+    userId: 'routier',
+    role: 'ROUTIER',
+    leaderFunction: null,
+    delegated: [],
+  } as const;
 
   it('seul le responsable décide, administre le référentiel et configure le programme', () => {
     for (const permission of [
@@ -212,7 +227,7 @@ describe('Permissions de la phase 4', () => {
       'competency.manage',
       'programme.configure',
       'scout.setStage',
-      'dashboard.responsable',
+      'dashboard.official',
     ] as const) {
       expect(can(responsable, permission)).toBe(true);
       expect(can(chef, permission)).toBe(false);

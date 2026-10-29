@@ -58,6 +58,9 @@ function toCatalogModule(
     summary: version.summary,
     stage: toStageSummary(version.stage),
     theme: version.theme,
+    category: version.category,
+    obligation: version.obligation,
+    official: version.officialSource !== null,
     durationMinutes: version.durationMinutes,
     lessonCount: version._count.lessons,
     publishedAt: version.publishedAt!.toISOString(),
@@ -75,10 +78,14 @@ export class ModuleCatalogService {
 
   async list(actor: Actor, query: CatalogQuery): Promise<CatalogPage> {
     assertCan(actor, 'module.read');
-    const { page, pageSize, search, stageId, theme } = parseInput(catalogQuerySchema, query);
+    const { page, pageSize, search, stageId, theme, category } = parseInput(
+      catalogQuerySchema,
+      query,
+    );
     const versionWhere: Prisma.ModuleVersionWhereInput = {
       status: 'PUBLIE',
       ...(stageId && { stageId }),
+      ...(category && { category }),
       ...(theme && { theme: { equals: theme, mode: 'insensitive' } }),
       ...(search && {
         OR: [

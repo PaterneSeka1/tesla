@@ -12,7 +12,7 @@ import { EvaluationWaiversService } from '../src/modules/evaluations/evaluation-
 import { ScoutProfilesService } from '../src/modules/scouts/scout-profiles.service.js';
 import { TeamsService } from '../src/modules/scouts/teams.service.js';
 import { type PrismaService } from '../src/prisma/prisma.service.js';
-import { createTestPrisma, resetDatabase } from './int-database.js';
+import { createTestPrisma, grantPersona, resetDatabase } from './int-database.js';
 
 // Données exclusivement fictives.
 describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', () => {
@@ -44,13 +44,25 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
 
   beforeEach(async () => {
     await resetDatabase(prisma);
-    const user = (role: 'CHEF' | 'RESPONSABLE' | 'ROUTIER', n: number) =>
+    const user = (n: number) =>
       prisma.user.create({
-        data: { email: `fictif${n}@example.test`, firstName: 'Fictif', lastName: `N${n}`, role },
+        data: {
+          email: `fictif${n}@example.test`,
+          firstName: 'Fictif',
+          lastName: `N${n}`,
+          role: 'ENCADREMENT',
+        },
       });
-    const [chefUser, respUser] = await Promise.all([user('CHEF', 1), user('RESPONSABLE', 2)]);
-    chef = { userId: chefUser.id, role: 'CHEF' };
-    responsable = { userId: respUser.id, role: 'RESPONSABLE' };
+    const [chefUser, respUser] = await Promise.all([user(1), user(2)]);
+    await grantPersona(prisma, respUser.id, 'RESPONSABLE');
+    // Acteurs construits comme par la garde de session (habilitations effectives).
+    chef = { userId: chefUser.id, role: 'ENCADREMENT', leaderFunction: null, delegated: [] };
+    responsable = {
+      userId: respUser.id,
+      role: 'ENCADREMENT',
+      leaderFunction: 'PLEIN',
+      delegated: [],
+    };
 
     const stages = await prisma.progressionStage.findMany();
     stageIds = Object.fromEntries(stages.map((s) => [s.code, s.id]));
@@ -298,7 +310,12 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
         role: 'ROUTIER',
       },
     });
-    const routier = { userId: stranger.id, role: 'ROUTIER' } as const;
+    const routier = {
+      userId: stranger.id,
+      role: 'ROUTIER',
+      leaderFunction: null,
+      delegated: [],
+    } as const;
     await expect(attempts.detail(routier, { code: attempt.code })).rejects.toThrow(
       ForbiddenException,
     );
@@ -324,7 +341,10 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     // son historique via /me/attempts.
     await profiles.linkAccount(responsable, scout.id, owner.id);
     await expect(
-      attempts.detail({ userId: owner.id, role: 'ROUTIER' }, { code: attempt.code }),
+      attempts.detail(
+        { userId: owner.id, role: 'ROUTIER', leaderFunction: null, delegated: [] },
+        { code: attempt.code },
+      ),
     ).rejects.toThrow(ForbiddenException);
   });
 

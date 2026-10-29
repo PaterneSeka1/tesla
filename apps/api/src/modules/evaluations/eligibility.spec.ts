@@ -88,3 +88,35 @@ describe('Éligibilité aux évaluations', () => {
     ).toBe('PROFIL_INACTIF');
   });
 });
+
+describe('Éligibilité : appartenance à la branche et rattrapage (refonte)', () => {
+  const otherStage = { profile: { isActive: true, currentStageId: 'stage-apprentissage' } };
+
+  it('limite d’âge atteinte : refusée, même à l’étape ou avec une dérogation', () => {
+    expect(computeEligibility(facts({ membership: 'SORTI' }))).toMatchObject({
+      status: 'SORTI_BRANCHE',
+      allowed: false,
+    });
+    expect(
+      computeEligibility(facts({ ...otherStage, membership: 'SORTI', waivers: [waiver()] }))
+        .allowed,
+    ).toBe(false);
+  });
+
+  it('obligation de rattrapage ouverte : évaluation d’une étape antérieure accessible', () => {
+    expect(computeEligibility(facts({ ...otherStage, openCatchUp: true }))).toMatchObject({
+      status: 'ELIGIBLE_RATTRAPAGE',
+      allowed: true,
+    });
+    expect(computeEligibility(facts({ ...otherStage, openCatchUp: false })).allowed).toBe(false);
+  });
+
+  it('le rattrapage ne lève jamais la limite de tentatives', () => {
+    const attempts = [
+      { id: 'a', code: 'NT-2027-000001', mode: 'EN_LIGNE' as const, status: 'VALIDEE' as const },
+    ];
+    expect(
+      computeEligibility(facts({ ...otherStage, openCatchUp: true, maxAttempts: 1, attempts })),
+    ).toMatchObject({ status: 'LIMITE_ATTEINTE', allowed: false });
+  });
+});

@@ -547,7 +547,7 @@ export class DashboardsService {
   // ─── Tableaux de bord par rôle ────────────────────────────────────────────
 
   async responsable(actor: Actor): Promise<ResponsableDashboard> {
-    assertCan(actor, 'dashboard.responsable');
+    assertCan(actor, 'dashboard.official');
     const [
       statistics,
       modulesToApprove,

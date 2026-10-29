@@ -40,7 +40,7 @@ const chef = await db.user.upsert({
     email: 'chef-phase5@recette.test',
     firstName: 'Chef',
     lastName: 'Fictif',
-    role: 'CHEF',
+    role: 'ENCADREMENT',
     passwordHash,
   },
 });

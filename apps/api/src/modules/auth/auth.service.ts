@@ -1,9 +1,21 @@
 import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { loginInputSchema, type SessionUser } from '@tesla/shared';
+import {
+  type Authority,
+  effectivePermissions,
+  loginInputSchema,
+  type Permission,
+  PERMISSION_KEYS,
+  type SessionUser,
+} from '@tesla/shared';
 import { parseInput } from '../../common/validation.js';
 import { ENV } from '../../config/config.module.js';
 import { type Env } from '../../config/env.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import {
+  activeDelegationWhere,
+  activeMandateWhere,
+  civilToday,
+} from '../leadership/leadership-rules.js';
 import { LoginRateLimiter } from './login-rate-limiter.js';
 import { verifyPassword } from './password.js';
 import { generateSessionToken, hashSessionToken } from './session-token.js';
@@ -13,23 +25,29 @@ const LAST_USED_REFRESH_MS = 5 * 60_000;
 
 const userWithProfile = { scoutProfile: { select: { id: true } } } as const;
 
-function toSessionUser(user: {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: SessionUser['role'];
-  scoutProfile: { id: string } | null;
-}): SessionUser {
+function toSessionUser(
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    scoutProfile: { id: string } | null;
+  },
+  authority: Authority,
+): SessionUser {
   return {
     id: user.id,
     email: user.email,
     firstName: user.firstName,
     lastName: user.lastName,
-    role: user.role,
+    role: authority.role,
     scoutProfileId: user.scoutProfile?.id ?? null,
+    leaderFunction: authority.leaderFunction,
+    permissions: effectivePermissions(authority),
   };
 }
+
+const CURRENT_ROLES = new Set<string>(['ROUTIER', 'ENCADREMENT', 'ADMINISTRATEUR']);
 
 /** Sessions serveur : jeton opaque dans un cookie httpOnly, hash SHA-256 en base, révocables. */
 @Injectable()
@@ -85,11 +103,13 @@ export class AuthService {
         data: { actorId: user.id, action: 'auth.login', entityType: 'User', entityId: user.id },
       }),
     ]);
-    return { token, expiresAt, user: toSessionUser(user) };
+    return { token, expiresAt, user: toSessionUser(user, await this.resolveAuthority(user)) };
   }
 
   /** Session valide : non révoquée, non expirée, compte actif. Sinon `null`. */
-  async authenticate(token: string): Promise<{ sessionId: string; user: SessionUser } | null> {
+  async authenticate(
+    token: string,
+  ): Promise<{ sessionId: string; user: SessionUser; authority: Authority } | null> {
     const session = await this.prisma.session.findUnique({
       where: { tokenHash: hashSessionToken(token) },
       include: { user: { include: userWithProfile } },
@@ -98,13 +118,49 @@ export class AuthService {
     if (!session || session.revokedAt || session.expiresAt <= now || !session.user.isActive) {
       return null;
     }
+    const authority = await this.resolveAuthority(session.user);
     if (
       !session.lastUsedAt ||
       now.getTime() - session.lastUsedAt.getTime() > LAST_USED_REFRESH_MS
     ) {
       await this.prisma.session.update({ where: { id: session.id }, data: { lastUsedAt: now } });
     }
-    return { sessionId: session.id, user: toSessionUser(session.user) };
+    return { sessionId: session.id, user: toSessionUser(session.user, authority), authority };
+  }
+
+  /**
+   * Habilitations effectives à la date civile du jour : rôle d'accès, fonction du mandat en vigueur,
+   * délégations actives (D94). Recalculées à chaque requête : un mandat échu ou une délégation
+   * expirée cesse de produire ses effets sans tâche planifiée.
+   */
+  async resolveAuthority(user: { id: string; role: string }): Promise<Authority> {
+    // Rôle historique (impossible en base après migration, contrainte users_role_current_check) :
+    // aucun droit plutôt qu'un droit présumé.
+    if (!CURRENT_ROLES.has(user.role)) {
+      return { role: 'ROUTIER', leaderFunction: null, delegated: [] };
+    }
+    const role = user.role as Authority['role'];
+    if (role !== 'ENCADREMENT') return { role, leaderFunction: null, delegated: [] };
+    const today = civilToday();
+    const [mandate, delegations] = await Promise.all([
+      this.prisma.leadershipMandate.findFirst({
+        where: { userId: user.id, ...activeMandateWhere(today) },
+        select: { function: true },
+      }),
+      this.prisma.delegation.findMany({
+        where: { delegateId: user.id, ...activeDelegationWhere(today) },
+        select: { permissions: true },
+      }),
+    ]);
+    const known = new Set<string>(PERMISSION_KEYS);
+    const delegated = [...new Set(delegations.flatMap((d) => d.permissions))].filter((p) =>
+      known.has(p),
+    ) as Permission[];
+    return {
+      role,
+      leaderFunction: mandate?.function ?? null,
+      delegated,
+    };
   }
 
   /** Révoque la session (sans effet si elle est inconnue ou déjà révoquée). */

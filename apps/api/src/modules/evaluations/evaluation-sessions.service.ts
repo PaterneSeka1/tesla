@@ -40,6 +40,12 @@ import {
   moduleRefInclude,
   toModuleRef,
 } from './evaluation-common.js';
+import {
+  effectiveMembership,
+  loadRuleSetRow,
+  todayCivil,
+  toSnapshot,
+} from '../progression/age-rules.js';
 
 const availableInclude = {
   stage: true,
@@ -98,7 +104,7 @@ export class EvaluationSessionsService {
     ]);
     const subject = await this.subject(actor, scoutProfileId);
     const ids = rows.map((row) => row.id);
-    const [attempts, waivers] = subject?.profile
+    const [attempts, waivers, catchUps] = subject?.profile
       ? await this.prisma.$transaction([
           this.prisma.evaluationAttempt.findMany({
             where: { scoutProfileId: subject.profile.id, evaluationId: { in: ids } },
@@ -107,9 +113,18 @@ export class EvaluationSessionsService {
           this.prisma.evaluationWaiver.findMany({
             where: { scoutProfileId: subject.profile.id, evaluationId: { in: ids } },
           }),
+          this.prisma.catchUpObligation.findMany({
+            where: { scoutProfileId: subject.profile.id, decision: null },
+            select: { moduleId: true },
+          }),
         ])
-      : [[], []];
+      : [[], [], []];
     const now = new Date();
+    const rules = subject?.profile ? await loadRuleSetRow(this.prisma, todayCivil(now)) : null;
+    const membership = subject?.profile
+      ? effectiveMembership(subject.profile, rules && toSnapshot(rules), todayCivil(now))
+      : undefined;
+    const catchUpModules = new Set(catchUps.map((obligation) => obligation.moduleId));
     return {
       items: rows.map((row) =>
         toAvailable(
@@ -117,6 +132,8 @@ export class EvaluationSessionsService {
           subject &&
             computeEligibility({
               profile: subject.profile,
+              membership,
+              openCatchUp: row.moduleId !== null && catchUpModules.has(row.moduleId),
               evaluationStageId: row.stageId,
               maxAttempts: row.publishedVersion!.maxAttempts,
               attempts: attempts.filter((attempt) => attempt.evaluationId === row.id),
@@ -404,7 +421,13 @@ export class EvaluationSessionsService {
     actor: Actor,
     scoutProfileId?: string,
   ): Promise<{
-    profile: { id: string; isActive: boolean; currentStageId: string | null } | null;
+    profile: {
+      id: string;
+      isActive: boolean;
+      currentStageId: string | null;
+      birthDate: Date | null;
+      membershipStatus: 'ACTIF' | 'SORTI';
+    } | null;
   } | null> {
     if (actor.role === 'ROUTIER') {
       return {

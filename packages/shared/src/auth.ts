@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { ROLES } from './roles.js';
+import { PERMISSION_KEYS } from './permissions.js';
+import { LEADER_FUNCTIONS, ROLES } from './roles.js';
 
 /** Nom du cookie de session (httpOnly, posé et lu uniquement par l'API). */
 export const SESSION_COOKIE_NAME = 'tesla_session';
@@ -25,6 +26,10 @@ export const sessionUserSchema = z.object({
   lastName: z.string(),
   role: z.enum(ROLES),
   scoutProfileId: z.uuid().nullable(),
+  /** Fonction du mandat en vigueur (encadrement), null sinon. */
+  leaderFunction: z.enum(LEADER_FUNCTIONS).nullable(),
+  /** Permissions effectives (rôle, mandat, délégations) : affichage seulement, l'API reste l'autorité. */
+  permissions: z.array(z.enum(PERMISSION_KEYS as [string, ...string[]])),
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;

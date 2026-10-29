@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import {
   type LessonDocument,
   lessonDocumentSchema,
+  type ModuleCategory,
   type SourceEditorialNote,
   sourceEditorialNoteSchema,
 } from '@tesla/shared';
@@ -29,9 +30,11 @@ export interface SourceModule {
   title: string;
   summary: string;
   objectives: string[];
-  /** Étape recommandée (proposition, jamais une condition de progression). */
-  stageCode: string;
+  /** Étape recommandée (proposition, jamais une condition de progression) ; null = toutes étapes. */
+  stageCode: string | null;
   theme: string;
+  /** Typologie (D99) ; absente pour les imports antérieurs (empreinte inchangée). */
+  category?: ModuleCategory;
   sourceDocument: string;
   sourceSha256: string;
   sourcePages: string;
@@ -74,6 +77,7 @@ export function snapshotOf(source: SourceModule) {
     objectives: source.objectives,
     stageCode: source.stageCode,
     theme: source.theme,
+    category: source.category,
     sourceSha256: source.sourceSha256,
     lessons: source.lessons.map((lesson) => ({ title: lesson.title, content: lesson.content })),
     notes: source.notes,
@@ -115,7 +119,15 @@ export function assertValidSource(source: SourceModule): void {
 export function diffSnapshots(imported: Snapshot, current: Snapshot): string[] {
   const differences: string[] = [];
   const same = (a: unknown, b: unknown) => canonicalJson(a) === canonicalJson(b);
-  const fields = ['title', 'summary', 'objectives', 'stageCode', 'theme', 'sourceSha256'] as const;
+  const fields = [
+    'title',
+    'summary',
+    'objectives',
+    'stageCode',
+    'theme',
+    'category',
+    'sourceSha256',
+  ] as const;
   for (const field of fields) {
     if (!same(imported[field], current[field])) differences.push(`${field} modifié dans la source`);
   }
@@ -204,8 +216,10 @@ async function importOne(
       reason: `l'adresse « ${source.slug} » est déjà utilisée par un autre module`,
     };
   }
-  const stage = await prisma.progressionStage.findUnique({ where: { code: source.stageCode } });
-  if (!stage) {
+  const stage = source.stageCode
+    ? await prisma.progressionStage.findUnique({ where: { code: source.stageCode } })
+    : null;
+  if (source.stageCode && !stage) {
     throw new Error(
       `Étape « ${source.stageCode} » absente : exécutez d'abord le seed principal (npm run db:seed).`,
     );
@@ -225,8 +239,9 @@ async function importOne(
           title: source.title,
           summary: source.summary,
           objectives: source.objectives,
-          stageId: stage.id,
+          stageId: stage?.id ?? null,
           theme: source.theme,
+          category: source.category ?? null,
           createdById: null,
         },
       });

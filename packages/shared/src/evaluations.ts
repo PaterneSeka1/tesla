@@ -59,7 +59,9 @@ const optionalText = (max: number) =>
 export const ELIGIBILITY_STATUSES = [
   'ELIGIBLE',
   'ELIGIBLE_DEROGATION',
+  'ELIGIBLE_RATTRAPAGE',
   'ETAPE_NON_CORRESPONDANTE',
+  'SORTI_BRANCHE',
   'LIMITE_ATTEINTE',
   'PROFIL_INACTIF',
   'SANS_PROFIL',
@@ -70,7 +72,9 @@ export type EligibilityStatus = (typeof ELIGIBILITY_STATUSES)[number];
 export const ELIGIBILITY_LABELS: Record<EligibilityStatus, string> = {
   ELIGIBLE: 'Accessible',
   ELIGIBLE_DEROGATION: 'Accessible par dérogation',
+  ELIGIBLE_RATTRAPAGE: 'Accessible au titre d’un rattrapage',
   ETAPE_NON_CORRESPONDANTE: 'Réservée à une autre étape',
+  SORTI_BRANCHE: 'Limite d’âge de la branche atteinte',
   LIMITE_ATTEINTE: 'Nombre de tentatives atteint',
   PROFIL_INACTIF: 'Profil routier inactif',
   SANS_PROFIL: 'Aucun profil routier rattaché au compte',

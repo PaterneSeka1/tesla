@@ -126,7 +126,7 @@ export class CompetencyProposalsService {
         revokedAt: row.validation.revokedAt?.toISOString() ?? null,
       },
       canDecide: row.status === 'EN_ATTENTE' && can(actor, 'competency.decide'),
-      canEdit: isOpen && (row.proposedById === actor.userId || actor.role === 'RESPONSABLE'),
+      canEdit: isOpen && (row.proposedById === actor.userId || can(actor, 'competency.decide')),
     };
   }
 
@@ -282,7 +282,7 @@ export class CompetencyProposalsService {
   }
 
   private assertAuthor(actor: Actor, proposal: { proposedById: string }): void {
-    if (proposal.proposedById !== actor.userId && actor.role !== 'RESPONSABLE') {
+    if (proposal.proposedById !== actor.userId && !can(actor, 'competency.decide')) {
       throw new ForbiddenException({
         code: 'FORBIDDEN',
         message: 'Seul l’auteur de la proposition ou le responsable peut la modifier.',

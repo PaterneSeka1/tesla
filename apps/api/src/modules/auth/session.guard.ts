@@ -37,7 +37,7 @@ export class SessionGuard implements CanActivate {
         message: 'Session absente ou expirée. Veuillez vous reconnecter.',
       });
     }
-    request.actor = { userId: session.user.id, role: session.user.role };
+    request.actor = { userId: session.user.id, ...session.authority };
     request.sessionUser = session.user;
     return true;
   }

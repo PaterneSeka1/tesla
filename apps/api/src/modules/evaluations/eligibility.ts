@@ -24,6 +24,10 @@ export function isWaiverActive(
 export interface EligibilityFacts {
   /** Profil routier ; null pour un compte routier sans profil rattaché. */
   profile: { isActive: boolean; currentStageId: string | null } | null;
+  /** Appartenance effective à la branche (sortie à l'âge limite, D95) ; ACTIF si inconnue. */
+  membership?: 'ACTIF' | 'SORTI';
+  /** Obligation de rattrapage ouverte sur le module de l'évaluation (D98). */
+  openCatchUp?: boolean;
   evaluationStageId: string;
   maxAttempts: number | null;
   /** Tentatives du routier pour cette évaluation (tous statuts). */
@@ -41,7 +45,8 @@ export interface EligibilityFacts {
 
 /**
  * Décision d'éligibilité calculée côté serveur, dans la transaction qui crée la tentative.
- * Ordre : profil, étape (ou dérogation active la plus récente), limite de tentatives non annulées.
+ * Ordre : profil, appartenance à la branche, étape (ou rattrapage ouvert, ou dérogation active la plus
+ * récente), limite de tentatives non annulées.
  * Une dérogation lève la condition d'étape, jamais la limite de tentatives. Une tentative ouverte
  * est signalée (à reprendre) sans rendre le routier inéligible.
  */
@@ -60,9 +65,12 @@ export function computeEligibility(facts: EligibilityFacts): Eligibility {
   };
   if (!facts.profile) return { ...base, status: 'SANS_PROFIL', allowed: false };
   if (!facts.profile.isActive) return { ...base, status: 'PROFIL_INACTIF', allowed: false };
+  if (facts.membership === 'SORTI') return { ...base, status: 'SORTI_BRANCHE', allowed: false };
 
   let waiver: Eligibility['waiver'] = null;
-  if (!isStageEligible(facts.profile.currentStageId, facts.evaluationStageId)) {
+  const stageEligible = isStageEligible(facts.profile.currentStageId, facts.evaluationStageId);
+  const catchUp = !stageEligible && facts.openCatchUp === true;
+  if (!stageEligible && !catchUp) {
     const active = [...facts.waivers]
       .sort((a, b) => b.grantedAt.getTime() - a.grantedAt.getTime())
       .find((candidate) => isWaiverActive(candidate, facts.now));
@@ -77,5 +85,6 @@ export function computeEligibility(facts: EligibilityFacts): Eligibility {
   if (!open && facts.maxAttempts !== null && attemptsUsed >= facts.maxAttempts) {
     return { ...base, waiver, status: 'LIMITE_ATTEINTE', allowed: false };
   }
-  return { ...base, waiver, status: waiver ? 'ELIGIBLE_DEROGATION' : 'ELIGIBLE', allowed: true };
+  const status = waiver ? 'ELIGIBLE_DEROGATION' : catchUp ? 'ELIGIBLE_RATTRAPAGE' : 'ELIGIBLE';
+  return { ...base, waiver, status, allowed: true };
 }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -36,6 +37,7 @@ import {
   type VersionActionInput,
   versionActionInputSchema,
   WORKING_MODULE_STATUSES,
+  moduleTypologyError,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
 import { assertCan, can } from '../../common/permissions.js';
@@ -146,6 +148,12 @@ export class ModuleEditorService {
   async create(actor: Actor, input: CreateModuleInput): Promise<{ id: string }> {
     assertCan(actor, 'module.write');
     const data = parseInput(createModuleInputSchema, input);
+    assertTypology({
+      category: data.category ?? null,
+      obligation: data.obligation ?? null,
+      stageId: data.stageId ?? null,
+      officialSource: data.officialSource ?? null,
+    });
     const base = slugify(data.title);
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
@@ -165,6 +173,9 @@ export class ModuleEditorService {
               durationMinutes: data.durationMinutes ?? null,
               stageId: data.stageId ?? null,
               theme: data.theme ?? null,
+              category: data.category ?? null,
+              obligation: data.obligation ?? null,
+              officialSource: data.officialSource ?? null,
               createdById: actor.userId,
               updatedById: actor.userId,
             },
@@ -292,6 +303,14 @@ export class ModuleEditorService {
       const locked = await lockVersion(tx, moduleId, versionId);
       if (locked.status !== 'BROUILLON') throw versionNotEditable(locked.status);
       if (locked.revision !== revision) throw editConflict();
+      const current = await tx.moduleVersion.findUniqueOrThrow({ where: { id: versionId } });
+      assertTypology({
+        category: fields.category !== undefined ? fields.category : current.category,
+        obligation: fields.obligation !== undefined ? fields.obligation : current.obligation,
+        stageId: fields.stageId !== undefined ? fields.stageId : current.stageId,
+        officialSource:
+          fields.officialSource !== undefined ? fields.officialSource : current.officialSource,
+      });
       await tx.moduleVersion.update({
         where: { id: versionId },
         data: {
@@ -302,6 +321,9 @@ export class ModuleEditorService {
           ...(fields.durationMinutes !== undefined && { durationMinutes: fields.durationMinutes }),
           ...(fields.stageId !== undefined && { stageId: fields.stageId }),
           ...(fields.theme !== undefined && { theme: fields.theme }),
+          ...(fields.category !== undefined && { category: fields.category }),
+          ...(fields.obligation !== undefined && { obligation: fields.obligation }),
+          ...(fields.officialSource !== undefined && { officialSource: fields.officialSource }),
           revision: { increment: 1 },
           updatedById: actor.userId,
         },
@@ -340,6 +362,9 @@ export class ModuleEditorService {
             durationMinutes: source.durationMinutes,
             stageId: source.stageId,
             theme: source.theme,
+            category: source.category,
+            obligation: source.obligation,
+            officialSource: source.officialSource,
             basedOnVersionId: source.id,
             createdById: actor.userId,
             updatedById: actor.userId,
@@ -625,18 +650,18 @@ export class ModuleEditorService {
 
   // ─── Collaborateurs ──────────────────────────────────────────────────────
 
-  /** Chefs actifs pouvant être invités. */
+  /** Membres actifs de l'encadrement pouvant être invités. */
   async chefCandidates(actor: Actor): Promise<UserSummary[]> {
     assertCan(actor, 'module.write');
     const users = await this.prisma.user.findMany({
-      where: { role: 'CHEF', isActive: true },
+      where: { role: 'ENCADREMENT', isActive: true, id: { not: actor.userId } },
       select: { id: true, firstName: true, lastName: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
     return users;
   }
 
-  /** Invitation d'un chef : réservée à l'auteur du module et au responsable. */
+  /** Invitation d'un membre de l'encadrement : réservée à l'auteur du module et aux personnes habilitées. */
   async addCollaborator(
     actor: Actor,
     moduleId: string,
@@ -649,10 +674,10 @@ export class ModuleEditorService {
         const { access, createdById } = await resolveAccess(tx, actor, moduleId);
         assertManager(access);
         const user = await tx.user.findUnique({ where: { id: userId } });
-        if (!user || !user.isActive || user.role !== 'CHEF') {
+        if (!user || !user.isActive || user.role !== 'ENCADREMENT') {
           throw new UnprocessableEntityException({
             code: 'INVALID_COLLABORATOR',
-            message: 'Seul un chef actif peut être invité comme collaborateur.',
+            message: 'Seul un membre actif de l’encadrement peut être invité comme collaborateur.',
           });
         }
         if (userId === createdById) {
@@ -740,11 +765,7 @@ export class ModuleEditorService {
   }
 }
 
-function accessOf(
-  actor: Actor,
-  createdById: string | null,
-  isCollaborator: boolean,
-): ModuleAccess {
+function accessOf(actor: Actor, createdById: string | null, isCollaborator: boolean): ModuleAccess {
   if (can(actor, 'module.writeAny')) return 'RESPONSABLE';
   return createdById === actor.userId ? 'AUTEUR' : isCollaborator ? 'COLLABORATEUR' : 'AUTEUR';
 }
@@ -778,4 +799,10 @@ async function availableSlug(tx: Prisma.TransactionClient, base: string): Promis
     const candidate = `${base}-${suffix}`;
     if (!taken.has(candidate)) return candidate;
   }
+}
+
+/** Typologie cohérente (D99), contrôlée avant écriture (la base l'impose aussi par CHECK). */
+function assertTypology(fields: Parameters<typeof moduleTypologyError>[0]): void {
+  const message = moduleTypologyError(fields);
+  if (message) throw new BadRequestException({ code: 'MODULE_TYPOLOGY_INVALID', message });
 }

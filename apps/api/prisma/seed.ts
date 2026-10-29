@@ -15,6 +15,8 @@ import { PROGRAMME_CATEGORIES, PROGRESSION_STAGES, type ProgressionStageCode } f
 import { type Role } from '../src/generated/prisma/enums.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { hashPassword } from '../src/modules/auth/password.js';
+import { seedInitialAgeRuleSet } from './seeds/age-rules.seed.js';
+import { DISCOVERY_MODULES } from './seeds/decouverte.seed.js';
 import { SCOUTISME_BASE_MODULES } from './seeds/scoutisme-base.seed.js';
 import { formatImportReport, importSourceModules } from './seeds/source-modules.js';
 
@@ -47,20 +49,30 @@ const demoStage = (index: number): ProgressionStageCode =>
         ? 'COMPAGNONNAGE'
         : 'DEPART_ROUTIER';
 
-/** 25 comptes fictifs (domaine réservé .test). `routier.demo` n'a pas de profil : à rattacher. */
+/**
+ * 26 comptes fictifs (domaine réservé .test). `routier.demo` n'a pas de profil : à rattacher.
+ * L'encadrement n'a aucun mandat d'office (D93) : l'administration technique fictive consigne
+ * l'année scoute et les mandats depuis l'écran « Mandats ».
+ */
 const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     email: 'responsable.demo@tesla.test',
     firstName: 'Démo',
     lastName: 'Responsable',
-    role: 'RESPONSABLE',
+    role: 'ENCADREMENT',
   },
   ...['Un', 'Deux', 'Trois', 'Quatre'].map((label, index) => ({
     email: `chef${index + 1}.demo@tesla.test`,
     firstName: 'Démo',
-    lastName: `Chef ${label}`,
-    role: 'CHEF' as const,
+    lastName: `Encadrant ${label}`,
+    role: 'ENCADREMENT' as const,
   })),
+  {
+    email: 'admin.demo@tesla.test',
+    firstName: 'Démo',
+    lastName: 'Administration',
+    role: 'ADMINISTRATEUR',
+  },
   { email: 'routier.demo@tesla.test', firstName: 'Démo', lastName: 'Routier', role: 'ROUTIER' },
   ...Array.from({ length: 19 }, (_, i) => {
     const number = String(i + 1).padStart(2, '0');
@@ -148,7 +160,13 @@ try {
     `Seed : ${(PROGRAMME_CATEGORIES as readonly unknown[]).length} catégories du programme, programme 2026–2027.`,
   );
 
-  console.log(formatImportReport(await importSourceModules(prisma, SCOUTISME_BASE_MODULES)));
+  await seedInitialAgeRuleSet(prisma);
+
+  console.log(
+    formatImportReport(
+      await importSourceModules(prisma, [...SCOUTISME_BASE_MODULES, ...DISCOVERY_MODULES]),
+    ),
+  );
 
   const demoPassword = process.env.DEMO_ACCOUNT_PASSWORD;
   if (process.env.NODE_ENV === 'production') {
@@ -168,7 +186,7 @@ try {
         update: { passwordHash, isActive: true },
         include: { scoutProfile: { select: { id: true } } },
       });
-      if (account.role === 'RESPONSABLE') demoResponsableId = user.id;
+      if (account.email === 'responsable.demo@tesla.test') demoResponsableId = user.id;
       // Profil créé une seule fois : étape, équipe et résultats saisis pendant les tests sont conservés.
       if (!stageCode || user.scoutProfile) continue;
       const stage = await prisma.progressionStage.findUniqueOrThrow({ where: { code: stageCode } });
@@ -203,7 +221,7 @@ try {
             kind: 'INSCRIPTION',
             toStageId: stage.id,
             effectiveOn: DEMO_JOINED_AT,
-            // L'historique exige un auteur hors reprise : le responsable fictif (créé en premier).
+            // L'historique exige un auteur hors reprise : le compte fictif « Responsable » (créé en premier).
             decidedById: demoResponsableId!,
             reason: 'Étape initiale fictive (seed de démonstration).',
           },
@@ -222,7 +240,7 @@ try {
     }
     const count = (role: Role) => DEMO_ACCOUNTS.filter((a) => a.role === role).length;
     console.log(
-      `Seed : ${DEMO_ACCOUNTS.length} comptes de démonstration (${count('RESPONSABLE')} responsable, ${count('CHEF')} chefs, ${count('ROUTIER')} routiers), ${profiles} profil(s) routier créé(s).`,
+      `Seed : ${DEMO_ACCOUNTS.length} comptes de démonstration (${count('ENCADREMENT')} encadrement, ${count('ADMINISTRATEUR')} administration, ${count('ROUTIER')} routiers), ${profiles} profil(s) routier créé(s).`,
     );
   }
 } finally {

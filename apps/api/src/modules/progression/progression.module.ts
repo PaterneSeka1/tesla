@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { CompetenciesService } from './competencies.service.js';
 import { CompetencyProposalsService } from './competency-proposals.service.js';
+import { MembershipService } from './membership.service.js';
+import { PathwayController } from './pathway.controller.js';
+import { PathwayService } from './pathway.service.js';
 import {
   CompetenciesController,
   CompetencyProposalsController,
@@ -26,12 +29,16 @@ import { ScoutProgressionService } from './scout-progression.service.js';
     CompetenciesController,
     CompetencyProposalsController,
     CompetencyValidationsController,
+    PathwayController,
   ],
   providers: [
     ProgressionService,
     ScoutProgressionService,
     CompetenciesService,
     CompetencyProposalsService,
+    PathwayService,
+    MembershipService,
   ],
+  exports: [PathwayService, MembershipService],
 })
 export class ProgressionModule {}

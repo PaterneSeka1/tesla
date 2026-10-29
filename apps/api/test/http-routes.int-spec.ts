@@ -21,10 +21,16 @@ import { type z } from 'zod';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import { validateEnv } from '../src/config/env.js';
-import { type Role } from '../src/generated/prisma/enums.js';
 import { hashPassword } from '../src/modules/auth/password.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { createTestPrisma, resetDatabase, testDatabaseUrl } from './int-database.js';
+import {
+  createTestPrisma,
+  grantPersona,
+  personaRole,
+  resetDatabase,
+  type TestPersona,
+  testDatabaseUrl,
+} from './int-database.js';
 
 // Routes HTTP de bout en bout (session, CSRF, permissions, transactions) sur PostgreSQL réel.
 // Chaque réponse est validée par le contrat Zod partagé. Données exclusivement fictives.
@@ -77,25 +83,27 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
   });
 
   /** Compte fictif avec adresse unique (le limiteur de connexion est partagé entre les tests). */
-  async function createUser(role: Role, extra: { isActive?: boolean } = {}) {
+  async function createUser(role: TestPersona, extra: { isActive?: boolean } = {}) {
     emailCounter += 1;
-    return prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         email: `fictif${emailCounter}@example.test`,
         firstName: 'Fictif',
         lastName: `${role} ${emailCounter}`,
-        role,
+        role: personaRole(role),
         passwordHash,
         ...extra,
       },
     });
+    await grantPersona(prisma, created.id, role);
+    return created;
   }
 
   const loginRequest = (body: object) =>
     request(app.getHttpServer()).post('/api/v1/auth/login').set(CSRF_HEADER, '1').send(body);
 
   /** Agent Supertest connecté (cookie conservé) ; les écritures portent l'en-tête anti-CSRF. */
-  async function loginAs(role: Role) {
+  async function loginAs(role: TestPersona) {
     const user = await createUser(role);
     const agent = request.agent(app.getHttpServer());
     await agent
@@ -145,10 +153,11 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
       expect(cookie).toContain(`${SESSION_COOKIE_NAME}=`);
       expect(cookie).toMatch(/HttpOnly/i);
       expect(cookie).toMatch(/SameSite=Lax/i);
-      expect(meResponseSchema.parse(response.body).user).toMatchObject({
-        id: user.id,
-        role: 'RESPONSABLE',
-      });
+      const loggedIn = meResponseSchema.parse(response.body).user;
+      expect(loggedIn).toMatchObject({ id: user.id, role: 'ENCADREMENT', leaderFunction: 'PLEIN' });
+      // Permissions effectives exposées pour l'affichage (l'API reste l'autorité).
+      expect(loggedIn.permissions).toContain('module.review');
+      expect(loggedIn.permissions).not.toContain('mandate.recordPlein');
 
       const me = await json(agent.get('/api/v1/auth/me'), 200, meResponseSchema);
       expect(me.user.email).toBe(user.email);

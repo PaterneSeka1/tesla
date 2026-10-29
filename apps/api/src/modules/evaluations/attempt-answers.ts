@@ -11,6 +11,12 @@ import { type z } from 'zod';
 import { type Prisma } from '../../generated/prisma/client.js';
 import { computeEligibility } from './eligibility.js';
 import { questionInclude } from './evaluation-common.js';
+import {
+  effectiveMembership,
+  loadRuleSetRow,
+  todayCivil,
+  toSnapshot,
+} from '../progression/age-rules.js';
 
 export type VersionQuestion = Prisma.EvaluationQuestionGetPayload<{
   include: typeof questionInclude;
@@ -150,13 +156,33 @@ export async function gradeObjectiveQuestions(
 export async function loadEligibility(
   tx: Prisma.TransactionClient,
   input: {
-    profile: { id: string; isActive: boolean; currentStageId: string | null } | null;
-    evaluation: { id: string; stageId: string };
+    profile: {
+      id: string;
+      isActive: boolean;
+      currentStageId: string | null;
+      birthDate: Date | null;
+      membershipStatus: 'ACTIF' | 'SORTI';
+    } | null;
+    evaluation: { id: string; stageId: string; moduleId?: string | null };
     maxAttempts: number | null;
     now: Date;
   },
 ): Promise<Eligibility> {
   const { profile } = input;
+  const rules = profile ? await loadRuleSetRow(tx, todayCivil(input.now)) : null;
+  const membership = profile
+    ? effectiveMembership(profile, rules && toSnapshot(rules), todayCivil(input.now))
+    : undefined;
+  const openCatchUp =
+    profile && input.evaluation.moduleId
+      ? (await tx.catchUpObligation.count({
+          where: {
+            scoutProfileId: profile.id,
+            moduleId: input.evaluation.moduleId,
+            decision: null,
+          },
+        })) > 0
+      : false;
   // Requêtes successives : une transaction interactive n'exécute qu'une requête à la fois.
   const attempts = profile
     ? await tx.evaluationAttempt.findMany({
@@ -171,6 +197,8 @@ export async function loadEligibility(
     : [];
   return computeEligibility({
     profile,
+    membership,
+    openCatchUp,
     evaluationStageId: input.evaluation.stageId,
     maxAttempts: input.maxAttempts,
     attempts,

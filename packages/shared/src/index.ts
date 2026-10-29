@@ -13,3 +13,7 @@ export * from './roles.js';
 export * from './scouts.js';
 
 export * from './offline.js';
+export * from './age-progression.js';
+export * from './permissions.js';
+export * from './leadership.js';
+export * from './pathway.js';

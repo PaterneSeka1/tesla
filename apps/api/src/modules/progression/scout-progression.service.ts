@@ -306,7 +306,7 @@ export class ScoutProgressionService {
       if (!study) {
         throw new NotFoundException({ code: 'STUDY_NOT_FOUND', message: 'Étude introuvable.' });
       }
-      if (study.recordedById !== actor.userId && actor.role !== 'RESPONSABLE') {
+      if (study.recordedById !== actor.userId && !can(actor, 'scout.update')) {
         throw new ForbiddenException({
           code: 'FORBIDDEN',
           message: 'Seul l’auteur de la saisie ou le responsable peut l’annuler.',

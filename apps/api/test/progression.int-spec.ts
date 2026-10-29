@@ -34,10 +34,16 @@ import { type z } from 'zod';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import { validateEnv } from '../src/config/env.js';
-import { type Role } from '../src/generated/prisma/enums.js';
 import { hashPassword } from '../src/modules/auth/password.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { createTestPrisma, resetDatabase, testDatabaseUrl } from './int-database.js';
+import {
+  createTestPrisma,
+  grantPersona,
+  personaRole,
+  resetDatabase,
+  type TestPersona,
+  testDatabaseUrl,
+} from './int-database.js';
 
 // Phase 4 de bout en bout : progression, compétences, études, programme, activités, présences,
 // tableaux de bord. PostgreSQL réel, routes HTTP authentifiées, données exclusivement fictives.
@@ -97,17 +103,19 @@ describe('Progression, compétences, programme et présences (intégration Postg
     stages = Object.fromEntries(rows.map((stage) => [stage.code, stage.id]));
   });
 
-  async function createUser(role: Role) {
+  async function createUser(role: TestPersona) {
     counter += 1;
-    return prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         email: `progression${counter}@example.test`,
         firstName: 'Fictif',
         lastName: `${role} ${counter}`,
-        role,
+        role: personaRole(role),
         passwordHash,
       },
     });
+    await grantPersona(prisma, created.id, role);
+    return created;
   }
 
   async function login(user: { id: string; email: string }) {
@@ -128,7 +136,7 @@ describe('Progression, compétences, programme et présences (intégration Postg
     };
   }
 
-  const loginAs = async (role: Role) => login(await createUser(role));
+  const loginAs = async (role: TestPersona) => login(await createUser(role));
   type Client = Awaited<ReturnType<typeof loginAs>>;
 
   const createScout = (responsable: Client, n: number, extra: object = {}) =>

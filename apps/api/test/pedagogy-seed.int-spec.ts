@@ -13,10 +13,16 @@ import { type ImportResult, importSourceModules } from '../prisma/seeds/source-m
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import { validateEnv } from '../src/config/env.js';
-import { type Role } from '../src/generated/prisma/enums.js';
 import { hashPassword } from '../src/modules/auth/password.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { createTestPrisma, resetDatabase, testDatabaseUrl } from './int-database.js';
+import {
+  createTestPrisma,
+  grantPersona,
+  personaRole,
+  resetDatabase,
+  type TestPersona,
+  testDatabaseUrl,
+} from './int-database.js';
 
 // Seed pédagogique « Bases du scoutisme » : création en brouillon, idempotence, absence d'écrasement,
 // workflow d'approbation inchangé. Comptes exclusivement fictifs.
@@ -58,17 +64,18 @@ describe('Seed pédagogique (intégration PostgreSQL)', () => {
     await resetDatabase(prisma);
   });
 
-  async function loginAs(role: Role) {
+  async function loginAs(role: TestPersona) {
     counter += 1;
     const user = await prisma.user.create({
       data: {
         email: `seed${counter}@example.test`,
         firstName: 'Fictif',
         lastName: `${role} ${counter}`,
-        role,
+        role: personaRole(role),
         passwordHash,
       },
     });
+    await grantPersona(prisma, user.id, role);
     const agent = request.agent(app.getHttpServer());
     await agent
       .post('/api/v1/auth/login')

@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../src/generated/prisma/client.js';
+import { DISCOVERY_MODULES } from './decouverte.seed.js';
 import { SCOUTISME_BASE_MODULES } from './scoutisme-base.seed.js';
 import { formatImportReport, importSourceModules } from './source-modules.js';
 
@@ -19,7 +20,11 @@ const dryRun = process.argv.includes('--dry-run');
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 try {
-  const results = await importSourceModules(prisma, SCOUTISME_BASE_MODULES, { dryRun });
+  const results = await importSourceModules(
+    prisma,
+    [...SCOUTISME_BASE_MODULES, ...DISCOVERY_MODULES],
+    { dryRun },
+  );
   console.log(formatImportReport(results, dryRun));
 } finally {
   await prisma.$disconnect();
