@@ -6,12 +6,12 @@ Import, en brouillon, de modules pédagogiques issus de documents fournis par la
 
 | Source | Rôle | Disponibilité |
 | --- | --- | --- |
-| `BASE DU SCOUTISME.pdf` (6 pages, SHA-256 `cc40c92e…29b8d9`) | Source principale des textes | `docs/sources/`, **non versionné** |
-| `Nikola_Tesla_Modules_Scoutisme.md` | Proposition de découpage, d'étapes et d'objectifs | `docs/sources/`, **non versionné** |
+| `BASE DU SCOUTISME.pdf` (6 pages, SHA-256 `cc40c92e…29b8d9`) | Source principale des textes | `docs/sources/` |
+| `Nikola_Tesla_Modules_Scoutisme.md` | Proposition de découpage, d'étapes et d'objectifs | `docs/sources/` |
 | Manuel pédagogique SAPF-Route | Référentiel des étapes | **absent du dépôt** — non utilisé |
 | `docs/PROGRAMME_ANNUEL_2026-2027.md` | Programme de l'année | **absent du dépôt** — non utilisé |
 
-Aucun contenu n'a été inventé pour remplacer les documents absents. Le texte du PDF a été extrait mécaniquement puis repris tel quel (coquilles comprises) ; un contrôle automatique a vérifié que chaque texte de leçon figure dans le PDF, à l'exception des ajouts éditoriaux signalés ci-dessous. Le PDF contient des métadonnées d'auteur : décider explicitement avant de le versionner.
+Aucun contenu n'a été inventé pour remplacer les documents absents. Le texte du PDF a été extrait mécaniquement puis repris tel quel (coquilles comprises) ; un contrôle automatique a vérifié que chaque texte de leçon figure dans le PDF, à l'exception des ajouts éditoriaux signalés ci-dessous. Les deux sources sont versionnées dans `docs/sources/` à la demande du responsable.
 
 ## Modules importés
 
