@@ -3,6 +3,8 @@
  * - Données de référence : étapes de progression, catégories du programme annuel (correspondance avec
  *   les étapes chargée « à confirmer », jamais confirmée par le seed) et programme 2026–2027 (vide :
  *   les séances officielles s'importent depuis le document du programme, aucune n'est inventée).
+ * - Modules pédagogiques « Bases du scoutisme » importés en brouillon (prisma/seeds/), jamais approuvés
+ *   ni publiés ; un module déjà importé n'est jamais modifié (écarts seulement signalés).
  * - Comptes de démonstration synthétiques, uniquement hors production et si DEMO_ACCOUNT_PASSWORD
  *   est défini dans l'environnement local (jamais versionné). Aucun routier ni aucune équipe n'est créé.
  */
@@ -11,6 +13,8 @@ import { PROGRAMME_CATEGORIES, PROGRESSION_STAGES } from '@tesla/shared';
 import { type Role } from '../src/generated/prisma/enums.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { hashPassword } from '../src/modules/auth/password.js';
+import { SCOUTISME_BASE_MODULES } from './seeds/scoutisme-base.seed.js';
+import { formatImportReport, importSourceModules } from './seeds/source-modules.js';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL est requis pour le seed.');
@@ -71,6 +75,8 @@ try {
   console.log(
     `Seed : ${PROGRAMME_CATEGORIES.length} catégories du programme, programme 2026–2027.`,
   );
+
+  console.log(formatImportReport(await importSourceModules(prisma, SCOUTISME_BASE_MODULES)));
 
   const demoPassword = process.env.DEMO_ACCOUNT_PASSWORD;
   if (process.env.NODE_ENV === 'production') {

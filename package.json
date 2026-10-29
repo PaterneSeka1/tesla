@@ -31,6 +31,7 @@
     "db:migrate": "npm run db:migrate -w @tesla/api",
     "db:deploy": "npm run db:deploy -w @tesla/api",
     "db:seed": "npm run db:seed -w @tesla/api",
+    "db:seed:pedagogy": "npm run db:seed:pedagogy -w @tesla/api --",
     "db:studio": "npm run db:studio -w @tesla/api"
   },
   "devDependencies": {
