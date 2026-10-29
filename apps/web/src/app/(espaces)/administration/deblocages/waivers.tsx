@@ -8,7 +8,7 @@ import { useDeferredValue, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useSessionUser } from '@/components/auth/session-gate';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/empty-state';
 import { useEvaluationAction } from '@/components/evaluations/use-evaluation-action';
 import { FormField, fieldA11y } from '@/components/form-field';
@@ -90,7 +90,7 @@ export function Waivers() {
   };
 
   return (
-    <ResponsableOnly role={user.role}>
+    <RequirePermission user={user} permission="waiver.manage">
       <PageHeading
         title="Déblocages"
         description="Autoriser individuellement un routier à passer une évaluation hors de son étape. La limite de tentatives continue de s’appliquer."
@@ -272,6 +272,6 @@ export function Waivers() {
           />
         </>
       )}
-    </ResponsableOnly>
+    </RequirePermission>
   );
 }

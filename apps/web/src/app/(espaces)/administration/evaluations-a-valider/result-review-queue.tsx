@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ClipboardCheck, Search } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/empty-state';
 import { AttemptTable } from '@/components/evaluations/attempt-table';
 import { PageHeading } from '@/components/page-heading';
@@ -29,7 +29,7 @@ export function ResultReviewQueue() {
   });
 
   return (
-    <ResponsableOnly role={user.role}>
+    <RequirePermission user={user} permission="attempt.decide">
       <PageHeading
         title="Résultats à examiner"
         description="Accepter un résultat corrigé n’est pas valider officiellement un acquis ni changer l’étape d’un routier : ces décisions restent des actes distincts."
@@ -79,6 +79,6 @@ export function ResultReviewQueue() {
           />
         </>
       )}
-    </ResponsableOnly>
+    </RequirePermission>
   );
 }

@@ -44,12 +44,15 @@ const TASKS: Record<DashboardTaskKind, { icon: LucideIcon; href: (id: string) =>
     href: (id) => `/administration/evaluations-a-valider/${id}`,
   },
   PROPOSITION_A_DECIDER: { icon: Medal, href: (id) => `/administration/validations/${id}` },
-  COPIE_A_CORRIGER: { icon: PenLine, href: (code) => `/chef/corrections/${code}` },
-  COPIE_PAPIER_A_CORRIGER: { icon: Printer, href: (code) => `/chef/evaluations/papier/${code}` },
-  MODULE_A_REPRENDRE: { icon: FilePenLine, href: (id) => `/chef/modules/${id}/modifier` },
+  COPIE_A_CORRIGER: { icon: PenLine, href: (code) => `/encadrement/corrections/${code}` },
+  COPIE_PAPIER_A_CORRIGER: {
+    icon: Printer,
+    href: (code) => `/encadrement/evaluations/papier/${code}`,
+  },
+  MODULE_A_REPRENDRE: { icon: FilePenLine, href: (id) => `/encadrement/modules/${id}/modifier` },
   QUESTIONNAIRE_A_REPRENDRE: {
     icon: ClipboardCheck,
-    href: (id) => `/chef/evaluations/${id}/modifier`,
+    href: (id) => `/encadrement/evaluations/${id}/modifier`,
   },
   COMPLEMENT_A_APPORTER: {
     icon: MessageSquareText,

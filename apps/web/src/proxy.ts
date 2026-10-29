@@ -28,7 +28,7 @@ export const config = {
   matcher: [
     '/',
     '/routier/:path*',
-    '/chef/:path*',
+    '/encadrement/:path*',
     '/responsable/:path*',
     '/administration/:path*',
     '/modules/:path*',

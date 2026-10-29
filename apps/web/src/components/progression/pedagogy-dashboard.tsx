@@ -275,14 +275,14 @@ const RESPONSABLE_ACTIONS: readonly QuickAction[] = [
   { href: '/administration/routiers/nouveau', label: 'Nouveau routier', icon: UserPlus },
   { href: '/administration/activites', label: 'Activités', icon: CalendarDays },
   { href: '/administration/presences', label: 'Présences', icon: CalendarCheck },
-  { href: '/chef/evaluations/papier', label: 'Copie papier', icon: Printer },
+  { href: '/encadrement/evaluations/papier', label: 'Copie papier', icon: Printer },
 ];
 
 const CHEF_ACTIONS: readonly QuickAction[] = [
   { href: '/administration/routiers', label: 'Noter une observation', icon: MessageSquareText },
   { href: '/administration/validations/nouvelle', label: 'Proposer une compétence', icon: Medal },
-  { href: '/chef/evaluations/papier', label: 'Copie papier', icon: Printer },
-  { href: '/chef/modules/nouveau', label: 'Nouveau module', icon: FilePenLine },
+  { href: '/encadrement/evaluations/papier', label: 'Copie papier', icon: Printer },
+  { href: '/encadrement/modules/nouveau', label: 'Nouveau module', icon: FilePenLine },
 ];
 
 export function ResponsablePedagogyDashboard() {
@@ -389,7 +389,7 @@ export function ResponsablePedagogyDashboard() {
             <ActionRow
               label="Copies en cours de correction"
               count={pedagogyQueue.correctionsInProgress}
-              href="/chef/corrections"
+              href="/encadrement/corrections"
               icon={PenLine}
             />
             <ActionRow
@@ -516,13 +516,13 @@ export function ChefPedagogyDashboard() {
         <Kpi
           label="Modules en préparation"
           value={d.modulesInProgress}
-          href="/chef/modules"
+          href="/encadrement/modules"
           icon={FilePenLine}
         />
         <Kpi
           label="Copies à corriger"
           value={d.correctionsToDo}
-          href="/chef/corrections"
+          href="/encadrement/corrections"
           icon={PenLine}
         />
         <Kpi

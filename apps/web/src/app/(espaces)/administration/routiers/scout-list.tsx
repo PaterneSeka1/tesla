@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useDeferredValue, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { userCan } from '@/lib/navigation';
 import { EmptyState } from '@/components/empty-state';
 import { PageHeading } from '@/components/page-heading';
 import { Pagination } from '@/components/pagination';
@@ -89,7 +90,7 @@ export function ScoutList() {
           title="Routiers"
           description="Fiches des routiers, avec ou sans compte. Recherche par nom, prénoms ou matricule."
         />
-        {user.role === 'RESPONSABLE' && (
+        {userCan(user, 'scout.create') && (
           <Button asChild>
             <Link href="/administration/routiers/nouveau">
               <Plus aria-hidden />

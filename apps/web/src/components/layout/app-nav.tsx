@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { type Role } from '@tesla/shared';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -13,19 +12,23 @@ import { meQueryOptions } from '@/lib/api/auth';
 import {
   findActiveHref,
   findActiveItem,
-  NAVIGATION,
+  navigationFor,
   type NavItem,
+  type NavUser,
   ROUTIER_BOTTOM_NAV,
 } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
+/** Menu hors ligne : les écrans hors ligne n'appartiennent qu'au routier. */
+const OFFLINE_USER: NavUser = { role: 'ROUTIER', permissions: [] };
+
 /**
- * Rôle utilisé pour la navigation. Les écrans hors ligne n'appartiennent qu'au routier : sans
- * réseau, la session ne peut pas être relue, le menu routier reste donc disponible.
+ * Utilisateur pour la navigation (rôle et permissions effectives). Sans réseau, la session ne
+ * peut pas être relue : le menu routier reste disponible.
  */
-function useNavRole(offline: boolean): Role | undefined {
-  const role = useQuery(meQueryOptions).data?.user.role;
-  return role ?? (offline ? 'ROUTIER' : undefined);
+function useNavUser(offline: boolean): NavUser | undefined {
+  const user = useQuery(meQueryOptions).data?.user;
+  return user ?? (offline ? OFFLINE_USER : undefined);
 }
 
 function NavLink({
@@ -69,10 +72,10 @@ export function AppNav({
   animated?: boolean;
 }) {
   const pathname = usePathname();
-  const role = useNavRole(offline);
-  if (!role) return <div className="flex-1" aria-hidden />;
+  const user = useNavUser(offline);
+  if (!user) return <div className="flex-1" aria-hidden />;
 
-  const groups = NAVIGATION[role];
+  const groups = navigationFor(user);
   const activeHref = findActiveHref(
     groups.flatMap((group) => group.items.map((item) => item.href)),
     pathname,
@@ -134,8 +137,8 @@ export function AppNav({
 /** Titre de la page courante, déduit du menu (en-tête). */
 export function CurrentPageTitle({ offline = false }: { offline?: boolean }) {
   const pathname = usePathname();
-  const role = useNavRole(offline);
-  const item = role ? findActiveItem(role, pathname) : undefined;
+  const user = useNavUser(offline);
+  const item = user ? findActiveItem(user, pathname) : undefined;
   return (
     <p key={pathname} className="animate-fade truncate font-semibold">
       {item?.label ?? 'Nikola Tesla Académie'}
@@ -195,7 +198,7 @@ export function MobileMenu({ offline = false }: { offline?: boolean }) {
 /** Accès rapides du routier sur mobile (les autres rôles utilisent le menu latéral). */
 export function RoutierBottomNav({ offline = false }: { offline?: boolean }) {
   const pathname = usePathname();
-  const role = useNavRole(offline);
+  const role = useNavUser(offline)?.role;
   if (role !== 'ROUTIER') return null;
   const activeHref = findActiveHref(
     ROUTIER_BOTTOM_NAV.map((item) => item.href),
@@ -245,6 +248,6 @@ export function RoutierBottomNav({ offline = false }: { offline?: boolean }) {
 
 /** Marge basse réservée à la barre d'accès rapides du routier. */
 export function BottomNavSpacer({ offline = false }: { offline?: boolean }) {
-  const role = useNavRole(offline);
+  const role = useNavUser(offline)?.role;
   return role === 'ROUTIER' ? <div className="h-16 lg:hidden print:hidden" aria-hidden /> : null;
 }

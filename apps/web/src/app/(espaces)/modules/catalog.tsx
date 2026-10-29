@@ -1,6 +1,7 @@
 'use client';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { MODULE_CATEGORIES, MODULE_CATEGORY_LABELS, type ModuleCategory } from '@tesla/shared';
 import { BookOpen, Clock, Search, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useDeferredValue, useState } from 'react';
@@ -9,6 +10,7 @@ import { PageHeading } from '@/components/page-heading';
 import { Pagination } from '@/components/pagination';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -23,6 +25,7 @@ export function Catalog() {
   const [search, setSearch] = useState('');
   const [stageId, setStageId] = useState('');
   const [theme, setTheme] = useState('');
+  const [category, setCategory] = useState<ModuleCategory | ''>('');
   const [page, setPage] = useState(1);
   const deferredSearch = useDeferredValue(search.trim());
   const stages = useQuery(stagesQueryOptions);
@@ -31,19 +34,36 @@ export function Catalog() {
       search: deferredSearch,
       stageId: stageId || undefined,
       theme: theme || undefined,
+      category: category || undefined,
       page,
       pageSize: PAGE_SIZE,
     }),
     placeholderData: keepPreviousData,
   });
-  const filtered = Boolean(deferredSearch || stageId || theme);
+  const filtered = Boolean(deferredSearch || stageId || theme || category);
 
   return (
     <>
       <PageHeading
         title="Bibliothèque"
-        description="Tous les modules publiés de la Communauté Nikola Tesla, accessibles quelle que soit votre étape."
+        description="Découvrir le scoutisme, la Route et la communauté, puis les modules de chaque étape : tout module publié est accessible quelle que soit votre étape."
       />
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Catégorie">
+        {(['', ...MODULE_CATEGORIES] as const).map((value) => (
+          <Button
+            key={value || 'all'}
+            size="sm"
+            variant={category === value ? 'default' : 'outline'}
+            aria-pressed={category === value}
+            onClick={() => {
+              setCategory(value);
+              setPage(1);
+            }}
+          >
+            {value ? MODULE_CATEGORY_LABELS[value] : 'Tous les modules'}
+          </Button>
+        ))}
+      </div>
       <form
         role="search"
         className="grid gap-3 md:grid-cols-[1fr_12rem_12rem]"
@@ -135,6 +155,10 @@ export function Catalog() {
                     <div className="flex flex-wrap gap-2">
                       {module.stage && <Badge variant="secondary">{module.stage.name}</Badge>}
                       {module.theme && <Badge variant="outline">{module.theme}</Badge>}
+                      {module.obligation === 'OBLIGATOIRE' && (
+                        <Badge variant="default">Obligatoire</Badge>
+                      )}
+                      {!module.official && <Badge variant="outline">Contenu non homologué</Badge>}
                       {recommended && (
                         <Badge variant="accent">
                           <Sparkles aria-hidden />

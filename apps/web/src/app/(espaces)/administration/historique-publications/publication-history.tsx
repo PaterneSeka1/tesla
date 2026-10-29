@@ -6,7 +6,7 @@ import { History } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/empty-state';
 import { PageHeading } from '@/components/page-heading';
 import { Pagination } from '@/components/pagination';
@@ -32,7 +32,7 @@ export function PublicationHistory() {
   });
 
   return (
-    <ResponsableOnly role={user.role}>
+    <RequirePermission user={user} permission="module.review">
       <PageHeading
         title="Historique des publications"
         description="Décisions du responsable : approbations, corrections, refus, publications et archivages."
@@ -96,6 +96,6 @@ export function PublicationHistory() {
           />
         </>
       )}
-    </ResponsableOnly>
+    </RequirePermission>
   );
 }

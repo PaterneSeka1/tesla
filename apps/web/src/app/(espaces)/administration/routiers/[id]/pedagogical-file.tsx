@@ -65,7 +65,7 @@ function EvaluationsSection({ progression }: { progression: ScoutProgression }) 
                 </div>
                 <p className="text-xs text-muted-foreground">
                   <Link
-                    href={`/chef/corrections/${attempt.code}`}
+                    href={`/encadrement/corrections/${attempt.code}`}
                     className="font-mono text-tesla-rouge underline-offset-4 hover:underline"
                   >
                     {attempt.code}

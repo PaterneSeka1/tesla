@@ -6,6 +6,7 @@ import { Plus, Search, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { useDeferredValue, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { userCan } from '@/lib/navigation';
 import { EmptyState } from '@/components/empty-state';
 import { PageHeading } from '@/components/page-heading';
 import { Pagination } from '@/components/pagination';
@@ -48,7 +49,7 @@ export function TeamList() {
           title="Équipes"
           description="Équipes de la Communauté Nikola Tesla et leurs membres."
         />
-        {user.role === 'RESPONSABLE' && (
+        {userCan(user, 'team.manage') && (
           <Button asChild>
             <Link href="/administration/equipes/nouvelle">
               <Plus aria-hidden />

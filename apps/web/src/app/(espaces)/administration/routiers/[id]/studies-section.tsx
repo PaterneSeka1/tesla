@@ -12,6 +12,7 @@ import { BookOpen } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { userCan } from '@/lib/navigation';
 import { EmptyState } from '@/components/empty-state';
 import { FormField, fieldA11y } from '@/components/form-field';
 import { CommentDialog } from '@/components/modules/comment-dialog';
@@ -107,7 +108,7 @@ export function StudiesSection({ progression }: { progression: ScoutProgression 
                   </p>
                 )}
                 {!study.cancelledAt &&
-                  (study.recordedBy.id === user.id || user.role === 'RESPONSABLE') && (
+                  (study.recordedBy.id === user.id || userCan(user, 'scout.update')) && (
                     <CommentDialog
                       trigger={
                         <Button size="sm" variant="outline">

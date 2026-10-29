@@ -65,7 +65,7 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
           }
         />
         <Button asChild>
-          <Link href="/chef/modules/nouveau">
+          <Link href="/encadrement/modules/nouveau">
             <Plus aria-hidden />
             Nouveau module
           </Link>
@@ -152,7 +152,7 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
                 const href =
                   review && module.working && ['SOUMIS', 'APPROUVE'].includes(module.working.status)
                     ? `/administration/modules/${module.id}/revision`
-                    : `/chef/modules/${module.id}/modifier`;
+                    : `/encadrement/modules/${module.id}/modifier`;
                 return (
                   <TableRow key={module.id}>
                     <TableCell>

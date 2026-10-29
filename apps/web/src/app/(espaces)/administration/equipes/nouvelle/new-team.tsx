@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { BackLink } from '@/components/back-link';
 import { PageHeading } from '@/components/page-heading';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { TeamForm } from '../team-form';
 
 export function NewTeam() {
@@ -17,9 +17,9 @@ export function NewTeam() {
         title="Nouvelle équipe"
         description="Le nom doit être unique dans la communauté."
       />
-      <ResponsableOnly role={user.role}>
+      <RequirePermission user={user} permission="team.manage">
         <TeamForm onSaved={(team) => router.push(`/administration/equipes/${team.id}`)} />
-      </ResponsableOnly>
+      </RequirePermission>
     </>
   );
 }

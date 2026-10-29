@@ -4,7 +4,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/toaster';
 
 /** Domaines dont les données dépendent des décisions de progression, d'activités et de présences. */
-const QUERY_ROOTS = ['progression', 'activities', 'programmes', 'dashboards', 'scouts'] as const;
+const QUERY_ROOTS = [
+  'progression',
+  'activities',
+  'programmes',
+  'dashboards',
+  'scouts',
+  'pathway',
+  'leadership',
+] as const;
 
 /**
  * Exécute une action de suivi pédagogique, recharge les données concernées et affiche le résultat.

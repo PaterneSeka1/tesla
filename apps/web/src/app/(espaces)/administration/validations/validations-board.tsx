@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { userCan } from '@/lib/navigation';
 import { PageHeading } from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,7 +83,7 @@ function ResponsableQueue() {
 
 export function ValidationsBoard() {
   const user = useSessionUser();
-  const isResponsable = user.role === 'RESPONSABLE';
+  const isResponsable = userCan(user, 'competency.decide');
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-4">

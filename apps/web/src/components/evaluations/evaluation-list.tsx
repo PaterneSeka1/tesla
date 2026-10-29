@@ -61,14 +61,14 @@ export function EvaluationList({ review = false }: { review?: boolean }) {
         <div className="flex flex-wrap gap-2">
           {!review && (
             <Button asChild variant="outline">
-              <Link href="/chef/evaluations/papier">
+              <Link href="/encadrement/evaluations/papier">
                 <Printer aria-hidden />
                 Évaluation papier
               </Link>
             </Button>
           )}
           <Button asChild>
-            <Link href="/chef/evaluations/nouvelle">
+            <Link href="/encadrement/evaluations/nouvelle">
               <Plus aria-hidden />
               Nouveau questionnaire
             </Link>
@@ -159,7 +159,7 @@ export function EvaluationList({ review = false }: { review?: boolean }) {
                 const href =
                   review && item.working && ['SOUMIS', 'APPROUVE'].includes(item.working.status)
                     ? `/administration/evaluations/${item.id}`
-                    : `/chef/evaluations/${item.id}/modifier`;
+                    : `/encadrement/evaluations/${item.id}/modifier`;
                 return (
                   <TableRow key={item.id}>
                     <TableCell>

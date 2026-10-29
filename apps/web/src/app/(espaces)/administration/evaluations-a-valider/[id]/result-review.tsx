@@ -5,7 +5,7 @@ import { Check, CircleAlert, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSessionUser } from '@/components/auth/session-gate';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { BackLink } from '@/components/back-link';
 import { CopyAnswers, CopyHeader, CopyHistory } from '@/components/evaluations/copy-view';
 import { useEvaluationAction } from '@/components/evaluations/use-evaluation-action';
@@ -25,7 +25,7 @@ export function ResultReview() {
   const { data, error, isPending, refetch } = useQuery(reviewAttemptQueryOptions(id));
 
   return (
-    <ResponsableOnly role={user.role}>
+    <RequirePermission user={user} permission="attempt.decide">
       <BackLink href="/administration/evaluations-a-valider">Résultats à examiner</BackLink>
       {isPending ? (
         <TableSkeleton rows={6} />
@@ -117,6 +117,6 @@ export function ResultReview() {
           </Card>
         </>
       )}
-    </ResponsableOnly>
+    </RequirePermission>
   );
 }

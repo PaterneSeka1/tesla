@@ -35,7 +35,7 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const toast = useToast();
   const unauthenticated = error instanceof ApiError && error.status === 401;
-  const forbidden = data !== undefined && !canAccessPath(data.user.role, pathname);
+  const forbidden = data !== undefined && !canAccessPath(data.user, pathname);
   const home = data ? getDefaultRouteForUser(data.user) : null;
 
   useEffect(() => {

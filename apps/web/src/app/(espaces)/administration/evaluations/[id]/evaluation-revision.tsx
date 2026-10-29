@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Archive, Check, Globe, RotateCcw, X } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useSessionUser } from '@/components/auth/session-gate';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { BackLink } from '@/components/back-link';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { QuestionList } from '@/components/evaluations/question-list';
@@ -33,7 +33,7 @@ export function EvaluationRevision() {
   const { data, error, isPending, refetch } = useQuery(evaluationReviewQueryOptions(id));
 
   return (
-    <ResponsableOnly role={user.role}>
+    <RequirePermission user={user} permission="evaluation.review">
       <BackLink href="/administration/evaluations">Questionnaires</BackLink>
       {isPending ? (
         <TableSkeleton rows={6} />
@@ -231,6 +231,6 @@ export function EvaluationRevision() {
           );
         })()
       )}
-    </ResponsableOnly>
+    </RequirePermission>
   );
 }

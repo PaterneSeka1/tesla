@@ -22,6 +22,14 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  /** Espace unique de l'encadrement (D105) : les anciennes adresses restent valides. */
+  async redirects() {
+    return [
+      { source: '/chef', destination: '/encadrement', permanent: false },
+      { source: '/chef/:path*', destination: '/encadrement/:path*', permanent: false },
+      { source: '/responsable', destination: '/encadrement', permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

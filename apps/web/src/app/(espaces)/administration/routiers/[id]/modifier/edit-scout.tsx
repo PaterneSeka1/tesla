@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { BackLink } from '@/components/back-link';
 import { PageHeading } from '@/components/page-heading';
@@ -30,12 +30,12 @@ export function EditScout() {
             title={`Modifier — ${fullName(scout)}`}
             description="Les modifications sont journalisées."
           />
-          <ResponsableOnly role={user.role}>
+          <RequirePermission user={user} permission="scout.update">
             <ScoutForm
               scout={scout}
               onSaved={() => router.push(`/administration/routiers/${id}`)}
             />
-          </ResponsableOnly>
+          </RequirePermission>
         </>
       )}
     </>

@@ -2,7 +2,16 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { type ModuleVersionDetail } from '@tesla/shared';
+import {
+  MODULE_CATEGORIES,
+  MODULE_CATEGORY_LABELS,
+  MODULE_OBLIGATION_LABELS,
+  MODULE_OBLIGATIONS,
+  type ModuleCategory,
+  type ModuleObligation,
+  moduleTypologyError,
+  type ModuleVersionDetail,
+} from '@tesla/shared';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { FormField, fieldA11y } from '@/components/form-field';
@@ -13,29 +22,42 @@ import { Textarea } from '@/components/ui/textarea';
 import { stagesQueryOptions } from '@/lib/api/scouts';
 
 /** Mêmes limites que les schémas de @tesla/shared ; l'API revalide et normalise. */
-const formSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(3, { error: '3 caractères au minimum.' })
-    .max(150, { error: '150 caractères au maximum.' }),
-  summary: z.string().trim().max(2000, { error: '2 000 caractères au maximum.' }),
-  stageId: z.string(),
-  theme: z.string().trim().max(80, { error: '80 caractères au maximum.' }),
-  durationMinutes: z
-    .string()
-    .trim()
-    .refine((value) => value === '' || (/^\d+$/.test(value) && +value >= 1 && +value <= 6000), {
-      message: 'Nombre de minutes entre 1 et 6 000.',
-    }),
-  prerequisites: z.string().trim().max(2000, { error: '2 000 caractères au maximum.' }),
-  objectives: z
-    .string()
-    .refine((value) => lines(value).length <= 20, { message: '20 objectifs au maximum.' })
-    .refine((value) => lines(value).every((line) => line.length <= 300), {
-      message: '300 caractères au maximum par objectif.',
-    }),
-});
+const formSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(3, { error: '3 caractères au minimum.' })
+      .max(150, { error: '150 caractères au maximum.' }),
+    summary: z.string().trim().max(2000, { error: '2 000 caractères au maximum.' }),
+    stageId: z.string(),
+    theme: z.string().trim().max(80, { error: '80 caractères au maximum.' }),
+    durationMinutes: z
+      .string()
+      .trim()
+      .refine((value) => value === '' || (/^\d+$/.test(value) && +value >= 1 && +value <= 6000), {
+        message: 'Nombre de minutes entre 1 et 6 000.',
+      }),
+    prerequisites: z.string().trim().max(2000, { error: '2 000 caractères au maximum.' }),
+    objectives: z
+      .string()
+      .refine((value) => lines(value).length <= 20, { message: '20 objectifs au maximum.' })
+      .refine((value) => lines(value).every((line) => line.length <= 300), {
+        message: '300 caractères au maximum par objectif.',
+      }),
+    category: z.enum(['', ...MODULE_CATEGORIES]),
+    obligation: z.enum(['', ...MODULE_OBLIGATIONS]),
+    officialSource: z.string().trim().max(500, { error: '500 caractères au maximum.' }),
+  })
+  .superRefine((values, context) => {
+    const message = moduleTypologyError({
+      category: values.category || null,
+      obligation: values.obligation || null,
+      stageId: values.stageId || null,
+      officialSource: values.officialSource || null,
+    });
+    if (message) context.addIssue({ code: 'custom', message, path: ['obligation'] });
+  });
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -55,6 +77,9 @@ export interface ModuleMetadata {
   durationMinutes: number | null;
   stageId: string | null;
   theme: string | null;
+  category: ModuleCategory | null;
+  obligation: ModuleObligation | null;
+  officialSource: string | null;
 }
 
 export function ModuleMetadataForm({
@@ -84,6 +109,9 @@ export function ModuleMetadataForm({
       durationMinutes: version?.durationMinutes ? String(version.durationMinutes) : '',
       prerequisites: version?.prerequisites ?? '',
       objectives: version?.objectives.join('\n') ?? '',
+      category: version?.category ?? '',
+      obligation: version?.obligation ?? '',
+      officialSource: version?.officialSource ?? '',
     },
   });
 
@@ -96,6 +124,9 @@ export function ModuleMetadataForm({
       durationMinutes: values.durationMinutes ? Number(values.durationMinutes) : null,
       stageId: values.stageId || null,
       theme: values.theme || null,
+      category: values.category || null,
+      obligation: values.obligation || null,
+      officialSource: values.officialSource || null,
     });
 
   return (
@@ -144,6 +175,55 @@ export function ModuleMetadataForm({
             ))}
           </NativeSelect>
         </FormField>
+        <FormField
+          id="module-category"
+          label="Catégorie"
+          hint="Découverte (toutes étapes), parcours d’étape ou complémentaire."
+        >
+          <NativeSelect
+            {...fieldA11y('module-category', undefined, 'hint')}
+            {...register('category')}
+          >
+            <option value="">À classer</option>
+            {MODULE_CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {MODULE_CATEGORY_LABELS[category]}
+              </option>
+            ))}
+          </NativeSelect>
+        </FormField>
+        <FormField
+          id="module-obligation"
+          label="Caractère obligatoire"
+          hint="« Obligatoire » exige un module d’étape et une source officielle."
+          error={errors.obligation?.message}
+        >
+          <NativeSelect
+            {...fieldA11y('module-obligation', errors.obligation?.message, 'hint')}
+            {...register('obligation')}
+          >
+            <option value="">Non précisé</option>
+            {MODULE_OBLIGATIONS.map((obligation) => (
+              <option key={obligation} value={obligation}>
+                {MODULE_OBLIGATION_LABELS[obligation]}
+              </option>
+            ))}
+          </NativeSelect>
+        </FormField>
+        <div className="md:col-span-2">
+          <FormField
+            id="module-source"
+            label="Source officielle"
+            hint="Document de référence (titre, édition, pages). Vide : contenu éditorial non homologué."
+            error={errors.officialSource?.message}
+          >
+            <Input
+              maxLength={500}
+              {...fieldA11y('module-source', errors.officialSource?.message, 'hint')}
+              {...register('officialSource')}
+            />
+          </FormField>
+        </div>
         <FormField
           id="module-theme"
           label="Thème"

@@ -1,6 +1,7 @@
 'use client';
 
 import { NativeSelect } from '@/components/ui/native-select';
+import { userCan } from '@/lib/navigation';
 
 import { Textarea } from '@/components/ui/textarea';
 
@@ -63,7 +64,7 @@ export function AnnualProgramme() {
           Consulter et gérer les séances
         </Link>
       </p>
-      {user.role === 'RESPONSABLE' && (
+      {userCan(user, 'programme.configure') && (
         <section className="space-y-3 rounded border p-4">
           <h2 className="text-xl font-semibold">Importer le programme approuvé</h2>
           <p>
@@ -169,7 +170,7 @@ export function AnnualProgramme() {
                 aria-label={category.label}
                 name="stageId"
                 defaultValue={category.stage?.id ?? ''}
-                disabled={user.role !== 'RESPONSABLE'}
+                disabled={!userCan(user, 'programme.configure')}
                 className="block rounded border p-2"
               >
                 <option value="">Sans correspondance</option>
@@ -185,11 +186,11 @@ export function AnnualProgramme() {
                 type="checkbox"
                 name="confirmed"
                 defaultChecked={category.correspondenceValidated}
-                disabled={user.role !== 'RESPONSABLE'}
+                disabled={!userCan(user, 'programme.configure')}
               />{' '}
               Correspondance confirmée
             </label>
-            {user.role === 'RESPONSABLE' && (
+            {userCan(user, 'programme.configure') && (
               <Button disabled={busy || !stages.data}>Enregistrer</Button>
             )}
           </form>

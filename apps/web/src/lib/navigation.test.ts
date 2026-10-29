@@ -1,20 +1,42 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { type Role } from '@tesla/shared';
+import {
+  effectivePermissions,
+  type LeaderFunction,
+  type Permission,
+  type Role,
+} from '@tesla/shared';
 import { describe, expect, it } from 'vitest';
 import {
   canAccessPath,
   DEFAULT_ROUTES,
   findActiveItem,
   getDefaultRouteForUser,
+  navigationFor,
   NAVIGATION,
+  type NavUser,
   resolvePostLoginPath,
   ROUTIER_BOTTOM_NAV,
   safeInternalPath,
 } from './navigation';
 
-const ROLES: Role[] = ['ROUTIER', 'CHEF', 'RESPONSABLE'];
 const APP_DIR = join(import.meta.dirname, '..', 'app');
+
+/** Utilisateur tel que renvoyé par `/auth/me` (permissions calculées comme par l'API). */
+const persona = (
+  role: Role,
+  leaderFunction: LeaderFunction | null = null,
+  delegated: Permission[] = [],
+): NavUser => ({ role, permissions: effectivePermissions({ role, leaderFunction, delegated }) });
+
+const routier = persona('ROUTIER');
+/** Membre de l'encadrement sans mandat (ou ancien « chef ») : aucune décision officielle. */
+const encadrant = persona('ENCADREMENT');
+const assistant = persona('ENCADREMENT', 'ASSISTANT');
+const plein = persona('ENCADREMENT', 'PLEIN');
+const delegataire = persona('ENCADREMENT', 'ADJOINT', ['module.review']);
+const admin = persona('ADMINISTRATEUR');
+const ALL = { routier, encadrant, assistant, plein, delegataire, admin };
 
 /** Page App Router correspondant au chemin, dans `(espaces)/` ou à la racine. */
 function pageExists(href: string): boolean {
@@ -23,39 +45,41 @@ function pageExists(href: string): boolean {
 
 describe('destination par défaut', () => {
   it('oriente chaque rôle vers son tableau de bord, sans écran de choix', () => {
-    expect(getDefaultRouteForUser({ role: 'ROUTIER' })).toBe('/routier');
-    expect(getDefaultRouteForUser({ role: 'CHEF' })).toBe('/chef');
-    expect(getDefaultRouteForUser({ role: 'RESPONSABLE' })).toBe('/responsable');
+    expect(getDefaultRouteForUser(routier)).toBe('/routier');
+    expect(getDefaultRouteForUser(encadrant)).toBe('/encadrement');
+    expect(getDefaultRouteForUser(plein)).toBe('/encadrement');
+    expect(getDefaultRouteForUser(admin)).toBe('/mandats');
   });
 
-  it.each(ROLES)(
+  it.each(Object.entries(ALL))(
     'le tableau de bord de %s existe et lui est accessible (pas de boucle)',
-    (role) => {
-      expect(pageExists(DEFAULT_ROUTES[role])).toBe(true);
-      expect(canAccessPath(role, DEFAULT_ROUTES[role])).toBe(true);
+    (_, user) => {
+      expect(pageExists(DEFAULT_ROUTES[user.role])).toBe(true);
+      expect(canAccessPath(user, DEFAULT_ROUTES[user.role])).toBe(true);
     },
   );
 });
 
 describe('accès par chemin', () => {
-  it('donne au responsable les fonctions des chefs sans changer d’espace', () => {
+  it('un seul espace d’encadrement, identique pour tous ses membres', () => {
     for (const path of [
-      '/chef/modules',
-      '/chef/modules/nouveau',
-      '/chef/evaluations/nouvelle',
-      '/chef/evaluations/papier',
-      '/chef/corrections',
+      '/encadrement',
+      '/encadrement/modules',
+      '/encadrement/modules/nouveau',
+      '/encadrement/evaluations/nouvelle',
+      '/encadrement/evaluations/papier',
+      '/encadrement/corrections',
       '/administration/routiers',
       '/administration/validations',
+      '/mandats',
     ]) {
-      expect(canAccessPath('RESPONSABLE', path)).toBe(true);
-      expect(canAccessPath('CHEF', path)).toBe(true);
+      for (const user of [encadrant, assistant, plein])
+        expect(canAccessPath(user, path)).toBe(true);
     }
   });
 
-  it('réserve les décisions au responsable', () => {
+  it('réserve les décisions aux personnes habilitées (plein ou délégation)', () => {
     for (const path of [
-      '/responsable',
       '/administration/modules-a-valider',
       '/administration/modules/abc/revision',
       '/administration/evaluations',
@@ -63,97 +87,131 @@ describe('accès par chemin', () => {
       '/administration/deblocages',
       '/administration/historique-publications',
     ]) {
-      expect(canAccessPath('RESPONSABLE', path)).toBe(true);
-      expect(canAccessPath('CHEF', path)).toBe(false);
-      expect(canAccessPath('ROUTIER', path)).toBe(false);
+      expect(canAccessPath(plein, path)).toBe(true);
+      expect(canAccessPath(encadrant, path)).toBe(false);
+      expect(canAccessPath(assistant, path)).toBe(false);
+      expect(canAccessPath(routier, path)).toBe(false);
+    }
+  });
+
+  it('une délégation n’ouvre que les écrans de la permission déléguée', () => {
+    expect(canAccessPath(delegataire, '/administration/modules-a-valider')).toBe(true);
+    expect(canAccessPath(delegataire, '/administration/deblocages')).toBe(false);
+  });
+
+  it('l’administration technique ne voit que les mandats', () => {
+    expect(canAccessPath(admin, '/mandats')).toBe(true);
+    for (const path of ['/encadrement', '/administration/routiers', '/modules', '/routier']) {
+      expect(canAccessPath(admin, path)).toBe(false);
     }
   });
 
   it('distingue le préfixe exact (« evaluations » n’ouvre pas « evaluations-a-valider »)', () => {
-    expect(canAccessPath('ROUTIER', '/evaluations/abc/passer')).toBe(true);
-    expect(canAccessPath('ROUTIER', '/evaluations-x')).toBe(false);
+    expect(canAccessPath(routier, '/evaluations/abc/passer')).toBe(true);
+    expect(canAccessPath(routier, '/evaluations-x')).toBe(false);
   });
 
   it('refuse aux routiers les fiches et l’encadrement', () => {
-    for (const path of ['/chef', '/chef/modules', '/administration/routiers', '/responsable']) {
-      expect(canAccessPath('ROUTIER', path)).toBe(false);
+    for (const path of [
+      '/encadrement',
+      '/encadrement/modules',
+      '/administration/routiers',
+      '/mandats',
+    ]) {
+      expect(canAccessPath(routier, path)).toBe(false);
     }
   });
 
   it('réserve les écrans personnels au routier', () => {
-    for (const path of ['/routier', '/evaluations', '/mes-resultats', '/progression']) {
-      expect(canAccessPath('ROUTIER', path)).toBe(true);
-      expect(canAccessPath('CHEF', path)).toBe(false);
+    for (const path of [
+      '/routier',
+      '/evaluations',
+      '/mes-resultats',
+      '/progression',
+      '/mes-rattrapages',
+    ]) {
+      expect(canAccessPath(routier, path)).toBe(true);
+      expect(canAccessPath(plein, path)).toBe(false);
     }
   });
 
-  it('renvoie le responsable vers son propre tableau de bord plutôt que celui des chefs', () => {
-    expect(canAccessPath('RESPONSABLE', '/chef')).toBe(false);
-    expect(canAccessPath('CHEF', '/chef')).toBe(true);
+  it('ouvre la bibliothèque aux routiers et à l’encadrement, et ignore la chaîne de requête', () => {
+    for (const user of [routier, encadrant, plein]) {
+      expect(canAccessPath(user, '/modules/m1?lecon=2')).toBe(true);
+    }
   });
 
-  it('ouvre la bibliothèque à tous et ignore la chaîne de requête', () => {
-    for (const role of ROLES) expect(canAccessPath(role, '/modules/m1?lecon=2')).toBe(true);
-  });
-
-  it('refuse un chemin sans règle', () => {
-    expect(canAccessPath('RESPONSABLE', '/inconnu')).toBe(false);
-    expect(canAccessPath('RESPONSABLE', '/')).toBe(false);
+  it('refuse un chemin sans règle, y compris les anciennes URL redirigées', () => {
+    for (const path of ['/inconnu', '/', '/chef', '/responsable']) {
+      expect(canAccessPath(plein, path)).toBe(false);
+    }
   });
 });
 
 describe('destination après connexion', () => {
   it('conserve une page demandée autorisée', () => {
-    expect(resolvePostLoginPath({ role: 'CHEF' }, '/chef/corrections')).toBe('/chef/corrections');
-    expect(resolvePostLoginPath({ role: 'RESPONSABLE' }, '/chef/modules?page=2')).toBe(
-      '/chef/modules?page=2',
+    expect(resolvePostLoginPath(encadrant, '/encadrement/corrections')).toBe(
+      '/encadrement/corrections',
+    );
+    expect(resolvePostLoginPath(plein, '/encadrement/modules?page=2')).toBe(
+      '/encadrement/modules?page=2',
     );
   });
 
   it('remplace une page non autorisée par le tableau de bord du rôle', () => {
-    expect(resolvePostLoginPath({ role: 'ROUTIER' }, '/administration/routiers')).toBe('/routier');
-    expect(resolvePostLoginPath({ role: 'CHEF' }, '/administration/deblocages')).toBe('/chef');
-    expect(resolvePostLoginPath({ role: 'RESPONSABLE' }, '/connexion')).toBe('/responsable');
-    expect(resolvePostLoginPath({ role: 'RESPONSABLE' }, null)).toBe('/responsable');
+    expect(resolvePostLoginPath(routier, '/administration/routiers')).toBe('/routier');
+    expect(resolvePostLoginPath(encadrant, '/administration/deblocages')).toBe('/encadrement');
+    expect(resolvePostLoginPath(plein, '/connexion')).toBe('/encadrement');
+    expect(resolvePostLoginPath(admin, null)).toBe('/mandats');
   });
 
   it('refuse les redirections externes', () => {
     for (const value of ['https://exemple.org', '//exemple.org', '/\\exemple.org', 'chef']) {
       expect(safeInternalPath(value)).toBeNull();
-      expect(resolvePostLoginPath({ role: 'CHEF' }, value)).toBe('/chef');
+      expect(resolvePostLoginPath(encadrant, value)).toBe('/encadrement');
     }
   });
 });
 
 describe('navigation', () => {
-  it.each(ROLES)('%s : chaque entrée pointe vers une page existante et autorisée', (role) => {
-    for (const item of NAVIGATION[role].flatMap((group) => group.items)) {
-      expect(pageExists(item.href), item.href).toBe(true);
-      expect(canAccessPath(role, item.href), item.href).toBe(true);
-    }
-  });
+  it.each(Object.entries(ALL))(
+    '%s : chaque entrée pointe vers une page existante et autorisée',
+    (_, user) => {
+      for (const item of navigationFor(user).flatMap((group) => group.items)) {
+        expect(pageExists(item.href), item.href).toBe(true);
+        expect(canAccessPath(user, item.href), item.href).toBe(true);
+      }
+    },
+  );
 
-  it.each(ROLES)('%s : aucune entrée en double', (role) => {
+  it.each(Object.keys(NAVIGATION) as Role[])('%s : aucune entrée en double', (role) => {
     const hrefs = NAVIGATION[role].flatMap((group) => group.items.map((item) => item.href));
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
-  it.each(ROLES)('%s : le tableau de bord est la première entrée', (role) => {
-    expect(NAVIGATION[role][0]?.items[0]?.href).toBe(DEFAULT_ROUTES[role]);
+  it.each(Object.entries(ALL))('%s : le tableau de bord est la première entrée', (_, user) => {
+    expect(navigationFor(user)[0]?.items[0]?.href).toBe(DEFAULT_ROUTES[user.role]);
   });
 
-  it('sépare la validation des contenus de celle des personnes (responsable)', () => {
-    const labels = NAVIGATION.RESPONSABLE.map((group) => group.label);
-    expect(labels).toContain('Validation des contenus');
-    expect(labels).toContain('Décisions sur les routiers');
+  it('un même menu pour l’encadrement, enrichi des seules décisions autorisées', () => {
+    const labels = (user: NavUser) => navigationFor(user).map((group) => group.label);
+    expect(labels(plein)).toContain('Validation des contenus');
+    expect(labels(encadrant)).not.toContain('Validation des contenus');
+    const hrefs = (user: NavUser) => navigationFor(user).flatMap((g) => g.items.map((i) => i.href));
+    expect(hrefs(encadrant).every((href) => hrefs(plein).includes(href))).toBe(true);
+    expect(hrefs(delegataire)).toContain('/administration/modules-a-valider');
+    expect(hrefs(delegataire)).not.toContain('/administration/deblocages');
   });
 
-  it.each(ROLES)('garde le tableau de bord de %s dans un groupe toujours visible', (role) => {
-    const group = NAVIGATION[role].find((g) =>
-      g.items.some((item) => item.href === DEFAULT_ROUTES[role]),
-    );
-    expect(group?.collapsible).toBeFalsy();
-  });
+  it.each(Object.entries(ALL))(
+    'garde le tableau de bord de %s dans un groupe toujours visible',
+    (_, user) => {
+      const group = navigationFor(user).find((g) =>
+        g.items.some((item) => item.href === DEFAULT_ROUTES[user.role]),
+      );
+      expect(group?.collapsible).toBeFalsy();
+    },
+  );
 
   it('limite la barre mobile à quatre entrées du menu routier', () => {
     const routierHrefs = NAVIGATION.ROUTIER.flatMap((group) => group.items.map((i) => i.href));
@@ -162,13 +220,13 @@ describe('navigation', () => {
   });
 
   it('retient l’entrée la plus précise comme page active', () => {
-    expect(findActiveItem('CHEF', '/chef/evaluations/papier/NT-2026-000001')?.href).toBe(
-      '/chef/evaluations/papier',
+    expect(findActiveItem(encadrant, '/encadrement/evaluations/papier/NT-2026-000001')?.href).toBe(
+      '/encadrement/evaluations/papier',
     );
-    expect(findActiveItem('CHEF', '/chef/evaluations/abc/modifier')?.href).toBe(
-      '/chef/evaluations',
+    expect(findActiveItem(encadrant, '/encadrement/evaluations/abc/modifier')?.href).toBe(
+      '/encadrement/evaluations',
     );
-    expect(findActiveItem('RESPONSABLE', '/administration/modules/abc/revision')?.href).toBe(
+    expect(findActiveItem(plein, '/administration/modules/abc/revision')?.href).toBe(
       '/administration/modules',
     );
   });

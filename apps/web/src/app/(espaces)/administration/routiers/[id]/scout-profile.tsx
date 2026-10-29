@@ -5,6 +5,8 @@ import { Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { userCan } from '@/lib/navigation';
+import { PathwaySection } from './pathway-section';
 import { BackLink } from '@/components/back-link';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +34,7 @@ export function ScoutProfileView() {
   if (isPending) return <TableSkeleton rows={6} />;
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
 
-  const isResponsable = user.role === 'RESPONSABLE';
+  const isResponsable = userCan(user, 'scout.update');
 
   return (
     <>
@@ -116,6 +118,8 @@ export function ScoutProfileView() {
           </dl>
         </CardContent>
       </Card>
+
+      <PathwaySection scoutId={scout.id} user={user} />
 
       <PedagogicalFile scoutId={scout.id} />
     </>

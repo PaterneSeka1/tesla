@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { BackLink } from '@/components/back-link';
 import { PageHeading } from '@/components/page-heading';
@@ -17,9 +17,9 @@ export function NewScout() {
         title="Nouveau routier"
         description="Le routier est enregistré sans compte : un compte existant pourra être rattaché plus tard depuis sa fiche."
       />
-      <ResponsableOnly role={user.role}>
+      <RequirePermission user={user} permission="scout.create">
         <ScoutForm onSaved={(scout) => router.push(`/administration/routiers/${scout.id}`)} />
-      </ResponsableOnly>
+      </RequirePermission>
     </>
   );
 }

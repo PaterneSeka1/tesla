@@ -6,7 +6,7 @@ import { FileCheck2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/empty-state';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
 import { PageHeading } from '@/components/page-heading';
@@ -34,7 +34,7 @@ export function ReviewQueue() {
   const { data, error, isPending, refetch } = useQuery(submissionsQueryOptions({ status: tab }));
 
   return (
-    <ResponsableOnly role={user.role}>
+    <RequirePermission user={user} permission="module.review">
       <PageHeading
         title="Modules à valider"
         description="Versions soumises par les chefs : examinez le contenu exact avant toute décision."
@@ -118,6 +118,6 @@ export function ReviewQueue() {
           </ul>
         )}
       </div>
-    </ResponsableOnly>
+    </RequirePermission>
   );
 }

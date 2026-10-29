@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { userCan } from '@/lib/navigation';
 import { BackLink } from '@/components/back-link';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EmptyState } from '@/components/empty-state';
@@ -38,7 +39,7 @@ export function TeamDetailView() {
   if (isPending) return <TableSkeleton rows={4} />;
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
 
-  const isResponsable = user.role === 'RESPONSABLE';
+  const isResponsable = userCan(user, 'team.assign');
   const archived = team.archivedAt !== null;
 
   const onArchive = async () => {

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
-import { ResponsableOnly } from '@/components/auth/responsable-only';
+import { RequirePermission } from '@/components/auth/require-permission';
 import { BackLink } from '@/components/back-link';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CommentDialog } from '@/components/modules/comment-dialog';
@@ -31,9 +31,9 @@ import { authorName, fullName } from '@/lib/format';
 export function ModuleRevision() {
   const user = useSessionUser();
   return (
-    <ResponsableOnly role={user.role}>
+    <RequirePermission user={user} permission="module.review">
       <RevisionContent />
-    </ResponsableOnly>
+    </RequirePermission>
   );
 }
 
@@ -68,7 +68,7 @@ function RevisionContent() {
           <ModuleStatusBadge status={status} />
         </div>
         <Button asChild variant="outline">
-          <Link href={`/chef/modules/${module.id}/modifier`}>
+          <Link href={`/encadrement/modules/${module.id}/modifier`}>
             <Pencil aria-hidden />
             Ouvrir dans l’éditeur
           </Link>
@@ -247,7 +247,7 @@ function RevisionContent() {
           <ModuleHistory
             events={module.events}
             versions={module.versions}
-            versionHref={(id) => `/chef/modules/${module.id}/apercu?version=${id}`}
+            versionHref={(id) => `/encadrement/modules/${module.id}/apercu?version=${id}`}
           />
         </CardContent>
       </Card>

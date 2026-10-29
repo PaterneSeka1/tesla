@@ -8,6 +8,7 @@ import { useDeferredValue, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { userCan } from '@/lib/navigation';
 import { EmptyState } from '@/components/empty-state';
 import { FormField, fieldA11y } from '@/components/form-field';
 import { PageHeading } from '@/components/page-heading';
@@ -235,7 +236,7 @@ function CompetencyForm({ competency, onDone }: { competency?: Competency; onDon
 export function CompetenciesAdmin() {
   const user = useSessionUser();
   const run = usePedagogyAction();
-  const isResponsable = user.role === 'RESPONSABLE';
+  const isResponsable = userCan(user, 'competency.manage');
   const [status, setStatus] = useState<NonNullable<CompetencyListQuery['status']>>('active');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
