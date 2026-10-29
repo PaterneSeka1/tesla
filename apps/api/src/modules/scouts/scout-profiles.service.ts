@@ -181,8 +181,22 @@ export class ScoutProfilesService {
             birthDate: data.birthDate ? new Date(data.birthDate) : null,
             joinedAt: new Date(data.joinedAt),
             currentStageId: data.currentStageId ?? null,
+            currentStageSince: data.currentStageId ? new Date(data.joinedAt) : null,
           },
         });
+        if (data.currentStageId) {
+          // Étape initiale : première entrée de l'historique structuré des étapes.
+          await tx.scoutStageChange.create({
+            data: {
+              scoutProfileId: profile.id,
+              kind: 'INSCRIPTION',
+              toStageId: data.currentStageId,
+              effectiveOn: new Date(data.joinedAt),
+              decidedById: actor.userId,
+              reason: 'Étape initiale saisie à l’inscription.',
+            },
+          });
+        }
         if (data.teamId) {
           await tx.teamAssignment.create({
             data: {
@@ -212,8 +226,8 @@ export class ScoutProfilesService {
   }
 
   /**
-   * Modifie une fiche. Le changement d'étape est un acte officiel réservé au responsable
-   * (`scout.setStage`) et journalisé séparément ; aucune autre action ne modifie l'étape.
+   * Modifie une fiche. Le changement d'étape n'est plus accepté ici : c'est une décision motivée et
+   * historisée (`POST /scouts/:id/stage-changes`, ScoutProgressionService.changeStage).
    */
   async update(
     actor: Actor,
@@ -229,7 +243,14 @@ export class ScoutProfilesService {
 
         const stageChanged =
           data.currentStageId !== undefined && data.currentStageId !== previous.currentStageId;
-        if (stageChanged) assertCan(actor, 'scout.setStage');
+        if (stageChanged) {
+          assertCan(actor, 'scout.setStage');
+          throw new UnprocessableEntityException({
+            code: 'STAGE_CHANGE_REQUIRES_DECISION',
+            message:
+              'Le changement d’étape est une décision motivée : utilisez « Changer l’étape » sur la fiche de progression.',
+          });
+        }
         const matriculeChanged =
           data.matricule !== undefined && data.matricule !== previous.matricule;
 
@@ -243,7 +264,6 @@ export class ScoutProfilesService {
               birthDate: data.birthDate ? new Date(data.birthDate) : null,
             }),
             ...(data.joinedAt !== undefined && { joinedAt: new Date(data.joinedAt) }),
-            ...(stageChanged && { currentStageId: data.currentStageId }),
           },
         });
 
@@ -261,12 +281,6 @@ export class ScoutProfilesService {
           await audit('scout_profile.matricule_set', {
             previous: previous.matricule,
             next: profile.matricule,
-          });
-        }
-        if (stageChanged) {
-          await audit('scout_profile.stage_changed', {
-            previousStageId: previous.currentStageId,
-            nextStageId: profile.currentStageId,
           });
         }
         const identityFields = (['firstName', 'lastName', 'birthDate', 'joinedAt'] as const).filter(
@@ -447,7 +461,7 @@ export class ScoutProfilesService {
 
   /**
    * Historique pédagogique réellement enregistré : tentatives d'évaluation (tous modes) et
-   * changements d'étape journalisés. Aucune donnée n'est déduite ni simulée.
+   * historique structuré des étapes (`scout_stage_changes`). Aucune donnée n'est déduite ni simulée.
    */
   async pedagogicalHistory(actor: Actor, scoutProfileId: string): Promise<ScoutPedagogicalHistory> {
     assertCan(actor, 'scout.read');
@@ -457,26 +471,18 @@ export class ScoutProfilesService {
     });
     if (!profile) throw scoutProfileNotFound();
 
-    const [attempts, stageLogs, stages] = await Promise.all([
+    const [attempts, stageChanges] = await Promise.all([
       this.prisma.evaluationAttempt.findMany({
         where: { scoutProfileId },
         include: { evaluation: { select: { title: true } } },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.auditLog.findMany({
-        where: {
-          entityType: 'ScoutProfile',
-          entityId: scoutProfileId,
-          action: 'scout_profile.stage_changed',
-        },
-        include: { actor: userSummarySelect },
-        orderBy: { createdAt: 'desc' },
+      this.prisma.scoutStageChange.findMany({
+        where: { scoutProfileId },
+        include: { fromStage: true, toStage: true, decidedBy: userSummarySelect },
+        orderBy: { decidedAt: 'desc' },
       }),
-      this.prisma.progressionStage.findMany(),
     ]);
-    const stageById = new Map(stages.map((stage) => [stage.id, stage]));
-    const stageOf = (id: unknown) =>
-      toStageSummary(typeof id === 'string' ? (stageById.get(id) ?? null) : null);
 
     return {
       attempts: attempts.map((attempt) => ({
@@ -488,15 +494,12 @@ export class ScoutProfilesService {
         completedAt: attempt.completedAt?.toISOString() ?? null,
         createdAt: attempt.createdAt.toISOString(),
       })),
-      stageChanges: stageLogs.map((log) => {
-        const metadata = (log.metadata ?? {}) as Record<string, unknown>;
-        return {
-          at: log.createdAt.toISOString(),
-          from: stageOf(metadata.previousStageId),
-          to: stageOf(metadata.nextStageId),
-          by: toUserSummary(log.actor),
-        };
-      }),
+      stageChanges: stageChanges.map((change) => ({
+        at: change.decidedAt.toISOString(),
+        from: toStageSummary(change.fromStage),
+        to: toStageSummary(change.toStage),
+        by: toUserSummary(change.decidedBy),
+      })),
     };
   }
 }

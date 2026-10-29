@@ -58,6 +58,30 @@ export const PERMISSIONS = {
   'evaluation.writeAny': ['RESPONSABLE'],
   /** Approuver, demander des corrections, refuser, publier, archiver un questionnaire. */
   'evaluation.review': ['RESPONSABLE'],
+  /** Dossier de progression d'un routier (étapes, compétences, études, présences). */
+  'progression.read': ['CHEF', 'RESPONSABLE'],
+  /** Sa propre progression et son tableau de bord (routier avec profil rattaché). */
+  'progression.readOwn': ['ROUTIER'],
+  /** Référentiel de compétences : consultation par l'encadrement, administration par le responsable. */
+  'competency.read': ['CHEF', 'RESPONSABLE'],
+  'competency.manage': ['RESPONSABLE'],
+  /** Proposer la validation d'une compétence et suivre les réponses (tous les chefs, à confirmer). */
+  'competency.propose': ['CHEF', 'RESPONSABLE'],
+  /** Décision officielle (approbation, complément, refus, révocation) : exclusivement le responsable. */
+  'competency.decide': ['RESPONSABLE'],
+  /** Enregistrer l'étude d'un module pour un routier (avec ou sans compte). */
+  'moduleStudy.record': ['CHEF', 'RESPONSABLE'],
+  /** Déclarer sa propre lecture d'un module publié. */
+  'moduleStudy.declare': ['ROUTIER'],
+  /** Activités et présences : organisées par les chefs et le responsable. */
+  'activity.read': ['CHEF', 'RESPONSABLE'],
+  'activity.manage': ['CHEF', 'RESPONSABLE'],
+  'attendance.record': ['CHEF', 'RESPONSABLE'],
+  /** Correspondance catégories ↔ étapes et import du programme annuel. */
+  'programme.configure': ['RESPONSABLE'],
+  /** Indicateurs agrégés et tableau de bord de l'encadrement. */
+  'statistics.read': ['CHEF', 'RESPONSABLE'],
+  'dashboard.responsable': ['RESPONSABLE'],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

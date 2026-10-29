@@ -447,16 +447,27 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
       const scout = await createScout(responsable, 1, {
         currentStageId: await stageId('NOVICIAT'),
       });
+      // La modification de fiche ne change plus l'étape : décision motivée dédiée (phase 4).
       await responsable
         .patch(`/scouts/${scout.id}`, { currentStageId: await stageId('APPRENTISSAGE') })
-        .expect(200);
+        .expect(422);
+      await responsable
+        .post(`/scouts/${scout.id}/stage-changes`, {
+          expectedCurrentStageId: await stageId('NOVICIAT'),
+          toStageId: await stageId('APPRENTISSAGE'),
+          effectiveOn: new Date().toISOString().slice(0, 10),
+          reason: 'Décision fictive.',
+          confirm: true,
+        })
+        .expect(201);
       const history = await json(
         responsable.get(`/scouts/${scout.id}/pedagogical-history`),
         200,
         scoutPedagogicalHistorySchema,
       );
       expect(history.attempts).toEqual([]);
-      expect(history.stageChanges).toHaveLength(1);
+      // Étape initiale (inscription) puis décision du responsable.
+      expect(history.stageChanges).toHaveLength(2);
       expect(history.stageChanges[0]).toMatchObject({
         from: { code: 'NOVICIAT' },
         to: { code: 'APPRENTISSAGE' },

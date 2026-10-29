@@ -3,6 +3,7 @@ import { ConfigModule } from './config/config.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { DashboardsModule } from './modules/dashboards/dashboards.module.js';
 import { EvaluationsModule } from './modules/evaluations/evaluations.module.js';
 import { PedagogyModule } from './modules/pedagogy/pedagogy.module.js';
 import { ProgrammesModule } from './modules/programmes/programmes.module.js';
@@ -23,6 +24,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
     ProgrammesModule,
     ScoutsModule,
     EvaluationsModule,
+    DashboardsModule,
     AuditModule,
   ],
 })
