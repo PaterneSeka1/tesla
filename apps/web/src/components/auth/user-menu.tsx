@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ROLE_LABELS } from '@tesla/shared';
 import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -42,12 +41,9 @@ export function UserMenu() {
 
   return (
     <div className="flex items-center justify-between gap-3">
-      <div className="min-w-0 leading-tight">
-        <p className="truncate text-sm font-medium">
-          {data.user.firstName} {data.user.lastName}
-        </p>
-        <p className="text-xs text-tesla-sable">{ROLE_LABELS[data.user.role]}</p>
-      </div>
+      <p className="min-w-0 truncate text-sm font-medium">
+        {data.user.firstName} {data.user.lastName}
+      </p>
       <Button
         variant="outline"
         size="sm"

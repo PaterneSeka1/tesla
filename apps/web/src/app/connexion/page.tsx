@@ -30,14 +30,9 @@ export default function LoginPage() {
           <div className="animate-rise">
             <BrandLogo size={88} className="animate-halo ring-4 ring-tesla-or/40" />
           </div>
-          <div className="animate-rise space-y-1" style={stagger(1)}>
-            <p className="text-xs tracking-[0.2em] text-tesla-or uppercase">
-              Communauté Nikola Tesla
-            </p>
-            <p className="text-2xl font-bold sm:text-3xl">
-              Nikola Tesla <span className="text-tesla-or">Académie</span>
-            </p>
-          </div>
+          <p className="animate-rise text-2xl font-bold sm:text-3xl" style={stagger(1)}>
+            Nikola Tesla <span className="text-tesla-or">Académie</span>
+          </p>
           <ul className="hidden space-y-3 pt-4 lg:block">
             {HIGHLIGHTS.map(({ label, icon: Icon }, index) => (
               <li
@@ -60,10 +55,7 @@ export default function LoginPage() {
           className="animate-rise w-full max-w-sm rounded-2xl border bg-card p-6 shadow-xl lg:shadow-none lg:border-0 lg:bg-transparent"
           style={stagger(2)}
         >
-          <h1 className="text-xl font-semibold text-tesla-bordeaux">Connexion</h1>
-          <p className="mt-1 mb-6 text-sm text-muted-foreground">
-            Accédez à votre tableau de bord.
-          </p>
+          <h1 className="mb-6 text-xl font-semibold text-tesla-bordeaux">Connexion</h1>
           <Suspense fallback={<Skeleton className="h-56" />}>
             <LoginForm />
           </Suspense>

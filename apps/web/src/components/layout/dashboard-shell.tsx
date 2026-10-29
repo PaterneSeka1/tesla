@@ -1,6 +1,5 @@
 import { SessionGate } from '@/components/auth/session-gate';
 import { UserMenu } from '@/components/auth/user-menu';
-import { ApiStatus } from '@/components/api-status';
 import { BrandLogo } from '@/components/brand-logo';
 import { PageTransition } from './page-transition';
 import { AppNav, BottomNavSpacer, CurrentPageTitle, MobileMenu, RoutierBottomNav } from './app-nav';
@@ -37,8 +36,7 @@ export function DashboardShell({
           </div>
         </div>
         <AppNav offline={offline} />
-        <div className="space-y-3 border-t border-white/15 pt-4">
-          <ApiStatus />
+        <div className="border-t border-white/15 pt-4">
           <UserMenu />
         </div>
       </aside>
@@ -50,9 +48,6 @@ export function DashboardShell({
             <BrandLogo size={32} />
             <div className="min-w-0 flex-1">
               <CurrentPageTitle offline={offline} />
-            </div>
-            <div className="hidden shrink-0 sm:block">
-              <ApiStatus />
             </div>
           </div>
         </header>

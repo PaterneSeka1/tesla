@@ -1,18 +1,15 @@
 import {
   ArrowRight,
   BookOpen,
-  ClipboardCheck,
   CloudDownload,
   Compass,
   GraduationCap,
   type LucideIcon,
-  ShieldCheck,
   UserCheck,
   UsersRound,
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { ApiStatus } from '@/components/api-status';
 import { BrandBackdrop, BrandCurve } from '@/components/brand-backdrop';
 import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
@@ -68,12 +65,6 @@ const ROLES: readonly { title: string; items: readonly string[]; icon: LucideIco
   },
 ];
 
-const PRINCIPLES: readonly { label: string; icon: LucideIcon }[] = [
-  { label: 'Validation des acquis toujours humaine', icon: ShieldCheck },
-  { label: 'Contenus publiés après approbation', icon: ClipboardCheck },
-  { label: 'Données hors ligne chiffrées', icon: CloudDownload },
-];
-
 /**
  * Accueil public. Un utilisateur connecté n'y reste pas : le proxy l'envoie vers `/connexion`, qui
  * l'oriente vers le tableau de bord de son rôle. Aucun choix d'espace n'est proposé.
@@ -83,7 +74,7 @@ export default function HomePage() {
     <div className="flex min-h-dvh flex-col">
       <header className="relative isolate overflow-hidden bg-tesla-bordeaux text-white">
         <BrandBackdrop className="-z-10" />
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 pt-14 pb-10 text-center sm:pt-20 sm:pb-14">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 pt-12 pb-10 text-center sm:pt-16 sm:pb-14">
           <div className="animate-rise">
             <BrandLogo size={120} className="animate-halo ring-4 ring-tesla-or/40" />
           </div>
@@ -102,8 +93,7 @@ export default function HomePage() {
               Nikola Tesla <span className="text-tesla-or">Académie</span>
             </h1>
             <p className="animate-rise mx-auto max-w-2xl text-tesla-sable" style={stagger(3)}>
-              La plateforme d’apprentissage de la communauté pour l’année scoute 2026–2027 :
-              apprendre, être évalué et progresser, en ligne comme hors ligne.
+              Apprendre, être évalué et progresser, en ligne comme hors ligne.
             </p>
           </div>
           <div
@@ -123,7 +113,6 @@ export default function HomePage() {
                 />
               </Link>
             </Button>
-            <ApiStatus />
           </div>
         </div>
         <BrandCurve />
@@ -147,14 +136,9 @@ export default function HomePage() {
         </ul>
 
         <section aria-labelledby="roles-title" className="space-y-5">
-          <div className="text-center">
-            <h2 id="roles-title" className="text-2xl font-bold text-tesla-bordeaux">
-              Un espace pour chacun
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Après connexion, chacun arrive directement sur son tableau de bord.
-            </p>
-          </div>
+          <h2 id="roles-title" className="text-center text-2xl font-bold text-tesla-bordeaux">
+            Un espace pour chacun
+          </h2>
           <ol className="grid gap-4 md:grid-cols-3">
             {ROLES.map(({ title, items, icon: Icon }, index) => (
               <li
@@ -183,18 +167,6 @@ export default function HomePage() {
             ))}
           </ol>
         </section>
-
-        <ul className="flex flex-wrap justify-center gap-3" aria-label="Nos principes">
-          {PRINCIPLES.map(({ label, icon: Icon }) => (
-            <li
-              key={label}
-              className="inline-flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm"
-            >
-              <Icon className="size-4 text-tesla-rouge" aria-hidden />
-              {label}
-            </li>
-          ))}
-        </ul>
       </main>
 
       <footer className="border-t bg-card">
