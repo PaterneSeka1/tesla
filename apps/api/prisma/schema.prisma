@@ -14,11 +14,16 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Rôles applicatifs (synchronisés avec @tesla/shared ROLES).
+/// Rôles d'accès applicatifs (synchronisés avec @tesla/shared ROLES). La fonction exercée dans
+/// l'encadrement (plein, adjoint, assistant) n'est jamais stockée ici : elle découle d'un mandat (D93).
+/// CHEF et RESPONSABLE sont des valeurs historiques conservées dans le type PostgreSQL (aucune
+/// suppression de valeur d'enum) mais interdites par la contrainte `users_role_current_check`.
 enum Role {
   ROUTIER
   CHEF
   RESPONSABLE
+  ENCADREMENT
+  ADMINISTRATEUR
 }
 
 /// Compte utilisateur. Un compte n'est jamais supprimé : il est désactivé (isActive = false).
@@ -31,6 +36,8 @@ model User {
   firstName    String    @map("first_name")
   lastName     String    @map("last_name")
   role         Role
+  /// Rôle avant la refonte (« CHEF » ou « RESPONSABLE ») : sert à la résolution des fonctions, jamais aux droits.
+  legacyRole   String?   @map("legacy_role")
   isActive     Boolean   @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -92,6 +99,16 @@ model User {
   activitiesUpdated            Activity[]                @relation("ActivityUpdatedBy")
   activityEvents               ActivityEvent[]
   attendancesRecorded          ActivityAttendance[]
+  ageRuleSetsActivated         AgeRuleSet[]              @relation("AgeRuleSetActivatedBy")
+  catchUpDecisions             CatchUpObligation[]       @relation("CatchUpDecidedBy")
+  membershipEvents             RouteMembershipEvent[]
+  scoutYearsCreated            ScoutYear[]
+  mandates                     LeadershipMandate[]       @relation("MandateHolder")
+  mandatesRecorded             LeadershipMandate[]       @relation("MandateRecordedBy")
+  mandatesEnded                LeadershipMandate[]       @relation("MandateEndedBy")
+  delegationsGiven             Delegation[]              @relation("DelegationDelegator")
+  delegationsReceived          Delegation[]              @relation("DelegationDelegate")
+  delegationsRevoked           Delegation[]              @relation("DelegationRevokedBy")
 
   @@index([role])
   @@map("users")
@@ -118,23 +135,27 @@ model Session {
 /// Profil routier : référence métier (identité, matricule, équipe, progression, résultats).
 /// Existe indépendamment de tout compte : `userId` est facultatif et rattachable plus tard (RM-001).
 model ScoutProfile {
-  id                String    @id @default(uuid(7)) @db.Uuid
+  id                String                @id @default(uuid(7)) @db.Uuid
   /// Compte de connexion facultatif (relation 1–1). Le rattachement ne crée jamais de second profil.
-  userId            String?   @unique @map("user_id") @db.Uuid
+  userId            String?               @unique @map("user_id") @db.Uuid
   /// Matricule scout : chaîne normalisée (voir normalizeMatricule dans @tesla/shared), unique si renseigné (RM-002).
-  matricule         String?   @unique
-  firstName         String    @map("first_name")
-  lastName          String    @map("last_name")
+  matricule         String?               @unique
+  firstName         String                @map("first_name")
+  lastName          String                @map("last_name")
   /// Utilisée uniquement pour les durées d'étape dépendant de l'âge (règle à arbitrer).
-  birthDate         DateTime? @map("birth_date") @db.Date
-  joinedAt          DateTime  @map("joined_at") @db.Date
-  currentStageId    String?   @map("current_stage_id") @db.Uuid
+  birthDate         DateTime?             @map("birth_date") @db.Date
+  joinedAt          DateTime              @map("joined_at") @db.Date
+  currentStageId    String?               @map("current_stage_id") @db.Uuid
   /// Date d'effet de l'étape courante (renseignée par chaque décision de l'historique des étapes).
-  currentStageSince DateTime? @map("current_stage_since") @db.Date
+  currentStageSince DateTime?             @map("current_stage_since") @db.Date
   /// Profil désactivé (départ, inactivité) : conservé avec tout son historique, jamais supprimé.
-  isActive          Boolean   @default(true) @map("is_active")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  isActive          Boolean               @default(true) @map("is_active")
+  /// Appartenance à la branche, distincte de `isActive` : SORTI à la date de l'âge limite (D95).
+  /// Également recalculée à la lecture : ce champ ne fait que mémoriser l'événement appliqué.
+  membershipStatus  RouteMembershipStatus @default(ACTIF) @map("membership_status")
+  branchExitedOn    DateTime?             @map("branch_exited_on") @db.Date
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user                  User?                  @relation(fields: [userId], references: [id], onDelete: Restrict)
   currentStage          ProgressionStage?      @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
@@ -147,8 +168,11 @@ model ScoutProfile {
   competencyValidations CompetencyValidation[]
   moduleStudies         ModuleStudy[]
   attendances           ActivityAttendance[]
+  catchUpObligations    CatchUpObligation[]
+  membershipEvents      RouteMembershipEvent[]
 
   @@index([currentStageId])
+  @@index([membershipStatus])
   @@index([isActive])
   @@index([lastName, firstName])
   @@map("scout_profiles")
@@ -174,6 +198,8 @@ model ProgressionStage {
   stageChangesTo      ScoutStageChange[]  @relation("StageChangeTo")
   competencies        Competency[]
   programmeCategories ProgrammeCategory[]
+  ageRules            AgeStageRule[]
+  catchUpObligations  CatchUpObligation[]
 
   @@map("progression_stages")
 }
@@ -744,6 +770,7 @@ model PedagogicalModule {
   studies          ModuleStudy[]
   activities       ActivityModule[]
   sourceImport     ModuleSourceImport?
+  catchUps         CatchUpObligation[]
 
   @@index([createdById])
   @@map("pedagogical_modules")
@@ -766,6 +793,12 @@ model ModuleVersion {
   stageId          String?             @map("stage_id") @db.Uuid
   /// Thème : libellé libre facultatif (aucune liste officielle arbitrée).
   theme            String?
+  /// Typologie (D99) : null = à classer. ETAPE exige une étape.
+  category         ModuleCategory?
+  /// Caractère obligatoire : null = non précisé. OBLIGATOIRE exige ETAPE, une étape et une source officielle (CHECK).
+  obligation       ModuleObligation?
+  /// Référence du document officiel (titre, édition, provenance) ; null = contenu éditorial non homologué.
+  officialSource   String?             @map("official_source")
   /// Contrôle de concurrence optimiste : incrémenté à chaque modification des informations du brouillon.
   revision         Int                 @default(1)
   /// Version dont le contenu a été repris à la création.
@@ -806,6 +839,7 @@ model ModuleVersion {
   @@unique([moduleId], map: "module_versions_one_working_per_module", where: raw("status = ANY (ARRAY['BROUILLON'::\"ModuleVersionStatus\", 'SOUMIS'::\"ModuleVersionStatus\", 'A_CORRIGER'::\"ModuleVersionStatus\", 'APPROUVE'::\"ModuleVersionStatus\"])"))
   /// Une seule version publiée par module.
   @@unique([moduleId], map: "module_versions_one_published_per_module", where: raw("status = 'PUBLIE'::\"ModuleVersionStatus\""))
+  @@index([category])
   @@index([status])
   @@index([stageId])
   @@index([basedOnVersionId])
@@ -1416,4 +1450,237 @@ model ActivityAttendance {
   @@index([scoutProfileId])
   @@index([recordedById])
   @@map("activity_attendances")
+}
+
+// ─── Refonte : progression par l'âge, rattrapages, appartenance, mandats (2026-10-29) ─────────
+// Voir docs/FEATURES/PROGRESSION_PAR_AGE.md, RATTRAPAGE.md et MANDATS_RESPONSABLES.md.
+
+/// Typologie éditoriale des modules (le rattrapage n'en est pas une : c'est une obligation non acquise).
+enum ModuleCategory {
+  TRANSVERSAL
+  ETAPE
+  COMPLEMENTAIRE
+}
+
+enum ModuleObligation {
+  OBLIGATOIRE
+  FACULTATIF
+}
+
+enum AgeRuleSetStatus {
+  BROUILLON
+  EN_VIGUEUR
+}
+
+/// Référentiel versionné des périodes d'étape selon l'âge. Figé dès son entrée en vigueur (trigger) ;
+/// le référentiel applicable à une date est celui en vigueur dont `effectiveFrom` est le plus récent.
+/// Une valeur nulle signifie « non arbitrée » : aucune valeur par défaut n'est appliquée.
+model AgeRuleSet {
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  version            String           @unique
+  status             AgeRuleSetStatus @default(BROUILLON)
+  effectiveFrom      DateTime?        @unique @map("effective_from") @db.Date
+  /// Provenance des règles (manuel, décision du responsable…).
+  sourceReference    String           @map("source_reference")
+  notes              String?
+  branchExitAgeYears Int?             @map("branch_exit_age_years")
+  catchUpDelayMonths Int?             @map("catch_up_delay_months")
+  exitAlertMonths    Int?             @map("exit_alert_months")
+  activatedAt        DateTime?        @map("activated_at") @db.Timestamptz(3)
+  /// Null = activé par le système (seed de la règle fournie par le responsable).
+  activatedById      String?          @map("activated_by_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  activatedBy User?               @relation("AgeRuleSetActivatedBy", fields: [activatedById], references: [id], onDelete: Restrict)
+  stages      AgeStageRule[]
+  catchUps    CatchUpObligation[]
+
+  @@index([status, effectiveFrom])
+  @@map("age_rule_sets")
+}
+
+/// Période d'étape : [début, fin[ exprimés en âge (années révolues + mois calendaires).
+/// Fin nulle = jusqu'à la sortie de la branche.
+model AgeStageRule {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  ruleSetId       String   @map("rule_set_id") @db.Uuid
+  stageId         String   @map("stage_id") @db.Uuid
+  startYears      Int      @map("start_years")
+  startMonths     Int      @default(0) @map("start_months")
+  endYears        Int?     @map("end_years")
+  endMonths       Int?     @map("end_months")
+  sourceReference String   @map("source_reference")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ruleSet AgeRuleSet       @relation(fields: [ruleSetId], references: [id], onDelete: Restrict)
+  stage   ProgressionStage @relation(fields: [stageId], references: [id], onDelete: Restrict)
+
+  @@unique([ruleSetId, stageId])
+  @@index([stageId])
+  @@map("age_stage_rules")
+}
+
+/// Statut d'appartenance à la branche Route, distinct du compte (`User.isActive`) et du profil (`isActive`).
+enum RouteMembershipStatus {
+  ACTIF
+  SORTI
+}
+
+enum RouteMembershipEventKind {
+  SORTIE_AGE
+}
+
+/// Événements d'appartenance (ajout seul). Unicité par routier, nature et date : traitement idempotent.
+model RouteMembershipEvent {
+  id             String                   @id @default(uuid(7)) @db.Uuid
+  scoutProfileId String                   @map("scout_profile_id") @db.Uuid
+  kind           RouteMembershipEventKind
+  effectiveOn    DateTime                 @map("effective_on") @db.Date
+  /// Version du référentiel d'âge appliquée.
+  ruleSetVersion String?                  @map("rule_set_version")
+  details        Json?
+  /// Null = traitement automatique.
+  recordedById   String?                  @map("recorded_by_id") @db.Uuid
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  scoutProfile ScoutProfile @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  recordedBy   User?        @relation(fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@unique([scoutProfileId, kind, effectiveOn])
+  @@map("route_membership_events")
+}
+
+enum CatchUpDecision {
+  ACQUIS
+  NON_APPLICABLE
+}
+
+/// Obligation de rattrapage : module obligatoire publié d'une étape antérieure à l'étape théorique,
+/// non encore reconnu acquis. Jamais supprimée ; le statut affiché est calculé à la lecture
+/// (études, tentatives, échéance) sauf décision humaine (`decision`, réservée au responsable plein).
+model CatchUpObligation {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  scoutProfileId String           @map("scout_profile_id") @db.Uuid
+  moduleId       String           @map("module_id") @db.Uuid
+  originStageId  String           @map("origin_stage_id") @db.Uuid
+  ruleSetId      String           @map("rule_set_id") @db.Uuid
+  /// Étape théorique ayant fait naître l'obligation (motif lisible).
+  reason         String
+  /// Échéance : nulle tant qu'aucun délai officiel n'est validé (jamais au-delà de la sortie).
+  dueOn          DateTime?        @map("due_on") @db.Date
+  decision       CatchUpDecision?
+  decisionReason String?          @map("decision_reason")
+  decidedAt      DateTime?        @map("decided_at") @db.Timestamptz(3)
+  decidedById    String?          @map("decided_by_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  scoutProfile ScoutProfile      @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  module       PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  originStage  ProgressionStage  @relation(fields: [originStageId], references: [id], onDelete: Restrict)
+  ruleSet      AgeRuleSet        @relation(fields: [ruleSetId], references: [id], onDelete: Restrict)
+  decidedBy    User?             @relation("CatchUpDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+
+  @@unique([scoutProfileId, moduleId])
+  @@index([moduleId])
+  @@index([originStageId])
+  @@index([ruleSetId])
+  @@map("catch_up_obligations")
+}
+
+/// Année scoute (calendrier configurable). Périodes sans chevauchement (contrainte d'exclusion).
+model ScoutYear {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  /// Libellé « AAAA-AAAA ».
+  label       String   @unique
+  startsOn    DateTime @map("starts_on") @db.Date
+  /// Dernier jour inclus.
+  endsOn      DateTime @map("ends_on") @db.Date
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  createdBy User?               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  mandates  LeadershipMandate[]
+
+  @@map("scout_years")
+}
+
+enum LeaderFunction {
+  PLEIN
+  ADJOINT
+  ASSISTANT
+}
+
+enum MandateKind {
+  NOMINATION
+  RECONDUCTION
+  REMPLACEMENT
+  CHANGEMENT_FONCTION
+}
+
+/// Mandat annuel d'un membre de l'encadrement. Jamais supprimé ni réécrit (trigger) : seule une fin
+/// anticipée peut être enregistrée. Un seul plein à une date donnée, un seul mandat par personne à
+/// une date donnée (contraintes d'exclusion). Reconductions illimitées : chacune est un nouveau mandat.
+model LeadershipMandate {
+  id                   String         @id @default(uuid(7)) @db.Uuid
+  userId               String         @map("user_id") @db.Uuid
+  function             LeaderFunction
+  scoutYearId          String         @map("scout_year_id") @db.Uuid
+  startsOn             DateTime       @map("starts_on") @db.Date
+  /// Dernier jour prévu (inclus).
+  endsOn               DateTime       @map("ends_on") @db.Date
+  kind                 MandateKind
+  /// Autorité ayant nommé (texte : l'autorité peut être extérieure à la plateforme).
+  appointingAuthority  String         @map("appointing_authority")
+  appointmentReference String?        @map("appointment_reference")
+  /// Mandat reconduit, remplacé ou dont la fonction a changé.
+  previousMandateId    String?        @map("previous_mandate_id") @db.Uuid
+  notes                String?
+  /// Fin anticipée : dernier jour exercé (inclus).
+  endedEarlyOn         DateTime?      @map("ended_early_on") @db.Date
+  endReason            String?        @map("end_reason")
+  endedById            String?        @map("ended_by_id") @db.Uuid
+  recordedById         String?        @map("recorded_by_id") @db.Uuid
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user              User                @relation("MandateHolder", fields: [userId], references: [id], onDelete: Restrict)
+  scoutYear         ScoutYear           @relation(fields: [scoutYearId], references: [id], onDelete: Restrict)
+  previousMandate   LeadershipMandate?  @relation("MandateChain", fields: [previousMandateId], references: [id], onDelete: Restrict)
+  followingMandates LeadershipMandate[] @relation("MandateChain")
+  recordedBy        User?               @relation("MandateRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  endedBy           User?               @relation("MandateEndedBy", fields: [endedById], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([scoutYearId])
+  @@index([previousMandateId])
+  @@index([function, startsOn])
+  @@map("leadership_mandates")
+}
+
+/// Délégation nominative, temporaire, révocable et historisée d'un sous-ensemble des permissions
+/// officielles du responsable plein. Jamais supprimée (trigger).
+model Delegation {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  delegatorId  String    @map("delegator_id") @db.Uuid
+  delegateId   String    @map("delegate_id") @db.Uuid
+  /// Permissions déléguées (sous-ensemble de DELEGABLE_PERMISSIONS, vérifié par le service).
+  permissions  String[]
+  startsOn     DateTime  @map("starts_on") @db.Date
+  /// Dernier jour inclus.
+  endsOn       DateTime  @map("ends_on") @db.Date
+  reason       String
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedById  String?   @map("revoked_by_id") @db.Uuid
+  revokeReason String?   @map("revoke_reason")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  delegator User  @relation("DelegationDelegator", fields: [delegatorId], references: [id], onDelete: Restrict)
+  delegate  User  @relation("DelegationDelegate", fields: [delegateId], references: [id], onDelete: Restrict)
+  revokedBy User? @relation("DelegationRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+
+  @@index([delegateId, startsOn])
+  @@index([delegatorId])
+  @@map("delegations")
 }
