@@ -8,7 +8,7 @@ import { scoutsQueryOptions } from '@/lib/api/scouts';
 import { teamsQueryOptions } from '@/lib/api/teams';
 
 /** Indicateur chiffré réel (total renvoyé par l'API) menant à la liste correspondante. */
-function Tile({
+export function Tile({
   label,
   href,
   query,

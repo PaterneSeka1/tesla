@@ -1,16 +1,12 @@
-import { BookOpen, ClipboardCheck, Download } from 'lucide-react';
+import { ClipboardCheck, Download } from 'lucide-react';
 import { PROGRESSION_STAGES } from '@tesla/shared';
+import Link from 'next/link';
 import { PageHeading } from '@/components/page-heading';
 import { PlannedFeatures, type PlannedFeature } from '@/components/planned-features';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const FEATURES: PlannedFeature[] = [
-  {
-    title: 'Modules publiés',
-    description: 'Cours approuvés par le responsable pédagogique, en consultation libre.',
-    icon: BookOpen,
-    phase: 'Phase 3',
-  },
   {
     title: 'Lecture hors ligne',
     description: 'Modules téléchargés sur l’appareil pour une lecture sans connexion.',
@@ -32,6 +28,20 @@ export default function RoutierDashboardPage() {
         title="Tableau de bord"
         description="Votre parcours dans la Branche Route et vos ressources d’apprentissage."
       />
+      <Card>
+        <CardHeader>
+          <CardTitle>Bibliothèque des modules</CardTitle>
+          <CardDescription>
+            Cours approuvés par le responsable pédagogique, en consultation libre quelle que soit
+            votre étape.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href="/modules">Ouvrir la bibliothèque</Link>
+          </Button>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Étapes de la progression routière</CardTitle>

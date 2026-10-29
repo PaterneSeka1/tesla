@@ -19,7 +19,7 @@ export function DashboardShell({
   const config = SPACES[space];
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_1fr] print:block">
       <a
         href="#contenu"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded focus:bg-white focus:px-3 focus:py-2"
@@ -27,7 +27,7 @@ export function DashboardShell({
         Aller au contenu
       </a>
 
-      <aside className="hidden bg-tesla-bordeaux p-4 text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-6">
+      <aside className="hidden bg-tesla-bordeaux print:hidden! p-4 text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-6">
         <div className="flex items-center gap-3">
           <BrandLogo size={44} />
           <div className="leading-tight">
@@ -39,7 +39,7 @@ export function DashboardShell({
       </aside>
 
       <div className="flex min-w-0 flex-col">
-        <header className="bg-tesla-bordeaux text-white lg:border-b lg:bg-white lg:text-foreground">
+        <header className="bg-tesla-bordeaux text-white print:hidden lg:border-b lg:bg-white lg:text-foreground">
           <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <BrandLogo size={36} className="lg:hidden" />
@@ -57,7 +57,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main id="contenu" className="flex-1 space-y-6 px-4 py-6 lg:px-8">
+        <main id="contenu" className="flex-1 space-y-6 px-4 py-6 lg:px-8 print:p-0">
           <SessionGate roles={config.roles}>{children}</SessionGate>
         </main>
       </div>

@@ -68,3 +68,25 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* Impression des supports de cours (A4) : le cadre de l'application est masqué (classes print:). */
+@media print {
+  @page {
+    size: A4;
+    margin: 18mm 16mm;
+  }
+
+  body {
+    background: white;
+    font-size: 11pt;
+  }
+
+  .lesson-content img {
+    max-height: 120mm;
+    break-inside: avoid;
+  }
+
+  .lesson-content a {
+    color: inherit;
+  }
+}
