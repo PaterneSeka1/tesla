@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-/* Identité visuelle provisoire — Communauté Nikola Tesla */
+/* Identité visuelle — Communauté Nikola Tesla (palette de référence) */
 :root {
   --tesla-bordeaux: #510d12;
   --tesla-rouge: #801e23;
@@ -64,8 +64,29 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Ancres et focus jamais masqués par l'en-tête collant (mobile). */
+    scroll-padding-top: 4rem;
+  }
   body {
     @apply bg-background text-foreground antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+/* Préférence système : pas d'animation d'interface. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

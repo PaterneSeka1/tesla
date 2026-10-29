@@ -5,7 +5,7 @@ export default function Page() {
     <>
       <PageHeading
         title="Tableau de bord"
-        description="Suivi pédagogique de la communauté Nikola Tesla."
+        description="Votre parcours dans la Communauté Nikola Tesla."
       />
       <RoutierPedagogyDashboard />
     </>

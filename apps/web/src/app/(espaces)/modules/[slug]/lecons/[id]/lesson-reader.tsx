@@ -43,9 +43,9 @@ export function LessonReader() {
       </div>
       <article className="space-y-6 rounded-lg border bg-white p-5 sm:p-8">
         <header className="space-y-1 border-b pb-4">
-          <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
+          <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
             {lesson.title}
-          </h2>
+          </h1>
           {lesson.durationMinutes && (
             <p className="inline-flex items-center gap-1 text-sm text-muted-foreground">
               <Clock className="size-4" aria-hidden />

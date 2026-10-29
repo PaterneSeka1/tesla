@@ -101,9 +101,9 @@ export function EvaluationEditor() {
               evaluation.published.id !== current.id &&
               ` · version ${evaluation.published.version} publiée`}
           </p>
-          <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
+          <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
             {current.title}
-          </h2>
+          </h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <ModuleStatusBadge status={current.status} />
             {current.questionCount} question{current.questionCount > 1 ? 's' : ''} ·{' '}

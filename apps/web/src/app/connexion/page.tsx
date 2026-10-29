@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { Suspense } from 'react';
 import { BrandLogo } from '@/components/brand-logo';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,17 +14,12 @@ export default function LoginPage() {
         <CardHeader className="items-center text-center">
           <BrandLogo size={80} className="mx-auto mb-2" />
           <CardTitle className="text-xl">Connexion</CardTitle>
-          <CardDescription>Accédez à votre espace Nikola Tesla Académie.</CardDescription>
+          <CardDescription>Accédez à votre tableau de bord Nikola Tesla Académie.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Suspense fallback={<Skeleton className="h-56" />}>
             <LoginForm />
           </Suspense>
-          <p className="text-center text-sm">
-            <Link href="/" className="text-tesla-rouge underline-offset-4 hover:underline">
-              Retour à l’accueil
-            </Link>
-          </p>
         </CardContent>
       </Card>
     </main>

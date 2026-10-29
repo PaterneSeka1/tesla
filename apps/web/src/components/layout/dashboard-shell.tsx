@@ -2,26 +2,24 @@ import { SessionGate } from '@/components/auth/session-gate';
 import { UserMenu } from '@/components/auth/user-menu';
 import { ApiStatus } from '@/components/api-status';
 import { BrandLogo } from '@/components/brand-logo';
-import { SPACES, type SpaceKey } from '@/lib/spaces';
-import { SpaceNav } from './space-nav';
+import { AppNav, BottomNavSpacer, CurrentPageTitle, MobileMenu, RoutierBottomNav } from './app-nav';
 
 /**
- * Structure responsive commune aux espaces : sidebar sur desktop, navigation horizontale sur mobile.
- * Le contenu n'est affiché qu'après vérification de la session et du rôle (`SessionGate`).
+ * Cadre unique de l'application connectée : la navigation dépend du rôle, jamais de l'URL.
+ * Desktop : sidebar groupée (titre porté par la page) ; mobile et tablette : en-tête compact
+ * et menu latéral, plus une barre
+ * d'accès rapides pour le routier. Le contenu n'est affiché qu'après vérification de la session et
+ * de l'accès au chemin (`SessionGate`), sauf pour les écrans hors ligne.
  */
 export function DashboardShell({
-  space,
   children,
   offline = false,
 }: {
-  space: SpaceKey;
   offline?: boolean;
   children: React.ReactNode;
 }) {
-  const config = SPACES[space];
-
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_1fr] print:block">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[17rem_1fr] print:block">
       <a
         href="#contenu"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded focus:bg-white focus:px-3 focus:py-2"
@@ -29,40 +27,44 @@ export function DashboardShell({
         Aller au contenu
       </a>
 
-      <aside className="hidden bg-tesla-bordeaux print:hidden! p-4 text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-6">
-        <div className="flex items-center gap-3">
+      <aside className="hidden bg-tesla-bordeaux p-4 text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-6 print:hidden!">
+        <div className="flex items-center gap-3 px-1">
           <BrandLogo size={44} />
           <div className="leading-tight">
             <p className="font-semibold">Nikola Tesla</p>
             <p className="text-xs text-tesla-sable">Académie</p>
           </div>
         </div>
-        <SpaceNav space={space} orientation="vertical" />
+        <AppNav offline={offline} />
+        <div className="space-y-3 border-t border-white/15 pt-4">
+          <ApiStatus />
+          <UserMenu />
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-col">
-        <header className="bg-tesla-bordeaux text-white print:hidden lg:border-b lg:bg-white lg:text-foreground">
-          <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-8">
-            <div className="flex min-w-0 items-center gap-3">
-              <BrandLogo size={36} className="lg:hidden" />
-              <h1 className="truncate font-semibold">{config.title}</h1>
+        <header className="sticky top-0 z-30 bg-tesla-bordeaux text-white lg:hidden print:hidden">
+          <div className="flex h-14 items-center gap-2 px-2 sm:px-4">
+            <MobileMenu offline={offline} />
+            <BrandLogo size={32} />
+            <div className="min-w-0 flex-1">
+              <CurrentPageTitle offline={offline} />
             </div>
-            <div className="flex shrink-0 items-center gap-3">
-              <div className="hidden md:block">
-                <ApiStatus />
-              </div>
-              <UserMenu />
+            <div className="hidden shrink-0 sm:block">
+              <ApiStatus />
             </div>
-          </div>
-          <div className="px-2 pb-2 lg:hidden">
-            <SpaceNav space={space} orientation="horizontal" />
           </div>
         </header>
 
-        <main id="contenu" className="flex-1 space-y-6 px-4 py-6 lg:px-8 print:p-0">
-          {offline ? children : <SessionGate roles={config.roles}>{children}</SessionGate>}
+        <main
+          id="contenu"
+          className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:p-0"
+        >
+          {offline ? children : <SessionGate>{children}</SessionGate>}
         </main>
+        <BottomNavSpacer offline={offline} />
       </div>
+      <RoutierBottomNav offline={offline} />
     </div>
   );
 }

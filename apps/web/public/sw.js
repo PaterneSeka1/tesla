@@ -1,6 +1,6 @@
 // Service worker de Nikola Tesla Académie — fondation PWA (voir docs/OFFLINE_FIRST.md).
 // Règles : aucune réponse d'API ni page HTML personnalisée n'est mise en cache.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const STATIC_CACHE = `tesla-static-${VERSION}`;
 const OFFLINE_URL = '/hors-ligne';
 const PRECACHE_URLS = [

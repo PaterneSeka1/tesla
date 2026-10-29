@@ -45,9 +45,9 @@ export function ProposalDetail() {
       <BackLink href="/administration/validations">Validations</BackLink>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
+          <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
             {proposal.competency.code} {proposal.competency.name}
-          </h2>
+          </h1>
           <p className="text-muted-foreground">
             <Link
               href={`/administration/routiers/${proposal.scout.id}`}

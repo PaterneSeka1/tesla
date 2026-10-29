@@ -67,9 +67,14 @@ export function Toaster({ children }: { children: React.ReactNode }) {
 export function useToast() {
   const push = React.use(ToastContext);
   if (!push) throw new Error('useToast doit être utilisé sous <Toaster>.');
-  return {
-    success: (title: string, description?: string) =>
-      push({ title, description, variant: 'success' }),
-    error: (title: string, description?: string) => push({ title, description, variant: 'error' }),
-  };
+  // Référence stable : utilisable comme dépendance d'un effet.
+  return React.useMemo(
+    () => ({
+      success: (title: string, description?: string) =>
+        push({ title, description, variant: 'success' }),
+      error: (title: string, description?: string) =>
+        push({ title, description, variant: 'error' }),
+    }),
+    [push],
+  );
 }

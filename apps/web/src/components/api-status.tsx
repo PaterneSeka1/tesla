@@ -8,7 +8,7 @@ import { healthQueryOptions } from '@/lib/api/health';
 export function ApiStatus() {
   const { data, isPending, isError, error } = useQuery(healthQueryOptions);
 
-  if (isPending) return <Badge variant="outline">Vérification du serveur…</Badge>;
+  if (isPending) return <Badge variant="secondary">Vérification du serveur…</Badge>;
   if (isError) {
     return (
       <Badge variant="destructive" title={error.message}>

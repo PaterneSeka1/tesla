@@ -10,7 +10,11 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "typescript.preferences.importModuleSpecifier": "shortest",
-  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.workingDirectories": [
+    { "directory": "./apps/api" },
+    { "directory": "./apps/web" },
+    { "directory": "./packages/shared" },
+  ],
   "tailwindCSS.experimental.configFile": "apps/web/src/app/globals.css",
   "files.eol": "\n",
   "files.exclude": {

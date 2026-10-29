@@ -19,7 +19,7 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 
 | Paquet | Rôle | Sortie |
 | --- | --- | --- |
-| `apps/web` (`@tesla/web`) | Interface PWA : accueil, connexion, espaces routier / chef / responsable | `.next/` |
+| `apps/web` (`@tesla/web`) | Interface PWA : accueil, connexion, tableaux de bord par rôle (routier, chef, responsable) | `.next/` |
 | `apps/api` (`@tesla/api`) | API REST, configuration validée, accès base, Swagger | `dist/` |
 | `packages/shared` (`@tesla/shared`) | Contrats partagés : `healthResponseSchema`, `apiErrorSchema`, `ROLES`, `PROGRESSION_STAGES` | `dist/` (ESM + `.d.ts`) |
 | `packages/config` (`@tesla/config`) | `tsconfig.base.json`, `createTypeScriptConfig` (ESLint) | sources |
@@ -33,14 +33,14 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 | `app/` | Routes App Router : `/`, `/connexion`, `(espaces)/routier`, `/chef` (+ `/chef/modules`, `/chef/modules/nouveau`, `/chef/modules/[id]/{modifier,apercu}`, `/chef/soumissions`), `/responsable`, `(espaces)/administration/{equipes,routiers}` (liste, création, fiche, modification), `(espaces)/administration/{modules,modules-a-valider,modules/[id]/revision,historique-publications}`, évaluations : `/chef/evaluations` (+ `nouvelle`, `[id]/{modifier,apercu}`, `papier`, `papier/[code]`), `/chef/corrections` (+ `[code]`), `/administration/{evaluations,evaluations/[id],evaluations-a-valider,evaluations-a-valider/[id],deblocages}`, `(espaces)/evaluations` (`/evaluations`, `/evaluations/[id]`, `/evaluations/[id]/passer`), `/mes-resultats`, `(espaces)/modules` (bibliothèque : `/modules`, `/modules/[slug]`, `/modules/[slug]/lecons/[id]`, `/modules/[slug]/imprimer`), `/hors-ligne`, `manifest.ts`, pages 404/erreur/chargement |
 | `proxy.ts` | Redirection vers `/connexion` sans cookie de session (contrôle optimiste) |
 | `components/ui/` | Primitives shadcn/ui (button, card, badge, alert, input, label, skeleton, textarea, native-select, table, dialog, toaster) |
-| `components/layout/` | `DashboardShell` (sidebar desktop, navigation horizontale mobile, `SessionGate`), `SpaceNav` |
+| `components/layout/` | `DashboardShell` (cadre unique monté par `(espaces)/layout.tsx` : sidebar groupée desktop, en-tête et menu latéral mobile, barre d'accès rapides du routier, `SessionGate`), `app-nav.tsx` |
 | `components/auth/` | `SessionGate` (vérifie `/auth/me` et le rôle, fournit `useSessionUser`), `UserMenu`, `ResponsableOnly` |
 | `components/modules/` | `LessonEditor` (Tiptap), `LessonContent` (rendu sûr du JSON), `ModuleVersionView`, `ModuleMetadataForm`, `EditorModuleList`, `ModuleHistory`, `ResourceList`, `CommentDialog`, `ModuleStatusBadge`, tableaux de bord éditorial et de validation, `useModuleAction` |
 | `components/evaluations/` | `QuestionForm`, `QuestionList`, `EvaluationSettingsForm`, `EvaluationList`, `CorrectionWorkspace` (saisie papier, notation, soumission), `CopyHeader`/`CopyAnswers`/`CopyHistory`, `AttemptTable`, badges, `useEvaluationAction` |
 | `components/` | `ConfirmDialog`, `Pagination`, `QueryError`/`TableSkeleton`, `FormField`, `FollowUpOverview` (indicateurs) |
 | `lib/api/` | `apiFetch`/`apiSend` (client typé, cookie, en-tête anti-CSRF, erreurs normalisées) et `queryOptions` par domaine (`auth`, `teams`, `scouts`, `modules`, `evaluations`) |
 | `lib/offline/` | IndexedDB versionnée (`db.ts`), coffre chiffré AES-GCM (`vault.ts`), téléchargements (`downloads.ts`), tentatives et file de synchronisation (`attempts.ts`) — voir [OFFLINE_FIRST.md](OFFLINE_FIRST.md) |
-| `lib/spaces.ts` | Configuration des espaces (dont `bibliotheque`) et de leur navigation ; entrées réservées à un rôle (`roles`) filtrées par `SpaceNav` |
+| `lib/navigation.ts` | Source unique : tableau de bord par rôle (`getDefaultRouteForUser`), accès par chemin (`canAccessPath`), destination après connexion (`resolvePostLoginPath`), menu groupé par rôle (`NAVIGATION`). Voir [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md) |
 | `public/sw.js` | Service worker (enregistré en production uniquement) |
 
 ## API (`apps/api/src`)

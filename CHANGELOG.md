@@ -4,6 +4,19 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — navigation par rôle et stabilisation, 2026-10-29
+- Plus d'écran de choix d'espace : chaque rôle arrive sur son tableau de bord après connexion, sur `/`, sur `/connexion` déjà connecté et après une session restaurée ; `?suivant=` n'est suivi que vers une page interne autorisée au rôle.
+- Menu unique groupé par rôle (`lib/navigation.ts`) dans un cadre commun : sidebar desktop, menu latéral mobile, barre d'accès rapides du routier ; le responsable accède aux fonctions des chefs sans changer de menu.
+- Route non autorisée : notification et retour au tableau de bord ; session expirée en cours d'usage : retour à la connexion avec la page demandée.
+- Tableaux de bord refondus (KPI, files d'actions séparées contenus / personnes, répartitions par équipe et par étape, chronologie) ; titres de page en `h1`.
+- Service worker `v3` (coquille hors ligne mise à jour).
+
+### Supprimé
+- `lib/spaces.ts`, `SpaceNav` et quatre composants inutilisés ; entrées « Téléchargements » et « Synchronisation » fusionnées en « Hors ligne » (URL conservées).
+
+### Corrigé
+- Erreur ESLint `no-unused-vars` dans `apps/api/prisma/seed.ts` (voir docs/QUALITY/ESLINT_AUDIT.md).
+
 ### Ajouté — modules « Bases du scoutisme », 2026-10-29
 - Seed pédagogique idempotent : quatre modules `NT-SCOUT-M01` à `M04` (21 leçons) importés en brouillon depuis « BASE DU SCOUTISME », sans approbation ni publication ; prévisualisation `npm run db:seed:pedagogy -- --dry-run` ; rapport d'écarts sans écrasement.
 - Migration additive `20261102090000_module_source_imports` : auteur facultatif (création système) sur modules, versions, leçons et événements de création ; provenance en ajout seul avec notes éditoriales.

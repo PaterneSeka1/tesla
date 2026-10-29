@@ -1,18 +1,19 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleAlert } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { FormField, fieldA11y } from '@/components/form-field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { login, meQueryOptions } from '@/lib/api/auth';
-import { ROLE_HOME } from '@/lib/spaces';
+import { resolvePostLoginPath } from '@/lib/navigation';
 
 const loginSchema = z.object({
   email: z.email({ error: 'Adresse e-mail invalide.' }),
@@ -21,17 +22,22 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-/** Chemin interne uniquement (évite une redirection ouverte vers un autre site). */
-function safeNextPath(value: string | null): string | null {
-  return value && value.startsWith('/') && !value.startsWith('//') ? value : null;
-}
-
-/** Connexion : la session est posée par l'API dans un cookie httpOnly (jamais lisible en JS). */
+/**
+ * Connexion : la session est posée par l'API dans un cookie httpOnly (jamais lisible en JS).
+ * Un utilisateur déjà connecté est orienté directement vers son tableau de bord (ou la page
+ * demandée, si son rôle y a accès) ; une session expirée ou une API injoignable affiche le formulaire.
+ */
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
+  const session = useQuery(meQueryOptions);
+  const requested = searchParams.get('suivant');
+
+  useEffect(() => {
+    if (session.data) router.replace(resolvePostLoginPath(session.data.user, requested));
+  }, [session.data, requested, router]);
   const {
     register,
     handleSubmit,
@@ -44,11 +50,21 @@ export function LoginForm() {
       const me = await login(values);
       queryClient.clear();
       queryClient.setQueryData(meQueryOptions.queryKey, me);
-      router.replace(safeNextPath(searchParams.get('suivant')) ?? ROLE_HOME[me.user.role]);
+      router.replace(resolvePostLoginPath(me.user, requested));
     } catch (error) {
       setServerError(error instanceof Error ? error.message : 'Connexion impossible.');
     }
   };
+
+  if (session.isPending || session.data) {
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="Vérification de la session">
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+        <Skeleton className="h-9" />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">

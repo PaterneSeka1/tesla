@@ -38,6 +38,8 @@
 | Examiner un résultat soumis (accepter / demander une nouvelle correction), rouvrir | — | — | ✅ |
 | Accorder / révoquer un déblocage individuel | — | — | ✅ |
 | Valider officiellement un acquis | — | — | ✅ |
+
+Le responsable détient toutes les permissions des chefs (matrice `apps/api/src/common/permissions.ts`) : il exerce les fonctions de rédaction, de préparation papier et de correction avec son unique compte, sans changer d'espace (D86). Navigation : [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md).
 | Consulter sa propre progression | ✅ | — | — |
 | Consulter la progression des routiers | — | ✅ | ✅ |
 | Gérer les comptes | — | — | ✅ (à confirmer) |

@@ -11,7 +11,7 @@ import { listAttempts } from '@/lib/offline/attempts';
 import { logout } from '@/lib/api/auth';
 import { meQueryOptions } from '@/lib/api/auth';
 
-/** Identité de l'utilisateur connecté et déconnexion. */
+/** Identité de l'utilisateur connecté et déconnexion (pied de la sidebar et du menu mobile). */
 export function UserMenu() {
   const { data } = useQuery(meQueryOptions);
   const queryClient = useQueryClient();
@@ -41,22 +41,22 @@ export function UserMenu() {
   };
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="hidden text-right leading-tight sm:block">
-        <p className="text-sm font-medium">
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-sm font-medium">
           {data.user.firstName} {data.user.lastName}
         </p>
-        <p className="text-xs opacity-80">{ROLE_LABELS[data.user.role]}</p>
+        <p className="text-xs text-tesla-sable">{ROLE_LABELS[data.user.role]}</p>
       </div>
       <Button
         variant="outline"
         size="sm"
-        className="border-white/40 bg-transparent text-inherit hover:bg-white/10 lg:border-border lg:hover:bg-muted"
+        className="shrink-0 border-white/40 bg-transparent text-inherit hover:bg-white/10 hover:text-white"
         onClick={() => void onLogout()}
         disabled={pending}
       >
         <LogOut aria-hidden />
-        <span className="sr-only sm:not-sr-only">Déconnexion</span>
+        Déconnexion
       </Button>
     </div>
   );

@@ -30,9 +30,9 @@ export function EvaluationPreview() {
             {data.code} · version {current.version} · {data.stage.name}
             {current.durationMinutes && ` · ${formatDuration(current.durationMinutes)}`}
           </p>
-          <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
+          <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
             {current.title}
-          </h2>
+          </h1>
           <ModuleStatusBadge status={current.status} />
         </div>
         <Button variant="outline" aria-pressed={showKey} onClick={() => setShowKey(!showKey)}>

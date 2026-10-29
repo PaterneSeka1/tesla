@@ -36,7 +36,7 @@ export function EvaluationIntro() {
           {data.stage.name} · version {data.version}
           {data.module && ` · module « ${data.module.title} »`}
         </p>
-        <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">{data.title}</h2>
+        <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">{data.title}</h1>
         {eligibility && <EligibilityBadge eligibility={eligibility} />}
       </div>
 

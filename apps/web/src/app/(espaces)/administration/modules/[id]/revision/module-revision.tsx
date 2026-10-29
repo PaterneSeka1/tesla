@@ -62,9 +62,9 @@ function RevisionContent() {
             {module.collaborators.length > 0 &&
               ` · collaborateurs : ${module.collaborators.map((c) => fullName(c.user)).join(', ')}`}
           </p>
-          <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
+          <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
             {version.title}
-          </h2>
+          </h1>
           <ModuleStatusBadge status={status} />
         </div>
         <Button asChild variant="outline">

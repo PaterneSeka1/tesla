@@ -1,6 +1,6 @@
 # Tableaux de bord pédagogiques
 
-Les espaces `/responsable`, `/chef` et `/routier` utilisent les endpoints de rôle et des schémas de réponse partagés. Les indicateurs proviennent exclusivement de PostgreSQL.
+Les tableaux de bord `/responsable`, `/chef` et `/routier` (destination automatique de chaque rôle, voir [NAVIGATION_ET_PERMISSIONS.md](NAVIGATION_ET_PERMISSIONS.md)) utilisent les endpoints de rôle et des schémas de réponse partagés. Les indicateurs proviennent exclusivement de PostgreSQL.
 
 - Responsable : population, comptes, acquisitions, réalisation des activités ; file des contenus (modules et questionnaires) distincte des décisions sur les personnes (résultats et compétences), compléments et corrections ; activités prochaines et signaux d'accompagnement.
 - Chef : population suivie, propositions de l'auteur, réponses récentes, observations de l'auteur, modules préparés, copies à corriger, activités et présences à saisir. Le périmètre actuel couvre une seule communauté, conformément aux permissions existantes (D65).

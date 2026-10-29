@@ -52,9 +52,9 @@ export function EvaluationRevision() {
                     {evaluation.code} · version {current.version} · {evaluation.stage.name}
                     {evaluation.module && ` · ${evaluation.module.code} ${evaluation.module.title}`}
                   </p>
-                  <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
+                  <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
                     {current.title}
-                  </h2>
+                  </h1>
                   <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                     <ModuleStatusBadge status={current.status} />
                     {current.questionCount} questions · {formatPoints(current.totalPoints)}

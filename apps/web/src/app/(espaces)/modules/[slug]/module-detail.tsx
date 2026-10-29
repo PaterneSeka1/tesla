@@ -38,7 +38,7 @@ export function ModuleDetail() {
             </Badge>
           )}
         </div>
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{module.title}</h2>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{module.title}</h1>
         {module.summary && (
           <p className="max-w-3xl whitespace-pre-line text-tesla-sable">{module.summary}</p>
         )}

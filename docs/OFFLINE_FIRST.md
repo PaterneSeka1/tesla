@@ -9,7 +9,7 @@ Public visé : **routiers disposant d'un compte**. Les routiers sans compte rest
 | Élément | Fichier | Rôle |
 | --- | --- | --- |
 | Manifest, icônes | `apps/web/src/app/manifest.ts`, `public/icons/` | Installation lorsque le navigateur le propose |
-| Service worker `v2` | `apps/web/public/sw.js` (production uniquement) | Coquille publique `/hors-ligne` et ressources statiques |
+| Service worker `v3` | `apps/web/public/sw.js` (production uniquement) | Coquille publique `/hors-ligne` et ressources statiques |
 | Coquille hors ligne | `/hors-ligne` (alias `/telechargements`, `/synchronisation`) → `OfflineHub` | Téléchargements, lecture, tentatives, synchronisation, stockage, confidentialité |
 | Préparation | `/evaluations/[id]/preparer` | Réservation serveur d'une tentative hors ligne |
 | Stockage local | `src/lib/offline/db.ts` (IndexedDB), `vault.ts` (chiffrement) | Données locales chiffrées par compte |

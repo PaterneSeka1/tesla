@@ -50,7 +50,7 @@ export function PrintableModule() {
           </p>
         </header>
         <div className="space-y-2">
-          <h2 className="text-2xl font-semibold text-tesla-bordeaux">{module.title}</h2>
+          <h1 className="text-2xl font-semibold text-tesla-bordeaux">{module.title}</h1>
           <p className="text-sm text-muted-foreground">
             {module.stage ? `Étape recommandée : ${module.stage.name}` : 'Toutes les étapes'}
             {module.theme && ` · ${module.theme}`}

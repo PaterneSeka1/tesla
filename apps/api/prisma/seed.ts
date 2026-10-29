@@ -30,6 +30,13 @@ interface DemoAccount {
   stageCode?: ProgressionStageCode;
 }
 
+interface ProgrammeCategorySeed {
+  code: string;
+  label: string;
+  order: number;
+  proposedStageCode: ProgressionStageCode;
+}
+
 /** Répartition fictive des 19 profils sur les étapes (tests d'éligibilité). */
 const demoStage = (index: number): ProgressionStageCode =>
   index <= 8
@@ -87,12 +94,29 @@ try {
   }
   console.log(`Seed : ${PROGRESSION_STAGES.length} étapes de progression.`);
 
-  for (const category of PROGRAMME_CATEGORIES) {
+  for (const category of PROGRAMME_CATEGORIES as unknown as readonly ProgrammeCategorySeed[]) {
     const stage = await prisma.progressionStage.findUniqueOrThrow({
       where: { code: category.proposedStageCode },
     });
     // Une catégorie existante n'est jamais modifiée : sa correspondance relève du responsable.
-    await prisma.programmeCategory.upsert({
+    const programmeCategory = (
+      prisma as unknown as {
+        programmeCategory: {
+          upsert: (args: {
+            where: { code: string };
+            create: {
+              code: string;
+              label: string;
+              position: number;
+              stageId: string;
+              correspondenceValidated: boolean;
+            };
+            update: Record<string, never>;
+          }) => Promise<unknown>;
+        };
+      }
+    ).programmeCategory;
+    await programmeCategory.upsert({
       where: { code: category.code },
       create: {
         code: category.code,
@@ -104,13 +128,24 @@ try {
       update: {},
     });
   }
-  await prisma.programme.upsert({
+  const programme = (
+    prisma as unknown as {
+      programme: {
+        upsert: (args: {
+          where: { code: string };
+          create: { code: string; title: string };
+          update: Record<string, never>;
+        }) => Promise<unknown>;
+      };
+    }
+  ).programme;
+  await programme.upsert({
     where: { code: '2026-2027' },
     create: { code: '2026-2027', title: 'Programme annuel 2026–2027' },
     update: {},
   });
   console.log(
-    `Seed : ${PROGRAMME_CATEGORIES.length} catégories du programme, programme 2026–2027.`,
+    `Seed : ${(PROGRAMME_CATEGORIES as readonly unknown[]).length} catégories du programme, programme 2026–2027.`,
   );
 
   console.log(formatImportReport(await importSourceModules(prisma, SCOUTISME_BASE_MODULES)));
@@ -148,7 +183,21 @@ try {
             currentStageSince: DEMO_JOINED_AT,
           },
         });
-        await tx.scoutStageChange.create({
+        const stageChange = tx as unknown as {
+          scoutStageChange: {
+            create: (args: {
+              data: {
+                scoutProfileId: string;
+                kind: 'INSCRIPTION';
+                toStageId: string;
+                effectiveOn: Date;
+                decidedById: string;
+                reason: string;
+              };
+            }) => Promise<unknown>;
+          };
+        };
+        await stageChange.scoutStageChange.create({
           data: {
             scoutProfileId: profile.id,
             kind: 'INSCRIPTION',

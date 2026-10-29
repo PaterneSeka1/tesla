@@ -13,6 +13,7 @@
 | **4 bis — Compléments papier** | Téléversement des copies numérisées, support de cours en PDF serveur (préparation, saisie, examen et PDF questionnaire/corrigé/grille livrés en phase 3) | ⏳ |
 | **5 — Programme annuel** | Import et consultation du programme 2026–2027 (43 samedis), liens séances ↔ modules | ✅ import et gestion implémentés ; source officielle des séances à fournir |
 | **Contenus — Bases du scoutisme** | Seed des modules NT-SCOUT-M01 à M04 en brouillon depuis « BASE DU SCOUTISME », provenance et notes éditoriales, réexécution sans écrasement | ✅ importé en brouillon (2026-10-29) ; rédaction des 8 leçons vides, vérifications, approbation et évaluations à faire — voir [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md) |
+| **Stabilisation — navigation et UX (2026-10-29)** | Orientation automatique par rôle, menu unique groupé, cadre mobile, tableaux de bord, audit ESLint | ✅ — voir [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md), [QUALITY/](QUALITY/) ; reste : écrans « Mon profil » et « Utilisateurs et accès » (avec la phase 1 ter) |
 | **6 — Pilote et production** | Déploiement VPS (Nginx, PM2 ou systemd, TLS), sauvegardes PostgreSQL et restauration testée, supervision | ⏳ |
 
 Les phases 2 à 4 dépendent des arbitrages listés dans [BUSINESS_RULES.md](BUSINESS_RULES.md).

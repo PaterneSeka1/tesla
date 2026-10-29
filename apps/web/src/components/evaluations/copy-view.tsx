@@ -20,9 +20,9 @@ export function CopyHeader({ copy }: { copy: CorrectionDetail }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="font-mono text-sm font-semibold text-tesla-rouge">{copy.code}</p>
-          <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
+          <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
             {copy.version.title}
-          </h2>
+          </h1>
           <p className="text-sm text-muted-foreground">
             {copy.evaluation.code} · version {copy.version.version} ·{' '}
             {EVALUATION_MODE_LABELS[copy.mode]}

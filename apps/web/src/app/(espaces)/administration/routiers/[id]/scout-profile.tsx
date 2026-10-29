@@ -39,9 +39,9 @@ export function ScoutProfileView() {
       <BackLink href="/administration/routiers">Routiers</BackLink>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
+          <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
             {fullName(scout)}
-          </h2>
+          </h1>
           <div className="flex flex-wrap gap-2">
             {scout.isActive ? (
               <Badge variant="success">Actif</Badge>

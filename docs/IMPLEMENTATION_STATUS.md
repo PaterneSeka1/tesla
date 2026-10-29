@@ -1,6 +1,6 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-10-29 — seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
+Dernière mise à jour : 2026-10-29 — phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
 
 ## Réalisé et vérifié
 
@@ -93,3 +93,22 @@ Vérifications exécutées :
 - Contrôle ponctuel (hors dépôt) : chaque texte de leçon retrouvé dans le texte extrait du PDF, hors ajouts éditoriaux listés.
 
 Non vérifié : rendu visuel de l'encart de provenance (pas de recette navigateur) ; transcription de l'alphabet Morse relue à l'œil uniquement ; manuel SAPF-Route et programme annuel absents du dépôt.
+
+## Phase 6 — navigation par rôle, UX et stabilisation (2026-10-29)
+
+Implémenté (détails : [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md), [QUALITY/UX_UI_AUDIT.md](QUALITY/UX_UI_AUDIT.md), [QUALITY/ESLINT_AUDIT.md](QUALITY/ESLINT_AUDIT.md), décisions D86–D90) :
+- Orientation automatique par rôle (`lib/navigation.ts`) : connexion, `/`, `/connexion` déjà connecté, rechargement, session restaurée ; `?suivant=` limité aux pages internes autorisées ; route non autorisée → notification et tableau de bord ; session expirée en cours d'usage → connexion avec retour.
+- Menu unique groupé par rôle et cadre commun (`(espaces)/layout.tsx`) : sidebar desktop, menu latéral mobile, barre d'accès rapides du routier. Écran de choix d'espace supprimé.
+- Aucun modèle multirôle : le responsable dispose déjà de toutes les permissions des chefs (D86).
+- Tableaux de bord refondus sur les données réelles de l'API ; titres de page en `h1` ; service worker `v3`.
+- Lint : 1 erreur → 0 (aucune règle désactivée).
+- Aucune modification de l'API ni du schéma ; aucune migration.
+
+Vérifications exécutées :
+- `npm run lint` (0 problème), `npm run typecheck`, `npm run build` (API et web) : réussis.
+- `npm run test` : API 115 tests (17 fichiers), web 40 tests (4 fichiers, dont 27 nouveaux dans `navigation.test.ts` : destination par rôle, absence de boucle, accès par chemin, redirections externes refusées, entrées de menu existantes, autorisées et sans doublon).
+- `npm run test:int -w @tesla/api` (`tesla_test`) : 71 tests (6 fichiers) réussis.
+- Recette navigateur (script hors dépôt, Chromium headless, API et web de production sur `tesla_test`, comptes fictifs) : **21 contrôles réussis** — accueil sans choix d'espace ; routier, chef et responsable dirigés vers leur tableau de bord ; rechargement ; `/` et `/connexion` déjà connecté ; route interdite ; menu mobile et barre d'accès rapides ; retour navigateur ; écran hors ligne ; déconnexion puis accès direct ; `?suivant=` interdit ignoré, autorisé conservé ; responsable sur les écrans des chefs sans changement de menu ; accès direct par URL ; 390 px et 820 px sans défilement horizontal ; session révoquée côté serveur puis reconnexion vers la page demandée ; aucune erreur JavaScript.
+- Recette hors ligne `apps/web/test/offline.browser.mjs` rejouée : 13 contrôles réussis (étape de déconnexion adaptée au menu latéral mobile).
+
+Non vérifié : appareils réels (Android, iOS), lecteurs d'écran, contraste mesuré ; parcours métier complets (création de module, approbation, correction) seulement couverts par les tests d'intégration API et non rejoués dans le navigateur pendant cette phase ; « Mon profil », « Utilisateurs et accès » et « Paramètres » non développés.

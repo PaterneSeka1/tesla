@@ -95,6 +95,16 @@ Format : contexte → décision → conséquence. Ajouter une entrée pour chaqu
 | D66 | **Aucun seuil de réussite ni minuteur** : durée indicative seulement ; nombre maximal de tentatives facultatif (défaut : sans limite) | Valeurs non arbitrées (règle pédagogique 7). |
 | D67 | **Une copie entièrement objective passe aussi par un chef** (soumission explicite), puis par le responsable | Le score automatique n'est jamais communiqué ni retenu sans intervention humaine. |
 
+## 2026-10-29 — Navigation par rôle et stabilisation (phase 6)
+
+| # | Décision | Motif / conséquence |
+| --- | --- | --- |
+| D86 | Pas de modèle multirôle : la hiérarchie des permissions suffit | La matrice API donne déjà au responsable toutes les permissions des chefs ; un responsable rédige, prépare le papier et corrige avec son compte. Migration multirôle documentée (FEATURES/NAVIGATION_ET_PERMISSIONS.md), non réalisée, à valider si un besoin non couvert apparaît. |
+| D87 | Navigation déterminée par le rôle, jamais par l'URL | Un seul menu groupé par rôle (`lib/navigation.ts`) et un seul cadre monté par `(espaces)/layout.tsx` ; suppression de l'écran de choix d'espace. |
+| D88 | Chemin non autorisé : notification puis retour au tableau de bord | Le refus reste visible (message), sans écran bloquant ; la cible est testée comme toujours accessible au rôle (pas de boucle). L'API reste l'autorité. |
+| D89 | `/` redirigée par le proxy vers `/connexion` en présence d'un cookie ; `/connexion` jamais redirigée par le proxy | Le proxy ne connaît pas le rôle ; `/connexion` interroge `/auth/me` et oriente l'utilisateur connecté. Un cookie expiré affiche le formulaire, sans boucle. |
+| D90 | Barre inférieure mobile pour le routier seulement | Navigation peu dense (8 entrées) ; chefs et responsable (13 à 21 entrées) utilisent le menu latéral pour ne pas surcharger la barre. |
+
 ## Décisions pédagogiques en attente (responsable)
 Voir [BUSINESS_RULES.md](BUSINESS_RULES.md#points-en-attente-darbitrage-ne-pas-coder-de-valeur-définitive) : durées d'étape selon l'âge, conditions d'accès aux évaluations, seuils, gestion des comptes, conservation des données.
 

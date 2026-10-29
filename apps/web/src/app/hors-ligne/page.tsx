@@ -4,7 +4,7 @@ import { OfflineHub } from '@/components/offline-hub';
 export const metadata: Metadata = { title: 'Hors ligne' };
 export default function OfflinePage() {
   return (
-    <DashboardShell space="routier" offline>
+    <DashboardShell offline>
       <OfflineHub />
     </DashboardShell>
   );

@@ -6,13 +6,13 @@ paths:
 
 ## Architecture Next.js
 - Next.js 16 diffère des versions antérieures : consulter la doc embarquée `node_modules/next/dist/docs/` (version installée) avant d'utiliser une API inconnue ; respecter les avertissements de dépréciation.
-- App Router dans `src/app`. Espaces par rôle dans le groupe `(espaces)/` (`routier`, `chef`, `responsable`), chacun avec son `layout.tsx` utilisant `DashboardShell`.
+- App Router dans `src/app`. Pages connectées dans le groupe `(espaces)/`, dont le `layout.tsx` unique monte `DashboardShell` ; les layouts de dossier ne portent que le titre (`metadata`). Aucun écran de choix d'espace : le rôle détermine tableau de bord et menu.
 - `cacheComponents` est activé : les données dynamiques serveur doivent être sous `<Suspense>`.
-- Navigation : déclarer les entrées dans `src/lib/spaces.ts`. **Aucune entrée vers un écran inexistant.**
+- Navigation et accès : `src/lib/navigation.ts` (`NAVIGATION` par rôle, `ACCESS_RULES` par chemin, `getDefaultRouteForUser`, `resolvePostLoginPath`). Toute nouvelle page connectée doit avoir une règle d'accès. **Aucune entrée vers un écran inexistant ni en double** (vérifié par `navigation.test.ts`). Alignement avec `apps/api/src/common/permissions.ts`.
 
 ## Server / Client Components
 - Server Component par défaut. `'use client'` seulement pour l'état, les effets, les événements ou TanStack Query.
-- Pousser `'use client'` au plus bas de l'arbre (ex. `ApiStatus`, `SpaceNav`, `LoginForm`).
+- Pousser `'use client'` au plus bas de l'arbre (ex. `ApiStatus`, `AppNav`, `LoginForm`).
 - Ne jamais passer de fonction ou composant (icône) d'un Server vers un Client Component : importer la configuration côté client.
 
 ## Données

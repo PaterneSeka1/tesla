@@ -63,9 +63,9 @@ export function ModuleEditor() {
               module.publishedVersionId !== current.id &&
               ' · une version est en ligne'}
           </p>
-          <h2 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
+          <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
             {current.title}
-          </h2>
+          </h1>
           <ModuleStatusBadge status={current.status} />
         </div>
         <div className="flex flex-wrap gap-2">

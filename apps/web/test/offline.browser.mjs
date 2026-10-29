@@ -142,7 +142,9 @@ try {
   assert(await page.getByRole('link', { name: /Évaluation fictive hors ligne · NT-/ }).count());
   check('suppression du module sans suppression de la copie');
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  await page.getByRole('button', { name: 'Déconnexion', exact: true }).click();
+  // Mobile : la déconnexion est dans le menu latéral (phase 6).
+  await page.getByRole('button', { name: 'Ouvrir le menu' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Déconnexion', exact: true }).click();
   await page.waitForURL('**/connexion');
   await page.goto(`${origin}/hors-ligne`);
   await page.getByLabel('Phrase de déverrouillage locale').waitFor();
