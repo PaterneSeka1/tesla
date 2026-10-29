@@ -27,7 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { editorModulesQueryOptions } from '@/lib/api/modules';
-import { formatDateTime, fullName } from '@/lib/format';
+import { authorName, formatDateTime } from '@/lib/format';
 import { ModuleStatusBadge } from './module-status-badge';
 
 const PAGE_SIZE = 20;
@@ -174,7 +174,7 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
                       {module.published ? `Version ${module.published.version}` : '—'}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {review ? fullName(module.createdBy) : ACCESS_LABELS[module.access]}
+                      {review ? authorName(module.createdBy) : ACCESS_LABELS[module.access]}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {formatDateTime(shown.updatedAt)}

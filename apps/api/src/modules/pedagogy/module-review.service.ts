@@ -68,7 +68,7 @@ export class ModuleReviewService {
     return versions.map((version) => ({
       moduleId: version.moduleId,
       code: formatModuleCode(version.module.number),
-      createdBy: toUserSummary(version.module.createdBy)!,
+      createdBy: toUserSummary(version.module.createdBy),
       collaborators: version.module.collaborators.map((c) => toUserSummary(c.user)!),
       version: toVersionSummary(version),
       submittedBy: toUserSummary(version.submittedBy),

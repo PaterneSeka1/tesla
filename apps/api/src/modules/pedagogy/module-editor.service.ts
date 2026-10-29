@@ -59,6 +59,7 @@ import {
   resolveAccess,
   toActivityItem,
   toEvent,
+  toSourceImport,
   toLessonDocument,
   toVersionDetail,
   toVersionSummary,
@@ -127,7 +128,7 @@ export class ModuleEditorService {
           id: module.id,
           code: formatModuleCode(module.number),
           slug: module.slug,
-          createdBy: toUserSummary(module.createdBy)!,
+          createdBy: toUserSummary(module.createdBy),
           createdAt: module.createdAt.toISOString(),
           access: accessOf(actor, module.createdById, module.collaborators.length > 0),
           working: working ? toVersionSummary(working) : null,
@@ -217,6 +218,7 @@ export class ModuleEditorService {
           orderBy: { createdAt: 'asc' },
         },
         events: { include: eventInclude, orderBy: { createdAt: 'desc' }, take: 100 },
+        sourceImport: true,
       },
     });
     if (!module) throw moduleNotFound();
@@ -229,10 +231,11 @@ export class ModuleEditorService {
       id: module.id,
       code: formatModuleCode(module.number),
       slug: module.slug,
-      createdBy: toUserSummary(module.createdBy)!,
+      createdBy: toUserSummary(module.createdBy),
       createdAt: module.createdAt.toISOString(),
       access,
       publishedVersionId: module.publishedVersionId,
+      sourceImport: module.sourceImport && toSourceImport(module.sourceImport),
       current: currentDetail,
       versions: module.versions.map(toVersionSummary),
       collaborators: module.collaborators.map((collaborator) => ({
@@ -737,7 +740,11 @@ export class ModuleEditorService {
   }
 }
 
-function accessOf(actor: Actor, createdById: string, isCollaborator: boolean): ModuleAccess {
+function accessOf(
+  actor: Actor,
+  createdById: string | null,
+  isCollaborator: boolean,
+): ModuleAccess {
   if (can(actor, 'module.writeAny')) return 'RESPONSABLE';
   return createdById === actor.userId ? 'AUTEUR' : isCollaborator ? 'COLLABORATEUR' : 'AUTEUR';
 }

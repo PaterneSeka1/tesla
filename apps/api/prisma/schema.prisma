@@ -727,13 +727,14 @@ model PedagogicalModule {
   number             Int      @unique @default(autoincrement())
   /// Identifiant d'URL fixé à la création, stable même si le titre change dans une version ultérieure.
   slug               String   @unique
-  createdById        String   @map("created_by_id") @db.Uuid
+  /// Null = module créé par le système (import d'une source documentaire, voir `sourceImport`).
+  createdById        String?  @map("created_by_id") @db.Uuid
   /// Version publiée courante (au plus une ; null = module invisible des routiers).
   publishedVersionId String?  @unique @map("published_version_id") @db.Uuid
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  createdBy        User                 @relation("ModuleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy        User?                @relation("ModuleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   publishedVersion ModuleVersion?       @relation("ModulePublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
   versions         ModuleVersion[]      @relation("ModuleVersions")
   collaborators    ModuleCollaborator[]
@@ -742,6 +743,7 @@ model PedagogicalModule {
   competencies     CompetencyModule[]
   studies          ModuleStudy[]
   activities       ActivityModule[]
+  sourceImport     ModuleSourceImport?
 
   @@index([createdById])
   @@map("pedagogical_modules")
@@ -768,7 +770,8 @@ model ModuleVersion {
   revision         Int                 @default(1)
   /// Version dont le contenu a été repris à la création.
   basedOnVersionId String?             @map("based_on_version_id") @db.Uuid
-  createdById      String              @map("created_by_id") @db.Uuid
+  /// Null = version créée par le système (import d'une source documentaire).
+  createdById      String?             @map("created_by_id") @db.Uuid
   updatedById      String?             @map("updated_by_id") @db.Uuid
   submittedAt      DateTime?           @map("submitted_at") @db.Timestamptz(3)
   submittedById    String?             @map("submitted_by_id") @db.Uuid
@@ -787,7 +790,7 @@ model ModuleVersion {
   stage              ProgressionStage?    @relation(fields: [stageId], references: [id], onDelete: Restrict)
   basedOn            ModuleVersion?       @relation("ModuleVersionBasedOn", fields: [basedOnVersionId], references: [id], onDelete: Restrict)
   derivedVersions    ModuleVersion[]      @relation("ModuleVersionBasedOn")
-  createdBy          User                 @relation("ModuleVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy          User?                @relation("ModuleVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy          User?                @relation("ModuleVersionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
   submittedBy        User?                @relation("ModuleVersionSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
   approvedBy         User?                @relation("ModuleVersionApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
@@ -820,13 +823,14 @@ model ModuleLesson {
   durationMinutes Int?     @map("duration_minutes")
   /// Contrôle de concurrence optimiste de la leçon.
   revision        Int      @default(1)
-  createdById     String   @map("created_by_id") @db.Uuid
+  /// Null = leçon créée par le système (import d'une source documentaire).
+  createdById     String?  @map("created_by_id") @db.Uuid
   updatedById     String?  @map("updated_by_id") @db.Uuid
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   version   ModuleVersion    @relation(fields: [versionId], references: [id], onDelete: Restrict)
-  createdBy User             @relation("ModuleLessonCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy User?            @relation("ModuleLessonCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy User?            @relation("ModuleLessonUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
   resources ModuleResource[]
 
@@ -886,7 +890,8 @@ model ModuleVersionEvent {
   id         String               @id @default(uuid(7)) @db.Uuid
   moduleId   String               @map("module_id") @db.Uuid
   versionId  String               @map("version_id") @db.Uuid
-  actorId    String               @map("actor_id") @db.Uuid
+  /// Null = action du système, limitée à la création (CHECK `module_version_events_system_actor_check`).
+  actorId    String?              @map("actor_id") @db.Uuid
   action     ModuleVersionAction
   fromStatus ModuleVersionStatus? @map("from_status")
   toStatus   ModuleVersionStatus  @map("to_status")
@@ -896,13 +901,36 @@ model ModuleVersionEvent {
 
   module  PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
   version ModuleVersion     @relation(fields: [versionId], references: [id], onDelete: Restrict)
-  actor   User              @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  actor   User?             @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([moduleId, createdAt])
   @@index([versionId, createdAt])
   @@index([actorId])
   @@index([createdAt])
   @@map("module_version_events")
+}
+
+/// Provenance d'un module créé par import système (seed pédagogique). Ajout seul (trigger SQL) :
+/// une réexécution ne modifie jamais le module ; elle signale les écarts entre la source et cet instantané.
+model ModuleSourceImport {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  moduleId        String   @unique @map("module_id") @db.Uuid
+  /// Code stable de la source (ex. « NT-SCOUT-M01 ») : clé de réexécution du seed.
+  sourceKey       String   @unique @map("source_key")
+  /// Document d'origine, empreinte SHA-256 et pages utilisées.
+  sourceDocument  String   @map("source_document")
+  sourceSha256    String   @map("source_sha256")
+  sourcePages     String   @map("source_pages")
+  /// Notes éditoriales (contenus à compléter, points à vérifier) : jamais transmises aux routiers.
+  editorialNotes  Json     @map("editorial_notes")
+  /// Contenu importé (instantané) et son empreinte, comparés à la source lors des réexécutions.
+  importedContent Json     @map("imported_content")
+  contentHash     String   @map("content_hash")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  module PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  @@map("module_source_imports")
 }
 
 // ─── Phase 4 : progression, compétences, programme annuel, activités ─────────────

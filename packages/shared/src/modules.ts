@@ -365,7 +365,8 @@ export const editorModuleListItemSchema = z.object({
   id: z.uuid(),
   code: z.string(),
   slug: z.string(),
-  createdBy: userSummarySchema,
+  /** Null = module créé par le système (import d'une source documentaire). */
+  createdBy: userSummarySchema.nullable(),
   createdAt: z.iso.datetime(),
   access: z.enum(MODULE_ACCESS_ROLES),
   /** Version de travail (au plus une). */
@@ -416,7 +417,7 @@ export const moduleVersionDetailSchema = z.object({
   theme: z.string().nullable(),
   revision: z.number().int(),
   basedOnVersion: z.number().int().nullable(),
-  createdBy: userSummarySchema,
+  createdBy: userSummarySchema.nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
   updatedBy: userSummarySchema.nullable(),
@@ -441,7 +442,8 @@ export const moduleEventSchema = z.object({
   action: z.enum(MODULE_VERSION_ACTIONS),
   fromStatus: z.enum(MODULE_VERSION_STATUSES).nullable(),
   toStatus: z.enum(MODULE_VERSION_STATUSES),
-  actor: userSummarySchema,
+  /** Null = création par le système (import) ; toute décision a un auteur humain (contrainte SQL). */
+  actor: userSummarySchema.nullable(),
   comment: z.string().nullable(),
   createdAt: z.iso.datetime(),
 });
@@ -456,14 +458,45 @@ export const moduleCollaboratorSchema = z.object({
 
 export type ModuleCollaborator = z.infer<typeof moduleCollaboratorSchema>;
 
+/** Nature d'une note éditoriale d'import. */
+export const SOURCE_NOTE_KINDS = ['A_COMPLETER', 'A_VERIFIER', 'INFORMATION'] as const;
+
+export const SOURCE_NOTE_KIND_LABELS: Record<(typeof SOURCE_NOTE_KINDS)[number], string> = {
+  A_COMPLETER: 'À compléter',
+  A_VERIFIER: 'À vérifier',
+  INFORMATION: 'Information',
+};
+
+export const sourceEditorialNoteSchema = z.object({
+  kind: z.enum(SOURCE_NOTE_KINDS),
+  /** Rang de la leçon concernée dans la version importée (0, 1…) ; null = module entier. */
+  lessonPosition: z.number().int().nonnegative().nullable(),
+  note: z.string(),
+});
+
+export type SourceEditorialNote = z.infer<typeof sourceEditorialNoteSchema>;
+
+/** Provenance d'un module importé : réservée aux rédacteurs, jamais transmise aux routiers. */
+export const moduleSourceImportSchema = z.object({
+  sourceKey: z.string(),
+  sourceDocument: z.string(),
+  sourcePages: z.string(),
+  importedAt: z.iso.datetime(),
+  editorialNotes: z.array(sourceEditorialNoteSchema),
+});
+
+export type ModuleSourceImport = z.infer<typeof moduleSourceImportSchema>;
+
 export const editorModuleDetailSchema = z.object({
   id: z.uuid(),
   code: z.string(),
   slug: z.string(),
-  createdBy: userSummarySchema,
+  createdBy: userSummarySchema.nullable(),
   createdAt: z.iso.datetime(),
   access: z.enum(MODULE_ACCESS_ROLES),
   publishedVersionId: z.uuid().nullable(),
+  /** Provenance si le module a été créé par import système, sinon null. */
+  sourceImport: moduleSourceImportSchema.nullable(),
   /** Version de travail si elle existe, sinon la plus récente. */
   current: moduleVersionDetailSchema,
   versions: z.array(moduleVersionSummarySchema),
@@ -493,7 +526,7 @@ export type ModuleReview = z.infer<typeof moduleReviewSchema>;
 export const submissionItemSchema = z.object({
   moduleId: z.uuid(),
   code: z.string(),
-  createdBy: userSummarySchema,
+  createdBy: userSummarySchema.nullable(),
   collaborators: z.array(userSummarySchema),
   version: moduleVersionSummarySchema,
   submittedBy: userSummarySchema.nullable(),

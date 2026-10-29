@@ -3,10 +3,12 @@ import {
   formatModuleCode,
   type LessonDocument,
   type ModuleEvent,
+  type ModuleSourceImport,
   type ModuleVersionAction,
   type ModuleVersionDetail,
   type ModuleVersionStatus,
   type ModuleVersionSummary,
+  type SourceEditorialNote,
   WORKING_MODULE_STATUSES,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
@@ -79,7 +81,11 @@ export async function resolveAccess(
   client: Prisma.TransactionClient,
   actor: Actor,
   moduleId: string,
-): Promise<{ access: ModuleAccess; createdById: string; publishedVersionId: string | null }> {
+): Promise<{
+  access: ModuleAccess;
+  createdById: string | null;
+  publishedVersionId: string | null;
+}> {
   const module = await client.pedagogicalModule.findUnique({
     where: { id: moduleId },
     select: {
@@ -248,7 +254,7 @@ export function toVersionDetail(row: DetailRow): ModuleVersionDetail {
     theme: row.theme,
     revision: row.revision,
     basedOnVersion: row.basedOn?.version ?? null,
-    createdBy: toUserSummary(row.createdBy)!,
+    createdBy: toUserSummary(row.createdBy),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     updatedBy: toUserSummary(row.updatedBy),
@@ -282,9 +288,26 @@ export function toEvent(row: EventRow): ModuleEvent {
     action: row.action,
     fromStatus: row.fromStatus,
     toStatus: row.toStatus,
-    actor: toUserSummary(row.actor)!,
+    actor: toUserSummary(row.actor),
     comment: row.comment,
     createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** Provenance d'un module importé (notes éditoriales écrites par le seed, validées à l'import). */
+export function toSourceImport(row: {
+  sourceKey: string;
+  sourceDocument: string;
+  sourcePages: string;
+  editorialNotes: Prisma.JsonValue;
+  createdAt: Date;
+}): ModuleSourceImport {
+  return {
+    sourceKey: row.sourceKey,
+    sourceDocument: row.sourceDocument,
+    sourcePages: row.sourcePages,
+    importedAt: row.createdAt.toISOString(),
+    editorialNotes: row.editorialNotes as unknown as SourceEditorialNote[],
   };
 }
 

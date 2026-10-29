@@ -9,7 +9,7 @@ import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { editorActivityQueryOptions, editorModulesQueryOptions } from '@/lib/api/modules';
-import { formatDateTime, fullName } from '@/lib/format';
+import { authorName, formatDateTime } from '@/lib/format';
 
 /** Tableau de bord éditorial du chef : compteurs réels et activité récente. */
 export function EditorialOverview() {
@@ -65,7 +65,7 @@ export function EditorialOverview() {
                   </Link>{' '}
                   <span className="text-muted-foreground">
                     · {MODULE_VERSION_ACTION_LABELS[event.action]} (v{event.version}) ·{' '}
-                    {fullName(event.actor)} · {formatDateTime(event.createdAt)}
+                    {authorName(event.actor)} · {formatDateTime(event.createdAt)}
                   </span>
                 </li>
               ))}

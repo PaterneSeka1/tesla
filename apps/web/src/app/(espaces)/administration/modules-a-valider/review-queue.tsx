@@ -14,7 +14,7 @@ import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { submissionsQueryOptions } from '@/lib/api/modules';
-import { formatDateTime, fullName } from '@/lib/format';
+import { authorName, formatDateTime, fullName } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 type Tab = NonNullable<SubmissionListQuery['status']>;
@@ -83,7 +83,7 @@ export function ReviewQueue() {
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
                   <dt className="text-muted-foreground">Auteur</dt>
-                  <dd>{fullName(item.createdBy)}</dd>
+                  <dd>{authorName(item.createdBy)}</dd>
                   {item.collaborators.length > 0 && (
                     <>
                       <dt className="text-muted-foreground">Collaborateurs</dt>

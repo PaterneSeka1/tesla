@@ -4,7 +4,7 @@ import {
   type ModuleVersionSummary,
 } from '@tesla/shared';
 import Link from 'next/link';
-import { formatDateTime, fullName } from '@/lib/format';
+import { authorName, formatDateTime } from '@/lib/format';
 import { ModuleStatusBadge } from './module-status-badge';
 
 type HistoryVersion = Pick<ModuleVersionSummary, 'id' | 'version' | 'status'> &
@@ -36,7 +36,7 @@ export function ModuleHistory({
                 <p className="text-sm">
                   <span className="font-medium">{MODULE_VERSION_ACTION_LABELS[event.action]}</span>{' '}
                   <span className="text-muted-foreground">
-                    · version {event.version} · {fullName(event.actor)} ·{' '}
+                    · version {event.version} · {authorName(event.actor)} ·{' '}
                     {formatDateTime(event.createdAt)}
                   </span>
                 </p>

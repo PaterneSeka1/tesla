@@ -19,6 +19,11 @@ export function fullName(person: { firstName: string; lastName: string }): strin
   return `${person.lastName.toUpperCase()} ${person.firstName}`;
 }
 
+/** Auteur d'un module ou d'une action ; null = création par le système (import d'une source). */
+export function authorName(person: { firstName: string; lastName: string } | null): string {
+  return person ? fullName(person) : 'Import système';
+}
+
 /** Date du jour au format AAAA-MM-JJ (valeur par défaut des champs date). */
 export function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);

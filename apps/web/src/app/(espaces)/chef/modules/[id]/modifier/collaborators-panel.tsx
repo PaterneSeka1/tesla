@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { addCollaborator, chefCandidatesQueryOptions, removeCollaborator } from '@/lib/api/modules';
-import { formatDate, fullName } from '@/lib/format';
+import { authorName, formatDate, fullName } from '@/lib/format';
 
 /** Auteur et chefs invités ; seuls l'auteur et le responsable gèrent les invitations. */
 export function CollaboratorsPanel({ module }: { module: EditorModuleDetail }) {
@@ -18,14 +18,17 @@ export function CollaboratorsPanel({ module }: { module: EditorModuleDetail }) {
   const manage = module.permissions.canManageCollaborators;
   const candidates = useQuery({ ...chefCandidatesQueryOptions, enabled: manage });
   const [userId, setUserId] = useState('');
-  const taken = new Set([module.createdBy.id, ...module.collaborators.map((c) => c.user.id)]);
+  const taken = new Set([
+    ...(module.createdBy ? [module.createdBy.id] : []),
+    ...module.collaborators.map((c) => c.user.id),
+  ]);
   const available = candidates.data?.items.filter((user) => !taken.has(user.id)) ?? [];
 
   return (
     <div className="space-y-4">
       <ul className="space-y-2">
         <li className="rounded-md border bg-white p-3 text-sm">
-          <span className="font-medium">{fullName(module.createdBy)}</span>
+          <span className="font-medium">{authorName(module.createdBy)}</span>
           <span className="text-muted-foreground"> · auteur</span>
         </li>
         {module.collaborators.map((collaborator) => (

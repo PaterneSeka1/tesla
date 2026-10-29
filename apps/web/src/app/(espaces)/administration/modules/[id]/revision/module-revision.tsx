@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CommentDialog } from '@/components/modules/comment-dialog';
 import { ModuleHistory } from '@/components/modules/module-history';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
+import { SourceImportNotes } from '@/components/modules/source-import-notes';
 import { ModuleVersionView } from '@/components/modules/module-version-view';
 import { useModuleAction } from '@/components/modules/use-module-action';
 import { QueryError, TableSkeleton } from '@/components/query-state';
@@ -25,7 +26,7 @@ import {
   rejectModule,
   requestModuleChanges,
 } from '@/lib/api/modules';
-import { fullName } from '@/lib/format';
+import { authorName, fullName } from '@/lib/format';
 
 export function ModuleRevision() {
   const user = useSessionUser();
@@ -57,7 +58,7 @@ function RevisionContent() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
-            {module.code} · version {version.version} · auteur {fullName(module.createdBy)}
+            {module.code} · version {version.version} · auteur {authorName(module.createdBy)}
             {module.collaborators.length > 0 &&
               ` · collaborateurs : ${module.collaborators.map((c) => fullName(c.user)).join(', ')}`}
           </p>
@@ -73,6 +74,8 @@ function RevisionContent() {
           </Link>
         </Button>
       </div>
+
+      {module.sourceImport && <SourceImportNotes source={module.sourceImport} />}
 
       <Card>
         <CardHeader>

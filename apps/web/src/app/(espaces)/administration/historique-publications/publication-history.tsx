@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { publicationHistoryQueryOptions } from '@/lib/api/modules';
-import { formatDateTime, fullName } from '@/lib/format';
+import { authorName, formatDateTime } from '@/lib/format';
 
 export function PublicationHistory() {
   const user = useSessionUser();
@@ -83,7 +83,7 @@ export function PublicationHistory() {
                   <TableCell className="hidden max-w-xs text-muted-foreground md:table-cell">
                     {item.comment ?? '—'}
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">{fullName(item.actor)}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{authorName(item.actor)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

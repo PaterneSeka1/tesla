@@ -10,6 +10,7 @@ import { CommentDialog } from '@/components/modules/comment-dialog';
 import { ModuleHistory } from '@/components/modules/module-history';
 import { ModuleMetadataForm } from '@/components/modules/module-metadata-form';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
+import { SourceImportNotes } from '@/components/modules/source-import-notes';
 import { useModuleAction } from '@/components/modules/use-module-action';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -147,6 +148,8 @@ export function ModuleEditor() {
           )}
         </Alert>
       )}
+
+      {module.sourceImport && <SourceImportNotes source={module.sourceImport} />}
 
       <Card>
         <CardHeader>

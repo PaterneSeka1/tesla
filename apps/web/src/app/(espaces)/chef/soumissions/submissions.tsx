@@ -10,7 +10,7 @@ import { PageHeading } from '@/components/page-heading';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { editorActivityQueryOptions, editorModulesQueryOptions } from '@/lib/api/modules';
-import { formatDateTime, fullName } from '@/lib/format';
+import { authorName, formatDateTime } from '@/lib/format';
 
 const FOLLOWED: ModuleVersionStatus[] = ['A_CORRIGER', 'SOUMIS', 'APPROUVE', 'REFUSE'];
 
@@ -100,7 +100,7 @@ export function Submissions() {
                       {event.title}
                     </Link>{' '}
                     — {MODULE_VERSION_ACTION_LABELS[event.action]} (version {event.version}) par{' '}
-                    {fullName(event.actor)}, {formatDateTime(event.createdAt)}
+                    {authorName(event.actor)}, {formatDateTime(event.createdAt)}
                   </p>
                   {event.comment && (
                     <p className="rounded-md bg-muted/60 px-3 py-2 whitespace-pre-line">
