@@ -10,6 +10,8 @@ describe('validateEnv', () => {
     expect(env.API_PORT).toBe(4000);
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:3000']);
     expect(env.SWAGGER_ENABLED).toBe(true);
+    expect(env.SESSION_TTL_HOURS).toBe(12);
+    expect(env.TRUST_PROXY).toBe(false);
   });
 
   it('désactive Swagger par défaut en production', () => {

@@ -18,6 +18,10 @@ const envSchema = z
       )
       .pipe(z.array(z.url({ error: 'Origine CORS invalide' }))),
     SWAGGER_ENABLED: booleanString.optional(),
+    /** Durée de vie absolue d'une session (heures). */
+    SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
+    /** Derrière un proxy inverse (Nginx) : utiliser X-Forwarded-For pour l'adresse IP du client. */
+    TRUST_PROXY: booleanString.default(false),
   })
   .transform((env) => ({
     ...env,
