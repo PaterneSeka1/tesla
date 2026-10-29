@@ -68,7 +68,9 @@ try {
     create: { code: '2026-2027', title: 'Programme annuel 2026–2027' },
     update: {},
   });
-  console.log(`Seed : ${PROGRAMME_CATEGORIES.length} catégories du programme, programme 2026–2027.`);
+  console.log(
+    `Seed : ${PROGRAMME_CATEGORIES.length} catégories du programme, programme 2026–2027.`,
+  );
 
   const demoPassword = process.env.DEMO_ACCOUNT_PASSWORD;
   if (process.env.NODE_ENV === 'production') {
