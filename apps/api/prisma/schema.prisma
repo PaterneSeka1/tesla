@@ -66,6 +66,16 @@ model User {
   moduleCollaboratorsRemoved ModuleCollaborator[] @relation("ModuleCollaboratorRemovedBy")
   moduleVersionEvents        ModuleVersionEvent[]
 
+  evaluationsCreated          Evaluation[]             @relation("EvaluationCreatedBy")
+  evaluationVersionsCreated   EvaluationVersion[]      @relation("EvaluationVersionCreatedBy")
+  evaluationVersionsUpdated   EvaluationVersion[]      @relation("EvaluationVersionUpdatedBy")
+  evaluationVersionsSubmitted EvaluationVersion[]      @relation("EvaluationVersionSubmittedBy")
+  evaluationVersionsApproved  EvaluationVersion[]      @relation("EvaluationVersionApprovedBy")
+  evaluationQuestionsCreated  EvaluationQuestion[]     @relation("EvaluationQuestionCreatedBy")
+  evaluationQuestionsUpdated  EvaluationQuestion[]     @relation("EvaluationQuestionUpdatedBy")
+  evaluationVersionEvents     EvaluationVersionEvent[]
+  answersGraded               AttemptAnswer[]
+
   @@index([role])
   @@map("users")
 }
@@ -220,44 +230,215 @@ enum AttemptStatus {
 
 /// Évaluation rattachée à une étape de progression (condition d'éligibilité, RM-009).
 /// Le lien vers le module de cours sera ajouté avec le modèle Module (phase 2).
+/// Évaluation (questionnaire) stable. Son contenu est porté par ses versions ; seule la version désignée
+/// par `publishedVersionId` peut être passée par les routiers (docs/FEATURES/EVALUATION_WORKFLOW.md).
 model Evaluation {
-  id        String   @id @default(uuid(7)) @db.Uuid
-  title     String
-  stageId   String   @map("stage_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  /// Numéro séquentiel attribué par PostgreSQL ; code interne affiché « EVAL-001 ».
+  number             Int      @unique @default(autoincrement())
+  /// Titre de la version publiée (ou du premier brouillon) : libellé de référence des listes et dérogations.
+  title              String
+  /// Étape à laquelle l'évaluation est destinée (éligibilité, RM-EVAL-002). Figée après la première publication.
+  stageId            String   @map("stage_id") @db.Uuid
+  /// Module pédagogique évalué (facultatif). Figé après la première publication.
+  moduleId           String?  @map("module_id") @db.Uuid
+  /// Null uniquement pour les évaluations antérieures à la phase 3.
+  createdById        String?  @map("created_by_id") @db.Uuid
+  /// Version publiée courante (au plus une ; null = évaluation non disponible).
+  publishedVersionId String?  @unique @map("published_version_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  stage    ProgressionStage    @relation(fields: [stageId], references: [id], onDelete: Restrict)
-  versions EvaluationVersion[]
-  attempts EvaluationAttempt[]
-  waivers  EvaluationWaiver[]
+  stage            ProgressionStage         @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  module           PedagogicalModule?       @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  createdBy        User?                    @relation("EvaluationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  publishedVersion EvaluationVersion?       @relation("EvaluationPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
+  versions         EvaluationVersion[]      @relation("EvaluationVersions")
+  attempts         EvaluationAttempt[]
+  waivers          EvaluationWaiver[]
+  events           EvaluationVersionEvent[]
 
   @@index([stageId])
+  @@index([moduleId])
+  @@index([createdById])
   @@map("evaluations")
 }
 
 /// Version figée d'un questionnaire. Une version publiée n'est plus modifiée : toute évolution crée une nouvelle version.
-model EvaluationVersion {
-  id            String    @id @default(uuid(7)) @db.Uuid
-  evaluationId  String    @map("evaluation_id") @db.Uuid
-  version       Int
-  /// Questions affichées au routier (sans réponses attendues).
-  questions     Json
-  /// Corrigé et barème : réservés aux chefs et au responsable, jamais imprimés sur la feuille du routier.
-  answerKey     Json?     @map("answer_key")
-  /// Publication après approbation du responsable (workflow développé en phase 2).
-  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
-  publishedById String?   @map("published_by_id") @db.Uuid
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+/// État éditorial d'une version de questionnaire : mêmes états et transitions que les modules
+/// (trigger `evaluation_versions_guard`). Seul le responsable approuve, publie ou archive.
+enum EvaluationVersionStatus {
+  BROUILLON
+  SOUMIS
+  A_CORRIGER
+  REFUSE
+  APPROUVE
+  PUBLIE
+  ARCHIVE
+}
 
-  evaluation  Evaluation          @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
-  publishedBy User?               @relation("EvaluationVersionPublishedBy", fields: [publishedById], references: [id], onDelete: Restrict)
-  attempts    EvaluationAttempt[]
+/// Action enregistrée dans l'historique d'une version de questionnaire (ajout seul).
+enum EvaluationVersionAction {
+  CREEE
+  SOUMISE
+  REPRISE
+  CORRECTIONS_DEMANDEES
+  REFUSEE
+  APPROUVEE
+  PUBLIEE
+  REMPLACEE
+  ARCHIVEE
+}
+
+/// Types de questions. Les deux derniers exigent une correction humaine (aucune correction automatique du texte).
+enum QuestionType {
+  CHOIX_UNIQUE
+  CHOIX_MULTIPLE
+  VRAI_FAUX
+  REPONSE_COURTE
+  REPONSE_DEVELOPPEE
+}
+
+/// Notation d'une question à choix multiples (sans effet sur les autres types).
+enum ScoringPolicy {
+  TOUT_OU_RIEN
+  CREDIT_PARTIEL
+}
+
+/// Version d'un questionnaire. Modifiable uniquement à l'état BROUILLON (trigger SQL) ; une tentative
+/// référence toujours la version exacte passée, qui n'est jamais modifiée ni supprimée.
+model EvaluationVersion {
+  id               String                  @id @default(uuid(7)) @db.Uuid
+  evaluationId     String                  @map("evaluation_id") @db.Uuid
+  version          Int
+  status           EvaluationVersionStatus @default(BROUILLON)
+  title            String
+  /// Consignes affichées au routier et imprimées sur la feuille.
+  instructions     String                  @default("")
+  /// Durée indicative en minutes (information, aucun minuteur imposé).
+  durationMinutes  Int?                    @map("duration_minutes")
+  /// Nombre maximal de tentatives non annulées par routier (null = sans limite).
+  maxAttempts      Int?                    @map("max_attempts")
+  /// Contrôle de concurrence optimiste des informations du brouillon.
+  revision         Int                     @default(1)
+  basedOnVersionId String?                 @map("based_on_version_id") @db.Uuid
+  /// Version du module évalué en vigueur à la publication (cohérence module ↔ évaluation).
+  moduleVersionId  String?                 @map("module_version_id") @db.Uuid
+  /// Format antérieur à la phase 3 (questions en JSON) : conservé pour l'historique, plus utilisé.
+  questions        Json?
+  /// Format antérieur à la phase 3 (corrigé en JSON) : conservé pour l'historique, plus utilisé.
+  answerKey        Json?                   @map("answer_key")
+  /// Null uniquement pour les versions antérieures à la phase 3.
+  createdById      String?                 @map("created_by_id") @db.Uuid
+  updatedById      String?                 @map("updated_by_id") @db.Uuid
+  submittedAt      DateTime?               @map("submitted_at") @db.Timestamptz(3)
+  submittedById    String?                 @map("submitted_by_id") @db.Uuid
+  submissionNote   String?                 @map("submission_note")
+  approvedAt       DateTime?               @map("approved_at") @db.Timestamptz(3)
+  approvedById     String?                 @map("approved_by_id") @db.Uuid
+  publishedAt      DateTime?               @map("published_at") @db.Timestamptz(3)
+  publishedById    String?                 @map("published_by_id") @db.Uuid
+  archivedAt       DateTime?               @map("archived_at") @db.Timestamptz(3)
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  evaluation      Evaluation               @relation("EvaluationVersions", fields: [evaluationId], references: [id], onDelete: Restrict)
+  publishedFor    Evaluation?              @relation("EvaluationPublishedVersion")
+  basedOn         EvaluationVersion?       @relation("EvaluationVersionBasedOn", fields: [basedOnVersionId], references: [id], onDelete: Restrict)
+  derivedVersions EvaluationVersion[]      @relation("EvaluationVersionBasedOn")
+  moduleVersion   ModuleVersion?           @relation(fields: [moduleVersionId], references: [id], onDelete: Restrict)
+  createdBy       User?                    @relation("EvaluationVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy       User?                    @relation("EvaluationVersionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  submittedBy     User?                    @relation("EvaluationVersionSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
+  approvedBy      User?                    @relation("EvaluationVersionApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  publishedBy     User?                    @relation("EvaluationVersionPublishedBy", fields: [publishedById], references: [id], onDelete: Restrict)
+  questionItems   EvaluationQuestion[]
+  attempts        EvaluationAttempt[]
+  events          EvaluationVersionEvent[]
 
   @@unique([evaluationId, version])
   /// Cible de la clé étrangère composite des tentatives (cohérence version ↔ évaluation).
   @@unique([id, evaluationId])
+  /// Une seule version de travail (non close) par évaluation.
+  @@unique([evaluationId], map: "evaluation_versions_one_working", where: raw("status = ANY (ARRAY['BROUILLON'::\"EvaluationVersionStatus\", 'SOUMIS'::\"EvaluationVersionStatus\", 'A_CORRIGER'::\"EvaluationVersionStatus\", 'APPROUVE'::\"EvaluationVersionStatus\"])"))
+  /// Une seule version publiée par évaluation.
+  @@unique([evaluationId], map: "evaluation_versions_one_published", where: raw("status = 'PUBLIE'::\"EvaluationVersionStatus\""))
+  @@index([status])
+  @@index([basedOnVersionId])
+  @@index([moduleVersionId])
   @@map("evaluation_versions")
+}
+
+/// Question ordonnée d'une version. Écriture uniquement dans une version à l'état brouillon (trigger SQL).
+model EvaluationQuestion {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  versionId      String        @map("version_id") @db.Uuid
+  /// Rang dans la version (0, 1, 2…), maintenu contigu par le service.
+  position       Int
+  type           QuestionType
+  /// Énoncé en texte brut (jamais de HTML).
+  prompt         String
+  /// Barème de la question (points), confidentiel jusqu'à la correction.
+  points         Decimal       @db.Decimal(6, 2)
+  scoringPolicy  ScoringPolicy @default(TOUT_OU_RIEN) @map("scoring_policy")
+  /// Critères de correction (corrigé réservé aux chefs et au responsable).
+  guidance       String?
+  /// Réponse ou éléments de réponse attendus pour une question ouverte (corrigé).
+  expectedAnswer String?       @map("expected_answer")
+  revision       Int           @default(1)
+  createdById    String        @map("created_by_id") @db.Uuid
+  updatedById    String?       @map("updated_by_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  version   EvaluationVersion        @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  createdBy User                     @relation("EvaluationQuestionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?                    @relation("EvaluationQuestionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  options   EvaluationAnswerOption[]
+  answers   AttemptAnswer[]
+
+  @@index([versionId, position])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("evaluation_questions")
+}
+
+/// Proposition de réponse d'une question à choix. `isCorrect` fait partie du corrigé : jamais transmis au routier
+/// avant la correction, jamais imprimé sur sa feuille.
+model EvaluationAnswerOption {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  position   Int
+  label      String
+  isCorrect  Boolean  @map("is_correct")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  question EvaluationQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@index([questionId, position])
+  @@map("evaluation_answer_options")
+}
+
+/// Historique des versions de questionnaire et des décisions du responsable (ajout seul, trigger SQL).
+model EvaluationVersionEvent {
+  id           String                   @id @default(uuid(7)) @db.Uuid
+  evaluationId String                   @map("evaluation_id") @db.Uuid
+  versionId    String                   @map("version_id") @db.Uuid
+  actorId      String                   @map("actor_id") @db.Uuid
+  action       EvaluationVersionAction
+  fromStatus   EvaluationVersionStatus? @map("from_status")
+  toStatus     EvaluationVersionStatus  @map("to_status")
+  comment      String?
+  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  evaluation Evaluation        @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
+  version    EvaluationVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  actor      User              @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([evaluationId, createdAt])
+  @@index([versionId, createdAt])
+  @@index([actorId])
+  @@map("evaluation_version_events")
 }
 
 /// Tentative d'évaluation, quel que soit le mode (RM-006 à RM-008, RM-011).
@@ -274,10 +455,17 @@ model EvaluationAttempt {
   status              AttemptStatus  @default(PREPAREE)
   /// Date prévue de passation (feuille papier).
   plannedFor          DateTime?      @map("planned_for") @db.Date
+  /// Ouverture du questionnaire en ligne par le routier.
+  startedAt           DateTime?      @map("started_at") @db.Timestamptz(3)
+  /// Remise des réponses par le routier (en ligne) ; pour le papier, voir `completedAt`.
+  submittedAt         DateTime?      @map("submitted_at") @db.Timestamptz(3)
+  /// Contrôle de concurrence optimiste de la correction (incrémenté à chaque enregistrement).
+  correctionRevision  Int            @default(1) @map("correction_revision")
   /// Date de réalisation par le routier.
   completedAt         DateTime?      @map("completed_at") @db.Timestamptz(3)
-  /// Date d'enregistrement du résultat dans l'application.
+  /// Dernier enregistrement de la correction dans l'application.
   recordedAt          DateTime?      @map("recorded_at") @db.Timestamptz(3)
+  /// Format antérieur à la phase 3 (réponses en JSON) : conservé pour l'historique ; voir `AttemptAnswer`.
   answers             Json?
   score               Decimal?       @db.Decimal(7, 2)
   maxScore            Decimal?       @map("max_score") @db.Decimal(7, 2)
@@ -296,14 +484,15 @@ model EvaluationAttempt {
   createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  scoutProfile ScoutProfile             @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
-  evaluation   Evaluation               @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
-  version      EvaluationVersion        @relation(fields: [evaluationVersionId, evaluationId], references: [id, evaluationId], onDelete: Restrict)
-  waiver       EvaluationWaiver?        @relation(fields: [waiverId], references: [id], onDelete: Restrict)
-  createdBy    User                     @relation("AttemptCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  recordedBy   User?                    @relation("AttemptRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
-  decidedBy    User?                    @relation("AttemptDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
-  events       EvaluationAttemptEvent[]
+  scoutProfile   ScoutProfile             @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  evaluation     Evaluation               @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
+  version        EvaluationVersion        @relation(fields: [evaluationVersionId, evaluationId], references: [id, evaluationId], onDelete: Restrict)
+  waiver         EvaluationWaiver?        @relation(fields: [waiverId], references: [id], onDelete: Restrict)
+  createdBy      User                     @relation("AttemptCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  recordedBy     User?                    @relation("AttemptRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  decidedBy      User?                    @relation("AttemptDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  events         EvaluationAttemptEvent[]
+  attemptAnswers AttemptAnswer[]
 
   /// Prévention des doublons (RM-012) : une seule tentative non clôturée par routier et par évaluation.
   /// Prédicat écrit sous la forme canonique de PostgreSQL pour éviter une fausse dérive du diff Prisma.
@@ -317,6 +506,38 @@ model EvaluationAttempt {
 }
 
 /// Historique en ajout seul d'une tentative : changements de statut, saisies et corrections (réponses originales conservées).
+/// Réponse d'un routier à une question et sa correction. Rattachée à la tentative (donc au profil routier
+/// et à la version exacte). Modifiable seulement tant que la tentative est ouverte à la saisie (trigger SQL).
+model AttemptAnswer {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  attemptId         String    @map("attempt_id") @db.Uuid
+  questionId        String    @map("question_id") @db.Uuid
+  /// Propositions choisies (questions à choix).
+  selectedOptionIds String[]  @map("selected_option_ids") @db.Uuid
+  /// Réponse rédigée (questions ouvertes) ou transcrite depuis la feuille papier.
+  textAnswer        String?   @map("text_answer")
+  /// Points attribués : calculés pour les questions objectives, saisis par un correcteur pour les autres.
+  awardedPoints     Decimal?  @map("awarded_points") @db.Decimal(6, 2)
+  /// Vrai si `awardedPoints` provient du moteur de correction déterministe.
+  autoScored        Boolean   @default(false) @map("auto_scored")
+  /// Appréciation et observation du correcteur (réponses ouvertes).
+  appreciation      String?
+  graderComment     String?   @map("grader_comment")
+  gradedById        String?   @map("graded_by_id") @db.Uuid
+  gradedAt          DateTime? @map("graded_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  attempt  EvaluationAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  question EvaluationQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  gradedBy User?              @relation(fields: [gradedById], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, questionId])
+  @@index([questionId])
+  @@index([gradedById])
+  @@map("attempt_answers")
+}
+
 model EvaluationAttemptEvent {
   id         String         @id @default(uuid(7)) @db.Uuid
   attemptId  String         @map("attempt_id") @db.Uuid
@@ -477,6 +698,7 @@ model PedagogicalModule {
   versions         ModuleVersion[]      @relation("ModuleVersions")
   collaborators    ModuleCollaborator[]
   events           ModuleVersionEvent[]
+  evaluations      Evaluation[]
 
   @@index([createdById])
   @@map("pedagogical_modules")
@@ -517,19 +739,20 @@ model ModuleVersion {
   createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  module          PedagogicalModule    @relation("ModuleVersions", fields: [moduleId], references: [id], onDelete: Restrict)
-  publishedFor    PedagogicalModule?   @relation("ModulePublishedVersion")
-  stage           ProgressionStage?    @relation(fields: [stageId], references: [id], onDelete: Restrict)
-  basedOn         ModuleVersion?       @relation("ModuleVersionBasedOn", fields: [basedOnVersionId], references: [id], onDelete: Restrict)
-  derivedVersions ModuleVersion[]      @relation("ModuleVersionBasedOn")
-  createdBy       User                 @relation("ModuleVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy       User?                @relation("ModuleVersionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
-  submittedBy     User?                @relation("ModuleVersionSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
-  approvedBy      User?                @relation("ModuleVersionApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
-  publishedBy     User?                @relation("ModuleVersionPublishedBy", fields: [publishedById], references: [id], onDelete: Restrict)
-  lessons         ModuleLesson[]
-  resources       ModuleResource[]
-  events          ModuleVersionEvent[]
+  module             PedagogicalModule    @relation("ModuleVersions", fields: [moduleId], references: [id], onDelete: Restrict)
+  publishedFor       PedagogicalModule?   @relation("ModulePublishedVersion")
+  stage              ProgressionStage?    @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  basedOn            ModuleVersion?       @relation("ModuleVersionBasedOn", fields: [basedOnVersionId], references: [id], onDelete: Restrict)
+  derivedVersions    ModuleVersion[]      @relation("ModuleVersionBasedOn")
+  createdBy          User                 @relation("ModuleVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy          User?                @relation("ModuleVersionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  submittedBy        User?                @relation("ModuleVersionSubmittedBy", fields: [submittedById], references: [id], onDelete: Restrict)
+  approvedBy         User?                @relation("ModuleVersionApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  publishedBy        User?                @relation("ModuleVersionPublishedBy", fields: [publishedById], references: [id], onDelete: Restrict)
+  lessons            ModuleLesson[]
+  resources          ModuleResource[]
+  events             ModuleVersionEvent[]
+  evaluationVersions EvaluationVersion[]
 
   @@unique([moduleId, version])
   /// Une seule version de travail (non close) par module.
