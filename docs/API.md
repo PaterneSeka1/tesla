@@ -123,11 +123,84 @@ Un chef n'accède qu'aux modules dont il est auteur ou collaborateur (sinon `404
 | `GET /admin/modules/history?page=` | → page de `publicationHistoryItemSchema` (décisions) |
 
 ### Codes d'erreur
-`VALIDATION_ERROR` (400), `UNAUTHENTICATED`, `INVALID_CREDENTIALS` (401), `FORBIDDEN`, `CSRF_REJECTED`, `OBSERVATION_NOT_AUTHOR`, `EVALUATION_NOT_ELIGIBLE` (403), `SCOUT_PROFILE_NOT_FOUND`, `USER_NOT_FOUND`, `TEAM_NOT_FOUND`, `OBSERVATION_NOT_FOUND`, `MODULE_NOT_FOUND`, `MODULE_VERSION_NOT_FOUND`, `LESSON_NOT_FOUND`, `RESOURCE_NOT_FOUND`, `COLLABORATOR_NOT_FOUND`, `EVALUATION_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WAIVER_NOT_FOUND` (404), `MATRICULE_ALREADY_USED`, `POSSIBLE_DUPLICATE`, `PROFILE_ALREADY_LINKED`, `ACCOUNT_ALREADY_LINKED`, `ACCOUNT_NOT_ROUTIER`, `TEAM_NAME_TAKEN`, `TEAM_ARCHIVED`, `TEAM_ALREADY_ARCHIVED`, `ALREADY_IN_TEAM`, `NO_ACTIVE_TEAM`, `SCOUT_INACTIVE`, `SCOUT_ALREADY_ACTIVE`, `SCOUT_ALREADY_INACTIVE`, `OBSERVATION_STATE_CHANGED`, `ATTEMPT_*`, `INVALID_ATTEMPT_TRANSITION`, `WAIVER_ALREADY_REVOKED`, `EDIT_CONFLICT`, `VERSION_NOT_EDITABLE`, `INVALID_TRANSITION`, `VERSION_NOT_APPROVED`, `WORKING_VERSION_EXISTS`, `ALREADY_COLLABORATOR`, `SLUG_UNAVAILABLE` (409), `INVALID_ASSIGNMENT_DATE`, `STAGE_NOT_FOUND`, `EVALUATION_VERSION_NOT_PUBLISHED`, `ATTEMPT_RESULT_MISSING`, `REASON_REQUIRED`, `INVALID_EXPIRY`, `MODULE_INCOMPLETE`, `TOO_MANY_LESSONS`, `INVALID_COLLABORATOR` (422), `TOO_MANY_LOGIN_ATTEMPTS` (429).
+`VALIDATION_ERROR` (400), `UNAUTHENTICATED`, `INVALID_CREDENTIALS` (401), `FORBIDDEN`, `CSRF_REJECTED`, `OBSERVATION_NOT_AUTHOR`, `EVALUATION_NOT_ELIGIBLE` (403), `SCOUT_PROFILE_NOT_FOUND`, `USER_NOT_FOUND`, `TEAM_NOT_FOUND`, `OBSERVATION_NOT_FOUND`, `MODULE_NOT_FOUND`, `MODULE_VERSION_NOT_FOUND`, `LESSON_NOT_FOUND`, `RESOURCE_NOT_FOUND`, `COLLABORATOR_NOT_FOUND`, `EVALUATION_NOT_FOUND`, `EVALUATION_VERSION_NOT_FOUND`, `QUESTION_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WAIVER_NOT_FOUND` (404), `MATRICULE_ALREADY_USED`, `POSSIBLE_DUPLICATE`, `PROFILE_ALREADY_LINKED`, `ACCOUNT_ALREADY_LINKED`, `ACCOUNT_NOT_ROUTIER`, `TEAM_NAME_TAKEN`, `TEAM_ARCHIVED`, `TEAM_ALREADY_ARCHIVED`, `ALREADY_IN_TEAM`, `NO_ACTIVE_TEAM`, `SCOUT_INACTIVE`, `SCOUT_ALREADY_ACTIVE`, `SCOUT_ALREADY_INACTIVE`, `OBSERVATION_STATE_CHANGED`, `ATTEMPT_*` (dont `ATTEMPT_ALREADY_OPEN`, `ATTEMPT_ALREADY_SUBMITTED`, `ATTEMPT_STATE_CHANGED`, `ATTEMPT_NOT_PRINTABLE`, `ATTEMPT_NOT_CORRECTABLE`), `EVALUATION_SETTINGS_LOCKED`, `MODULE_NOT_PUBLISHED`, `INVALID_ATTEMPT_TRANSITION`, `WAIVER_ALREADY_REVOKED`, `EDIT_CONFLICT`, `VERSION_NOT_EDITABLE`, `INVALID_TRANSITION`, `VERSION_NOT_APPROVED`, `WORKING_VERSION_EXISTS`, `ALREADY_COLLABORATOR`, `SLUG_UNAVAILABLE` (409), `INVALID_ASSIGNMENT_DATE`, `STAGE_NOT_FOUND`, `EVALUATION_VERSION_NOT_PUBLISHED`, `ATTEMPT_RESULT_MISSING`, `REASON_REQUIRED`, `INVALID_EXPIRY`, `MODULE_INCOMPLETE`, `TOO_MANY_LESSONS`, `INVALID_COLLABORATOR`, `EVALUATION_EMPTY`, `TOO_MANY_QUESTIONS`, `UNKNOWN_REFERENCE`, `INVALID_ANSWER`, `POINTS_EXCEED_SCALE`, `CORRECTION_INCOMPLETE`, `COMPLETED_AT_REQUIRED`, `ANSWERS_NOT_EDITABLE` (422), `TOO_MANY_LOGIN_ATTEMPTS` (429).
 
-## Services sans route HTTP (phase 4 bis)
+## Évaluations (phase 3)
 
-`EvaluationAttemptsService` (préparation papier, feuille, recherche par code, saisie, soumission, décision, annulation, réouverture) et `EvaluationWaiversService` sont implémentés et testés sur PostgreSQL mais **non exposés**. Contrats d'entrée : `packages/shared/src/evaluations.ts`. Un routier qui recherche un code ne lui appartenant pas recevra `404 ATTEMPT_NOT_FOUND`.
+Contrats : `packages/shared/src/{evaluation-authoring,evaluations,grading}.ts`. Fonctionnement : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md). Aucune route ne modifie l'étape d'un routier.
+
+### Rédaction des questionnaires (chefs, responsable ; routier : `403`)
+
+Un chef n'accède qu'aux questionnaires qu'il a créés ou dont il rédige le module évalué (sinon `404 EVALUATION_NOT_FOUND`). Les réponses contiennent le corrigé (bonnes réponses, barèmes, critères).
+
+| Méthode et chemin | Entrée → sortie |
+| --- | --- |
+| `GET /editor/evaluations?search=&status=&page=` | → page de `editorEvaluationListItemSchema` |
+| `GET /editor/evaluations/module-options` | → `moduleOptionListSchema` (modules proposés au rattachement) |
+| `POST /editor/evaluations` | `createEvaluationInputSchema { title, stageId, moduleId?, instructions?, durationMinutes?, maxAttempts? }` → `201 editorEvaluationDetailSchema` (version 1 en brouillon) |
+| `GET /editor/evaluations/:id` | → `editorEvaluationDetailSchema` (version de travail, versions, historique, `settingsEditable`) |
+| `PATCH /editor/evaluations/:id` | `updateEvaluationInputSchema { versionId, revision, … }` ; `stageId`/`moduleId` refusés après une première publication (`409 EVALUATION_SETTINGS_LOCKED`) |
+| `POST /editor/evaluations/:id/questions` | `createQuestionInputSchema { versionId, type, prompt, points, scoringPolicy?, options[], guidance?, expectedAnswer? }` → `201` |
+| `PATCH /editor/evaluations/:id/questions/:questionId` | `updateQuestionInputSchema { revision, … }` (remplacement complet, propositions comprises) |
+| `DELETE /editor/evaluations/:id/questions/:questionId?revision=` | → détail à jour |
+| `POST /editor/evaluations/:id/questions/reorder` | `{ versionId, questionIds }` (liste complète) |
+| `POST /editor/evaluations/:id/submit` | `{ versionId, revision, note? }` → `BROUILLON → SOUMIS` (`422 EVALUATION_EMPTY` sans question) |
+| `POST /editor/evaluations/:id/resume` | `{ versionId }` → `A_CORRIGER → BROUILLON` |
+| `POST /editor/evaluations/:id/versions` | → nouvelle version de travail copiée de la version publiée |
+
+### Approbation des questionnaires (responsable uniquement)
+
+| Méthode et chemin | Entrée → sortie |
+| --- | --- |
+| `GET /admin/evaluations/submissions?status=SOUMIS\|APPROUVE` | → `evaluationSubmissionListSchema` |
+| `GET /admin/evaluations/:id/review` | → `evaluationReviewSchema` (contenu exact + version publiée pour comparaison) |
+| `POST /admin/evaluations/:id/approve` | `{ versionId, comment? }` → `204` |
+| `POST /admin/evaluations/:id/request-changes` · `/reject` | `{ versionId, comment }` (motif obligatoire) → `204` |
+| `POST /admin/evaluations/:id/publish` | `{ versionId }` → `204` ; atomique ; `409 MODULE_NOT_PUBLISHED` si le module évalué n'est pas publié |
+| `POST /admin/evaluations/:id/archive` | `{ versionId, comment }` → `204` |
+
+### Passation en ligne (routier ; liste lisible par toute session)
+
+Le routier ne reçoit jamais `isCorrect`, `points`, `guidance` ni `expectedAnswer` avant l'examen de son résultat (`publicQuestionSchema`).
+
+| Méthode et chemin | Permission | Entrée → sortie |
+| --- | --- | --- |
+| `GET /evaluations?search=&stageId=&scoutProfileId=&page=` | session | → page de `availableEvaluationSchema` ; `eligibility` du routier connecté, ou du routier `scoutProfileId` pour un chef (préparation papier) |
+| `GET /evaluations/:id` | session | → `availableEvaluationSchema` (évaluation publiée, sinon `404`) |
+| `POST /evaluations/:id/attempts` | routier | → `200 attemptSessionSchema` ; idempotent (reprend la tentative en cours) ; `403 EVALUATION_NOT_ELIGIBLE`, `409 ATTEMPT_ALREADY_OPEN` (tentative papier ou en correction) |
+| `GET /attempts/:id` | routier titulaire | → `attemptSessionSchema` (sinon `404`) |
+| `POST /attempts/:id/answers` | routier titulaire | `saveAnswersInputSchema` → `200` ; `422 INVALID_ANSWER` (question ou proposition d'une autre version) |
+| `POST /attempts/:id/submit` | routier titulaire | `saveAnswersInputSchema` facultatif → `200` ; correction objective ; `409 ATTEMPT_ALREADY_SUBMITTED` en cas de seconde remise |
+| `GET /me/attempts?evaluationId=&page=` | routier | → page de `myAttemptSchema` (`result` après acceptation par le responsable, sans corrigé) |
+
+### Papier, correction et examen
+
+Le code de tentative est une clé de recherche, jamais un moyen d'authentification : chaque route exige une session et une permission.
+
+| Méthode et chemin | Permission | Entrée → sortie |
+| --- | --- | --- |
+| `POST /paper-attempts` | chef, responsable | `preparePaperAttemptInputSchema { scoutProfileId, evaluationId, evaluationVersionId?, plannedFor? }` → `201 correctionDetailSchema` (code `NT-AAAA-NNNNNN`) |
+| `GET /paper-attempts/:code/pdf?document=questionnaire\|corrige\|grille` | questionnaire : chef, responsable ; corrigé et grille : idem | → `application/pdf` (A4). Questionnaire : tentative `PREPAREE` uniquement (`409 ATTEMPT_NOT_PRINTABLE`) ; réimpression sans nouvelle tentative. Routier : `403` |
+| `GET /corrections?search=&status=&mode=&evaluationId=&scoutProfileId=&page=` | chef, responsable | → page de `correctionListItemSchema` (`status` par défaut `A_CORRIGER`, ou `open`, `all`) |
+| `GET /corrections/:code` | chef, responsable | → `correctionDetailSchema` (version exacte, corrigé, réponses, notes, historique) |
+| `POST /corrections/:code/answers` | chef, responsable | `saveCorrectionInputSchema { correctionRevision, completedAt?, answers? (papier), grades[], observations?, reason? }` → `200` ; `409 ATTEMPT_STATE_CHANGED` (révision périmée), `422 POINTS_EXCEED_SCALE`, `REASON_REQUIRED`, `ANSWERS_NOT_EDITABLE` |
+| `POST /corrections/:code/submit-review` | chef, responsable | `{ correctionRevision }` → `A_CORRIGER → SOUMISE` ; `422 CORRECTION_INCOMPLETE` |
+| `POST /corrections/:code/cancel` | chef, responsable | `{ reason }` → `ANNULEE` (code conservé) |
+| `GET /admin/attempts/pending-review?search=&page=` | responsable | → page de `correctionListItemSchema` (statut `SOUMISE`) |
+| `GET /admin/attempts/:id` | chef, responsable | → `correctionDetailSchema` |
+| `POST /admin/attempts/:id/accept-review` | responsable | `{ comment? }` → `SOUMISE → VALIDEE` (« résultat accepté », jamais une validation d'acquis) |
+| `POST /admin/attempts/:id/request-correction` | responsable | `{ reason }` → `SOUMISE → A_CORRIGER` |
+| `POST /admin/attempts/:id/reopen` | responsable | `{ reason }` → résultat examiné rouvert en `A_CORRIGER` |
+
+Adaptation des routes demandées : la saisie et la soumission de correction sont communes aux copies papier et en ligne (`/corrections/:code/…` au lieu de `/paper-attempts/:code/answers` et `/submit-review`) ; la consultation par code passe par `GET /corrections/:code`.
+
+### Déblocages (responsable uniquement)
+
+| Méthode et chemin | Entrée → sortie |
+| --- | --- |
+| `GET /admin/waivers?status=active\|inactive\|all&search=&page=` | → page de `waiverSchema` |
+| `POST /admin/waivers` | `grantWaiverInputSchema { scoutProfileId, evaluationId, reason, expiresAt? }` → `201 { id }` (journalisé) |
+| `POST /admin/waivers/:id/revoke` | `{ reason }` → `200 { id }` (journalisé) |
 
 ## Conventions
 
@@ -153,19 +226,4 @@ Toutes les erreurs suivent `apiErrorSchema` :
 `code` est stable (exploitable par le web) ; `message` est affichable en français. Les erreurs 5xx ne renvoient aucun détail interne (journalisées côté serveur).
 
 ## Endpoints prévus (non implémentés)
-Gestion des comptes (création, activation, réinitialisation du mot de passe), évaluations en ligne, validations officielles, programme annuel, consultation du journal d'audit.
-
-### Contrats prévus — tentatives et impression (phase 4 bis)
-
-| Méthode et chemin | Service | Remarque |
-| --- | --- | --- |
-| `POST /attempts/paper` | `preparePaper` | Renvoie la tentative et son code `NT-AAAA-NNNNNN` |
-| `GET /attempts/code/:code` | `findByCode` | Recherche normalisée |
-| `PUT /attempts/:id/result` | `recordPaperResult` | Motif requis après soumission |
-| `POST /attempts/:id/submit` · `/decision` · `/cancel` · `/reopen` | `submit`, `decide`, `cancel`, `reopen` | Décision et réouverture : responsable |
-| `POST /waivers` · `POST /waivers/:id/revoke` | `EvaluationWaiversService` | Responsable uniquement |
-| `GET /attempts/code/:code/sheet.pdf` | `getPaperSheet` + générateur PDF | Questionnaire nominatif ; réimpression sans nouvelle tentative |
-| `GET /evaluations/:id/versions/:v/answer-key.pdf` | à développer | Corrigé : chefs et responsable |
-| `GET /modules/:slug/print.pdf` | à développer | Support de cours en PDF serveur (aujourd'hui : impression navigateur de `/modules/:slug/imprimer`) |
-
-Les chemins sont alignés sur la convention anglaise retenue pour `/teams` et `/scouts` (à confirmer à l'implémentation).
+Gestion des comptes (création, activation, réinitialisation du mot de passe), validation officielle des acquis (phase 4), programme annuel, consultation du journal d'audit, téléversement des copies numérisées, support de cours en PDF serveur (`GET /modules/:slug/print.pdf` ; aujourd'hui : impression navigateur de `/modules/:slug/imprimer`).

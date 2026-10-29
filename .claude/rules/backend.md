@@ -8,7 +8,7 @@ paths:
 ## Modules NestJS
 - Un dossier par domaine dans `src/modules/<domaine>/` : `<domaine>.module.ts`, `.controller.ts`, `.service.ts`, `dto/`.
 - Modules réservés existants : `auth`, `users`, `pedagogy`, `progression`, `programmes`, `audit`. Les compléter plutôt que d'en créer des doublons.
-- Modules métier : `scouts` (profils routiers, matricules, équipes, affectations), `evaluations` (tentatives, codes, dérogations) et `pedagogy` (modules, versions, leçons, workflow de publication, bibliothèque).
+- Modules métier : `scouts` (profils routiers, matricules, équipes, affectations), `evaluations` (questionnaires, passation, tentatives, codes, PDF, corrections, dérogations) et `pedagogy` (modules, versions, leçons, workflow de publication, bibliothèque).
 - Permissions métier centralisées dans `src/common/permissions.ts` (`assertCan(actor, 'permission')`) ; les services reçoivent un `Actor` (`src/common/actor.ts`).
 - ESM : imports relatifs avec extension `.js`.
 

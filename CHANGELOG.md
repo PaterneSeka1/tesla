@@ -4,6 +4,19 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — phase 3 (évaluations, papier, résultats), 2026-10-29
+- Modèle : questionnaires versionnés (états et triggers identiques aux modules), questions, propositions, réponses et corrections, historique des questionnaires ; colonnes de passation et révision de correction sur les tentatives (migration additive `20261030090000_evaluation_engine`, reprise des versions historiques).
+- Moteur de correction déterministe partagé (`gradeObjectiveAnswer`) : choix unique, vrai/faux, choix multiples tout ou rien ou crédit partiel ; réponses libres notées par un chef.
+- API : rédaction `/editor/evaluations/*`, approbation `/admin/evaluations/*`, évaluations publiées et éligibilité `/evaluations`, passation `/evaluations/:id/attempts`, `/attempts/:id/{answers,submit}`, historique `/me/attempts`, papier `/paper-attempts` (+ PDF questionnaire, corrigé, grille via pdfkit), correction `/corrections/*`, examen `/admin/attempts/*`, déblocages `/admin/waivers/*` ; Swagger.
+- Web : espace chef (questionnaires, éditeur de questions, aperçu, évaluation papier en un écran, corrections), espace routier (évaluations, passation mobile, mes résultats), espace responsable (questionnaires à approuver, résultats à examiner, déblocages), compteurs du tableau de bord.
+- Tests : 27 tests unitaires (contrats, moteur de correction, éligibilité), 5 tests d'intégration HTTP couvrant les deux parcours, recette navigateur (23 contrôles).
+
+### Modifié — phase 3, 2026-10-29
+- `EvaluationAttemptsService` : saisie relationnelle des réponses (remplace `recordPaperResult`/`decide`), examen par `acceptReview`/`requestCorrection` ; tests d'intégration papier de la phase 1 bis adaptés.
+- Libellés : `VALIDEE` → « Résultat accepté », `REFUSEE` → « Résultat non retenu » (jamais une validation d'acquis).
+- `ModuleHistory` affiche aussi les versions de questionnaires ; énumérations des tentatives isolées dans `evaluation-enums.ts` (évite un cycle d'import).
+- Dépendance API : `pdfkit` 0.20.2 (+ `@types/pdfkit`).
+
 ### Ajouté — phase 2 (modules pédagogiques et publication), 2026-10-29
 - Modèle : modules, versions, leçons, ressources externes, collaborateurs, historique des versions et décisions (migration additive `20261029120000_pedagogical_modules`, contraintes SQL et triggers : contenu figé hors brouillon, transitions contrôlées, une version de travail et une version publiée par module).
 - API : bibliothèque `/modules` (versions publiées uniquement), rédaction `/editor/*`, approbation `/admin/modules/*` (approuver, demander des corrections, refuser, publier de façon atomique, archiver, historique) ; concurrence optimiste (`409 EDIT_CONFLICT`) ; journalisation des décisions ; documentation Swagger.

@@ -17,7 +17,11 @@
 | Soumettre un module à l'approbation | — | auteur, collaborateur | ✅ |
 | Approuver, demander des corrections, refuser, publier, archiver un module | — | — | ✅ |
 | Consulter la file de validation et l'historique des publications | — | — | ✅ |
-| Passer une évaluation accessible | ✅ | — | — |
+| Consulter les évaluations publiées (sans corrigé) | ✅ | ✅ | ✅ |
+| Passer une évaluation en ligne (étape ou déblocage) | ✅ | — | — |
+| Rédiger un questionnaire, ses bonnes réponses et barèmes ; le soumettre | — | auteur, rédacteur du module évalué | ✅ (tous) |
+| Approuver, demander des modifications, refuser, publier, archiver un questionnaire | — | — | ✅ |
+| Corriger une copie (papier ou en ligne), consulter un corrigé | — | ✅ (toutes les copies, à confirmer) | ✅ |
 | Consulter les fiches, équipes et historiques des routiers | — | ✅ | ✅ |
 | Inscrire / modifier un routier (avec ou sans compte), attribuer le matricule | — | — | ✅ (à confirmer, D32) |
 | Changer l'étape d'un routier (acte officiel journalisé) | — | — | ✅ |
@@ -29,8 +33,8 @@
 | Lire les observations « chefs et responsable » | — | ✅ | ✅ |
 | Lire les observations « responsable uniquement » | — | auteur seulement | ✅ |
 | Préparer une feuille papier, saisir et soumettre un résultat | — | ✅ | ✅ |
-| Rechercher une tentative par code | sa propre tentative | ✅ | ✅ |
-| Décider d'un résultat soumis (`VALIDEE` / `REFUSEE`), rouvrir une décision | — | — | ✅ |
+| Rechercher une tentative par code, imprimer questionnaire, corrigé, grille | — (son historique via « Mes résultats ») | ✅ | ✅ |
+| Examiner un résultat soumis (accepter / demander une nouvelle correction), rouvrir | — | — | ✅ |
 | Accorder / révoquer un déblocage individuel | — | — | ✅ |
 | Valider officiellement un acquis | — | — | ✅ |
 | Consulter sa propre progression | ✅ | — | — |
@@ -50,7 +54,7 @@ Toutes les permissions sont vérifiées côté serveur.
 
 ## Règles identifiées (phase 1 bis — routiers, équipes, évaluations papier)
 
-> Statut : RM-001 à RM-004 et RM-012 (profils, équipes) **implémentés de bout en bout** (routes, écrans, tests) ; RM-005 à RM-011 (tentatives) : services testés, **sans route ni écran** (voir [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)).
+> Statut : RM-001 à RM-004 et RM-012 (profils, équipes) **implémentés de bout en bout** (routes, écrans, tests) ; RM-005 à RM-011 (tentatives) : **exposées par des routes et des écrans en phase 3** (voir [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)).
 
 | ID | Règle | Énoncé | Garantie |
 | --- | --- | --- | --- |
@@ -58,8 +62,8 @@ Toutes les permissions sont vérifiées côté serveur.
 | RM-002 | Matricule facultatif et unique | Chaîne de caractères au format officiel **7 chiffres suivis d'une lettre** (ex. `0000001A`, zéros initiaux conservés), facultative, unique si renseignée, normalisée (espaces supprimés, majuscules), jamais générée. Ce n'est ni un identifiant technique ni un code de tentative. | Index unique + CHECK de forme normalisée |
 | RM-003 | Affectation à une équipe | Un routier appartient à au plus une équipe à un instant donné ; il peut être temporairement sans équipe. Pas de multi-paroisse ni multi-district. | Index unique partiel (affectation ouverte) |
 | RM-004 | Historisation des équipes | Un changement d'équipe clôt l'affectation précédente (date de fin, auteur) et en ouvre une nouvelle. Les évaluations restent liées au profil ; l'équipe à une date passée se déduit de l'historique. | Contrainte d'exclusion (périodes sans chevauchement) |
-| RM-005 | Impression des modules | Trois documents : support de cours, questionnaire nominatif, corrigé chef. Le corrigé n'est accessible qu'aux chefs et au responsable. Génération sans service d'IA. | **Documenté** (générateur PDF non développé) |
-| RM-006 | Questionnaire papier nominatif | Un chef ou le responsable prépare une tentative papier (routier, évaluation, version publiée) → statut `PREPAREE`. La feuille affiche communauté, évaluation, code, identité, matricule, équipe à la date de préparation, date prévue, questions et espaces de réponse ; jamais le corrigé. Réimprimer ne crée pas de tentative ; repasser l'évaluation exige une nouvelle préparation explicite. | Service `preparePaper` / `getPaperSheet` (lecture seule) |
+| RM-005 | Impression des modules | Documents : support de cours, questionnaire nominatif, corrigé chef, grille de correction. Le corrigé n'est accessible qu'aux chefs et au responsable. Génération sans service d'IA. | Questionnaire, corrigé et grille : PDF serveur (pdfkit) ; support de cours : impression navigateur |
+| RM-006 | Questionnaire papier nominatif | Un chef ou le responsable prépare une tentative papier (routier, évaluation, version publiée) → statut `PREPAREE`. La feuille affiche communauté, évaluation, code, identité, matricule, équipe à la date de préparation, date prévue, questions et espaces de réponse ; jamais le corrigé. Réimprimer ne crée pas de tentative ; repasser l'évaluation exige une nouvelle préparation explicite. | `POST /paper-attempts`, `GET /paper-attempts/:code/pdf` (lecture seule) |
 | RM-007 | Code unique de tentative | `NT-AAAA-NNNNNN` (NT = Nikola Tesla, année civile UTC d'émission, rang dans l'année). Généré par le backend, unique, immuable, jamais réutilisé (une tentative annulée garde son code). Identifiant de recherche, **pas un secret** : la recherche par code est soumise aux permissions. | Compteur transactionnel annuel ; unique ; CHECK de format ; trigger d'immutabilité |
 | RM-008 | Saisie de résultat papier | Le chef retrouve la tentative par son code, saisit date de réalisation, réponses, score facultatif, observations, référence de la copie numérisée, puis soumet au responsable. Toute saisie est historisée ; une correction après soumission exige un motif. | Historique `evaluation_attempt_events` en ajout seul |
 | RM-009 | Contrôle de l'éligibilité | Avant toute préparation (avec ou sans compte) : routier existant, version publiée, évaluation de l'étape courante du routier **ou** dérogation active (non révoquée, non expirée) accordée par le responsable avec motif, date, expiration éventuelle, révocation tracée. | Service + `AuditLog` des dérogations |
@@ -92,8 +96,27 @@ Toutes les permissions sont vérifiées côté serveur.
 | RM-026 | Contenu sûr | Contenu structuré par liste blanche ; aucun HTML exécutable ; liens http(s)/mailto, images https ; ressources par URL externe, vidéos sur hébergeurs autorisés. | `lessonDocumentSchema`, `createResourceInputSchema`, CHECK SQL |
 | RM-027 | Traçabilité | Création, soumission, reprise et décisions historisées (ajout seul) ; décisions et collaborations journalisées. | `module_version_events`, `audit_logs` |
 
+### Règles de la phase 3 (évaluations)
+
+> Statut : **implémentées de bout en bout** (API, écrans, tests d'intégration, recette navigateur). Détails : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md). RM-005 (impression) et RM-006 à RM-011 sont désormais exposées par des routes et des écrans.
+
+| N° | Règle | Énoncé | Garantie |
+| --- | --- | --- | --- |
+| RM-EVAL-001 | Consultation libre | Tout routier connecté consulte les modules publiés et la liste des évaluations publiées ; consulter n'ouvre pas le droit de passer. | `evaluation.read` ; passation soumise à l'éligibilité |
+| RM-EVAL-002 | Éligibilité contrôlée | Passer (en ligne) ou préparer (papier) exige : profil actif, évaluation publiée, étape courante = étape de l'évaluation **ou** déblocage actif, limite de tentatives non atteinte. Règle provisoire (D59) ; aucune correspondance programme annuel ↔ étapes codée. | `computeEligibility` dans la transaction de création |
+| RM-EVAL-003 | Déblocage exceptionnel | Responsable seul ; routier, évaluation, motif, auteur, date, expiration facultative, révocation motivée ; journalisé. Lève la condition d'étape, pas la limite de tentatives. | `waiver.manage` ; `AuditLog` |
+| RM-EVAL-004 | Validation humaine | Correction (chef) → examen du résultat (responsable : accepté ou nouvelle correction) → validation officielle d'un acquis (phase 4, acte distinct) → changement d'étape (acte distinct). Un score, même parfait, ne change rien d'autre. | Aucune écriture de `current_stage_id` dans le module ; tests |
+| RM-EVAL-005 | Identité indépendante du compte | Toute tentative référence le profil ; un routier sans compte passe sur papier avec le même historique. | `scout_profile_id` obligatoire |
+| RM-EVAL-006 | Questionnaire versionné | Un chef rédige et soumet ; seul le responsable approuve et publie ; seule une version brouillon est modifiable ; toute modification d'un questionnaire publié passe par une nouvelle version approuvée. Étape et module figés après la première publication. | Triggers `evaluation_versions_guard`, `evaluation_questions_draft_guard` |
+| RM-EVAL-007 | Cohérence avec le module | Un questionnaire rattaché à un module n'est publié que si le module est publié ; la version du module en vigueur est enregistrée. | `MODULE_NOT_PUBLISHED` ; `module_version_id` |
+| RM-EVAL-008 | Confidentialité du corrigé | Bonnes réponses, barèmes, critères ne sont transmis ni au routier (avant et après examen) ni imprimés sur sa feuille. | `publicQuestionSchema` ; données du questionnaire PDF expurgées |
+| RM-EVAL-009 | Correction déterministe | Choix unique, vrai/faux : tout ou rien ; choix multiples : tout ou rien ou crédit partiel (configurable par question) ; réponses libres : note, appréciation et observation humaines. Aucune IA, aucun seuil de réussite. | `gradeObjectiveAnswer` (partagé) |
+| RM-EVAL-010 | Remise unique | Une copie en ligne remise n'est plus modifiable ; double remise refusée ; démarrage idempotent. | Verrou de ligne + statut ; trigger `attempt_answers_guard` |
+| RM-EVAL-011 | Correction traçable | Chaque enregistrement de correction est historisé (instantané) ; révision optimiste contre les corrections concurrentes ; reprise d'une copie soumise motivée. | `correctionRevision` ; `evaluation_attempt_events` |
+| RM-EVAL-012 | Pas de compétition | Aucun classement entre routiers ; listes chronologiques. | Interfaces |
+
 ### Cycle de vie d'une tentative
-`PREPAREE → (EN_COURS) → A_CORRIGER → SOUMISE → VALIDEE | REFUSEE` ; `ANNULEE` possible avant décision. Corrections : `SOUMISE → A_CORRIGER` (motif) ; `VALIDEE | REFUSEE → A_CORRIGER` (réouverture par le responsable, motif). Aucune transition ne déclenche de changement d'étape.
+En ligne : `EN_COURS → A_CORRIGER` (remise, correction objective). Papier : `PREPAREE → A_CORRIGER` (première saisie). Puis `A_CORRIGER → SOUMISE` (chef, toutes les réponses libres notées) → `VALIDEE` (« résultat accepté » = examinée) ou retour `A_CORRIGER` (nouvelle correction demandée, motif). `REFUSEE` (« résultat non retenu ») reste disponible dans le modèle, sans écran. `ANNULEE` possible avant examen. Réouverture `VALIDEE | REFUSEE → A_CORRIGER` par le responsable (motif). Aucune transition ne déclenche de changement d'étape.
 
 ## Référentiel de progression (SAPF-Route)
 
@@ -108,7 +131,10 @@ Ces étapes sont chargées par le seed (`progression_stages`) depuis `@tesla/sha
 
 ## Points en attente d'arbitrage (ne pas coder de valeur définitive)
 - **Durées d'étape** : le document SAPF donne des durées narratives (1, 6, 10 mois, une année) et un tableau synoptique qui les module selon l'âge (18/19/20 ans). Lequel fait foi ?
-- Conditions d'accès précises aux évaluations par étape et seuils de réussite.
+- Conditions d'accès précises aux évaluations par étape et seuils de réussite (aucun seuil appliqué : score affiché seul).
+- **Crédit partiel** des choix multiples : formule provisoire (bonnes − mauvaises) ÷ bonnes, bornée à 0 (D60).
+- **Résultat communiqué au routier** : score et appréciations après acceptation, sans les bonnes réponses (D61).
+- **Correction** : tous les chefs peuvent corriger toutes les copies (D65) ; faut-il restreindre par équipe ?
 - Rôle des chefs dans la consultation des résultats individuels.
 - Qui gère les comptes (responsable ou administrateur technique distinct).
 - Durée de conservation des données et des résultats.

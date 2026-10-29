@@ -14,9 +14,13 @@ PostgreSQL 18 (Docker Compose en développement) · Prisma 7 avec `@prisma/adapt
 | `ProgressionStage` (`progression_stages`) | Référentiel des étapes | `code` et `position` uniques ; alimenté par le seed |
 | `Team` (`teams`) | Équipe de la communauté | `name` unique ; archivage par `archivedAt` (jamais supprimée) |
 | `TeamAssignment` (`team_assignments`) | Historique des affectations | `startedAt`, `endedAt` (null = en cours), `assignedById`, `endedById` ; une seule affectation ouverte par routier ; périodes sans chevauchement |
-| `Evaluation` (`evaluations`) | Évaluation | `title`, `stageId` (étape d'éligibilité) ; lien vers le module à ajouter en phase 2 |
-| `EvaluationVersion` (`evaluation_versions`) | Version figée d'un questionnaire | `(evaluationId, version)` unique ; `questions`, `answerKey` (corrigé, jamais imprimé sur la feuille routier), `publishedAt`, `publishedById` |
-| `EvaluationAttempt` (`evaluation_attempts`) | Tentative (en ligne, hors ligne, papier) | `code` unique et immuable ; `scoutProfileId` (profil, pas compte) ; version exacte (FK composite `(evaluationVersionId, evaluationId)`) ; `mode`, `status` ; `plannedFor`, `completedAt`, `recordedAt` ; `answers`, `score`, `maxScore`, `observations`, `evidenceFileKey` ; auteurs (`createdById`, `recordedById`, `decidedById`) ; `waiverId` ; annulation motivée |
+| `Evaluation` (`evaluations`) | Évaluation (questionnaire stable) | `number` (code `EVAL-NNN`), `title` (titre publié), `stageId` (étape d'éligibilité) et `moduleId` facultatif, figés après la première publication ; `createdById` ; `publishedVersionId` (au plus une version publiée) |
+| `EvaluationVersion` (`evaluation_versions`) | Version d'un questionnaire | `(evaluationId, version)` unique ; `status` (mêmes états que les modules), `title`, `instructions`, `durationMinutes`, `maxAttempts`, `revision` ; auteurs et dates de soumission, approbation, publication, archivage ; `moduleVersionId` (version du module en vigueur à la publication). Colonnes JSON `questions`/`answerKey` de la phase 1 bis conservées (historique), plus utilisées |
+| `EvaluationQuestion` (`evaluation_questions`) | Question | `versionId`, `position`, `type` (`QuestionType`), `prompt` (texte brut), `points` (DECIMAL 6,2), `scoringPolicy`, `guidance` (critères), `expectedAnswer`, `revision` |
+| `EvaluationAnswerOption` (`evaluation_answer_options`) | Proposition de réponse | `questionId`, `position`, `label`, `isCorrect` (corrigé : jamais transmis au routier avant examen) |
+| `EvaluationVersionEvent` (`evaluation_version_events`) | Historique des questionnaires | Ajout seul : action, états, auteur, commentaire (décisions du responsable également dans `AuditLog`) |
+| `EvaluationAttempt` (`evaluation_attempts`) | Tentative (en ligne, hors ligne, papier) | `code` unique et immuable ; `scoutProfileId` (profil, pas compte) ; version exacte (FK composite `(evaluationVersionId, evaluationId)`) ; `mode`, `status` ; `plannedFor`, `startedAt`, `submittedAt`, `completedAt`, `recordedAt`, `correctionRevision` ; `score`, `maxScore` (calculés), `answers` (JSON phase 1 bis, conservé), `maxScore`, `observations`, `evidenceFileKey` ; auteurs (`createdById`, `recordedById`, `decidedById`) ; `waiverId` ; annulation motivée |
+| `AttemptAnswer` (`attempt_answers`) | Réponse et correction | `(attemptId, questionId)` unique ; `selectedOptionIds`, `textAnswer` ; `awardedPoints`, `autoScored` ; `appreciation`, `graderComment`, `gradedById`, `gradedAt` |
 | `EvaluationAttemptEvent` (`evaluation_attempt_events`) | Historique d'une tentative | Ajout seul (trigger) : `fromStatus`, `toStatus`, `actorId`, `reason`, `snapshot` (valeurs saisies) |
 | `AttemptCodeCounter` (`attempt_code_counters`) | Compteur annuel des codes | `year` (PK), `lastValue` (1 à 999 999) |
 | `EvaluationWaiver` (`evaluation_waivers`) | Dérogation (déblocage individuel) | `reason`, `grantedById`, `grantedAt`, `expiresAt`, `revokedAt`, `revokedById`, `revocationReason` |
@@ -28,9 +32,9 @@ PostgreSQL 18 (Docker Compose en développement) · Prisma 7 avec `@prisma/adapt
 | `ModuleVersionEvent` (`module_version_events`) | Historique des versions et décisions | Ajout seul : `action` (`ModuleVersionAction`), `fromStatus`, `toStatus`, `actorId`, `comment` |
 | `AuditLog` (`audit_logs`) | Journal | Ajout seul ; `actorId` null = action système ; index `(entityType, entityId)`, `actorId`, `createdAt` |
 
-Enums : `Role`, `ObservationVisibility` (`ENCADREMENT`, `RESPONSABLE`), `ModuleVersionStatus` (`BROUILLON`, `SOUMIS`, `A_CORRIGER`, `REFUSE`, `APPROUVE`, `PUBLIE`, `ARCHIVE`), `ModuleVersionAction` (`CREEE`, `SOUMISE`, `REPRISE`, `CORRECTIONS_DEMANDEES`, `REFUSEE`, `APPROUVEE`, `PUBLIEE`, `REMPLACEE`, `ARCHIVEE`), `ModuleResourceKind`, `EvaluationMode` (`EN_LIGNE`, `HORS_LIGNE`, `PAPIER`), `AttemptStatus` (`PREPAREE`, `EN_COURS`, `A_CORRIGER`, `SOUMISE`, `VALIDEE`, `REFUSEE`, `ANNULEE`). Synchronisation avec `@tesla/shared` vérifiée par des tests.
+Enums : `Role`, `ObservationVisibility` (`ENCADREMENT`, `RESPONSABLE`), `ModuleVersionStatus` (`BROUILLON`, `SOUMIS`, `A_CORRIGER`, `REFUSE`, `APPROUVE`, `PUBLIE`, `ARCHIVE`), `ModuleVersionAction` (`CREEE`, `SOUMISE`, `REPRISE`, `CORRECTIONS_DEMANDEES`, `REFUSEE`, `APPROUVEE`, `PUBLIEE`, `REMPLACEE`, `ARCHIVEE`), `ModuleResourceKind`, `EvaluationVersionStatus` et `EvaluationVersionAction` (mêmes valeurs que les modules), `QuestionType` (`CHOIX_UNIQUE`, `CHOIX_MULTIPLE`, `VRAI_FAUX`, `REPONSE_COURTE`, `REPONSE_DEVELOPPEE`), `ScoringPolicy` (`TOUT_OU_RIEN`, `CREDIT_PARTIEL`), `EvaluationMode` (`EN_LIGNE`, `HORS_LIGNE`, `PAPIER`), `AttemptStatus` (`PREPAREE`, `EN_COURS`, `A_CORRIGER`, `SOUMISE`, `VALIDEE`, `REFUSEE`, `ANNULEE`). Synchronisation avec `@tesla/shared` vérifiée par des tests.
 
-Noms de modèles en anglais (convention du code) : `ScoutProfile` = profil routier, `Team` = équipe, `TeamAssignment` = affectation, `EvaluationAttempt` = tentative d'évaluation, `EvaluationWaiver` = dérogation.
+Noms de modèles en anglais (convention du code) : `ScoutProfile` = profil routier, `Team` = équipe, `TeamAssignment` = affectation, `EvaluationAttempt` = tentative d'évaluation, `EvaluationWaiver` = dérogation. Correspondance avec les noms de la mission phase 3 : `Question` = `EvaluationQuestion`, `AnswerOption` = `EvaluationAnswerOption`, `EvaluationOverride` = `EvaluationWaiver`, `EvaluationReview` = décision portée par la tentative (`decidedById`, `decidedAt`, `decisionComment`) et son historique `EvaluationAttemptEvent`, `EvaluationAudit` = `EvaluationVersionEvent` + `AuditLog`.
 
 ```mermaid
 erDiagram
@@ -43,6 +47,12 @@ erDiagram
   User ||--o{ ScoutObservation : auteur
   Team ||--o{ TeamAssignment : membres
   Evaluation ||--o{ EvaluationVersion : versions
+  PedagogicalModule |o--o{ Evaluation : "module évalué"
+  EvaluationVersion ||--o{ EvaluationQuestion : questions
+  EvaluationQuestion ||--o{ EvaluationAnswerOption : propositions
+  EvaluationVersion ||--o{ EvaluationVersionEvent : "historique (ajout seul)"
+  EvaluationAttempt ||--o{ AttemptAnswer : réponses
+  EvaluationQuestion ||--o{ AttemptAnswer : ""
   ScoutProfile ||--o{ EvaluationAttempt : tentatives
   Evaluation ||--o{ EvaluationAttempt : ""
   EvaluationVersion ||--o{ EvaluationAttempt : "version exacte"
@@ -98,6 +108,18 @@ Ajoutées en fin de migration `20261029120000_pedagogical_modules` :
 | Trigger `pedagogical_modules_published_guard` | `pedagogical_modules` | Suppression interdite ; `published_version_id` désigne une version `PUBLIE` du même module |
 | Trigger `module_version_events_append_only` | `module_version_events` | Ni mise à jour ni suppression |
 
+Ajoutées en fin de migration `20261030090000_evaluation_engine` :
+
+| Contrainte | Table | Effet |
+| --- | --- | --- |
+| `evaluation_versions_one_working`, `evaluation_versions_one_published` (index uniques partiels) | `evaluation_versions` | Une version de travail et une version publiée au plus par évaluation |
+| `evaluation_versions_values_check`, `evaluation_questions_values_check`, `evaluation_answer_options_values_check`, `attempt_answers_values_check`, `evaluation_attempts_correction_revision_check` | — | Titre 1–150, consignes ≤ 3 000, durée 1–600 min, tentatives 1–20, énoncé 1–2 000, barème 0 < points ≤ 1 000, libellé 1–500, note ≥ 0, réponse ≤ 5 000 |
+| Trigger `evaluation_versions_guard` | `evaluation_versions` | Suppression interdite ; évaluation, numéro, auteur, origine immuables ; contenu modifiable seulement en `BROUILLON` ; transitions limitées au workflow |
+| Triggers `evaluation_questions_draft_guard`, `evaluation_answer_options_draft_guard` | questions, propositions | Écriture seulement dans une version `BROUILLON` ; jamais de changement de version ou de question |
+| Trigger `evaluations_published_guard` | `evaluations` | Suppression interdite ; `published_version_id` désigne une version `PUBLIE` de la même évaluation |
+| Trigger `attempt_answers_guard` | `attempt_answers` | Suppression interdite ; la question appartient à la version de la tentative ; écriture seulement si la tentative est `PREPAREE`, `EN_COURS` ou `A_CORRIGER` |
+| Trigger `evaluation_version_events_append_only` | `evaluation_version_events` | Ni mise à jour ni suppression |
+
 L'index unique partiel est déclaré avec la preview Prisma `partialIndexes` ; son prédicat est écrit sous la forme canonique de PostgreSQL pour éviter une fausse dérive.
 
 ## Génération des codes de tentative
@@ -133,6 +155,7 @@ La ligne de l'année reste verrouillée jusqu'au `COMMIT` : les créations concu
 | `20261028212208_teams_matricule_evaluation_attempts` | Additive : identité et matricule sur `scout_profiles` (compte facultatif), équipes, affectations, évaluations, versions, tentatives, historique, compteur, dérogations, contraintes SQL | Rejouée sur une base jetable contenant un profil lié à un compte (noms repris, `user_id` conservé) puis appliquée par `db:deploy` sur la base de développement ; diff base ↔ schéma vide ; aucun `DROP` |
 | `20261028230000_scout_status_observations` | Additive : `scout_profiles.is_active` (défaut `true`, profils existants conservés actifs), enum `ObservationVisibility`, tables `scout_observations` et `scout_observation_revisions`, CHECK et triggers | Appliquée sur `tesla_test` puis sur la base de développement (`db:deploy`) ; diff base ↔ schéma vide ; aucun `DROP` |
 | `20261029120000_pedagogical_modules` | Additive : enums `ModuleVersionStatus`, `ModuleVersionAction`, `ModuleResourceKind` ; tables des modules, versions, leçons, ressources, collaborateurs, historique ; CHECK et triggers | Appliquée sur `tesla_test` puis sur la base de développement (`db:deploy`) ; diff base ↔ schéma vide ; aucun `DROP` |
+| `20261030090000_evaluation_engine` | Additive : enums `EvaluationVersionStatus`, `EvaluationVersionAction`, `QuestionType`, `ScoringPolicy` ; colonnes de workflow sur `evaluations`/`evaluation_versions`, colonnes de passation sur `evaluation_attempts` ; tables `evaluation_questions`, `evaluation_answer_options`, `evaluation_version_events`, `attempt_answers` ; CHECK et triggers. `questions` devient nullable (aucune colonne supprimée) | Rejouée sur une base jetable contenant des versions historiques (2 publiées, 2 brouillons) : titre repris, dernière publiée `PUBLIE`, précédente `ARCHIVE`, brouillon le plus récent `BROUILLON`, ancien brouillon `REFUSE`, pointeur de publication renseigné ; puis `tesla_test` et base de développement (`db:deploy`) ; diff base ↔ schéma vide |
 | `20261028222140_matricule_official_format` | Remplace la contrainte de format du matricule par le format officiel (7 chiffres + 1 lettre) ; aucune donnée modifiée, échec volontaire si un matricule existant est non conforme | Appliquée sur la base de développement (aucun matricule existant) et sur `tesla_test` ; diff vide |
 
 Reprise de données de la migration 2 : `first_name`/`last_name` ajoutées nullables, copiées depuis `users`, puis `NOT NULL`. La table des tentatives étant créée par cette migration, aucune tentative historique sans code n'existait ; pour un futur ajout de colonne obligatoire sur des tentatives existantes, générer les valeurs (ex. codes, par ordre de `created_at`) **avant** la contrainte `NOT NULL`, sans toucher aux scores, décisions ni versions.
@@ -146,4 +169,4 @@ Les UUID v7 sont générés par le client Prisma (pas de valeur par défaut SQL)
 `npm run test:int -w @tesla/api` avec `TEST_DATABASE_URL` vers une base dont le nom finit par `_test` (refus sinon). Les migrations y sont appliquées par `migrate deploy`, puis les tables sont vidées (`TRUNCATE`) avant chaque test.
 
 ## Extensions prévues (non créées)
-Lien évaluation ↔ module, progression de lecture, questions structurées, validations officielles d'acquis et d'étape (acte du responsable référençant le profil), historique structuré des étapes (aujourd'hui : `AuditLog` `scout_profile.stage_changed`), stockage des copies numérisées, programme annuel et séances. Chacune sera ajoutée dans la phase qui l'utilise.
+Progression de lecture, validations officielles d'acquis et d'étape (acte du responsable référençant le profil), historique structuré des étapes (aujourd'hui : `AuditLog` `scout_profile.stage_changed`), stockage des copies numérisées, programme annuel et séances. Chacune sera ajoutée dans la phase qui l'utilise.

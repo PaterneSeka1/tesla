@@ -30,14 +30,15 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 
 | Dossier | Contenu |
 | --- | --- |
-| `app/` | Routes App Router : `/`, `/connexion`, `(espaces)/routier`, `/chef` (+ `/chef/modules`, `/chef/modules/nouveau`, `/chef/modules/[id]/{modifier,apercu}`, `/chef/soumissions`), `/responsable`, `(espaces)/administration/{equipes,routiers}` (liste, création, fiche, modification), `(espaces)/administration/{modules,modules-a-valider,modules/[id]/revision,historique-publications}`, `(espaces)/modules` (bibliothèque : `/modules`, `/modules/[slug]`, `/modules/[slug]/lecons/[id]`, `/modules/[slug]/imprimer`), `/hors-ligne`, `manifest.ts`, pages 404/erreur/chargement |
+| `app/` | Routes App Router : `/`, `/connexion`, `(espaces)/routier`, `/chef` (+ `/chef/modules`, `/chef/modules/nouveau`, `/chef/modules/[id]/{modifier,apercu}`, `/chef/soumissions`), `/responsable`, `(espaces)/administration/{equipes,routiers}` (liste, création, fiche, modification), `(espaces)/administration/{modules,modules-a-valider,modules/[id]/revision,historique-publications}`, évaluations : `/chef/evaluations` (+ `nouvelle`, `[id]/{modifier,apercu}`, `papier`, `papier/[code]`), `/chef/corrections` (+ `[code]`), `/administration/{evaluations,evaluations/[id],evaluations-a-valider,evaluations-a-valider/[id],deblocages}`, `(espaces)/evaluations` (`/evaluations`, `/evaluations/[id]`, `/evaluations/[id]/passer`), `/mes-resultats`, `(espaces)/modules` (bibliothèque : `/modules`, `/modules/[slug]`, `/modules/[slug]/lecons/[id]`, `/modules/[slug]/imprimer`), `/hors-ligne`, `manifest.ts`, pages 404/erreur/chargement |
 | `proxy.ts` | Redirection vers `/connexion` sans cookie de session (contrôle optimiste) |
 | `components/ui/` | Primitives shadcn/ui (button, card, badge, alert, input, label, skeleton, textarea, native-select, table, dialog, toaster) |
 | `components/layout/` | `DashboardShell` (sidebar desktop, navigation horizontale mobile, `SessionGate`), `SpaceNav` |
 | `components/auth/` | `SessionGate` (vérifie `/auth/me` et le rôle, fournit `useSessionUser`), `UserMenu`, `ResponsableOnly` |
 | `components/modules/` | `LessonEditor` (Tiptap), `LessonContent` (rendu sûr du JSON), `ModuleVersionView`, `ModuleMetadataForm`, `EditorModuleList`, `ModuleHistory`, `ResourceList`, `CommentDialog`, `ModuleStatusBadge`, tableaux de bord éditorial et de validation, `useModuleAction` |
+| `components/evaluations/` | `QuestionForm`, `QuestionList`, `EvaluationSettingsForm`, `EvaluationList`, `CorrectionWorkspace` (saisie papier, notation, soumission), `CopyHeader`/`CopyAnswers`/`CopyHistory`, `AttemptTable`, badges, `useEvaluationAction` |
 | `components/` | `ConfirmDialog`, `Pagination`, `QueryError`/`TableSkeleton`, `FormField`, `FollowUpOverview` (indicateurs) |
-| `lib/api/` | `apiFetch`/`apiSend` (client typé, cookie, en-tête anti-CSRF, erreurs normalisées) et `queryOptions` par domaine (`auth`, `teams`, `scouts`, `modules`) |
+| `lib/api/` | `apiFetch`/`apiSend` (client typé, cookie, en-tête anti-CSRF, erreurs normalisées) et `queryOptions` par domaine (`auth`, `teams`, `scouts`, `modules`, `evaluations`) |
 | `lib/offline/` | Structure IndexedDB (fondation PWA) |
 | `lib/spaces.ts` | Configuration des espaces (dont `bibliotheque`) et de leur navigation ; entrées réservées à un rôle (`roles`) filtrées par `SpaceNav` |
 | `public/sw.js` | Service worker (enregistré en production uniquement) |
@@ -53,7 +54,7 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 | `modules/auth/` | `AuthController` (`/auth/login`, `/logout`, `/me`), `AuthService` (sessions), `SessionGuard` (garde globale, `@Public()`, `@CurrentActor()`), `LoginRateLimiter`, Argon2id |
 | `modules/scouts/` | Contrôleurs `/scouts`, `/teams`, `/scouts/:id/observations` ; `ScoutProfilesService` (liste, fiche, inscription, modification, étape, activation, rattachement de compte, historique pédagogique), `TeamsService` (équipes, archivage, affectations, historique), `ObservationsService` |
 | `modules/progression/` | `GET /progression/stages` |
-| `modules/evaluations/` | `EvaluationAttemptsService` (préparation papier, feuille, recherche par code, saisie, soumission, décision, annulation, réouverture), `EvaluationWaiversService`, émission des codes, transitions, éligibilité |
+| `modules/evaluations/` | Contrôleurs `/editor/evaluations`, `/admin/evaluations`, `/evaluations` + `/attempts` + `/me/attempts`, `/paper-attempts` + `/corrections` + `/admin/attempts`, `/admin/waivers` ; services `EvaluationEditorService` (rédaction), `EvaluationReviewService` (approbation, publication), `EvaluationSessionsService` (passation en ligne), `EvaluationAttemptsService` (papier, correction, examen), `EvaluationWaiversService` ; `eligibility.ts` (fonction pure), `attempt-answers.ts` (validation, correction objective), `attempt-code.ts`, `paper-pdf.ts` (pdfkit) |
 | `modules/pedagogy/` | Contrôleurs `/modules` (bibliothèque), `/editor` (rédaction), `/admin/modules` (approbation) ; `ModuleCatalogService`, `ModuleEditorService`, `ModuleReviewService` ; `module-common.ts` (accès, verrous, historique, présentation) |
 | `modules/` (autres) | Modules réservés : `users`, `programmes`, `audit` (vides) |
 | `app.setup.ts` | Configuration HTTP partagée entre `main.ts` et les tests e2e |
@@ -93,19 +94,19 @@ Le **profil routier** (`ScoutProfile`) est le pivot : un routier sans compte est
 ```
 Chef (application)                     API (NestJS)                                PostgreSQL
 ──────────────────                     ────────────                                ──────────
-Préparer (routier, évaluation, version) ─► permissions → éligibilité (étape ou dérogation)
-                                           → version publiée → pas de tentative ouverte
+Choisir routier + évaluation ──────────► GET /evaluations?scoutProfileId (éligibilité calculée)
+Créer la tentative ─────────────────────► POST /paper-attempts : permissions → éligibilité → version publiée
                                            → issueAttemptCode (compteur annuel verrouillé) ─► INSERT tentative PREPAREE + événement
-Imprimer / réimprimer la feuille ───────► getPaperSheet (lecture seule, sans corrigé) ◄──── tentative + équipe à la date de préparation
+Imprimer / réimprimer ──────────────────► GET /paper-attempts/:code/pdf (pdfkit ; questionnaire sans corrigé ; lecture seule)
    … le routier répond sur papier …
-Rechercher « NT-2027-000125 » ──────────► findByCode (permissions ; introuvable si non autorisé)
-Saisir réponses, score, observations ───► recordPaperResult → A_CORRIGER (événement d'historique)
-Soumettre ──────────────────────────────► submit → SOUMISE
-Responsable : décider ──────────────────► decide → VALIDEE | REFUSEE (+ AuditLog) ; aucune modification d'étape
+Retrouver « NT-2027-000125 » ───────────► GET /corrections/:code (permissions)
+Transcrire, noter, observer ────────────► POST /corrections/:code/answers → A_CORRIGER (correction objective, instantané)
+Soumettre ──────────────────────────────► POST /corrections/:code/submit-review → SOUMISE
+Responsable : examiner ─────────────────► accept-review → VALIDEE (+ AuditLog) | request-correction → A_CORRIGER ; aucune modification d'étape
 ```
 
-- Le code de tentative est **toujours** émis par le serveur, dans la même transaction que la tentative ; le web ne fait que l'afficher et le saisir.
+- Le code de tentative est **toujours** émis par le serveur, dans la même transaction que la tentative (en ligne comme sur papier) ; le web ne fait que l'afficher et le saisir.
 - Le code est un identifiant de recherche, pas un secret : toute lecture passe par les permissions.
-- Les modes `EN_LIGNE` et `HORS_LIGNE` partagent la même table et le même historique (circuit numérique développé en phase 4).
-- Le support de cours s'imprime déjà depuis le navigateur (`/modules/[slug]/imprimer`, A4). La génération PDF serveur (support de cours, questionnaire, corrigé chef) se fera sans service d'IA (phase dédiée, voir [ROADMAP.md](ROADMAP.md)).
-- Les services reçoivent un `Actor` fourni par la garde de session ; les routes des tentatives restent à exposer (phase 4 bis).
+- Les modes `EN_LIGNE` et `PAPIER` partagent les mêmes tables (`evaluation_attempts`, `attempt_answers`), le même moteur de correction et le même historique ; `HORS_LIGNE` reste réservé (non développé).
+- PDF serveur : **pdfkit** (JavaScript pur, polices standard intégrées aux lecteurs PDF, aucune ressource distante) génère questionnaire, corrigé et grille en mémoire, à la demande, sans stockage. Le support de cours reste imprimé depuis le navigateur (`/modules/[slug]/imprimer`).
+- Les services reçoivent un `Actor` fourni par la garde de session.

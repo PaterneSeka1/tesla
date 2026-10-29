@@ -79,5 +79,21 @@ Format : contexte → décision → conséquence. Ajouter une entrée pour chaqu
 | D55 | **Thème en libellé libre**, filtre construit à partir des thèmes des modules publiés | Aucune liste officielle de thèmes n'est arbitrée ; les thèmes de la mission sont des exemples. |
 | D56 | **Code interne `MOD-NNN`** dérivé d'une séquence PostgreSQL (`SERIAL`) | Lisible, unique ; un numéro peut être sauté si une création échoue (sans conséquence). |
 
+## 2026-10-29 — Évaluations, papier et résultats (phase 3)
+
+| N° | Décision | Justification |
+| --- | --- | --- |
+| D57 | **Extension des tables existantes** (`evaluations`, `evaluation_versions`, `evaluation_attempts`, `evaluation_waivers`) plutôt que de nouveaux modèles parallèles ; questions, propositions et réponses en **tables relationnelles** ; colonnes JSON de la phase 1 bis conservées (nullables, plus utilisées) | Les tentatives, codes et dérogations existants restent valides ; triggers et index protègent chaque question et chaque réponse ; aucune suppression de colonne (migration additive). |
+| D58 | **Workflow des questionnaires identique à celui des modules** (mêmes états, transitions, historique, publication atomique) ; étape et module **figés après la première publication** | Un seul modèle mental pour les chefs et le responsable. Changer l'étape d'une évaluation publiée modifierait l'éligibilité de tentatives déjà passées : on crée une nouvelle évaluation. |
+| D59 | **Éligibilité provisoire** : étape courante = étape de l'évaluation, ou déblocage actif ; le déblocage lève l'étape, **pas** la limite de tentatives ; une tentative ouverte se reprend | Reprend la règle provisoire de la phase 1 bis (à confirmer) ; aucune correspondance programme annuel ↔ étapes n'est codée. |
+| D60 | **Crédit partiel** des choix multiples : (bonnes cochées − mauvaises cochées) ÷ nombre de bonnes réponses, borné à 0, arrondi au centième ; politique choisie **par question** (défaut : tout ou rien) | Décourage le « tout cocher » sans pénalité négative ; formule à confirmer par le responsable. |
+| D61 | **Le routier voit son résultat après acceptation par le responsable** : score, points et appréciations par question, commentaire du responsable ; **jamais les bonnes réponses** | Évite la diffusion du corrigé entre routiers ; la correction détaillée reste orale ou en séance. À confirmer. |
+| D62 | **Pas de nouvel état `EXAMINEE`** : `VALIDEE` = « résultat accepté », `REFUSEE` = « résultat non retenu » (libellés modifiés) ; la **validation officielle des acquis** sera un modèle distinct (phase 4), non créé maintenant | Évite une migration d'enum et toute ambiguïté : aucun statut de tentative n'est une validation d'acquis. Pas de table inutilisée. |
+| D63 | **PDF serveur avec pdfkit 0.20** (JS pur, polices standard Windows-1252, en mémoire, `Cache-Control: no-store`) ; logo lu dans `apps/web/public/brand/` s'il existe | Léger pour le VPS (pas de Chromium serveur) ; caractères hors Windows-1252 remplacés par « ? ». Le questionnaire du routier est construit à partir de données expurgées du corrigé. |
+| D64 | **Routes de correction communes** papier/en ligne : `/corrections/:code/answers` et `/submit-review` au lieu de `/paper-attempts/:code/…` ; `GET /evaluations?scoutProfileId=` sert de contrôle d'éligibilité papier | Un seul circuit de correction ; adaptation autorisée par la mission. |
+| D65 | **Tout chef corrige toute copie** et consulte les corrigés ; un questionnaire est rédigé par son auteur, les rédacteurs du module évalué et le responsable | Une seule communauté ; à restreindre par équipe si le responsable le demande. |
+| D66 | **Aucun seuil de réussite ni minuteur** : durée indicative seulement ; nombre maximal de tentatives facultatif (défaut : sans limite) | Valeurs non arbitrées (règle pédagogique 7). |
+| D67 | **Une copie entièrement objective passe aussi par un chef** (soumission explicite), puis par le responsable | Le score automatique n'est jamais communiqué ni retenu sans intervention humaine. |
+
 ## Décisions pédagogiques en attente (responsable)
 Voir [BUSINESS_RULES.md](BUSINESS_RULES.md#points-en-attente-darbitrage-ne-pas-coder-de-valeur-définitive) : durées d'étape selon l'âge, conditions d'accès aux évaluations, seuils, gestion des comptes, conservation des données.
