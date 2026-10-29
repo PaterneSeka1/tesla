@@ -3,6 +3,8 @@ import {
   type ActivitySummary,
   type AttendanceCounts,
   type ChefDashboard,
+  DASHBOARD_TASK_LIMIT,
+  type DashboardTask,
   FOLLOW_UP_ABSENCE_STREAK,
   type FollowUpItem,
   type FollowUpReason,
@@ -13,12 +15,14 @@ import {
   type Statistics,
   type StatisticsQuery,
   statisticsQuerySchema,
+  type YearOverview,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
 import { assertCan } from '../../common/permissions.js';
 import { parseInput } from '../../common/validation.js';
 import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { editableEvaluationsWhere } from '../evaluations/evaluation-common.js';
 import { editableModulesWhere } from '../pedagogy/module-common.js';
 import { scoutRefInclude, toScoutRef } from '../progression/progression-common.js';
 import {
@@ -36,6 +40,15 @@ import {
 
 const toNumber = (value: { toNumber(): number } | null) =>
   value === null ? null : value.toNumber();
+
+const personName = (person: { firstName: string; lastName: string }) =>
+  `${person.firstName} ${person.lastName}`;
+
+/** File unique, la plus ancienne attente d'abord, bornée à `DASHBOARD_TASK_LIMIT`. */
+function rankTasks(tasks: DashboardTask[]): Pick<ResponsableDashboard, 'tasks' | 'taskTotal'> {
+  const sorted = [...tasks].sort((a, b) => a.since.localeCompare(b.since));
+  return { tasks: sorted.slice(0, DASHBOARD_TASK_LIMIT), taskTotal: sorted.length };
+}
 
 function countsOf(rows: { status: string }[]): AttendanceCounts {
   return {
@@ -333,6 +346,204 @@ export class DashboardsService {
     return rows.map((row) => toActivitySummary(row));
   }
 
+  /**
+   * Programme de l'année en cours (celui qui couvre aujourd'hui, sinon le dernier commencé, sinon
+   * le premier à venir), ses jalons et la prochaine activité planifiée de la communauté.
+   */
+  private async yearOverview(): Promise<YearOverview> {
+    const today = startOfTodayUtc();
+    const programme =
+      (await this.prisma.programme.findFirst({
+        where: {
+          startsOn: { lte: today },
+          OR: [{ endsOn: null }, { endsOn: { gte: today } }],
+        },
+        orderBy: { startsOn: 'desc' },
+      })) ??
+      (await this.prisma.programme.findFirst({
+        where: { startsOn: { lte: today } },
+        orderBy: { startsOn: 'desc' },
+      })) ??
+      (await this.prisma.programme.findFirst({
+        orderBy: [{ startsOn: 'asc' }, { createdAt: 'asc' }],
+      }));
+    const [milestones, [nextActivity]] = await Promise.all([
+      programme
+        ? this.prisma.activity.findMany({
+            where: { programmeId: programme.id },
+            select: { id: true, title: true, status: true, plannedOn: true },
+            orderBy: [{ plannedOn: 'asc' }, { createdAt: 'asc' }],
+          })
+        : Promise.resolve([]),
+      this.upcomingActivities({}, 1),
+    ]);
+    return {
+      programme: programme && {
+        id: programme.id,
+        title: programme.title,
+        startsOn: programme.startsOn && toIsoDate(programme.startsOn),
+        endsOn: programme.endsOn && toIsoDate(programme.endsOn),
+      },
+      milestones: milestones.map((row) => ({ ...row, plannedOn: toIsoDate(row.plannedOn) })),
+      nextActivity: nextActivity ?? null,
+    };
+  }
+
+  /** Activités passées ou réalisées dont les présences ne sont pas renseignées (tâches). */
+  private async attendanceTasks(): Promise<DashboardTask[]> {
+    const rows = await this.prisma.activity.findMany({
+      where: attendanceMissingWhere(startOfTodayUtc()),
+      select: { id: true, title: true, plannedOn: true, heldOn: true },
+      orderBy: { plannedOn: 'asc' },
+      take: DASHBOARD_TASK_LIMIT,
+    });
+    return rows.map((row) => ({
+      kind: 'PRESENCES_A_RENSEIGNER',
+      targetId: row.id,
+      title: row.title,
+      detail: `Activité du ${toIsoDate(row.heldOn ?? row.plannedOn)}`,
+      since: (row.heldOn ?? row.plannedOn).toISOString(),
+    }));
+  }
+
+  /** Tâches du responsable : contenus soumis, résultats corrigés, propositions, présences. */
+  private async responsableTasks(): Promise<DashboardTask[]> {
+    const take = DASHBOARD_TASK_LIMIT;
+    const [modules, evaluations, results, proposals, attendance] = await Promise.all([
+      this.prisma.moduleVersion.findMany({
+        where: { status: 'SOUMIS' },
+        include: { module: { select: { number: true } }, submittedBy: userSummarySelect },
+        orderBy: { submittedAt: 'asc' },
+        take,
+      }),
+      this.prisma.evaluationVersion.findMany({
+        where: { status: 'SOUMIS' },
+        include: { submittedBy: userSummarySelect },
+        orderBy: { submittedAt: 'asc' },
+        take,
+      }),
+      this.prisma.evaluationAttempt.findMany({
+        where: { status: 'SOUMISE' },
+        include: {
+          evaluation: { select: { title: true } },
+          scoutProfile: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { updatedAt: 'asc' },
+        take,
+      }),
+      this.prisma.competencyProposal.findMany({
+        where: { status: 'EN_ATTENTE' },
+        include: {
+          competency: { select: { name: true } },
+          scoutProfile: { select: { firstName: true, lastName: true } },
+          proposedBy: userSummarySelect,
+        },
+        orderBy: { updatedAt: 'asc' },
+        take,
+      }),
+      this.attendanceTasks(),
+    ]);
+    return [
+      ...modules.map((row): DashboardTask => ({
+        kind: 'MODULE_A_APPROUVER',
+        targetId: row.moduleId,
+        title: `${formatModuleCode(row.module.number)} · ${row.title}`,
+        detail: row.submittedBy && `Soumis par ${personName(row.submittedBy)}`,
+        since: (row.submittedAt ?? row.updatedAt).toISOString(),
+      })),
+      ...evaluations.map((row): DashboardTask => ({
+        kind: 'QUESTIONNAIRE_A_APPROUVER',
+        targetId: row.evaluationId,
+        title: row.title,
+        detail: row.submittedBy && `Soumis par ${personName(row.submittedBy)}`,
+        since: (row.submittedAt ?? row.updatedAt).toISOString(),
+      })),
+      ...results.map((row): DashboardTask => ({
+        kind: 'RESULTAT_A_EXAMINER',
+        targetId: row.id,
+        title: row.evaluation.title,
+        detail: personName(row.scoutProfile),
+        since: row.updatedAt.toISOString(),
+      })),
+      ...proposals.map((row): DashboardTask => ({
+        kind: 'PROPOSITION_A_DECIDER',
+        targetId: row.id,
+        title: row.competency.name,
+        detail: `${personName(row.scoutProfile)} · proposé par ${personName(row.proposedBy)}`,
+        since: row.updatedAt.toISOString(),
+      })),
+      ...attendance,
+    ];
+  }
+
+  /** Tâches d'un chef : copies à corriger, contenus renvoyés, compléments demandés, présences. */
+  private async chefTasks(actor: Actor): Promise<DashboardTask[]> {
+    const take = DASHBOARD_TASK_LIMIT;
+    const [copies, modules, evaluations, complements, attendance] = await Promise.all([
+      this.prisma.evaluationAttempt.findMany({
+        where: { status: 'A_CORRIGER' },
+        include: {
+          evaluation: { select: { title: true } },
+          scoutProfile: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { updatedAt: 'asc' },
+        take,
+      }),
+      this.prisma.moduleVersion.findMany({
+        where: { status: 'A_CORRIGER', module: editableModulesWhere(actor) },
+        include: { module: { select: { number: true } } },
+        orderBy: { updatedAt: 'asc' },
+        take,
+      }),
+      this.prisma.evaluationVersion.findMany({
+        where: { status: 'A_CORRIGER', evaluation: editableEvaluationsWhere(actor) },
+        orderBy: { updatedAt: 'asc' },
+        take,
+      }),
+      this.prisma.competencyProposal.findMany({
+        where: { proposedById: actor.userId, status: 'COMPLEMENT_DEMANDE' },
+        include: {
+          competency: { select: { name: true } },
+          scoutProfile: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { updatedAt: 'asc' },
+        take,
+      }),
+      this.attendanceTasks(),
+    ]);
+    return [
+      ...copies.map((row): DashboardTask => ({
+        kind: row.mode === 'PAPIER' ? 'COPIE_PAPIER_A_CORRIGER' : 'COPIE_A_CORRIGER',
+        targetId: row.code,
+        title: row.evaluation.title,
+        detail: `${personName(row.scoutProfile)} · ${row.code}`,
+        since: (row.submittedAt ?? row.recordedAt ?? row.updatedAt).toISOString(),
+      })),
+      ...modules.map((row): DashboardTask => ({
+        kind: 'MODULE_A_REPRENDRE',
+        targetId: row.moduleId,
+        title: `${formatModuleCode(row.module.number)} · ${row.title}`,
+        detail: null,
+        since: row.updatedAt.toISOString(),
+      })),
+      ...evaluations.map((row): DashboardTask => ({
+        kind: 'QUESTIONNAIRE_A_REPRENDRE',
+        targetId: row.evaluationId,
+        title: row.title,
+        detail: null,
+        since: row.updatedAt.toISOString(),
+      })),
+      ...complements.map((row): DashboardTask => ({
+        kind: 'COMPLEMENT_A_APPORTER',
+        targetId: row.id,
+        title: row.competency.name,
+        detail: personName(row.scoutProfile),
+        since: row.updatedAt.toISOString(),
+      })),
+      ...attendance,
+    ];
+  }
+
   // ─── Tableaux de bord par rôle ────────────────────────────────────────────
 
   async responsable(actor: Actor): Promise<ResponsableDashboard> {
@@ -347,6 +558,8 @@ export class DashboardsService {
       correctionsInProgress,
       followUp,
       upcomingActivities,
+      tasks,
+      year,
     ] = await Promise.all([
       this.statistics(actor, {}),
       this.prisma.moduleVersion.count({ where: { status: 'SOUMIS' } }),
@@ -357,6 +570,8 @@ export class DashboardsService {
       this.prisma.evaluationAttempt.count({ where: { status: 'A_CORRIGER' } }),
       this.followUp(),
       this.upcomingActivities(),
+      this.responsableTasks(),
+      this.yearOverview(),
     ]);
     return {
       statistics,
@@ -369,6 +584,8 @@ export class DashboardsService {
       },
       followUp,
       upcomingActivities,
+      ...rankTasks(tasks),
+      year,
     };
   }
 
@@ -386,6 +603,8 @@ export class DashboardsService {
       modulesInProgress,
       correctionsToDo,
       followUp,
+      tasks,
+      year,
     ] = await Promise.all([
       this.prisma.scoutProfile.count({ where: { isActive: true } }),
       this.upcomingActivities(),
@@ -425,6 +644,8 @@ export class DashboardsService {
       }),
       this.prisma.evaluationAttempt.count({ where: { status: 'A_CORRIGER' } }),
       this.followUp(),
+      this.chefTasks(actor),
+      this.yearOverview(),
     ]);
     return {
       activeScouts,
@@ -452,6 +673,8 @@ export class DashboardsService {
       modulesInProgress,
       correctionsToDo,
       followUp,
+      ...rankTasks(tasks),
+      year,
     };
   }
 

@@ -1353,6 +1353,22 @@ describe('Progression, compétences, programme et présences (intégration Postg
       );
       expect(resp.pedagogyQueue).toMatchObject({ proposalsPending: 1, resultsToReview: 0 });
       expect(resp.contentQueue).toEqual({ modulesToApprove: 0, evaluationsToApprove: 0 });
+      // File « À faire » : éléments concrets, du plus ancien au plus récent.
+      expect(resp.tasks.map((task) => task.kind).sort()).toEqual([
+        'PRESENCES_A_RENSEIGNER',
+        'PROPOSITION_A_DECIDER',
+      ]);
+      expect(resp.taskTotal).toBe(2);
+      expect(resp.tasks.map((task) => task.since)).toEqual(
+        resp.tasks.map((task) => task.since).sort(),
+      );
+      expect(resp.tasks.find((task) => task.kind === 'PRESENCES_A_RENSEIGNER')?.title).toBe(
+        'Sans présences',
+      );
+      // Les activités hors programme ne sont jamais des jalons de l'année.
+      expect(resp.year.milestones.map((row) => row.title)).not.toContain('À venir');
+      expect(resp.year.milestones.map((row) => row.title)).not.toContain('Sans présences');
+      expect(resp.year.nextActivity?.title).toBe('À venir');
       const chefDashboard = await json(chef.get('/dashboard/chef'), 200, chefDashboardSchema);
       expect(chefDashboard.myProposals.pending).toBe(1);
       expect(chefDashboard.myProposals.recentlyDecided[0]).toMatchObject({ status: 'APPROUVEE' });
@@ -1360,6 +1376,9 @@ describe('Progression, compétences, programme et présences (intégration Postg
         'Sans présences',
       ]);
       expect(chefDashboard.upcomingActivities.map((item) => item.title)).toEqual(['À venir']);
+      // Le chef ne voit pas les décisions du responsable, seulement ses propres tâches.
+      expect(chefDashboard.tasks.map((task) => task.kind)).toEqual(['PRESENCES_A_RENSEIGNER']);
+      expect(chefDashboard.year.nextActivity?.title).toBe('À venir');
 
       const routier = await login(account);
       const me = await json(routier.get('/me/dashboard'), 200, myDashboardSchema);

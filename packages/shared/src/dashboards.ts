@@ -120,6 +120,71 @@ export const followUpItemSchema = z.object({
 
 export type FollowUpItem = z.infer<typeof followUpItemSchema>;
 
+/**
+ * Éléments concrets à traiter, affichés en tête des tableaux de bord de l'encadrement. Chaque type
+ * renvoie vers l'écran existant qui porte l'action ; aucune décision n'est prise depuis la liste.
+ */
+export const DASHBOARD_TASK_KINDS = [
+  'MODULE_A_APPROUVER',
+  'QUESTIONNAIRE_A_APPROUVER',
+  'RESULTAT_A_EXAMINER',
+  'PROPOSITION_A_DECIDER',
+  'COPIE_A_CORRIGER',
+  'COPIE_PAPIER_A_CORRIGER',
+  'MODULE_A_REPRENDRE',
+  'QUESTIONNAIRE_A_REPRENDRE',
+  'COMPLEMENT_A_APPORTER',
+  'PRESENCES_A_RENSEIGNER',
+] as const;
+
+export type DashboardTaskKind = (typeof DASHBOARD_TASK_KINDS)[number];
+
+export const DASHBOARD_TASK_LABELS: Record<DashboardTaskKind, string> = {
+  MODULE_A_APPROUVER: 'Module à approuver',
+  QUESTIONNAIRE_A_APPROUVER: 'Questionnaire à approuver',
+  RESULTAT_A_EXAMINER: 'Résultat à examiner',
+  PROPOSITION_A_DECIDER: 'Proposition de compétence',
+  COPIE_A_CORRIGER: 'Copie à corriger',
+  COPIE_PAPIER_A_CORRIGER: 'Copie papier à corriger',
+  MODULE_A_REPRENDRE: 'Module renvoyé pour correction',
+  QUESTIONNAIRE_A_REPRENDRE: 'Questionnaire renvoyé pour correction',
+  COMPLEMENT_A_APPORTER: 'Complément demandé',
+  PRESENCES_A_RENSEIGNER: 'Présences à renseigner',
+};
+
+/** Nombre maximal d'éléments renvoyés ; `taskTotal` donne le volume réel. */
+export const DASHBOARD_TASK_LIMIT = 12;
+
+export const dashboardTaskSchema = z.object({
+  kind: z.enum(DASHBOARD_TASK_KINDS),
+  /** Identifiant de la cible : module, questionnaire, tentative, proposition, activité ou code de copie. */
+  targetId: z.string(),
+  title: z.string(),
+  detail: z.string().nullable(),
+  /** Début de l'attente (soumission, renvoi, date d'activité) : tri du plus ancien au plus récent. */
+  since: z.iso.datetime(),
+});
+
+export type DashboardTask = z.infer<typeof dashboardTaskSchema>;
+
+/** Avancement de l'année : programme en cours et jalons (activités du programme). */
+export const yearOverviewSchema = z.object({
+  programme: z
+    .object({
+      id: z.uuid(),
+      title: z.string(),
+      startsOn: z.iso.date().nullable(),
+      endsOn: z.iso.date().nullable(),
+    })
+    .nullable(),
+  milestones: z.array(
+    activitySummarySchema.pick({ id: true, title: true, status: true, plannedOn: true }),
+  ),
+  nextActivity: activitySummarySchema.nullable(),
+});
+
+export type YearOverview = z.infer<typeof yearOverviewSchema>;
+
 export const responsableDashboardSchema = z.object({
   statistics: statisticsSchema,
   /** File 1 : contenus à approuver (modules et questionnaires). */
@@ -136,6 +201,9 @@ export const responsableDashboardSchema = z.object({
   }),
   followUp: z.array(followUpItemSchema),
   upcomingActivities: z.array(activitySummarySchema),
+  tasks: z.array(dashboardTaskSchema),
+  taskTotal: z.number().int(),
+  year: yearOverviewSchema,
 });
 
 export type ResponsableDashboard = z.infer<typeof responsableDashboardSchema>;
@@ -171,6 +239,9 @@ export const chefDashboardSchema = z.object({
   modulesInProgress: z.number().int(),
   correctionsToDo: z.number().int(),
   followUp: z.array(followUpItemSchema),
+  tasks: z.array(dashboardTaskSchema),
+  taskTotal: z.number().int(),
+  year: yearOverviewSchema,
 });
 
 export type ChefDashboard = z.infer<typeof chefDashboardSchema>;
