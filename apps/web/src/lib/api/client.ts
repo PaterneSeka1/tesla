@@ -1,4 +1,4 @@
-import { apiErrorSchema } from '@tesla/shared';
+import { apiErrorSchema, CSRF_HEADER, CSRF_HEADER_VALUE } from '@tesla/shared';
 import { type z } from 'zod';
 import { env } from '@/lib/env';
 
@@ -16,6 +16,8 @@ export class ApiError extends Error {
 /**
  * Appel typé de l'API : la réponse est validée par un schéma Zod partagé.
  * Les erreurs sont normalisées en `ApiError` avec un message affichable en français.
+ * La session est portée par un cookie httpOnly (`credentials: 'include'`) ; les écritures
+ * ajoutent l'en-tête anti-CSRF exigé par l'API.
  */
 export async function apiFetch<T>(
   path: string,
@@ -27,7 +29,11 @@ export async function apiFetch<T>(
     response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
       ...init,
       credentials: 'include',
-      headers: { Accept: 'application/json', ...init?.headers },
+      headers: {
+        Accept: 'application/json',
+        ...(init?.method && init.method !== 'GET' && { [CSRF_HEADER]: CSRF_HEADER_VALUE }),
+        ...init?.headers,
+      },
     });
   } catch {
     throw new ApiError(
@@ -51,4 +57,30 @@ export async function apiFetch<T>(
     throw new ApiError(response.status, 'INVALID_RESPONSE', 'Réponse du serveur inattendue.');
   }
   return parsed.data;
+}
+
+/** Écriture JSON (POST, PATCH) avec réponse validée. */
+export function apiSend<T>(
+  method: 'POST' | 'PATCH',
+  path: string,
+  schema: z.ZodType<T>,
+  body: unknown = {},
+): Promise<T> {
+  return apiFetch(path, schema, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+/** Paramètres de requête sans les valeurs vides. */
+export function toQueryString(params: Record<string, unknown>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if ((typeof value === 'string' && value !== '') || typeof value === 'number') {
+      search.set(key, String(value));
+    }
+  }
+  const query = search.toString();
+  return query ? `?${query}` : '';
 }

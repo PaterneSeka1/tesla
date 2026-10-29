@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { BrandLogo } from '@/components/brand-logo';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoginForm } from './login-form';
 
@@ -16,7 +18,9 @@ export default function LoginPage() {
           <CardDescription>Accédez à votre espace Nikola Tesla Académie.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <LoginForm />
+          <Suspense fallback={<Skeleton className="h-56" />}>
+            <LoginForm />
+          </Suspense>
           <p className="text-center text-sm">
             <Link href="/" className="text-tesla-rouge underline-offset-4 hover:underline">
               Retour à l’accueil

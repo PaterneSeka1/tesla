@@ -1,4 +1,5 @@
 import { BadgeCheck, FileCheck2, History, KeyRound } from 'lucide-react';
+import { FollowUpOverview } from '@/components/follow-up-overview';
 import { PageHeading } from '@/components/page-heading';
 import { PlannedFeatures, type PlannedFeature } from '@/components/planned-features';
 
@@ -36,6 +37,7 @@ export default function ResponsableDashboardPage() {
         title="Tableau de bord"
         description="Pilotage pédagogique : approbations, déblocages et validations."
       />
+      <FollowUpOverview />
       <PlannedFeatures features={FEATURES} />
     </>
   );

@@ -1,12 +1,14 @@
-import { Info } from 'lucide-react';
-import { ROLE_LABELS } from '@tesla/shared';
+import { SessionGate } from '@/components/auth/session-gate';
+import { UserMenu } from '@/components/auth/user-menu';
 import { ApiStatus } from '@/components/api-status';
 import { BrandLogo } from '@/components/brand-logo';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SPACES, type SpaceKey } from '@/lib/spaces';
 import { SpaceNav } from './space-nav';
 
-/** Structure responsive commune aux espaces routier, chef et responsable. */
+/**
+ * Structure responsive commune aux espaces : sidebar sur desktop, navigation horizontale sur mobile.
+ * Le contenu n'est affiché qu'après vérification de la session et du rôle (`SessionGate`).
+ */
 export function DashboardShell({
   space,
   children,
@@ -25,7 +27,7 @@ export function DashboardShell({
         Aller au contenu
       </a>
 
-      <aside className="hidden bg-tesla-bordeaux p-4 text-white lg:flex lg:flex-col lg:gap-6">
+      <aside className="hidden bg-tesla-bordeaux p-4 text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-6">
         <div className="flex items-center gap-3">
           <BrandLogo size={44} />
           <div className="leading-tight">
@@ -37,18 +39,18 @@ export function DashboardShell({
       </aside>
 
       <div className="flex min-w-0 flex-col">
-        <header className="bg-tesla-bordeaux text-white lg:bg-white lg:text-foreground lg:border-b">
+        <header className="bg-tesla-bordeaux text-white lg:border-b lg:bg-white lg:text-foreground">
           <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-8">
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <BrandLogo size={36} className="lg:hidden" />
-              <div>
-                <p className="text-xs uppercase tracking-wide opacity-80">
-                  {ROLE_LABELS[config.role]}
-                </p>
-                <h1 className="font-semibold">{config.title}</h1>
-              </div>
+              <h1 className="truncate font-semibold">{config.title}</h1>
             </div>
-            <ApiStatus />
+            <div className="flex shrink-0 items-center gap-3">
+              <div className="hidden md:block">
+                <ApiStatus />
+              </div>
+              <UserMenu />
+            </div>
           </div>
           <div className="px-2 pb-2 lg:hidden">
             <SpaceNav space={space} orientation="horizontal" />
@@ -56,15 +58,7 @@ export function DashboardShell({
         </header>
 
         <main id="contenu" className="flex-1 space-y-6 px-4 py-6 lg:px-8">
-          <Alert variant="info">
-            <Info aria-hidden />
-            <AlertTitle>Aperçu de structure</AlertTitle>
-            <AlertDescription>
-              L’authentification n’est pas encore en place : cet espace n’affiche aucune donnée
-              personnelle et n’est pas protégé. L’accès sera restreint par rôle dans la phase 1.
-            </AlertDescription>
-          </Alert>
-          {children}
+          <SessionGate roles={config.roles}>{children}</SessionGate>
         </main>
       </div>
     </div>

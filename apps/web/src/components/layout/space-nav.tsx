@@ -19,7 +19,7 @@ export function SpaceNav({
     <nav aria-label="Navigation de l'espace">
       <ul className={cn('flex gap-1', orientation === 'vertical' ? 'flex-col' : 'overflow-x-auto')}>
         {items.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+          const active = pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
           return (
             <li key={href}>
               <Link

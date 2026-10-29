@@ -1,4 +1,5 @@
 import { CalendarDays, FilePenLine, Hourglass } from 'lucide-react';
+import { FollowUpOverview } from '@/components/follow-up-overview';
 import { PageHeading } from '@/components/page-heading';
 import { PlannedFeatures, type PlannedFeature } from '@/components/planned-features';
 
@@ -30,6 +31,7 @@ export default function ChefDashboardPage() {
         title="Tableau de bord"
         description="Préparation des contenus pédagogiques de la communauté."
       />
+      <FollowUpOverview />
       <PlannedFeatures features={FEATURES} />
     </>
   );

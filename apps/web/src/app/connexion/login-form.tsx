@@ -1,14 +1,18 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Info } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { CircleAlert } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { FormField, fieldA11y } from '@/components/form-field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { login, meQueryOptions } from '@/lib/api/auth';
+import { ROLE_HOME } from '@/lib/spaces';
 
 const loginSchema = z.object({
   email: z.email({ error: 'Adresse e-mail invalide.' }),
@@ -17,66 +21,62 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>;
 
-/**
- * Formulaire visuel uniquement : l'authentification serveur n'est pas encore implémentée.
- * Aucune donnée n'est envoyée ni conservée.
- */
+/** Chemin interne uniquement (évite une redirection ouverte vers un autre site). */
+function safeNextPath(value: string | null): string | null {
+  return value && value.startsWith('/') && !value.startsWith('//') ? value : null;
+}
+
+/** Connexion : la session est posée par l'API dans un cookie httpOnly (jamais lisible en JS). */
 export function LoginForm() {
-  const [submitted, setSubmitted] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LoginValues>({ resolver: zodResolver(loginSchema) });
 
-  const onSubmit = () => setSubmitted(true);
+  const onSubmit = async (values: LoginValues) => {
+    setServerError(null);
+    try {
+      const me = await login(values);
+      queryClient.clear();
+      queryClient.setQueryData(meQueryOptions.queryKey, me);
+      router.replace(safeNextPath(searchParams.get('suivant')) ?? ROLE_HOME[me.user.role]);
+    } catch (error) {
+      setServerError(error instanceof Error ? error.message : 'Connexion impossible.');
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">Adresse e-mail</Label>
+      <FormField id="email" label="Adresse e-mail" error={errors.email?.message}>
         <Input
-          id="email"
           type="email"
           autoComplete="email"
-          aria-invalid={errors.email ? true : undefined}
-          aria-describedby={errors.email ? 'email-error' : undefined}
+          {...fieldA11y('email', errors.email?.message)}
           {...register('email')}
         />
-        {errors.email && (
-          <p id="email-error" className="text-sm text-destructive">
-            {errors.email.message}
-          </p>
-        )}
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="password">Mot de passe</Label>
+      </FormField>
+      <FormField id="password" label="Mot de passe" error={errors.password?.message}>
         <Input
-          id="password"
           type="password"
           autoComplete="current-password"
-          aria-invalid={errors.password ? true : undefined}
-          aria-describedby={errors.password ? 'password-error' : undefined}
+          {...fieldA11y('password', errors.password?.message)}
           {...register('password')}
         />
-        {errors.password && (
-          <p id="password-error" className="text-sm text-destructive">
-            {errors.password.message}
-          </p>
-        )}
-      </div>
-      <Button type="submit" className="w-full">
-        Se connecter
-      </Button>
-      {submitted && (
-        <Alert variant="info" aria-live="polite">
-          <Info aria-hidden />
-          <AlertDescription>
-            La connexion n’est pas encore disponible. Elle sera activée lors de la phase «
-            Authentification et comptes ».
-          </AlertDescription>
+      </FormField>
+      {serverError && (
+        <Alert variant="destructive" aria-live="assertive">
+          <CircleAlert aria-hidden />
+          <AlertDescription>{serverError}</AlertDescription>
         </Alert>
       )}
+      <Button type="submit" className="w-full" disabled={isSubmitting}>
+        {isSubmitting ? 'Connexion…' : 'Se connecter'}
+      </Button>
     </form>
   );
 }

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { healthResponseSchema } from '@tesla/shared';
-import { ApiError, apiFetch } from './client';
+import { z } from 'zod';
+import { ApiError, apiFetch, toQueryString } from './client';
 
 function mockFetch(implementation: () => Promise<Response>) {
   vi.stubGlobal('fetch', vi.fn(implementation));
@@ -55,5 +56,19 @@ describe('apiFetch', () => {
     await expect(apiFetch('/health', healthResponseSchema)).rejects.toMatchObject({
       code: 'INVALID_RESPONSE',
     });
+  });
+
+  it('ajoute l’en-tête anti-CSRF aux écritures uniquement', async () => {
+    mockFetch(() => Promise.resolve(new Response(null, { status: 204 })));
+    await apiFetch('/auth/logout', z.null(), { method: 'POST' });
+    const [, init] = vi.mocked(fetch).mock.calls[0]!;
+    expect(init?.headers).toMatchObject({ 'x-tesla-csrf': '1' });
+  });
+
+  it('construit une chaîne de requête sans valeurs vides', () => {
+    expect(toQueryString({ search: 'kouassi', teamId: '', page: 2, stageId: undefined })).toBe(
+      '?search=kouassi&page=2',
+    );
+    expect(toQueryString({})).toBe('');
   });
 });
