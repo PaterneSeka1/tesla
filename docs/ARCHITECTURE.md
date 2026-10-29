@@ -39,7 +39,7 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 | `components/evaluations/` | `QuestionForm`, `QuestionList`, `EvaluationSettingsForm`, `EvaluationList`, `CorrectionWorkspace` (saisie papier, notation, soumission), `CopyHeader`/`CopyAnswers`/`CopyHistory`, `AttemptTable`, badges, `useEvaluationAction` |
 | `components/` | `ConfirmDialog`, `Pagination`, `QueryError`/`TableSkeleton`, `FormField`, `FollowUpOverview` (indicateurs) |
 | `lib/api/` | `apiFetch`/`apiSend` (client typé, cookie, en-tête anti-CSRF, erreurs normalisées) et `queryOptions` par domaine (`auth`, `teams`, `scouts`, `modules`, `evaluations`) |
-| `lib/offline/` | Structure IndexedDB (fondation PWA) |
+| `lib/offline/` | IndexedDB versionnée (`db.ts`), coffre chiffré AES-GCM (`vault.ts`), téléchargements (`downloads.ts`), tentatives et file de synchronisation (`attempts.ts`) — voir [OFFLINE_FIRST.md](OFFLINE_FIRST.md) |
 | `lib/spaces.ts` | Configuration des espaces (dont `bibliotheque`) et de leur navigation ; entrées réservées à un rôle (`roles`) filtrées par `SpaceNav` |
 | `public/sw.js` | Service worker (enregistré en production uniquement) |
 
@@ -107,10 +107,18 @@ Responsable : examiner ─────────────────► ac
 
 - Le code de tentative est **toujours** émis par le serveur, dans la même transaction que la tentative (en ligne comme sur papier) ; le web ne fait que l'afficher et le saisir.
 - Le code est un identifiant de recherche, pas un secret : toute lecture passe par les permissions.
-- Les modes `EN_LIGNE` et `PAPIER` partagent les mêmes tables (`evaluation_attempts`, `attempt_answers`), le même moteur de correction et le même historique ; `HORS_LIGNE` reste réservé (non développé).
+- Les modes `EN_LIGNE` et `PAPIER` partagent les mêmes tables (`evaluation_attempts`, `attempt_answers`), le même moteur de correction et le même historique . `HORS_LIGNE` (phase 5) utilise les mêmes tables, avec une réservation serveur et une réception idempotente (`OfflineService`).
 - PDF serveur : **pdfkit** (JavaScript pur, polices standard intégrées aux lecteurs PDF, aucune ressource distante) génère questionnaire, corrigé et grille en mémoire, à la demande, sans stockage. Le support de cours reste imprimé depuis le navigateur (`/modules/[slug]/imprimer`).
 - Les services reçoivent un `Actor` fourni par la garde de session.
 
 ## Phase 4 — domaines implémentés
 
 Le module NestJS `progression` gère étapes, référentiel, propositions et études ; `programmes` gère import, activités et présences ; `dashboards` calcule les indicateurs. Contrats Zod dans `packages/shared/src/{progression,programmes,dashboards}.ts`, clients dans `apps/web/src/lib/api/`, composants réutilisés par rôle. Détails : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md).
+
+## Phase 5 — hors ligne
+
+- **API** : `OfflineController`/`OfflineService` dans le module `evaluations` (réservation, réception transactionnelle et idempotente, statut) ; `GET /modules/:slug/offline-package` dans `pedagogy`. Contrats dans `packages/shared/src/offline.ts`. Aucun service supplémentaire (ni Redis, ni file de messages, ni tâche de fond) : le traitement se fait à la requête.
+- **Web** : coquille publique `/hors-ligne` (alias `/telechargements`, `/synchronisation`) rendue par `DashboardShell offline` sans `SessionGate` ; `OfflineHub`, `OfflineReader`, `OfflineAttempt`, `DownloadModuleButton` ; `OfflineRuntime` (dans `Providers`) planifie les envois et relance les requêtes en erreur au retour du réseau. `AnswerFields` est partagé avec la passation en ligne.
+- **Service worker `v2`** : pré-cache de la coquille et de ses ressources statiques ; `/api` et `/connexion` jamais interceptés.
+
+Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).

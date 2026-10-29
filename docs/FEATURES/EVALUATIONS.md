@@ -40,7 +40,7 @@ Aucun seuil de réussite n'est appliqué (D66) : le score est affiché tel quel.
 - Lecteurs d'écran : libellés, `aria-*` et navigation clavier en place, non audités avec un lecteur d'écran.
 - Navigateurs réels (Safari iOS, Android) : non testés (Chromium headless seulement).
 - `REFUSEE` (« résultat non retenu ») existe dans le modèle et la réouverture d'un résultat examiné est exposée par l'API, sans bouton dédié dans les écrans.
-- Le passage hors ligne (`HORS_LIGNE`) n'est pas développé : la passation exige une connexion.
+- Passation hors ligne (`HORS_LIGNE`, phase 5) : préparation en ligne obligatoire, réservation de 24 h, réception idempotente et correction serveur. Voir [OFFLINE_FIRST.md](../OFFLINE_FIRST.md).
 - Pas de sauvegarde automatique périodique pendant la saisie d'un texte : l'enregistrement se fait au changement de question ou par le bouton « Enregistrer ».
 
 ## Prévu

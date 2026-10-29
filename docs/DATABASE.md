@@ -19,7 +19,7 @@ PostgreSQL 18 (Docker Compose en développement) · Prisma 7 avec `@prisma/adapt
 | `EvaluationQuestion` (`evaluation_questions`) | Question | `versionId`, `position`, `type` (`QuestionType`), `prompt` (texte brut), `points` (DECIMAL 6,2), `scoringPolicy`, `guidance` (critères), `expectedAnswer`, `revision` |
 | `EvaluationAnswerOption` (`evaluation_answer_options`) | Proposition de réponse | `questionId`, `position`, `label`, `isCorrect` (corrigé : jamais transmis au routier avant examen) |
 | `EvaluationVersionEvent` (`evaluation_version_events`) | Historique des questionnaires | Ajout seul : action, états, auteur, commentaire (décisions du responsable également dans `AuditLog`) |
-| `EvaluationAttempt` (`evaluation_attempts`) | Tentative (en ligne, hors ligne, papier) | `code` unique et immuable ; `scoutProfileId` (profil, pas compte) ; version exacte (FK composite `(evaluationVersionId, evaluationId)`) ; `mode`, `status` ; `plannedFor`, `startedAt`, `submittedAt`, `completedAt`, `recordedAt`, `correctionRevision` ; `score`, `maxScore` (calculés), `answers` (JSON phase 1 bis, conservé), `maxScore`, `observations`, `evidenceFileKey` ; auteurs (`createdById`, `recordedById`, `decidedById`) ; `waiverId` ; annulation motivée |
+| `EvaluationAttempt` (`evaluation_attempts`) | Tentative (en ligne, hors ligne, papier) | `code` unique et immuable ; `scoutProfileId` (profil, pas compte) ; version exacte (FK composite `(evaluationVersionId, evaluationId)`) ; `mode`, `status` ; `plannedFor`, `startedAt`, `submittedAt`, `completedAt`, `recordedAt`, `correctionRevision` ; `score`, `maxScore` (calculés), `answers` (JSON phase 1 bis, conservé), `maxScore`, `observations`, `evidenceFileKey` ; auteurs (`createdById`, `recordedById`, `decidedById`) ; `waiverId` ; annulation motivée ; réservation hors ligne (`offline*`, phase 5) |
 | `AttemptAnswer` (`attempt_answers`) | Réponse et correction | `(attemptId, questionId)` unique ; `selectedOptionIds`, `textAnswer` ; `awardedPoints`, `autoScored` ; `appreciation`, `graderComment`, `gradedById`, `gradedAt` |
 | `EvaluationAttemptEvent` (`evaluation_attempt_events`) | Historique d'une tentative | Ajout seul (trigger) : `fromStatus`, `toStatus`, `actorId`, `reason`, `snapshot` (valeurs saisies) |
 | `AttemptCodeCounter` (`attempt_code_counters`) | Compteur annuel des codes | `year` (PK), `lastValue` (1 à 999 999) |
@@ -174,3 +174,19 @@ Progression de lecture, validations officielles d'acquis et d'étape (acte du re
 ## Phase 4 — modèle de suivi
 
 Migration additive `20261031090000_progression_programme_activities` : `ScoutStageChange`, `Competency`, `CompetencyModule`, `CompetencyProposal`, `CompetencyProposalEvent`, `CompetencyEvidence`, `CompetencyValidation`, `ModuleStudy`, `ProgrammeCategory`, `Programme`, `Activity`, `ActivityCategory`, `ActivityModule`, `ActivityCompetency`, `ActivityEvent`, `ActivityAttendance` ; date d’étape sur `ScoutProfile`. Références au profil, transactions, index uniques partiels et triggers d’immuabilité ; reprise de l’audit historique sans réinitialisation. Détails : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md).
+
+## Phase 5 — réservations hors ligne
+
+Migration additive `20261101090000_offline_reservations` (aucune donnée modifiée) : neuf colonnes nullables sur `evaluation_attempts` :
+
+| Colonne | Rôle |
+| --- | --- |
+| `offline_authorization` (UUID, unique) | Autorisation opaque de la réservation |
+| `offline_issued_at`, `offline_expires_at` | Émission et fin de validité (24 h) |
+| `offline_operation_id` (UUID, unique) | Clé d'idempotence de la réception |
+| `offline_payload_hash` | Empreinte SHA-256 de la copie reçue |
+| `offline_device_submitted_at` | Heure déclarée par l'appareil (indicative) |
+| `offline_received_at`, `offline_decided_at` | Réception et décision serveur |
+| `offline_decision_code` | `ACCEPTED`, `ATTEMPT_CLOSED`, `AUTHORIZATION_EXPIRED`, `AUTHORIZATION_REVOKED`, `VERSION_UNAVAILABLE` |
+
+Les index uniques garantissent qu'une autorisation et une opération ne désignent qu'une tentative. L'index partiel existant (une tentative ouverte par routier et évaluation) s'applique aussi aux réservations. Migration appliquée sur `tesla` et `tesla_test` ; diff schéma ↔ base vide.

@@ -4,6 +4,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — phase 5 (PWA hors ligne), 2026-10-29
+- Coffre local IndexedDB chiffré (AES-GCM, phrase locale), téléchargement versionné et vérifié des modules publiés, lecture hors ligne avec position, suppression locale et mises à jour proposées.
+- Évaluations hors ligne : réservation serveur de 24 h après contrôle d'éligibilité, saisie et reprise locales, file de synchronisation bornée, réception transactionnelle et idempotente avec revérification des droits, correction serveur, conflits et rejets motivés.
+- API : `GET /modules/:slug/offline-package`, `POST /offline/evaluations/:id/prepare`, `GET /offline/attempts/:id/status`, `POST /offline/attempts/:id/sync`, `GET /me/offline-sync/status` ; migration additive `20261101090000_offline_reservations`.
+- Web : `/hors-ligne` (alias `/telechargements`, `/synchronisation`), `/evaluations/[id]/preparer`, service worker `v2` ; recette Chromium et fixture fictive.
+
+### Corrigé — phase 5
+- Une page ouverte sans réseau relance désormais ses requêtes en erreur au retour de la connexion (session et menu de compte retrouvés).
+
 ### Ajouté — phase 4, 2026-10-29
 - Progression et historique structuré des étapes, compétences et preuves, propositions et décisions officielles du responsable, révocation tracée ; suivi des modules étudiés, y compris papier et sans compte.
 - Programme annuel : import Markdown prévisualisé et idempotent, correspondances catégories/étapes à confirmer ; activités, comptes rendus, présences groupées et historique.

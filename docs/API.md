@@ -225,6 +225,22 @@ Toutes les erreurs suivent `apiErrorSchema` :
 ```
 `code` est stable (exploitable par le web) ; `message` est affichable en français. Les erreurs 5xx ne renvoient aucun détail interne (journalisées côté serveur).
 
+## Hors ligne (phase 5)
+
+Toutes ces routes exigent une session ; les écritures exigent l'en-tête CSRF ; réponses `Cache-Control: no-store`. Réservées au rôle routier (`evaluation.take`) sauf le paquet de module (toute session).
+
+| Méthode | Route | Rôle |
+| --- | --- | --- |
+| `GET` | `/modules/:slug/offline-package` | Version publiée exacte (`versionId`), contenu complet, empreinte SHA-256 ; 404 sans version publiée |
+| `POST` | `/offline/evaluations/:id/prepare` | Vérifie l'éligibilité et réserve une tentative `HORS_LIGNE` pour 24 h ; renvoie le paquet (sans corrigé) ; idempotent pour une réservation valide du même compte |
+| `GET` | `/offline/attempts/:id/status` | Statut officiel d'une tentative hors ligne personnelle |
+| `POST` | `/offline/attempts/:id/sync` | Réception transactionnelle et idempotente : `{ operationId, authorization, versionId, deviceSubmittedAt, answers }` (schéma strict) |
+| `GET` | `/me/offline-sync/status` | 100 dernières réservations du compte |
+
+Statut renvoyé : `{ id, status, syncStatus: LOCAL | SYNCHRONISE | REJETE, code, message, receivedAt, decidedAt }`. Un rejet métier (expiration, révocation, tentative clôturée, version indisponible) est une réponse `200` avec `syncStatus: REJETE` et un code de décision.
+
+Erreurs : `403 EVALUATION_NOT_ELIGIBLE`, `409 ATTEMPT_ALREADY_OPEN`, `404 OFFLINE_ATTEMPT_NOT_FOUND` (tentative d'un autre compte), `409 OFFLINE_PACKAGE_CONFLICT` (autorisation ou version différente), `409 OFFLINE_ALREADY_RECEIVED` (autre copie déjà reçue), `409 OFFLINE_INCOMPLETE`, `400` (réponses invalides ou champ inconnu, dont un score). Les routes de passation en ligne refusent les tentatives `HORS_LIGNE` (404). Le contrat suggéré `GET /offline/modules/:id/manifest` n'existe pas : la version publiée est lue par `GET /modules/:slug` et le paquet contient la version exacte. Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).
+
 ## Endpoints prévus (non implémentés)
 Gestion des comptes (création, activation, réinitialisation du mot de passe), consultation du journal d'audit, téléversement des copies numérisées, support de cours en PDF serveur (`GET /modules/:slug/print.pdf` ; aujourd'hui : impression navigateur de `/modules/:slug/imprimer`).
 

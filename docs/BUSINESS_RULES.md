@@ -11,7 +11,8 @@
 | Action | Routier | Chef | Responsable |
 | --- | :---: | :---: | :---: |
 | Consulter les modules publiés | ✅ | ✅ | ✅ |
-| Télécharger un module pour lecture hors ligne | ✅ | ✅ | ✅ |
+| Télécharger un module pour lecture hors ligne (coffre local chiffré, D79) | ✅ | — | — |
+| Préparer et synchroniser une évaluation hors ligne (sa propre tentative) | ✅ | — | — |
 | Créer un module ; modifier un brouillon dont on est auteur ou collaborateur | — | ✅ | ✅ (tous les modules) |
 | Inviter / retirer un chef collaborateur | — | auteur du module | ✅ |
 | Soumettre un module à l'approbation | — | auteur, collaborateur | ✅ |
@@ -150,3 +151,13 @@ Ces étapes sont chargées par le seed (`progression_stages`) depuis `@tesla/sha
 ## Phase 4 — progression et suivi
 
 Les décisions officielles restent exclusivement humaines. Les étapes et validations sont historisées ; aucun score, module étudié ou présence ne provoque de promotion. Les catégories du programme ont une correspondance configurable, non confirmée par défaut. Détails : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md).
+
+## Phase 5 — hors ligne
+
+- Tout routier connecté peut télécharger **tout module publié**, quelle que soit son étape ; une lecture locale n'est jamais un acquis.
+- Une évaluation n'est disponible hors ligne qu'après **préparation en ligne** : le serveur vérifie identité, profil, publication, éligibilité (étape ou dérogation active), limite de tentatives et absence d'autre tentative ouverte, puis réserve une tentative `HORS_LIGNE` pour **24 heures** (D78, provisoire).
+- Les droits sont revérifiés à la réception. La copie doit **parvenir au serveur** avant l'expiration ; l'heure de l'appareil est enregistrée mais ne décide de rien. Expiration, dérogation révoquée, éligibilité perdue → rejet motivé, tentative `ANNULEE` non comptée dans la limite ; la copie locale est conservée.
+- Correction objective uniquement côté serveur ; réponses libres notées par un humain ; aucun score navigateur accepté ; aucune validation d'acquis ni changement d'étape à la synchronisation.
+- **À arbitrer** : durée de réservation (24 h), rejet ou mise en attente en cas de révocation, conservation serveur d'une copie rejetée pour examen par un chef, ouverture du mode hors ligne aux chefs et au responsable.
+
+Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).
