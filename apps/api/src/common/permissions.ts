@@ -7,15 +7,28 @@ import { type Actor } from './actor.js';
  * Les lignes marquées « à confirmer » sont des choix provisoires (voir docs/DECISIONS.md).
  */
 export const PERMISSIONS = {
-  /** Inscrire un routier (avec ou sans compte) — à confirmer. */
-  'scout.create': ['CHEF', 'RESPONSABLE'],
+  /** Consulter les fiches, équipes et historiques des routiers. */
   'scout.read': ['CHEF', 'RESPONSABLE'],
-  'scout.setMatricule': ['CHEF', 'RESPONSABLE'],
+  /** Inscrire et modifier un routier (avec ou sans compte) — à confirmer (D32). */
+  'scout.create': ['RESPONSABLE'],
+  'scout.update': ['RESPONSABLE'],
+  'scout.setMatricule': ['RESPONSABLE'],
+  /** Activer ou désactiver un profil routier. */
+  'scout.setActive': ['RESPONSABLE'],
+  /** Changer l'étape de progression : acte officiel, exclusivement le responsable (RM-010). */
+  'scout.setStage': ['RESPONSABLE'],
   /** Rattacher un compte à un profil : gestion des comptes (responsable, à confirmer). */
   'scout.linkAccount': ['RESPONSABLE'],
-  /** Créer ou archiver une équipe — à confirmer. */
+  'team.read': ['CHEF', 'RESPONSABLE'],
+  /** Créer, modifier ou archiver une équipe — à confirmer. */
   'team.manage': ['RESPONSABLE'],
-  'team.assign': ['CHEF', 'RESPONSABLE'],
+  /** Affecter un routier ou changer son équipe — à confirmer (D32). */
+  'team.assign': ['RESPONSABLE'],
+  /** Observations d'accompagnement : tous les chefs de la communauté (à confirmer). */
+  'observation.create': ['CHEF', 'RESPONSABLE'],
+  'observation.read': ['CHEF', 'RESPONSABLE'],
+  /** Lire les observations de niveau « responsable » rédigées par d'autres. */
+  'observation.readRestricted': ['RESPONSABLE'],
   'attempt.preparePaper': ['CHEF', 'RESPONSABLE'],
   'attempt.readAny': ['CHEF', 'RESPONSABLE'],
   'attempt.record': ['CHEF', 'RESPONSABLE'],

@@ -22,3 +22,33 @@ describe('Permissions', () => {
     expect(can(routier, 'attempt.preparePaper')).toBe(false);
   });
 });
+
+describe('Permissions des routiers, équipes et observations', () => {
+  it('le responsable gère fiches, étapes, équipes et affectations', () => {
+    for (const permission of [
+      'scout.create',
+      'scout.update',
+      'scout.setStage',
+      'scout.setActive',
+      'scout.linkAccount',
+      'team.manage',
+      'team.assign',
+    ] as const) {
+      expect(can(responsable, permission)).toBe(true);
+      expect(can(chef, permission)).toBe(false);
+      expect(can(routier, permission)).toBe(false);
+    }
+  });
+
+  it('un chef consulte les routiers et saisit des observations', () => {
+    expect(can(chef, 'scout.read')).toBe(true);
+    expect(can(chef, 'team.read')).toBe(true);
+    expect(can(chef, 'observation.create')).toBe(true);
+    expect(can(chef, 'observation.readRestricted')).toBe(false);
+  });
+
+  it('un routier n’accède ni aux fiches ni aux observations', () => {
+    expect(can(routier, 'scout.read')).toBe(false);
+    expect(can(routier, 'observation.read')).toBe(false);
+  });
+});

@@ -78,7 +78,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   });
 
   const newScout = (n: number, extra: { matricule?: string; stage?: string } = {}) =>
-    profiles.create(chef, {
+    profiles.create(responsable, {
       firstName: 'Routier',
       lastName: `Fictif${n}`,
       joinedAt: '2026-10-01',
@@ -100,7 +100,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   it('2. rattache un compte plus tard sans perte de données ni second profil', async () => {
     const scout = await newScout(1);
     const team = await teams.create(responsable, { name: 'Équipe fictive A' });
-    await teams.assign(chef, { scoutProfileId: scout.id, teamId: team.id });
+    await teams.assign(responsable, { scoutProfileId: scout.id, teamId: team.id });
     const attempt = await prepare(scout.id);
 
     const account = await prisma.user.create({
@@ -158,7 +158,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
       teams.create(responsable, { name: 'Équipe fictive A' }),
       teams.create(responsable, { name: 'Équipe fictive B' }),
     ]);
-    await teams.assign(chef, { scoutProfileId: scout.id, teamId: a.id });
+    await teams.assign(responsable, { scoutProfileId: scout.id, teamId: a.id });
     await expect(
       prisma.teamAssignment.create({
         data: { scoutProfileId: scout.id, teamId: b.id, startedAt: new Date(Date.now() + 60_000) },
@@ -173,12 +173,12 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
       teams.create(responsable, { name: 'Équipe fictive A' }),
       teams.create(responsable, { name: 'Équipe fictive B' }),
     ]);
-    await teams.assign(chef, {
+    await teams.assign(responsable, {
       scoutProfileId: scout.id,
       teamId: a.id,
       startedAt: '2026-10-01T00:00:00.000Z',
     });
-    await teams.assign(chef, {
+    await teams.assign(responsable, {
       scoutProfileId: scout.id,
       teamId: b.id,
       startedAt: '2026-12-01T00:00:00.000Z',
@@ -195,7 +195,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     expect((await teams.teamAt(scout.id, new Date('2026-11-15')))?.id).toBe(a.id);
     expect((await teams.teamAt(scout.id, new Date('2027-01-15')))?.id).toBe(b.id);
     await expect(
-      teams.assign(chef, {
+      teams.assign(responsable, {
         scoutProfileId: scout.id,
         teamId: a.id,
         startedAt: '2026-11-01T00:00:00.000Z',
@@ -223,7 +223,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   it('10. réimprimer ne crée pas de nouvelle tentative et la feuille ne contient jamais le corrigé', async () => {
     const team = await teams.create(responsable, { name: 'Équipe fictive A' });
     const scout = await newScout(1, { matricule: '0000123A' });
-    await teams.assign(chef, {
+    await teams.assign(responsable, {
       scoutProfileId: scout.id,
       teamId: team.id,
       startedAt: '2026-10-01T00:00:00.000Z',

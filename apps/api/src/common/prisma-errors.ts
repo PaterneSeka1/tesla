@@ -9,3 +9,8 @@ export function isUniqueViolation(error: unknown): boolean {
 export function isRecordNotFound(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025';
 }
+
+/** Violation de clé étrangère (ex. étape de progression inexistante). */
+export function isForeignKeyViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003';
+}

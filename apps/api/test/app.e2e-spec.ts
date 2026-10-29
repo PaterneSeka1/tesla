@@ -40,4 +40,17 @@ describe('API (e2e, base simulée)', () => {
       path: '/api/v1/inexistant',
     });
   });
+
+  it('refuse une route protégée sans session (401)', async () => {
+    const response = await request(app.getHttpServer()).get('/api/v1/scouts').expect(401);
+    expect(apiErrorSchema.parse(response.body).code).toBe('UNAUTHENTICATED');
+  });
+
+  it('refuse une écriture sans en-tête anti-CSRF (403)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: 'x@x.test', password: 'x' })
+      .expect(403);
+    expect(apiErrorSchema.parse(response.body).code).toBe('CSRF_REJECTED');
+  });
 });
