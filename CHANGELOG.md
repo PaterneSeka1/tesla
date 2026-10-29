@@ -4,6 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — modules « Bases du scoutisme », 2026-10-29
+- Seed pédagogique idempotent : quatre modules `NT-SCOUT-M01` à `M04` (21 leçons) importés en brouillon depuis « BASE DU SCOUTISME », sans approbation ni publication ; prévisualisation `npm run db:seed:pedagogy -- --dry-run` ; rapport d'écarts sans écrasement.
+- Migration additive `20261102090000_module_source_imports` : auteur facultatif (création système) sur modules, versions, leçons et événements de création ; provenance en ajout seul avec notes éditoriales.
+- Éditeur et révision : encart de provenance et notes éditoriales (rédacteurs uniquement) ; auteur affiché « Import système ».
+
 ### Ajouté — phase 5 (PWA hors ligne), 2026-10-29
 - Coffre local IndexedDB chiffré (AES-GCM, phrase locale), téléchargement versionné et vérifié des modules publiés, lecture hors ligne avec position, suppression locale et mises à jour proposées.
 - Évaluations hors ligne : réservation serveur de 24 h après contrôle d'éligibilité, saisie et reprise locales, file de synchronisation bornée, réception transactionnelle et idempotente avec revérification des droits, correction serveur, conflits et rejets motivés.

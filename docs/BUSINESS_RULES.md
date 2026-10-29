@@ -161,3 +161,13 @@ Les décisions officielles restent exclusivement humaines. Les étapes et valida
 - **À arbitrer** : durée de réservation (24 h), rejet ou mise en attente en cas de révocation, conservation serveur d'une copie rejetée pour examen par un chef, ouverture du mode hors ligne aux chefs et au responsable.
 
 Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).
+
+## Modules importés d'une source documentaire
+
+- Un module importé par le seed est créé **en brouillon par le système** : aucun chef ni responsable n'en est déclaré auteur, aucune approbation ni publication n'est simulée. Il ne devient visible des routiers qu'après soumission, approbation et publication par des personnes.
+- Le responsable le consulte et le modifie comme tout module ; un chef n'y accède qu'après invitation comme collaborateur.
+- Les textes sont repris tels quels de la source ; les erreurs présumées sont signalées en notes éditoriales, jamais corrigées silencieusement. Une leçon sans contenu source reste vide et bloque la soumission.
+- L'étape associée est une recommandation de lecture, jamais une condition de progression ou d'éligibilité. Aucun questionnaire n'est créé sans questions dans la source.
+- Une réexécution n'écrase jamais un module importé : elle signale les écarts.
+
+Détails : [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md).

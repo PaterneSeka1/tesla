@@ -190,3 +190,13 @@ Migration additive `20261101090000_offline_reservations` (aucune donnée modifi�
 | `offline_decision_code` | `ACCEPTED`, `ATTEMPT_CLOSED`, `AUTHORIZATION_EXPIRED`, `AUTHORIZATION_REVOKED`, `VERSION_UNAVAILABLE` |
 
 Les index uniques garantissent qu'une autorisation et une opération ne désignent qu'une tentative. L'index partiel existant (une tentative ouverte par routier et évaluation) s'applique aussi aux réservations. Migration appliquée sur `tesla` et `tesla_test` ; diff schéma ↔ base vide.
+
+## Import système de modules (seed pédagogique)
+
+Migration additive `20261102090000_module_source_imports` (aucune donnée existante modifiée) :
+
+- `created_by_id` devient facultatif sur `pedagogical_modules`, `module_versions`, `module_lessons`, et `actor_id` sur `module_version_events` : **nul = création par le système** (import d'une source), jamais attribuée à un chef ou au responsable.
+- CHECK `module_version_events_system_actor_check` : un événement sans acteur ne peut être que `CREEE` ; soumission, approbation, publication, refus et archivage gardent un auteur humain.
+- Table `module_source_imports` (1–1 avec le module) : code stable `source_key` unique (ex. `NT-SCOUT-M01`), document, SHA-256 et pages sources, notes éditoriales (JSON, jamais transmises aux routiers), instantané importé et empreinte canonique. **Ajout seul** (trigger `module_source_imports_append_only`).
+
+Appliquée sur `tesla` et `tesla_test` ; diff schéma ↔ base vide. Voir [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md).
