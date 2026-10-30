@@ -1,9 +1,11 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ScoutDetail } from '@tesla/shared';
-import { ArrowRightLeft, Link2, Power, UserMinus } from 'lucide-react';
+import { type AccountLink, type ScoutDetail } from '@tesla/shared';
+import { ArrowRightLeft, Link2, Power, UserMinus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
+import { AccountLinkDialog } from '@/components/accounts/account-link-dialog';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
@@ -12,7 +14,9 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { OFFLINE_SAVED } from '@/components/progression/use-pedagogy-action';
 import { useToast } from '@/components/ui/toaster';
 import { OfflineQueuedError } from '@/lib/offline/operations';
+import { createAccount } from '@/lib/api/accounts';
 import { assignTeam, linkAccount, setScoutActive, unassignTeam } from '@/lib/api/scouts';
+import { userCan } from '@/lib/navigation';
 import { activeTeamsQueryOptions } from '@/lib/api/teams';
 import { fullName } from '@/lib/format';
 
@@ -23,6 +27,9 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
   const teams = useQuery(activeTeamsQueryOptions);
   const [teamId, setTeamId] = useState('');
   const [email, setEmail] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [link, setLink] = useState<AccountLink | null>(null);
+  const user = useSessionUser();
   const name = fullName(scout);
 
   /** Exécute l'action, rafraîchit les données et notifie ; renvoie `true` en cas de succès. */
@@ -125,6 +132,59 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
         />
       )}
 
+      {!scout.hasAccount && userCan(user, 'account.manage') && (
+        <ConfirmDialog
+          trigger={
+            <Button variant="outline">
+              <UserPlus aria-hidden />
+              Créer son compte
+            </Button>
+          }
+          title="Créer le compte de ce routier"
+          description={
+            <>
+              <p>
+                Un compte routier sera créé et rattaché à cette fiche, qui garde son historique. Un
+                lien d’activation à usage unique vous sera remis pour {name}.
+              </p>
+              <FormField id="new-account-email" label="Adresse e-mail du routier" required>
+                <Input
+                  id="new-account-email"
+                  type="email"
+                  autoComplete="off"
+                  value={newEmail}
+                  onChange={(event) => setNewEmail(event.target.value)}
+                />
+              </FormField>
+            </>
+          }
+          confirmLabel="Créer le compte"
+          onConfirm={async () => {
+            let created: AccountLink | null = null;
+            const ok = await run(
+              async () => {
+                created = (
+                  await createAccount({
+                    email: newEmail,
+                    firstName: scout.firstName,
+                    lastName: scout.lastName,
+                    role: 'ROUTIER',
+                    scoutProfileId: scout.id,
+                  })
+                ).link;
+              },
+              'Compte créé et rattaché',
+              'Création impossible',
+            );
+            if (ok) {
+              setNewEmail('');
+              setLink(created);
+            }
+            return ok;
+          }}
+        />
+      )}
+
       {!scout.hasAccount && (
         <ConfirmDialog
           trigger={
@@ -196,6 +256,7 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
           )
         }
       />
+      <AccountLinkDialog link={link} name={name} onClose={() => setLink(null)} />
     </>
   );
 }

@@ -14,10 +14,11 @@ export interface CachedResponse {
 /**
  * Jamais conservé sur l'appareil : session, réservations hors ligne, passation en ligne, et tout ce
  * qui contient corrigés ou barèmes (rédaction et revue des questionnaires, corrections, examen des
- * résultats). Ces écrans exigent le serveur (D113).
+ * résultats), ainsi que la gestion des comptes. Ces écrans exigent le serveur (D113).
  */
 const EXCLUDED_PREFIXES = [
   '/auth/',
+  '/users',
   '/offline/',
   '/attempts/',
   '/editor/evaluations',

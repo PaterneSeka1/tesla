@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Smartphone } from 'lucide-react';
+import { LogOut, Smartphone, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -52,6 +52,13 @@ export function UserMenu() {
       >
         <Smartphone className="size-4 shrink-0" aria-hidden />
         Cet appareil
+      </Link>
+      <Link
+        href="/compte"
+        className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-tesla-sable hover:bg-white/10 hover:text-white"
+      >
+        <UserRound className="size-4 shrink-0" aria-hidden />
+        Mon compte
       </Link>
       <div className="flex items-center justify-between gap-3">
         <p className="min-w-0 truncate text-sm font-medium">

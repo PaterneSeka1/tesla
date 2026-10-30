@@ -38,5 +38,8 @@ export const config = {
     '/mes-competences/:path*',
     '/mes-activites/:path*',
     '/appareil/:path*',
+    '/compte/:path*',
+    '/mandats/:path*',
+    '/mes-rattrapages/:path*',
   ],
 };

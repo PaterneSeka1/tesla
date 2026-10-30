@@ -59,6 +59,10 @@ export default function LoginPage() {
           <Suspense fallback={<Skeleton className="h-56" />}>
             <LoginForm />
           </Suspense>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Mot de passe oublié ou compte à activer : demandez un lien à la personne qui gère votre
+            compte.
+          </p>
           <p className="mt-6 text-center text-sm">
             <Link
               href="/"

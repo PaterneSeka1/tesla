@@ -231,3 +231,25 @@ describe('navigation', () => {
     );
   });
 });
+
+describe('comptes (D119)', () => {
+  it('« Mon compte » est accessible à tout utilisateur connecté', () => {
+    for (const user of Object.values(ALL)) expect(canAccessPath(user, '/compte')).toBe(true);
+  });
+
+  it('la gestion des comptes exige `account.read` (plein, délégation, administration)', () => {
+    expect(canAccessPath(plein, '/administration/comptes')).toBe(true);
+    expect(canAccessPath(admin, '/administration/comptes')).toBe(true);
+    expect(canAccessPath(encadrant, '/administration/comptes')).toBe(false);
+    expect(canAccessPath(delegataire, '/administration/comptes')).toBe(false);
+    expect(canAccessPath(routier, '/administration/comptes')).toBe(false);
+    const entries = (user: NavUser) =>
+      navigationFor(user).flatMap((group) => group.items.map((item) => item.href));
+    expect(entries(admin)).toContain('/administration/comptes');
+    expect(entries(encadrant)).not.toContain('/administration/comptes');
+  });
+
+  it('l’administration technique ne voit aucun autre écran de `/administration`', () => {
+    expect(canAccessPath(admin, '/administration/routiers')).toBe(false);
+  });
+});

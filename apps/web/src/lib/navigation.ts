@@ -13,6 +13,7 @@ import {
   FilePenLine,
   GraduationCap,
   History,
+  KeyRound,
   LayoutDashboard,
   Library,
   type LucideIcon,
@@ -74,10 +75,16 @@ const ACCESS_RULES: readonly AccessRule[] = [
   { path: '/mes-competences', roles: ROUTIER },
   { path: '/mes-activites', roles: ROUTIER },
   { path: '/appareil', roles: ['ROUTIER', 'ENCADREMENT', 'ADMINISTRATEUR'] },
+  { path: '/compte', roles: ['ROUTIER', 'ENCADREMENT', 'ADMINISTRATEUR'] },
   { path: '/encadrement', roles: STAFF },
   { path: '/mandats', roles: ['ENCADREMENT', 'ADMINISTRATEUR'], permission: 'mandate.read' },
   { path: '/administration', roles: STAFF },
   { path: '/administration/referentiel-age', roles: STAFF, permission: 'ageRules.read' },
+  {
+    path: '/administration/comptes',
+    roles: ['ENCADREMENT', 'ADMINISTRATEUR'],
+    permission: 'account.read',
+  },
   { path: '/administration/modules-a-valider', roles: STAFF, permission: 'module.review' },
   { path: '/administration/modules', roles: STAFF, permission: 'module.review' },
   { path: '/administration/historique-publications', roles: STAFF, permission: 'module.review' },
@@ -222,6 +229,12 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
         { href: '/administration/equipes', label: 'Équipes', icon: UsersRound },
         { href: '/administration/activites', label: 'Activités', icon: ClipboardList },
         { href: '/administration/presences', label: 'Présences', icon: CalendarCheck },
+        {
+          href: '/administration/comptes',
+          label: 'Comptes',
+          icon: KeyRound,
+          permission: 'account.read',
+        },
       ],
     },
     {
@@ -265,7 +278,10 @@ export const NAVIGATION: Record<Role, readonly NavGroup[]> = {
   ADMINISTRATEUR: [
     {
       label: 'Administration',
-      items: [{ href: '/mandats', label: 'Responsables', icon: BadgeCheck }],
+      items: [
+        { href: '/mandats', label: 'Responsables', icon: BadgeCheck },
+        { href: '/administration/comptes', label: 'Comptes', icon: KeyRound },
+      ],
     },
   ],
 };
