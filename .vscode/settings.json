@@ -13,7 +13,7 @@
   "eslint.workingDirectories": [
     { "directory": "./apps/api" },
     { "directory": "./apps/web" },
-    { "directory": "./packages/shared" },
+    { "directory": "./packages/shared" }
   ],
   "tailwindCSS.experimental.configFile": "apps/web/src/app/globals.css",
   "files.eol": "\n",

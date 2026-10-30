@@ -690,10 +690,7 @@ describe('Refonte parcours Route et mandats (intégration PostgreSQL)', () => {
 
       const first = await importSourceModules(prisma, DISCOVERY_MODULES);
       expect(first.filter((r) => r.outcome === 'CREE')).toHaveLength(21);
-      const second = await importSourceModules(
-        prisma,
-        DISCOVERY_MODULES,
-      );
+      const second = await importSourceModules(prisma, DISCOVERY_MODULES);
       expect(second.every((r) => r.outcome === 'DEJA_IMPORTE')).toBe(true);
       expect(
         await prisma.moduleVersion.count({
