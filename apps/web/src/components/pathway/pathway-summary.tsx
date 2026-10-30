@@ -61,7 +61,7 @@ export function PathwaySummary({
           </AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
             <CardDescription>Âge</CardDescription>
@@ -93,7 +93,10 @@ export function PathwaySummary({
             <CardTitle className="text-2xl">{pathway.officialStage?.name ?? 'Aucune'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <Badge variant={pathway.gap === 'EN_RETARD' ? 'accent' : 'outline'}>
+            <Badge
+              variant={pathway.gap === 'EN_RETARD' ? 'accent' : 'outline'}
+              className="w-auto whitespace-normal"
+            >
               {STAGE_GAP_LABELS[pathway.gap]}
             </Badge>
           </CardContent>
