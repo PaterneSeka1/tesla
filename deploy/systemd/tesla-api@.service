@@ -1,0 +1,39 @@
+# API NestJS de TESLA. Instance : production ou preproduction (%i).
+# Installation : /etc/systemd/system/ ; activation : systemctl enable --now tesla-api@production
+[Unit]
+Description=TESLA — API (%i)
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=tesla
+Group=tesla
+EnvironmentFile=/etc/tesla/%i.env
+WorkingDirectory=/opt/tesla/%i/current/apps/api
+ExecStart=/usr/bin/node dist/main.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+# Journalisation : journald (journalctl -u tesla-api@%i) ; aucun fichier à faire tourner.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tesla-api-%i
+# Durcissement
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/tesla/%i
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

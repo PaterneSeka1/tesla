@@ -1,0 +1,12 @@
+# Deux sauvegardes par jour (RPO cible ≤ 12 h, à valider : docs/BACKUP_RESTORE.md).
+[Unit]
+Description=TESLA — sauvegarde PostgreSQL (%i)
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+OnCalendar=*-*-* 14:15:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

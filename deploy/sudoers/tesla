@@ -1,0 +1,3 @@
+# /etc/sudoers.d/tesla (visudo -cf) : l'utilisateur de déploiement ne peut que redémarrer les
+# services TESLA, rien d'autre.
+tesla ALL=(root) NOPASSWD: /usr/bin/systemctl restart tesla-api@production tesla-web@production, /usr/bin/systemctl restart tesla-api@preproduction tesla-web@preproduction

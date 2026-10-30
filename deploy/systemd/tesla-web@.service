@@ -1,0 +1,36 @@
+# Frontend Next.js (PWA) de TESLA. Instance : production ou preproduction (%i).
+[Unit]
+Description=TESLA — Web (%i)
+After=network-online.target tesla-api@%i.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tesla
+Group=tesla
+EnvironmentFile=/etc/tesla/%i.env
+WorkingDirectory=/opt/tesla/%i/current/apps/web
+ExecStart=/opt/tesla/%i/current/node_modules/.bin/next start --hostname 127.0.0.1 --port ${WEB_PORT}
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tesla-web-%i
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# Cache d'images et d'ISR de Next.js : seul répertoire inscriptible.
+ReadWritePaths=-/opt/tesla/%i/current/apps/web/.next/cache
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+# 00:30 heure d'Abidjan (UTC+0, sans heure d'été) : après le changement de date civile.
+[Unit]
+Description=TESLA — traitement quotidien (%i)
+
+[Timer]
+OnCalendar=*-*-* 00:30:00 UTC
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

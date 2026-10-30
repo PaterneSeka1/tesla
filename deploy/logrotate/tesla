@@ -1,0 +1,16 @@
+# Journaux Nginx de TESLA (/etc/logrotate.d/tesla). Les journaux de l'API, du web, des sauvegardes
+# et des traitements vont dans journald (voir deploy/journald/tesla.conf).
+/var/log/nginx/tesla.access.log /var/log/nginx/tesla.error.log {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    dateext
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        [ -s /run/nginx.pid ] && kill -USR1 "$(cat /run/nginx.pid)"
+    endscript
+}

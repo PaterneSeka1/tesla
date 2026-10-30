@@ -1,0 +1,12 @@
+# Contrôle de disponibilité (API, base, web) ; un échec marque l'unité « failed ».
+[Unit]
+Description=TESLA — contrôle de santé (%i)
+
+[Service]
+Type=oneshot
+User=tesla
+Group=tesla
+EnvironmentFile=/etc/tesla/%i.env
+ExecStart=/opt/tesla/%i/current/deploy/scripts/healthcheck.sh
+SyslogIdentifier=tesla-health-%i
+NoNewPrivileges=true

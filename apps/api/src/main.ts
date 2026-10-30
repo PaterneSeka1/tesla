@@ -18,7 +18,7 @@ const env = app.get<Env>(ENV);
 configureApp(app, env);
 app.enableShutdownHooks();
 
-await app.listen(env.API_PORT);
+await app.listen(env.API_PORT, env.API_HOST);
 Logger.log(`API disponible sur http://localhost:${env.API_PORT}/api/v1`, 'Bootstrap');
 if (env.SWAGGER_ENABLED) {
   Logger.log(`Swagger : http://localhost:${env.API_PORT}/api/docs`, 'Bootstrap');

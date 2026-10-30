@@ -1,0 +1,19 @@
+# Traitement quotidien idempotent : sorties de branche échues, plans de rattrapage, purge des
+# compteurs de connexion (npm run jobs:daily). Déclenché par tesla-daily@%i.timer.
+[Unit]
+Description=TESLA — traitement quotidien (%i)
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=tesla
+Group=tesla
+EnvironmentFile=/etc/tesla/%i.env
+WorkingDirectory=/opt/tesla/%i/current/apps/api
+ExecStart=/usr/bin/node dist/jobs/daily.js
+SyslogIdentifier=tesla-daily-%i
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
