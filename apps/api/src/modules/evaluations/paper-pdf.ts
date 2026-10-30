@@ -1,5 +1,4 @@
 import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import {
   isObjectiveQuestion,
   PAPER_DOCUMENT_LABELS,
@@ -8,6 +7,13 @@ import {
   SCORING_POLICY_LABELS,
 } from '@tesla/shared';
 import PDFDocument from 'pdfkit';
+import {
+  cleanPdfText,
+  formatPdfDate,
+  LOGO_PATH,
+  PDF_COLORS,
+  PDF_MARGIN,
+} from '../../common/pdf-brand.js';
 import { type PaperDocumentData } from './evaluation-attempts.service.js';
 
 /**
@@ -17,41 +23,10 @@ import { type PaperDocumentData } from './evaluation-attempts.service.js';
  * (chefs et responsable, contrôle d'accès dans le service).
  */
 
-const COLORS = {
-  bordeaux: '#510d12',
-  rouge: '#801e23',
-  or: '#d9a45f',
-  texte: '#222222',
-  gris: '#666666',
-};
-const MARGIN = 50;
-
-/** Logo de la communauté (application web) : utilisé s'il est présent, sinon en-tête textuel. */
-const LOGO_PATH = fileURLToPath(
-  new URL('../../../../web/public/brand/logo-communaute.png', import.meta.url),
-);
-
-/** Caractères hors Windows-1252 (police standard) remplacés pour éviter un rendu illisible. */
-const CP1252_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ');
-function clean(text: string): string {
-  return [...text]
-    .map((char) => {
-      const code = char.codePointAt(0)!;
-      if (code === 10 || (code >= 32 && code <= 126) || (code >= 160 && code <= 255)) return char;
-      if (CP1252_EXTRA.has(char)) return char;
-      if (char === '\t') return ' ';
-      return '?';
-    })
-    .join('');
-}
-
-const formatDate = (date: Date) =>
-  date.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
+const COLORS = PDF_COLORS;
+const MARGIN = PDF_MARGIN;
+const clean = cleanPdfText;
+const formatDate = formatPdfDate;
 
 const formatPoints = (value: number) =>
   `${value.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} pt${value > 1 ? 's' : ''}`;
