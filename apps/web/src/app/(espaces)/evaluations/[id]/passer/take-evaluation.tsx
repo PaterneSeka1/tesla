@@ -84,8 +84,9 @@ export function TakeEvaluation() {
         <AlertTitle>Vos réponses ont été remises</AlertTitle>
         <AlertDescription>
           <p>
-            Les questions à choix sont corrigées ; les réponses rédigées le seront par un chef, puis
-            le responsable examinera le résultat. Vous le retrouverez dans « Mes résultats ».
+            Les questions à choix sont corrigées ; les réponses rédigées le seront par
+            l’encadrement, puis le responsable examinera le résultat. Vous le retrouverez dans « Mes
+            résultats ».
           </p>
           <Button asChild size="sm">
             <Link href="/mes-resultats">Mes résultats</Link>

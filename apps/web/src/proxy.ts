@@ -2,10 +2,10 @@ import { SESSION_COOKIE_NAME } from '@tesla/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 
 /**
- * Contrôle optimiste sur la seule présence du cookie de session (sa validité et le rôle sont
+ * Contrôle optimiste sur la seule présence du cookie de session (sa validité et les droits sont
  * vérifiés par l'API : `/auth/me` dans `SessionGate` et chaque route de données).
- * - `/` avec cookie : vers `/connexion`, qui oriente un utilisateur connecté vers son tableau de
- *   bord (pas d'écran de choix d'espace). `/connexion` n'est jamais redirigée ici : une session
+ * - `/` avec cookie : vers `/connexion`, qui oriente un utilisateur connecté vers l'accueil
+ *   (pas d'écran de choix d'espace). `/connexion` n'est jamais redirigée ici : une session
  *   expirée (cookie encore présent) y affiche le formulaire, sans boucle.
  * - Page connectée sans cookie : vers `/connexion`, avec retour à la page demandée.
  */
@@ -27,9 +27,9 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
-    '/routier/:path*',
+    '/accueil/:path*',
+    '/communaute/:path*',
     '/encadrement/:path*',
-    '/responsable/:path*',
     '/administration/:path*',
     '/modules/:path*',
     '/evaluations/:path*',
@@ -39,7 +39,6 @@ export const config = {
     '/mes-activites/:path*',
     '/appareil/:path*',
     '/compte/:path*',
-    '/mandats/:path*',
     '/mes-rattrapages/:path*',
   ],
 };

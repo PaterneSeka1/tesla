@@ -1,9 +1,4 @@
-import {
-  effectivePermissions,
-  meResponseSchema,
-  OFFLINE_ACCESS_MAX_DAYS,
-  type SessionUser,
-} from '@tesla/shared';
+import { meResponseSchema, OFFLINE_ACCESS_MAX_DAYS, type SessionUser } from '@tesla/shared';
 import { apiFetch } from '@/lib/api/client';
 import { dbDelete, dbKeys, dbRead, dbWrite } from './db';
 
@@ -278,8 +273,10 @@ async function rememberIdentity(user: SessionUser) {
 }
 /**
  * Identité locale utilisable hors connexion : vérifiée par le serveur depuis moins de
- * `OFFLINE_ACCESS_MAX_DAYS` jours. Une fois le mandat ou la délégation échus (date connue au
- * dernier contrôle), seules les permissions du rôle sans mandat sont conservées (D112).
+ * `OFFLINE_ACCESS_MAX_DAYS` jours (D112). Ses permissions ne servent qu'à l'affichage et à la
+ * préparation d'écritures différables : jamais une preuve d'autorisation. Au retour du réseau, la
+ * session est relue et chaque opération revérifiée par le serveur ; une opération que la personne
+ * n'est plus habilitée à faire (ex. changement de responsable plein) est rejetée et conservée (D133).
  */
 export async function localIdentity(now = new Date()): Promise<SessionUser | null> {
   await ensureVaultRestored();
@@ -291,14 +288,6 @@ export async function localIdentity(now = new Date()): Promise<SessionUser | nul
 export function identityAt({ user, verifiedAt }: LocalIdentity, now: Date): SessionUser | null {
   const age = now.getTime() - new Date(verifiedAt).getTime();
   if (age < 0 || age > OFFLINE_ACCESS_MAX_DAYS * 86_400_000) return null;
-  const today = now.toISOString().slice(0, 10);
-  if (user.authorityValidUntil && user.authorityValidUntil < today)
-    return {
-      ...user,
-      leaderFunction: null,
-      authorityValidUntil: null,
-      permissions: effectivePermissions({ role: user.role, leaderFunction: null, delegated: [] }),
-    };
   return user;
 }
 /** Le compte connecté au serveur doit être le propriétaire du coffre ouvert. */

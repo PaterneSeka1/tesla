@@ -14,7 +14,6 @@ const user: SessionUser = {
   scoutProfileId: null,
   leaderFunction: 'PLEIN',
   permissions: ['scout.read', 'scout.update', 'attendance.record'],
-  authorityValidUntil: '2026-11-15',
 };
 
 describe('dépôt local', () => {
@@ -58,14 +57,12 @@ describe('identité locale (D112)', () => {
     expect(identityAt({ user, verifiedAt }, new Date('2026-10-29T08:00:00Z'))).toBeNull();
   });
 
-  it('retire les permissions du mandat après sa fin, même hors connexion', () => {
-    const later = identityAt(
-      { user: { ...user, authorityValidUntil: '2026-11-01' }, verifiedAt },
-      new Date('2026-11-02T08:00:00Z'),
-    );
-    expect(later?.leaderFunction).toBeNull();
-    expect(later?.permissions).not.toContain('scout.update');
-    expect(later?.permissions).toContain('attendance.record');
+  it('un refus de droits au retour du réseau rejette l’opération sans la supprimer (D133)', () => {
+    expect(classifyFailure(new ApiError(403, 'FORBIDDEN', 'Refusé'))).toEqual({
+      status: 'REJETE',
+      transient: false,
+      stop: false,
+    });
   });
 });
 
@@ -148,8 +145,8 @@ describe('file de synchronisation (D110)', () => {
     for (const official of [
       'scout.setStage',
       'competency.decide',
-      'mandate.recordTeam',
-      'delegation.manage',
+      'leadership.manage',
+      'attempt.decide',
       'module.publish',
     ])
       expect(permissions).not.toContain(official);

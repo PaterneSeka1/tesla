@@ -21,7 +21,7 @@ import {
 // File de synchronisation globale (D110) : une opération = une écriture d'API rejouable, avec un
 // identifiant unique envoyé au serveur (idempotence), des dépendances et un état explicite.
 // Seuls les types déclarés dans `OPERATION_TYPES` peuvent être différés : les décisions
-// officielles (étapes, acquis, mandats, publications, validations) exigent le serveur.
+// officielles (étapes, acquis, encadrement, publications, validations) exigent le serveur.
 
 export type OperationType =
   | 'attendance.save'

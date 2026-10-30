@@ -12,7 +12,7 @@ import {
   availableEvaluationsQueryOptions,
   myAttemptsQueryOptions,
 } from '@/lib/api/evaluations';
-import { leadershipOverviewQueryOptions, mandateHistoryQueryOptions } from '@/lib/api/leadership';
+import { leadershipTeamQueryOptions } from '@/lib/api/leadership';
 import {
   catalogLessonQueryOptions,
   catalogModuleQueryOptions,
@@ -278,10 +278,9 @@ async function prepare(
     }
   }
 
-  if (userCan(user, 'mandate.read')) {
-    progress('Responsables et mandats…');
-    await get(leadershipOverviewQueryOptions, 'Responsables');
-    await get(mandateHistoryQueryOptions(), 'Mandats');
+  if (userCan(user, 'leadership.read')) {
+    progress('Encadrement…');
+    await get(leadershipTeamQueryOptions, 'Encadrement');
   }
 
   progress(`Pages de l’application (${pages.size})…`);

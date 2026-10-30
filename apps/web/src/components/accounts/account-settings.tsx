@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   changePasswordInputSchema,
   PASSWORD_MIN_LENGTH,
-  ROLE_LABELS,
+  LEADER_FUNCTION_LABELS,
   updateProfileInputSchema,
 } from '@tesla/shared';
 import { LoaderCircle, LogOut } from 'lucide-react';
@@ -78,8 +78,12 @@ function ProfileCard() {
           <dl className="grid gap-1 text-sm">
             <dt className="text-muted-foreground">Adresse e-mail</dt>
             <dd className="break-all">{user.email}</dd>
-            <dt className="mt-2 text-muted-foreground">Accès</dt>
-            <dd>{ROLE_LABELS[user.role]}</dd>
+            {user.leaderFunction && (
+              <>
+                <dt className="mt-2 text-muted-foreground">Fonction</dt>
+                <dd>{LEADER_FUNCTION_LABELS[user.leaderFunction]}</dd>
+              </>
+            )}
           </dl>
           <FormField id="firstName" label="Prénom" error={errors.firstName?.message} required>
             <Input

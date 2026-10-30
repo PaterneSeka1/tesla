@@ -411,7 +411,7 @@ export function ChefPedagogyDashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Mes propositions" description="Seul le responsable décide.">
+        <Panel title="Mes propositions" description="Seul le responsable plein décide.">
           <ul className="-mx-3">
             <ActionRow
               label="En attente de décision"

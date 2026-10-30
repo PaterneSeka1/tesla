@@ -271,7 +271,7 @@ function CreateAccount({
             <Input id="account-last-name" value={values.lastName} onChange={set('lastName')} />
           </FormField>
           {roles.length > 1 && (
-            <FormField id="account-role" label="Accès" required>
+            <FormField id="account-role" label="Type de compte" required>
               <NativeSelect id="account-role" value={values.role} onChange={set('role')}>
                 {roles.map((role) => (
                   <option key={role} value={role}>

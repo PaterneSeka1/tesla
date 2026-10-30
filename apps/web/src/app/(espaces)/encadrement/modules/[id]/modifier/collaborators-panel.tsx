@@ -65,14 +65,14 @@ export function CollaboratorsPanel({ module }: { module: EditorModuleDetail }) {
       {manage ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex-1 space-y-1">
-            <Label htmlFor={`${id}-chef`}>Inviter un chef</Label>
+            <Label htmlFor={`${id}-chef`}>Inviter un membre de l’encadrement</Label>
             <NativeSelect
               id={`${id}-chef`}
               value={userId}
               onChange={(event) => setUserId(event.target.value)}
             >
               <option value="">
-                {available.length ? 'Choisir un chef' : 'Aucun chef disponible'}
+                {available.length ? 'Choisir une personne' : 'Aucune personne disponible'}
               </option>
               {available.map((user) => (
                 <option key={user.id} value={user.id}>

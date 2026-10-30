@@ -1,69 +1,84 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  effectivePermissions,
-  type LeaderFunction,
-  type Permission,
-  type Role,
-} from '@tesla/shared';
+import { effectivePermissions, type LeaderFunction, type Role } from '@tesla/shared';
 import { describe, expect, it } from 'vitest';
 import {
   canAccessPath,
-  DEFAULT_ROUTES,
   findActiveItem,
-  getDefaultRouteForUser,
+  hasPathwayNav,
+  HOME_ROUTE,
   navigationFor,
   NAVIGATION,
   type NavUser,
+  PATHWAY_BOTTOM_NAV,
   resolvePostLoginPath,
-  ROUTIER_BOTTOM_NAV,
   safeInternalPath,
 } from './navigation';
 
 const APP_DIR = join(import.meta.dirname, '..', 'app');
 
 /** Utilisateur tel que renvoyé par `/auth/me` (permissions calculées comme par l'API). */
-const persona = (
-  role: Role,
-  leaderFunction: LeaderFunction | null = null,
-  delegated: Permission[] = [],
-): NavUser => ({ role, permissions: effectivePermissions({ role, leaderFunction, delegated }) });
+const persona = (role: Role, leaderFunction: LeaderFunction | null = null): NavUser => ({
+  permissions: effectivePermissions({ role, leaderFunction }),
+});
 
 const routier = persona('ROUTIER');
-/** Membre de l'encadrement sans mandat (ou ancien « chef ») : aucune décision officielle. */
+/** Membre de l'encadrement sans fonction désignée : aucune décision officielle. */
 const encadrant = persona('ENCADREMENT');
+const adjoint = persona('ENCADREMENT', 'ADJOINT');
 const assistant = persona('ENCADREMENT', 'ASSISTANT');
 const plein = persona('ENCADREMENT', 'PLEIN');
-const delegataire = persona('ENCADREMENT', 'ADJOINT', ['module.review']);
 const admin = persona('ADMINISTRATEUR');
-const ALL = { routier, encadrant, assistant, plein, delegataire, admin };
+const ALL = { routier, encadrant, adjoint, assistant, plein, admin };
 
 /** Page App Router correspondant au chemin, dans `(espaces)/` ou à la racine. */
 function pageExists(href: string): boolean {
   return ['(espaces)', ''].some((group) => existsSync(join(APP_DIR, group, href, 'page.tsx')));
 }
 
-describe('destination par défaut', () => {
-  it('oriente chaque rôle vers son tableau de bord, sans écran de choix', () => {
-    expect(getDefaultRouteForUser(routier)).toBe('/routier');
-    expect(getDefaultRouteForUser(encadrant)).toBe('/encadrement');
-    expect(getDefaultRouteForUser(plein)).toBe('/encadrement');
-    expect(getDefaultRouteForUser(admin)).toBe('/mandats');
+const hrefs = (user: NavUser) =>
+  navigationFor(user).flatMap((group) => group.items.map((item) => item.href));
+
+describe('application unique (D132)', () => {
+  it('la même page d’arrivée pour tous, existante et accessible (pas de choix d’espace)', () => {
+    expect(pageExists(HOME_ROUTE)).toBe(true);
+    for (const user of Object.values(ALL)) {
+      expect(canAccessPath(user, HOME_ROUTE)).toBe(true);
+      expect(resolvePostLoginPath(user, null)).toBe(HOME_ROUTE);
+    }
   });
 
-  it.each(Object.entries(ALL))(
-    'le tableau de bord de %s existe et lui est accessible (pas de boucle)',
-    (_, user) => {
-      expect(pageExists(DEFAULT_ROUTES[user.role])).toBe(true);
-      expect(canAccessPath(user, DEFAULT_ROUTES[user.role])).toBe(true);
-    },
-  );
+  it('les anciens tableaux de bord par espace n’existent plus et sont redirigés', () => {
+    for (const path of ['/routier', '/encadrement', '/mandats']) {
+      expect(pageExists(path), path).toBe(false);
+    }
+    const config = readFileSync(join(APP_DIR, '..', '..', 'next.config.ts'), 'utf8');
+    for (const [source, destination] of [
+      ['/routier', '/accueil'],
+      ['/encadrement', '/accueil'],
+      ['/mandats', '/communaute'],
+      ['/chef', '/accueil'],
+      ['/responsable', '/accueil'],
+    ]) {
+      expect(config).toContain(`source: '${source}', destination: '${destination}'`);
+    }
+  });
+
+  it('aucun libellé de menu ne reprend un rôle technique, un mandat ou une délégation', () => {
+    const labels = NAVIGATION.flatMap((group) => [
+      group.label,
+      ...group.items.map((item) => item.label),
+    ]);
+    for (const label of labels) {
+      expect(label).not.toMatch(/\b(ROUTIER|ENCADREMENT|ADMINISTRATEUR)\b/);
+      expect(label).not.toMatch(/mandat|délégation|espace|rôle|\bchef/i);
+    }
+  });
 });
 
 describe('accès par chemin', () => {
-  it('un seul espace d’encadrement, identique pour tous ses membres', () => {
+  it('rédaction, correction et suivi : tout l’encadrement, quelle que soit sa fonction', () => {
     for (const path of [
-      '/encadrement',
       '/encadrement/modules',
       '/encadrement/modules/nouveau',
       '/encadrement/evaluations/nouvelle',
@@ -71,14 +86,15 @@ describe('accès par chemin', () => {
       '/encadrement/corrections',
       '/administration/routiers',
       '/administration/validations',
-      '/mandats',
     ]) {
-      for (const user of [encadrant, assistant, plein])
-        expect(canAccessPath(user, path)).toBe(true);
+      for (const user of [encadrant, adjoint, assistant, plein])
+        expect(canAccessPath(user, path), path).toBe(true);
+      expect(canAccessPath(routier, path), path).toBe(false);
+      expect(canAccessPath(admin, path), path).toBe(false);
     }
   });
 
-  it('réserve les décisions aux personnes habilitées (plein ou délégation)', () => {
+  it('réserve les décisions au responsable plein', () => {
     for (const path of [
       '/administration/modules-a-valider',
       '/administration/modules/abc/revision',
@@ -88,22 +104,23 @@ describe('accès par chemin', () => {
       '/administration/historique-publications',
     ]) {
       expect(canAccessPath(plein, path)).toBe(true);
-      expect(canAccessPath(encadrant, path)).toBe(false);
-      expect(canAccessPath(assistant, path)).toBe(false);
-      expect(canAccessPath(routier, path)).toBe(false);
+      for (const user of [encadrant, adjoint, assistant, routier, admin])
+        expect(canAccessPath(user, path)).toBe(false);
     }
   });
 
-  it('une délégation n’ouvre que les écrans de la permission déléguée', () => {
-    expect(canAccessPath(delegataire, '/administration/modules-a-valider')).toBe(true);
-    expect(canAccessPath(delegataire, '/administration/deblocages')).toBe(false);
+  it('la page de l’encadrement est ouverte à tout membre connecté', () => {
+    for (const user of Object.values(ALL)) expect(canAccessPath(user, '/communaute')).toBe(true);
   });
 
-  it('l’administration technique ne voit que les mandats', () => {
-    expect(canAccessPath(admin, '/mandats')).toBe(true);
-    for (const path of ['/encadrement', '/administration/routiers', '/modules', '/routier']) {
+  it('l’administrateur n’a aucun accès pédagogique', () => {
+    for (const path of [
+      '/encadrement/modules',
+      '/administration/routiers',
+      '/modules',
+      '/progression',
+    ])
       expect(canAccessPath(admin, path)).toBe(false);
-    }
   });
 
   it('distingue le préfixe exact (« evaluations » n’ouvre pas « evaluations-a-valider »)', () => {
@@ -111,25 +128,8 @@ describe('accès par chemin', () => {
     expect(canAccessPath(routier, '/evaluations-x')).toBe(false);
   });
 
-  it('refuse aux routiers les fiches et l’encadrement', () => {
-    for (const path of [
-      '/encadrement',
-      '/encadrement/modules',
-      '/administration/routiers',
-      '/mandats',
-    ]) {
-      expect(canAccessPath(routier, path)).toBe(false);
-    }
-  });
-
-  it('réserve les écrans personnels au routier', () => {
-    for (const path of [
-      '/routier',
-      '/evaluations',
-      '/mes-resultats',
-      '/progression',
-      '/mes-rattrapages',
-    ]) {
+  it('réserve les écrans du parcours personnel à qui en suit un', () => {
+    for (const path of ['/evaluations', '/mes-resultats', '/progression', '/mes-rattrapages']) {
       expect(canAccessPath(routier, path)).toBe(true);
       expect(canAccessPath(plein, path)).toBe(false);
     }
@@ -142,7 +142,7 @@ describe('accès par chemin', () => {
   });
 
   it('refuse un chemin sans règle, y compris les anciennes URL redirigées', () => {
-    for (const path of ['/inconnu', '/', '/chef', '/responsable']) {
+    for (const path of ['/inconnu', '/', '/chef', '/responsable', '/routier', '/mandats']) {
       expect(canAccessPath(plein, path)).toBe(false);
     }
   });
@@ -158,17 +158,16 @@ describe('destination après connexion', () => {
     );
   });
 
-  it('remplace une page non autorisée par le tableau de bord du rôle', () => {
-    expect(resolvePostLoginPath(routier, '/administration/routiers')).toBe('/routier');
-    expect(resolvePostLoginPath(encadrant, '/administration/deblocages')).toBe('/encadrement');
-    expect(resolvePostLoginPath(plein, '/connexion')).toBe('/encadrement');
-    expect(resolvePostLoginPath(admin, null)).toBe('/mandats');
+  it('remplace une page non autorisée par l’accueil', () => {
+    expect(resolvePostLoginPath(routier, '/administration/routiers')).toBe(HOME_ROUTE);
+    expect(resolvePostLoginPath(encadrant, '/administration/deblocages')).toBe(HOME_ROUTE);
+    expect(resolvePostLoginPath(plein, '/connexion')).toBe(HOME_ROUTE);
   });
 
   it('refuse les redirections externes', () => {
     for (const value of ['https://exemple.org', '//exemple.org', '/\\exemple.org', 'chef']) {
       expect(safeInternalPath(value)).toBeNull();
-      expect(resolvePostLoginPath(encadrant, value)).toBe('/encadrement');
+      expect(resolvePostLoginPath(encadrant, value)).toBe(HOME_ROUTE);
     }
   });
 });
@@ -177,46 +176,50 @@ describe('navigation', () => {
   it.each(Object.entries(ALL))(
     '%s : chaque entrée pointe vers une page existante et autorisée',
     (_, user) => {
-      for (const item of navigationFor(user).flatMap((group) => group.items)) {
-        expect(pageExists(item.href), item.href).toBe(true);
-        expect(canAccessPath(user, item.href), item.href).toBe(true);
+      for (const href of hrefs(user)) {
+        expect(pageExists(href), href).toBe(true);
+        expect(canAccessPath(user, href), href).toBe(true);
       }
     },
   );
 
-  it.each(Object.keys(NAVIGATION) as Role[])('%s : aucune entrée en double', (role) => {
-    const hrefs = NAVIGATION[role].flatMap((group) => group.items.map((item) => item.href));
-    expect(new Set(hrefs).size).toBe(hrefs.length);
-  });
-
-  it.each(Object.entries(ALL))('%s : le tableau de bord est la première entrée', (_, user) => {
-    expect(navigationFor(user)[0]?.items[0]?.href).toBe(DEFAULT_ROUTES[user.role]);
-  });
-
-  it('un même menu pour l’encadrement, enrichi des seules décisions autorisées', () => {
-    const labels = (user: NavUser) => navigationFor(user).map((group) => group.label);
-    expect(labels(plein)).toContain('Validation des contenus');
-    expect(labels(encadrant)).not.toContain('Validation des contenus');
-    const hrefs = (user: NavUser) => navigationFor(user).flatMap((g) => g.items.map((i) => i.href));
-    expect(hrefs(encadrant).every((href) => hrefs(plein).includes(href))).toBe(true);
-    expect(hrefs(delegataire)).toContain('/administration/modules-a-valider');
-    expect(hrefs(delegataire)).not.toContain('/administration/deblocages');
+  it('aucune entrée en double dans le menu unique', () => {
+    const all = NAVIGATION.flatMap((group) => group.items.map((item) => item.href));
+    expect(new Set(all).size).toBe(all.length);
   });
 
   it.each(Object.entries(ALL))(
-    'garde le tableau de bord de %s dans un groupe toujours visible',
+    '%s : l’accueil est la première entrée, toujours visible',
     (_, user) => {
-      const group = navigationFor(user).find((g) =>
-        g.items.some((item) => item.href === DEFAULT_ROUTES[user.role]),
-      );
-      expect(group?.collapsible).toBeFalsy();
+      const [first] = navigationFor(user);
+      expect(first?.items[0]?.href).toBe(HOME_ROUTE);
+      expect(first?.collapsible).toBeFalsy();
     },
   );
 
-  it('limite la barre mobile à quatre entrées du menu routier', () => {
-    const routierHrefs = NAVIGATION.ROUTIER.flatMap((group) => group.items.map((i) => i.href));
-    expect(ROUTIER_BOTTOM_NAV).toHaveLength(4);
-    for (const item of ROUTIER_BOTTOM_NAV) expect(routierHrefs).toContain(item.href);
+  it('affiche seulement les fonctionnalités autorisées', () => {
+    expect(hrefs(routier)).toContain('/progression');
+    expect(hrefs(routier)).not.toContain('/administration/routiers');
+    expect(hrefs(encadrant)).toContain('/administration/routiers');
+    expect(hrefs(encadrant)).not.toContain('/progression');
+    expect(hrefs(admin)).toEqual([HOME_ROUTE, '/communaute', '/administration/comptes']);
+  });
+
+  it('un même menu pour l’encadrement, enrichi des seules décisions du plein', () => {
+    const labels = (user: NavUser) => navigationFor(user).map((group) => group.label);
+    expect(labels(plein)).toContain('Contenus à approuver');
+    expect(labels(adjoint)).not.toContain('Contenus à approuver');
+    expect(hrefs(adjoint)).toEqual(hrefs(encadrant));
+    expect(hrefs(assistant)).toEqual(hrefs(encadrant));
+    expect(hrefs(encadrant).every((href) => hrefs(plein).includes(href))).toBe(true);
+  });
+
+  it('barre mobile : quatre entrées du parcours personnel, pour qui en suit un', () => {
+    expect(PATHWAY_BOTTOM_NAV).toHaveLength(4);
+    for (const item of PATHWAY_BOTTOM_NAV) expect(hrefs(routier)).toContain(item.href);
+    expect(hasPathwayNav(routier)).toBe(true);
+    expect(hasPathwayNav(plein)).toBe(false);
+    expect(hasPathwayNav(admin)).toBe(false);
   });
 
   it('retient l’entrée la plus précise comme page active', () => {
@@ -237,19 +240,12 @@ describe('comptes (D119)', () => {
     for (const user of Object.values(ALL)) expect(canAccessPath(user, '/compte')).toBe(true);
   });
 
-  it('la gestion des comptes exige `account.read` (plein, délégation, administration)', () => {
+  it('la gestion des comptes exige `account.read` (plein, administrateur)', () => {
     expect(canAccessPath(plein, '/administration/comptes')).toBe(true);
     expect(canAccessPath(admin, '/administration/comptes')).toBe(true);
-    expect(canAccessPath(encadrant, '/administration/comptes')).toBe(false);
-    expect(canAccessPath(delegataire, '/administration/comptes')).toBe(false);
-    expect(canAccessPath(routier, '/administration/comptes')).toBe(false);
-    const entries = (user: NavUser) =>
-      navigationFor(user).flatMap((group) => group.items.map((item) => item.href));
-    expect(entries(admin)).toContain('/administration/comptes');
-    expect(entries(encadrant)).not.toContain('/administration/comptes');
-  });
-
-  it('l’administration technique ne voit aucun autre écran de `/administration`', () => {
-    expect(canAccessPath(admin, '/administration/routiers')).toBe(false);
+    for (const user of [encadrant, adjoint, routier])
+      expect(canAccessPath(user, '/administration/comptes')).toBe(false);
+    expect(hrefs(admin)).toContain('/administration/comptes');
+    expect(hrefs(encadrant)).not.toContain('/administration/comptes');
   });
 });

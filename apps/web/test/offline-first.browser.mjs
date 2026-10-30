@@ -128,7 +128,7 @@ try {
   check('3–4. navigateur fermé, Internet coupé');
 
   await page.goto(`${origin}/`);
-  await page.waitForURL('**/routier');
+  await page.waitForURL('**/accueil');
   await page.getByRole('heading', { name: 'Tableau de bord' }).waitFor();
   check('5. réouverture directe sur le tableau de bord, sans réseau');
   await visibleText('Hors connexion').waitFor();
@@ -156,7 +156,7 @@ try {
   check('11–12. progression et rattrapages consultés depuis l’appareil');
 
   await page.goto(`${origin}/administration/routiers`);
-  await page.waitForURL('**/routier');
+  await page.waitForURL('**/accueil');
   check('24. page d’encadrement refusée au routier, même hors connexion');
 
   await page.goto(`${origin}/evaluations/${fixture.evaluationId}/passer`);

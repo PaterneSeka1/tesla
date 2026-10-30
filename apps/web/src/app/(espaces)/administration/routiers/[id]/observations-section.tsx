@@ -175,7 +175,7 @@ export function ObservationsSection({ scoutId }: { scoutId: string }) {
           <Info aria-hidden />
           <AlertDescription>
             Une observation est une information d’accompagnement : elle ne vaut ni validation d’un
-            acquis ni changement d’étape, réservés au responsable pédagogique.
+            acquis ni changement d’étape, réservés au responsable plein.
           </AlertDescription>
         </Alert>
         <ObservationForm scoutId={scoutId} onDone={() => setPage(1)} />

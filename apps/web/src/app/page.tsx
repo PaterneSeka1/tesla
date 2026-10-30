@@ -20,7 +20,7 @@ const stagger = (index: number) => ({ '--stagger': index }) as React.CSSProperti
 const FEATURES: readonly { title: string; description: string; icon: LucideIcon }[] = [
   {
     title: 'Modules pédagogiques',
-    description: 'Leçons approuvées par le responsable pédagogique, consultables à tout moment.',
+    description: 'Leçons approuvées par le responsable plein, consultables à tout moment.',
     icon: BookOpen,
   },
   {
@@ -35,18 +35,19 @@ const FEATURES: readonly { title: string; description: string; icon: LucideIcon 
   },
 ];
 
-const ROLES: readonly { title: string; items: readonly string[]; icon: LucideIcon }[] = [
+/** Ce que chacun trouve dans l'application, selon sa place dans la communauté (aucun espace à choisir). */
+const JOURNEY: readonly { title: string; items: readonly string[]; icon: LucideIcon }[] = [
   {
-    title: 'Routier',
+    title: 'Apprendre',
     icon: Compass,
     items: [
-      'Lire les modules de son étape, même sans réseau',
+      'Lire les modules, même sans réseau',
       'Passer ses évaluations en ligne ou sur papier',
       'Suivre sa progression et ses compétences',
     ],
   },
   {
-    title: 'Chef',
+    title: 'Accompagner',
     icon: UsersRound,
     items: [
       'Rédiger modules et questionnaires',
@@ -55,7 +56,7 @@ const ROLES: readonly { title: string; items: readonly string[]; icon: LucideIco
     ],
   },
   {
-    title: 'Responsable pédagogique',
+    title: 'Décider',
     icon: UserCheck,
     items: [
       'Approuver et publier les contenus',
@@ -67,7 +68,7 @@ const ROLES: readonly { title: string; items: readonly string[]; icon: LucideIco
 
 /**
  * Accueil public. Un utilisateur connecté n'y reste pas : le proxy l'envoie vers `/connexion`, qui
- * l'oriente vers le tableau de bord de son rôle. Aucun choix d'espace n'est proposé.
+ * l'oriente vers l'accueil commun. Aucun choix d'espace n'est proposé.
  */
 export default function HomePage() {
   return (
@@ -137,10 +138,10 @@ export default function HomePage() {
 
         <section aria-labelledby="roles-title" className="space-y-5">
           <h2 id="roles-title" className="text-center text-2xl font-bold text-tesla-bordeaux">
-            Un espace pour chacun
+            Une seule application pour toute la communauté
           </h2>
           <ol className="grid gap-4 md:grid-cols-3">
-            {ROLES.map(({ title, items, icon: Icon }, index) => (
+            {JOURNEY.map(({ title, items, icon: Icon }, index) => (
               <li
                 key={title}
                 className="animate-rise relative overflow-hidden rounded-xl bg-tesla-bordeaux p-5 text-white shadow-sm"

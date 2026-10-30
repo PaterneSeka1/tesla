@@ -56,8 +56,8 @@ try {
   await page.getByLabel('Adresse e-mail').fill('admin-recette@recette.test');
   await page.getByLabel('Mot de passe', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Se connecter', exact: true }).click();
-  await page.waitForURL('**/mandats');
-  check('connexion de l’administrateur, arrivée sur /mandats');
+  await page.waitForURL('**/accueil');
+  check('connexion de l’administrateur, arrivée sur l’accueil');
 
   await page.goto(`${origin}/administration/comptes`);
   await page.getByRole('heading', { name: 'Comptes' }).waitFor();

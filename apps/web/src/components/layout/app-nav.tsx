@@ -14,17 +14,23 @@ import {
   findActiveItem,
   navigationFor,
   type NavItem,
+  hasPathwayNav,
   type NavUser,
-  ROUTIER_BOTTOM_NAV,
+  PATHWAY_BOTTOM_NAV,
 } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
-/** Menu hors ligne : les écrans hors ligne n'appartiennent qu'au routier. */
-const OFFLINE_USER: NavUser = { role: 'ROUTIER', permissions: [] };
+/**
+ * Menu hors ligne : seuls les écrans du parcours personnel fonctionnent sans réseau. Affichage
+ * uniquement : aucune décision n'est possible hors connexion (D133).
+ */
+const OFFLINE_USER: NavUser = {
+  permissions: ['progression.readOwn', 'module.read', 'evaluation.take'],
+};
 
 /**
- * Utilisateur pour la navigation (rôle et permissions effectives). Sans réseau, la session ne
- * peut pas être relue : le menu routier reste disponible.
+ * Utilisateur pour la navigation (permissions effectives). Sans réseau, la session ne peut pas
+ * être relue : le menu du parcours personnel reste disponible.
  */
 function useNavUser(offline: boolean): NavUser | undefined {
   const user = useQuery(meQueryOptions).data?.user;
@@ -60,7 +66,7 @@ function NavLink({
   );
 }
 
-/** Navigation groupée selon le rôle (sidebar desktop et tiroir mobile). */
+/** Navigation groupée selon les permissions (sidebar desktop et tiroir mobile). */
 export function AppNav({
   offline = false,
   onNavigate,
@@ -146,7 +152,7 @@ export function CurrentPageTitle({ offline = false }: { offline?: boolean }) {
   );
 }
 
-/** Menu latéral mobile et tablette : toutes les entrées du rôle, profil et déconnexion. */
+/** Menu latéral mobile et tablette : toutes les entrées autorisées, profil et déconnexion. */
 export function MobileMenu({ offline = false }: { offline?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
@@ -198,10 +204,10 @@ export function MobileMenu({ offline = false }: { offline?: boolean }) {
 /** Accès rapides du routier sur mobile (les autres rôles utilisent le menu latéral). */
 export function RoutierBottomNav({ offline = false }: { offline?: boolean }) {
   const pathname = usePathname();
-  const role = useNavUser(offline)?.role;
-  if (role !== 'ROUTIER') return null;
+  const user = useNavUser(offline);
+  if (!user || !hasPathwayNav(user)) return null;
   const activeHref = findActiveHref(
-    ROUTIER_BOTTOM_NAV.map((item) => item.href),
+    PATHWAY_BOTTOM_NAV.map((item) => item.href),
     pathname,
   );
   return (
@@ -210,7 +216,7 @@ export function RoutierBottomNav({ offline = false }: { offline?: boolean }) {
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
     >
       <ul className="grid grid-cols-4">
-        {ROUTIER_BOTTOM_NAV.map(({ href, label, icon: Icon }) => {
+        {PATHWAY_BOTTOM_NAV.map(({ href, label, icon: Icon }) => {
           const active = href === activeHref;
           return (
             <li key={href}>
@@ -248,6 +254,8 @@ export function RoutierBottomNav({ offline = false }: { offline?: boolean }) {
 
 /** Marge basse réservée à la barre d'accès rapides du routier. */
 export function BottomNavSpacer({ offline = false }: { offline?: boolean }) {
-  const role = useNavUser(offline)?.role;
-  return role === 'ROUTIER' ? <div className="h-16 lg:hidden print:hidden" aria-hidden /> : null;
+  const user = useNavUser(offline);
+  return user && hasPathwayNav(user) ? (
+    <div className="h-16 lg:hidden print:hidden" aria-hidden />
+  ) : null;
 }

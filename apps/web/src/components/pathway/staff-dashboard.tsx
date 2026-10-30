@@ -9,8 +9,8 @@ import { userCan } from '@/lib/navigation';
 import { PathwayOverviewPanel } from './pathway-overview';
 
 /**
- * Tableau de bord unique de l'encadrement : les décisions officielles (files d'approbation et
- * d'examen) n'apparaissent qu'aux personnes habilitées (plein en exercice ou délégation).
+ * Suivi de l'encadrement sur l'accueil : les décisions officielles (files d'approbation et
+ * d'examen) n'apparaissent qu'au responsable plein en fonction.
  */
 export function StaffDashboard() {
   const user = useSessionUser();

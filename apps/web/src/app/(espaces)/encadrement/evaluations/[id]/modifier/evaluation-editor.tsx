@@ -155,8 +155,8 @@ export function EvaluationEditor() {
               title="Soumettre le questionnaire ?"
               description={
                 <p>
-                  La version {current.version} sera figée et transmise au responsable pédagogique,
-                  seul habilité à l’approuver et à la publier.
+                  La version {current.version} sera figée et transmise au responsable plein, seul
+                  habilité à l’approuver et à la publier.
                 </p>
               }
               label="Note pour le responsable (facultative)"

@@ -80,8 +80,8 @@ export function EvaluationIntro() {
             </li>
             <li>Une fois remises, elles ne sont plus modifiables.</li>
             <li>
-              Les réponses rédigées sont corrigées par un chef, puis le résultat est examiné par le
-              responsable pédagogique. Un résultat n’entraîne jamais à lui seul un changement
+              Les réponses rédigées sont corrigées par l’encadrement, puis le résultat est examiné
+              par le responsable plein. Un résultat n’entraîne jamais à lui seul un changement
               d’étape.
             </li>
             {data.maxAttempts && (
@@ -103,8 +103,8 @@ export function EvaluationIntro() {
               <CircleAlert aria-hidden />
               <AlertTitle>{ELIGIBILITY_LABELS[eligibility.status]}</AlertTitle>
               <AlertDescription>
-                Le module reste consultable librement. Si vous pensez être prêt, parlez-en à votre
-                chef : seul le responsable pédagogique peut accorder un déblocage.
+                Le module reste consultable librement. Si vous pensez être prêt, parlez-en à
+                l’encadrement : seul le responsable plein peut accorder un déblocage.
               </AlertDescription>
             </Alert>
           )}

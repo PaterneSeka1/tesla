@@ -92,7 +92,7 @@ export function ResultReview() {
           )}
           {data.observations && (
             <p className="rounded-md bg-tesla-sable/30 p-3 text-sm">
-              Observations du chef{data.recordedBy && ` (${fullName(data.recordedBy)})`} :{' '}
+              Observations de la correction{data.recordedBy && ` (${fullName(data.recordedBy)})`} :{' '}
               {data.observations}
             </p>
           )}

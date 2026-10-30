@@ -5,7 +5,7 @@ import { userCan } from '@/lib/navigation';
 
 /**
  * Écran de décision : affiché seulement avec la permission effective (responsable plein en
- * exercice ou délégation). L'API refuse de toute façon l'opération sans cette permission.
+ * fonction). L'API refuse de toute façon l'opération sans cette permission.
  */
 export function RequirePermission({
   user,
@@ -20,10 +20,7 @@ export function RequirePermission({
   return (
     <Alert variant="info">
       <Lock aria-hidden />
-      <AlertDescription>
-        Cette action est réservée au responsable plein en exercice ou à une personne qu’il a
-        habilitée par délégation.
-      </AlertDescription>
+      <AlertDescription>Cette action est réservée au responsable plein.</AlertDescription>
     </Alert>
   );
 }

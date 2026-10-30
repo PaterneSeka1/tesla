@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Tableau de bord' };
+export const metadata: Metadata = { title: 'Encadrement' };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return children;

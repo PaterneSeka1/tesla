@@ -9,10 +9,11 @@ import { ApiError } from '@/lib/api/client';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => {
-    // Session expirée pendant l'utilisation : une réponse 401 d'une donnée fait relire la session ;
-    // `SessionGate` renvoie alors vers la connexion, avec retour à la page en cours.
+    // Session expirée (401) ou droits retirés côté serveur (403, ex. changement de responsable
+    // plein) : la session est relue. `SessionGate` renvoie alors vers la connexion ou l'accueil, et
+    // le menu suit les permissions à jour (D132).
     const onError = (error: Error, queryKey?: readonly unknown[]) => {
-      if (!(error instanceof ApiError) || error.status !== 401) return;
+      if (!(error instanceof ApiError) || (error.status !== 401 && error.status !== 403)) return;
       if (queryKey?.join('/') === meQueryOptions.queryKey.join('/')) return;
       void client.invalidateQueries({ queryKey: meQueryOptions.queryKey });
     };

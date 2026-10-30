@@ -22,12 +22,18 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  /** Espace unique de l'encadrement (D105) : les anciennes adresses restent valides. */
+  /**
+   * Application unique (D132) : les anciens tableaux de bord par espace mènent à l'accueil commun,
+   * l'ancien écran des mandats à la page de l'encadrement. Les anciennes adresses restent valides.
+   */
   async redirects() {
     return [
-      { source: '/chef', destination: '/encadrement', permanent: false },
+      { source: '/routier', destination: '/accueil', permanent: false },
+      { source: '/encadrement', destination: '/accueil', permanent: false },
+      { source: '/mandats', destination: '/communaute', permanent: false },
+      { source: '/chef', destination: '/accueil', permanent: false },
       { source: '/chef/:path*', destination: '/encadrement/:path*', permanent: false },
-      { source: '/responsable', destination: '/encadrement', permanent: false },
+      { source: '/responsable', destination: '/accueil', permanent: false },
       /** Offline-first (D116) : la gestion de l'appareil remplace l'onglet « Hors ligne ». */
       { source: '/telechargements', destination: '/appareil', permanent: false },
       { source: '/synchronisation', destination: '/appareil', permanent: false },

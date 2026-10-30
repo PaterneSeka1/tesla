@@ -29,7 +29,7 @@ type LoginValues = z.infer<typeof loginSchema>;
 /**
  * Connexion : la session est posée par l'API dans un cookie httpOnly (jamais lisible en JS).
  * Un utilisateur déjà connecté est orienté directement vers son tableau de bord (ou la page
- * demandée, si son rôle y a accès) ; une session expirée ou une API injoignable affiche le formulaire.
+ * demandée, si elle lui est accessible) ; une session expirée ou une API injoignable affiche le formulaire.
  */
 export function LoginForm() {
   const router = useRouter();

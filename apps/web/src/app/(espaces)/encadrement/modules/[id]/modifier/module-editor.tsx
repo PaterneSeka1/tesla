@@ -168,8 +168,8 @@ export function ModuleEditor() {
               title="Soumettre à l’approbation ?"
               description={
                 <p>
-                  La version {current.version} sera figée et transmise au responsable pédagogique.
-                  Seul le responsable peut l’approuver et la publier.
+                  La version {current.version} sera figée et transmise au responsable plein. Seul le
+                  responsable peut l’approuver et la publier.
                 </p>
               }
               label="Note pour le responsable (facultative)"
