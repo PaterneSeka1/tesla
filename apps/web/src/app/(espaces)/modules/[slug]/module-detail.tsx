@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { BookOpenText, Clock, Printer, ScrollText, Sparkles, Target } from 'lucide-react';
+import { BookOpenText, Clock, FileDown, Printer, ScrollText, Sparkles, Target } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { DownloadModuleButton } from '@/components/download-module-button';
@@ -11,7 +11,7 @@ import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { catalogModuleQueryOptions } from '@/lib/api/modules';
+import { catalogModuleQueryOptions, modulePdfUrl } from '@/lib/api/modules';
 import { formatDate, formatDuration } from '@/lib/format';
 
 export function ModuleDetail() {
@@ -65,6 +65,16 @@ export function ModuleDetail() {
               </Link>
             </Button>
           )}
+          <Button
+            asChild
+            variant="outline"
+            className="border-tesla-sable bg-transparent text-white hover:bg-white/10"
+          >
+            <a href={modulePdfUrl(module.slug)} download>
+              <FileDown aria-hidden />
+              Télécharger le cours (PDF)
+            </a>
+          </Button>
           <Button
             asChild
             variant="outline"

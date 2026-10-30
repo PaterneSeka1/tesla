@@ -30,6 +30,7 @@ import {
   type UpdateModuleVersionInput,
 } from '@tesla/shared';
 import { z } from 'zod';
+import { env } from '@/lib/env';
 import { apiFetch, apiSend, toQueryString } from './client';
 
 const noContent = z.null();
@@ -56,6 +57,10 @@ export const catalogLessonQueryOptions = (slug: string, lessonId: string) =>
     queryFn: () =>
       apiFetch(`/modules/${encodeURIComponent(slug)}/lessons/${lessonId}`, catalogLessonSchema),
   });
+
+/** URL du support de cours PDF (session par cookie) : téléchargement direct. */
+export const modulePdfUrl = (slug: string) =>
+  `${env.NEXT_PUBLIC_API_URL}/modules/${encodeURIComponent(slug)}/pdf`;
 
 export const printableModuleQueryOptions = (slug: string) =>
   queryOptions({

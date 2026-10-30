@@ -1,5 +1,13 @@
-import { Controller, Get, Header, Param, Query } from '@nestjs/common';
-import { ApiCookieAuth, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Header, Param, Query, Res, StreamableFile } from '@nestjs/common';
+import {
+  ApiCookieAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
+import { type Response } from 'express';
 import {
   offlineModulePackageSchema,
   type CatalogLesson,
@@ -17,6 +25,7 @@ import { openApiSchema } from '../../common/openapi.js';
 import { parseId } from '../../common/validation.js';
 import { CurrentActor } from '../auth/auth.decorators.js';
 import { ModuleCatalogService } from './module-catalog.service.js';
+import { renderModulePdf } from './module-pdf.js';
 
 @ApiTags('Bibliothèque')
 @ApiCookieAuth()
@@ -61,6 +70,26 @@ export class ModuleCatalogController {
   @ApiOkResponse({ schema: openApiSchema(printableModuleSchema) })
   print(@CurrentActor() actor: Actor, @Param('slug') slug: string): Promise<PrintableModule> {
     return this.catalog.printable(actor, slug);
+  }
+
+  @Get(':slug/pdf')
+  @ApiOperation({
+    summary: 'Télécharger le support de cours (PDF A4, logo et nom de la communauté)',
+  })
+  @ApiProduces('application/pdf')
+  async pdf(
+    @CurrentActor() actor: Actor,
+    @Param('slug') slug: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const module = await this.catalog.printable(actor, slug);
+    const buffer = await renderModulePdf(module);
+    response.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${module.code}-${module.slug}.pdf"`,
+      'Cache-Control': 'no-store',
+    });
+    return new StreamableFile(buffer);
   }
 
   @Get(':slug/lessons/:lessonId')
