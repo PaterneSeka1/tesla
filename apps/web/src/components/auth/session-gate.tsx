@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type SessionUser } from '@tesla/shared';
 import { CloudOff, ShieldAlert } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -32,6 +32,7 @@ export function useSessionUser(): SessionUser {
  */
 export function SessionGate({ children }: { children: React.ReactNode }) {
   const { data, error, isPending, refetch, isRefetching } = useQuery(meQueryOptions);
+  const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
   const toast = useToast();
@@ -40,8 +41,12 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
   const home = data ? getDefaultRouteForUser(data.user) : null;
 
   useEffect(() => {
-    if (unauthenticated) router.replace(`/connexion?suivant=${encodeURIComponent(pathname)}`);
-  }, [unauthenticated, router, pathname]);
+    if (!unauthenticated) return;
+    // La dernière réponse réussie reste en cache après un 401 : sans ce retrait, la connexion la
+    // croirait valide et renverrait ici (boucle de redirection après expiration de session).
+    queryClient.removeQueries({ queryKey: meQueryOptions.queryKey });
+    router.replace(`/connexion?suivant=${encodeURIComponent(pathname)}`);
+  }, [unauthenticated, queryClient, router, pathname]);
 
   useEffect(() => {
     if (!forbidden || !home) return;

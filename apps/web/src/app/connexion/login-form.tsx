@@ -41,9 +41,11 @@ export function LoginForm() {
   const session = useQuery(meQueryOptions);
   const requested = searchParams.get('suivant');
 
+  // Session confirmée seulement : une donnée ancienne conservée après un refus (401) ne compte pas.
+  const signedIn = session.status === 'success' ? session.data : undefined;
   useEffect(() => {
-    if (session.data) router.replace(resolvePostLoginPath(session.data.user, requested));
-  }, [session.data, requested, router]);
+    if (signedIn) router.replace(resolvePostLoginPath(signedIn.user, requested));
+  }, [signedIn, requested, router]);
   const {
     register,
     handleSubmit,
@@ -65,7 +67,7 @@ export function LoginForm() {
     }
   };
 
-  if (session.isPending || session.data) {
+  if (session.isPending || signedIn) {
     return (
       <div className="space-y-4" aria-busy="true" aria-label="Vérification de la session">
         <Skeleton className="h-16" />

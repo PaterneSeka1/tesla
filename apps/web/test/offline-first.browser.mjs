@@ -347,11 +347,17 @@ try {
 
     await login('responsable-offline@recette.test');
     await page.goto(`${origin}/appareil`);
+    // La liste vide s'affiche avant le chargement de la file : le serveur fait foi.
+    let synced = false;
+    for (let attempt = 0; attempt < 30 && !synced; attempt++) {
+      const after = await (
+        await other('GET', `/scouts/${fixture.scouts[0]}/observations?page=1&pageSize=10`)
+      ).json();
+      synced = after.items.some((o) => o.content === 'Observation en attente.');
+      if (!synced) await new Promise((resolve) => setTimeout(resolve, 1_000));
+    }
+    assert(synced, 'observation non synchronisée après reconnexion');
     await page.getByText('Tout est synchronisé.').waitFor({ timeout: 30_000 });
-    const after = await (
-      await other('GET', `/scouts/${fixture.scouts[0]}/observations?page=1&pageSize=10`)
-    ).json();
-    assert(after.items.some((o) => o.content === 'Observation en attente.'));
     check('22/25. après reconnexion au même compte, la modification est synchronisée');
   }
 
