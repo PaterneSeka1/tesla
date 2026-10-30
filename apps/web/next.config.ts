@@ -28,6 +28,9 @@ const nextConfig: NextConfig = {
       { source: '/chef', destination: '/encadrement', permanent: false },
       { source: '/chef/:path*', destination: '/encadrement/:path*', permanent: false },
       { source: '/responsable', destination: '/encadrement', permanent: false },
+      /** Offline-first (D116) : la gestion de l'appareil remplace l'onglet « Hors ligne ». */
+      { source: '/telechargements', destination: '/appareil', permanent: false },
+      { source: '/synchronisation', destination: '/appareil', permanent: false },
     ];
   },
   async headers() {

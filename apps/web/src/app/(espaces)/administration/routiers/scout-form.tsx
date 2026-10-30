@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { matriculeSchema, type ScoutDetail } from '@tesla/shared';
 import { TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { FormField, fieldA11y } from '@/components/form-field';
@@ -12,7 +13,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
+import { OFFLINE_SAVED } from '@/components/progression/use-pedagogy-action';
 import { useToast } from '@/components/ui/toaster';
+import { OfflineQueuedError } from '@/lib/offline/operations';
 import { ApiError } from '@/lib/api/client';
 import { createScout, stagesQueryOptions, updateScout } from '@/lib/api/scouts';
 import { activeTeamsQueryOptions } from '@/lib/api/teams';
@@ -51,6 +54,7 @@ export function ScoutForm({
 }) {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const stages = useQuery(stagesQueryOptions);
   const teams = useQuery({ ...activeTeamsQueryOptions, enabled: !scout });
   const [duplicate, setDuplicate] = useState<FormValues | null>(null);
@@ -75,14 +79,19 @@ export function ScoutForm({
   const save = async (values: FormValues, confirmDuplicate = false) => {
     try {
       const saved = scout
-        ? await updateScout(scout.id, {
-            lastName: values.lastName,
-            firstName: values.firstName,
-            matricule: values.matricule,
-            birthDate: values.birthDate || null,
-            joinedAt: values.joinedAt,
-            currentStageId: values.currentStageId || null,
-          })
+        ? await updateScout(
+            scout.id,
+            {
+              lastName: values.lastName,
+              firstName: values.firstName,
+              matricule: values.matricule,
+              birthDate: values.birthDate || null,
+              joinedAt: values.joinedAt,
+              currentStageId: values.currentStageId || null,
+              expectedUpdatedAt: scout.updatedAt,
+            },
+            `${scout.firstName} ${scout.lastName}`,
+          )
         : await createScout({
             lastName: values.lastName,
             firstName: values.firstName,
@@ -102,6 +111,14 @@ export function ScoutForm({
       );
       onSaved(saved);
     } catch (error) {
+      if (error instanceof OfflineQueuedError) {
+        await queryClient.invalidateQueries({ queryKey: ['scouts'] });
+        toast.success(OFFLINE_SAVED.title, OFFLINE_SAVED.detail);
+        // Création différée : la fiche n'existera qu'après confirmation du serveur.
+        if (scout) onSaved(scout);
+        else router.push('/administration/routiers');
+        return;
+      }
       if (error instanceof ApiError) {
         if (error.code === 'POSSIBLE_DUPLICATE') return setDuplicate(values);
         if (error.code === 'MATRICULE_ALREADY_USED') {

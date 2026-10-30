@@ -13,7 +13,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DeviceUnlock } from '@/components/offline/device-unlock';
 import { login, meQueryOptions } from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/client';
+import { vaultExists } from '@/lib/offline/vault';
 import { resolvePostLoginPath } from '@/lib/navigation';
 
 const loginSchema = z.object({
@@ -70,38 +73,66 @@ export function LoginForm() {
     );
   }
 
+  const offline = session.error instanceof ApiError && session.error.status === 0;
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-      <FormField id="email" label="Adresse e-mail" error={errors.email?.message}>
-        <Input
-          type="email"
-          autoComplete="email"
-          {...fieldA11y('email', errors.email?.message)}
-          {...register('email')}
-        />
-      </FormField>
-      <FormField id="password" label="Mot de passe" error={errors.password?.message}>
-        <PasswordInput
-          autoComplete="current-password"
-          {...fieldA11y('password', errors.password?.message)}
-          {...register('password')}
-        />
-      </FormField>
-      {serverError && (
-        <Alert key={failures} variant="destructive" aria-live="assertive" className="animate-shake">
-          <CircleAlert aria-hidden />
-          <AlertDescription>{serverError}</AlertDescription>
-        </Alert>
-      )}
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full transition-transform active:scale-[0.97]"
-        disabled={isSubmitting}
-      >
-        {isSubmitting && <LoaderCircle className="animate-spin" aria-hidden />}
-        {isSubmitting ? 'Connexion…' : 'Se connecter'}
-      </Button>
-    </form>
+    <>
+      {offline && <OfflineUnlock />}
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+        <FormField id="email" label="Adresse e-mail" error={errors.email?.message}>
+          <Input
+            type="email"
+            autoComplete="email"
+            {...fieldA11y('email', errors.email?.message)}
+            {...register('email')}
+          />
+        </FormField>
+        <FormField id="password" label="Mot de passe" error={errors.password?.message}>
+          <PasswordInput
+            autoComplete="current-password"
+            {...fieldA11y('password', errors.password?.message)}
+            {...register('password')}
+          />
+        </FormField>
+        {serverError && (
+          <Alert
+            key={failures}
+            variant="destructive"
+            aria-live="assertive"
+            className="animate-shake"
+          >
+            <CircleAlert aria-hidden />
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        )}
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full transition-transform active:scale-[0.97]"
+          disabled={isSubmitting}
+        >
+          {isSubmitting && <LoaderCircle className="animate-spin" aria-hidden />}
+          {isSubmitting ? 'Connexion…' : 'Se connecter'}
+        </Button>
+      </form>
+    </>
+  );
+}
+
+/** Sans réseau : ouverture de l'application avec les données déjà préparées sur cet appareil. */
+function OfflineUnlock() {
+  const [exists, setExists] = useState(false);
+  useEffect(() => {
+    vaultExists()
+      .then(setExists)
+      .catch(() => setExists(false));
+  }, []);
+  if (!exists) return null;
+  return (
+    <section className="mb-6 space-y-2 rounded-lg border p-4" aria-labelledby="offline-unlock">
+      <h2 id="offline-unlock" className="font-semibold">
+        Hors connexion
+      </h2>
+      <DeviceUnlock />
+    </section>
   );
 }

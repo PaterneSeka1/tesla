@@ -1,12 +1,14 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut } from 'lucide-react';
+import { LogOut, Smartphone } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { lockVault } from '@/lib/offline/vault';
 import { listAttempts } from '@/lib/offline/attempts';
+import { listOperations } from '@/lib/offline/operations';
 import { logout } from '@/lib/api/auth';
 import { meQueryOptions } from '@/lib/api/auth';
 
@@ -20,11 +22,14 @@ export function UserMenu() {
   if (!data) return null;
 
   const onLogout = async () => {
-    const copies = await listAttempts().catch(() => []);
+    const [copies, operations] = await Promise.all([
+      listAttempts().catch(() => []),
+      listOperations().catch(() => []),
+    ]);
     if (
-      copies.some((a) => a.status !== 'SYNCHRONISE') &&
+      [...copies, ...operations.map((row) => row.value)].some((a) => a.status !== 'SYNCHRONISE') &&
       !window.confirm(
-        'Des réponses restent sur cet appareil. Elles seront conservées chiffrées et verrouillées ; gardez votre phrase locale pour les retrouver. Se déconnecter ?',
+        'Des réponses ou modifications ne sont pas encore synchronisées. Elles seront conservées chiffrées et verrouillées sur cet appareil ; gardez votre phrase locale pour les retrouver. Se déconnecter ?',
       )
     )
       return;
@@ -40,20 +45,29 @@ export function UserMenu() {
   };
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      <p className="min-w-0 truncate text-sm font-medium">
-        {data.user.firstName} {data.user.lastName}
-      </p>
-      <Button
-        variant="outline"
-        size="sm"
-        className="shrink-0 border-white/40 bg-transparent text-inherit hover:bg-white/10 hover:text-white"
-        onClick={() => void onLogout()}
-        disabled={pending}
+    <div className="space-y-3">
+      <Link
+        href="/appareil"
+        className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-tesla-sable hover:bg-white/10 hover:text-white"
       >
-        <LogOut aria-hidden />
-        Déconnexion
-      </Button>
+        <Smartphone className="size-4 shrink-0" aria-hidden />
+        Cet appareil
+      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-medium">
+          {data.user.firstName} {data.user.lastName}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 border-white/40 bg-transparent text-inherit hover:bg-white/10 hover:text-white"
+          onClick={() => void onLogout()}
+          disabled={pending}
+        >
+          <LogOut aria-hidden />
+          Déconnexion
+        </Button>
+      </div>
     </div>
   );
 }

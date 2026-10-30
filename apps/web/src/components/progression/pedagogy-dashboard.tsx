@@ -529,10 +529,10 @@ function OfflineSummary() {
   }, []);
   return (
     <Kpi
-      label="Modules hors ligne"
+      label="Modules avec images"
       value={count ?? '—'}
       hint={count === null ? 'Coffre local verrouillé' : 'Sur cet appareil'}
-      href="/hors-ligne"
+      href="/appareil"
       icon={CloudDownload}
     />
   );

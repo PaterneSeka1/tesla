@@ -9,7 +9,9 @@ import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
+import { OFFLINE_SAVED } from '@/components/progression/use-pedagogy-action';
 import { useToast } from '@/components/ui/toaster';
+import { OfflineQueuedError } from '@/lib/offline/operations';
 import { assignTeam, linkAccount, setScoutActive, unassignTeam } from '@/lib/api/scouts';
 import { activeTeamsQueryOptions } from '@/lib/api/teams';
 import { fullName } from '@/lib/format';
@@ -32,6 +34,10 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
       toast.success(success);
       return true;
     } catch (error) {
+      if (error instanceof OfflineQueuedError) {
+        toast.success(OFFLINE_SAVED.title, OFFLINE_SAVED.detail);
+        return true;
+      }
       toast.error(failure, error instanceof Error ? error.message : undefined);
       return false;
     }
@@ -81,7 +87,12 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
               return false;
             }
             const ok = await run(
-              () => assignTeam(scout.id, { teamId: targetTeam.id }),
+              () =>
+                assignTeam(
+                  scout.id,
+                  { teamId: targetTeam.id, expectedTeamId: scout.team?.id ?? null },
+                  `${name} → « ${targetTeam.name} »`,
+                ),
               `${name} rejoint « ${targetTeam.name} »`,
               'Affectation impossible',
             );

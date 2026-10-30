@@ -5,6 +5,7 @@ import { ATTEMPT_STATUS_LABELS, ELIGIBILITY_LABELS } from '@tesla/shared';
 import { CircleAlert, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { BackLink } from '@/components/back-link';
 import { AttemptStatusBadge } from '@/components/evaluations/attempt-status-badge';
 import { EligibilityBadge } from '@/components/evaluations/eligibility-badge';
@@ -14,12 +15,36 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { availableEvaluationQueryOptions, myAttemptsQueryOptions } from '@/lib/api/evaluations';
 import { formatDateTime, formatDuration } from '@/lib/format';
+import { findLocalAttempt, SYNC_STATE_LABELS, type SyncState } from '@/lib/offline/attempts';
+import { ensureVaultRestored } from '@/lib/offline/vault';
+
+/** État de la copie préparée sur cet appareil pour cette évaluation, s'il y en a une. */
+function useLocalCopy(evaluationId: string) {
+  const [state, setState] = useState<SyncState | null>(null);
+  useEffect(() => {
+    const refresh = () => {
+      void ensureVaultRestored()
+        .then(() => findLocalAttempt(evaluationId))
+        .then((copy) => setState(copy?.status ?? null))
+        .catch(() => setState(null));
+    };
+    refresh();
+    window.addEventListener('offline-data-change', refresh);
+    window.addEventListener('offline-vault-change', refresh);
+    return () => {
+      window.removeEventListener('offline-data-change', refresh);
+      window.removeEventListener('offline-vault-change', refresh);
+    };
+  }, [evaluationId]);
+  return state;
+}
 
 /** Présentation d'une évaluation publiée : consignes, nombre de questions, accès et historique. */
 export function EvaluationIntro() {
   const { id } = useParams<{ id: string }>();
   const { data, error, isPending, refetch } = useQuery(availableEvaluationQueryOptions(id));
   const attempts = useQuery(myAttemptsQueryOptions({ evaluationId: id, pageSize: 20 }));
+  const localCopy = useLocalCopy(id);
 
   if (isPending) return <TableSkeleton rows={4} />;
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
@@ -91,14 +116,24 @@ export function EvaluationIntro() {
               </AlertDescription>
             </Alert>
           )}
-          {eligibility?.allowed && (!open || open.mode === 'HORS_LIGNE') && (
-            <Button asChild variant="outline">
-              <Link href={`/evaluations/${data.id}/preparer`}>
-                Préparer ou reprendre hors ligne
+          {localCopy && (
+            <Button asChild size="lg">
+              <Link href={`/evaluations/${data.id}/passer`}>
+                <Play aria-hidden />
+                {localCopy === 'LOCAL'
+                  ? 'Reprendre sur cet appareil'
+                  : `Copie de cet appareil · ${SYNC_STATE_LABELS[localCopy]}`}
               </Link>
             </Button>
           )}
-          {canStart && (
+          {!localCopy && eligibility?.allowed && (!open || open.mode === 'HORS_LIGNE') && (
+            <Button asChild variant="outline">
+              <Link href={`/evaluations/${data.id}/preparer`}>
+                Préparer pour passer sans connexion
+              </Link>
+            </Button>
+          )}
+          {canStart && !localCopy && (
             <Button asChild size="lg">
               <Link href={`/evaluations/${data.id}/passer`}>
                 <Play aria-hidden />

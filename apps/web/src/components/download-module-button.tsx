@@ -10,7 +10,7 @@ export function DownloadModuleButton({ slug }: { slug: string }) {
   async function download() {
     if (!ownerId()) {
       setMessage(
-        'Ouvrez « Mes téléchargements » pour activer ou déverrouiller le stockage local, puis revenez ici.',
+        'Ouvrez « Cet appareil » pour activer ou déverrouiller le stockage local, puis revenez ici.',
       );
       return;
     }
@@ -29,10 +29,10 @@ export function DownloadModuleButton({ slug }: { slug: string }) {
     <div className="space-y-2 rounded border bg-card p-4 text-foreground">
       <div className="flex flex-wrap gap-3">
         <Button disabled={busy} onClick={() => void download()}>
-          Télécharger pour lire hors ligne
+          Télécharger avec les images
         </Button>
         <Button asChild variant="outline">
-          <Link href="/telechargements">Mes téléchargements</Link>
+          <Link href="/appareil">Cet appareil</Link>
         </Button>
       </div>
       {message && <p role="status">{message}</p>}

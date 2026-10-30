@@ -1,6 +1,7 @@
 import { SessionGate } from '@/components/auth/session-gate';
 import { UserMenu } from '@/components/auth/user-menu';
 import { BrandLogo } from '@/components/brand-logo';
+import { DeviceStatus } from '@/components/offline/device-status';
 import { PageTransition } from './page-transition';
 import { AppNav, BottomNavSpacer, CurrentPageTitle, MobileMenu, RoutierBottomNav } from './app-nav';
 
@@ -36,6 +37,7 @@ export function DashboardShell({
           </div>
         </div>
         <AppNav offline={offline} />
+        <DeviceStatus />
         <div className="border-t border-white/15 pt-4">
           <UserMenu />
         </div>
@@ -50,6 +52,7 @@ export function DashboardShell({
               <CurrentPageTitle offline={offline} />
             </div>
           </div>
+          <DeviceStatus className="px-4 pb-2" />
         </header>
 
         <main

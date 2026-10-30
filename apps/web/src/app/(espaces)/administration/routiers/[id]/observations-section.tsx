@@ -22,7 +22,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import { OFFLINE_SAVED } from '@/components/progression/use-pedagogy-action';
 import { useToast } from '@/components/ui/toaster';
+import { OfflineQueuedError } from '@/lib/offline/operations';
 import { createObservation, observationsQueryOptions, updateObservation } from '@/lib/api/scouts';
 import { formatDate, formatDateTime, fullName, todayIsoDate } from '@/lib/format';
 
@@ -79,6 +81,12 @@ function ObservationForm({
       if (!observation) reset({ ...values, content: '', category: '' });
       onDone();
     } catch (error) {
+      if (error instanceof OfflineQueuedError) {
+        toast.success(OFFLINE_SAVED.title, OFFLINE_SAVED.detail);
+        reset({ ...values, content: '', category: '' });
+        onDone();
+        return;
+      }
       toast.error('Enregistrement impossible', error instanceof Error ? error.message : undefined);
     }
   };

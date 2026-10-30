@@ -64,7 +64,10 @@ function AttendanceEditor({ sheet }: { sheet: AttendanceSheet }) {
                 const status = ATTENDANCE_STATUSES.find((s) => s === e.target.value);
                 setEntries((previous) => [
                   ...previous.filter((row) => row.scoutProfileId !== entry.scout.id),
-                  ...(status ? [{ scoutProfileId: entry.scout.id, status }] : []),
+                  // Statut vu à la saisie : conflit plutôt qu'écrasement si un autre membre l'a changé.
+                  ...(status
+                    ? [{ scoutProfileId: entry.scout.id, status, expectedStatus: entry.status }]
+                    : []),
                 ]);
               }}
             >
@@ -85,10 +88,13 @@ function AttendanceEditor({ sheet }: { sheet: AttendanceSheet }) {
         disabled={!sheet.editable || busy || entries.length === 0}
         onClick={async () => {
           setBusy(true);
-          const ok = await action(() => saveAttendance(sheet.activity.id, { entries }), {
-            success: 'Présences enregistrées',
-            error: 'Enregistrement impossible',
-          });
+          const ok = await action(
+            () => saveAttendance(sheet.activity.id, { entries }, sheet.activity.title),
+            {
+              success: 'Présences enregistrées',
+              error: 'Enregistrement impossible',
+            },
+          );
           if (ok) setEntries([]);
           setBusy(false);
         }}
@@ -156,6 +162,7 @@ export function ActivityDetail({ id }: { id: string }) {
                 parsed.data.status === 'REALISEE'
                   ? { ...parsed.data, location: parsed.data.location ?? undefined }
                   : parsed.data,
+                activity.title,
               ),
             { success: 'Statut enregistré', error: 'Changement impossible' },
           );
@@ -238,7 +245,7 @@ export function ActivityDetail({ id }: { id: string }) {
           }
           setError('');
           setBusy(true);
-          await action(() => updateActivity(id, parsed.data), {
+          await action(() => updateActivity(id, parsed.data, activity.title), {
             success: 'Activité enregistrée',
             error: 'Modification impossible',
           });

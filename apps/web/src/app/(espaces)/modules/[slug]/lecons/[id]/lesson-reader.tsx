@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { BackLink } from '@/components/back-link';
 import { LessonContent } from '@/components/modules/lesson-content';
+import { useOfflineImages, useReadingPosition } from '@/components/offline/use-offline-images';
 import { ResourceList } from '@/components/modules/resource-list';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,8 @@ import { formatDuration } from '@/lib/format';
 export function LessonReader() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
   const { data, error, isPending, refetch } = useQuery(catalogLessonQueryOptions(slug, id));
+  const offlineImages = useOfflineImages(slug);
+  useReadingPosition(slug, data?.lesson.id);
 
   if (isPending) return <TableSkeleton rows={6} />;
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
@@ -54,7 +57,7 @@ export function LessonReader() {
           )}
         </header>
         <div className="text-[1.05rem]">
-          <LessonContent document={lesson.content} />
+          <LessonContent document={lesson.content} offlineImages={offlineImages} />
         </div>
         {lesson.resources.length > 0 && (
           <section className="space-y-2 border-t pt-4">

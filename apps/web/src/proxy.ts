@@ -37,5 +37,6 @@ export const config = {
     '/progression/:path*',
     '/mes-competences/:path*',
     '/mes-activites/:path*',
+    '/appareil/:path*',
   ],
 };

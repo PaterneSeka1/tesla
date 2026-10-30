@@ -2,6 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/toaster';
+import { OfflineQueuedError } from '@/lib/offline/operations';
 
 /** Domaines dont les données dépendent des décisions de progression, d'activités et de présences. */
 const QUERY_ROOTS = [
@@ -13,6 +14,12 @@ const QUERY_ROOTS = [
   'pathway',
   'leadership',
 ] as const;
+
+/** Écriture enregistrée sur l'appareil, pas encore confirmée par le serveur (D110). */
+export const OFFLINE_SAVED = {
+  title: 'Enregistré sur cet appareil',
+  detail: 'En attente de synchronisation : rien n’est encore officiel.',
+} as const;
 
 /**
  * Exécute une action de suivi pédagogique, recharge les données concernées et affiche le résultat.
@@ -35,6 +42,10 @@ export function usePedagogyAction() {
       return true;
     } catch (error) {
       await refresh();
+      if (error instanceof OfflineQueuedError) {
+        toast.success(OFFLINE_SAVED.title, OFFLINE_SAVED.detail);
+        return true;
+      }
       toast.error(messages.error, error instanceof Error ? error.message : undefined);
       return false;
     }
