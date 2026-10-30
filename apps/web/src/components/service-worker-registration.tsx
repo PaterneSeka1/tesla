@@ -16,7 +16,15 @@ export function ServiceWorkerRegistration() {
     if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) return;
     let reloading = false;
     let watched = false;
+    // Première installation : le service worker prend le contrôle d'une page déjà chargée par le
+    // réseau ; recharger effacerait la saisie en cours (activation, connexion). Seule une mise à
+    // jour acceptée (un contrôleur existait déjà) recharge l'application.
+    let controlled = navigator.serviceWorker.controller !== null;
     const onControllerChange = () => {
+      if (!controlled) {
+        controlled = true;
+        return;
+      }
       if (reloading) return;
       reloading = true;
       window.location.reload();
