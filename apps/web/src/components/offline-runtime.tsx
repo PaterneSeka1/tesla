@@ -1,9 +1,19 @@
 'use client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { meQueryOptions } from '@/lib/api/auth';
 import { listAttempts, syncAttempts } from '@/lib/offline/attempts';
-import { ownerId } from '@/lib/offline/vault';
-/** Planifie uniquement les opérations éligibles, sans boucle réseau permanente. */
+import { listOperations, pruneSynchronized, syncOperations } from '@/lib/offline/operations';
+import { clearLocalFreshness } from '@/lib/offline/repository';
+import { ensureVaultRestored, ownerId } from '@/lib/offline/vault';
+
+const MAX_AUTOMATIC_RETRIES = 6;
+
+/**
+ * Synchronisation de l'appareil (copies d'évaluation et file d'opérations) : planifie uniquement
+ * les envois dus, sans boucle réseau permanente. Déclenchements : ouverture, retour du réseau,
+ * retour au premier plan, déverrouillage, nouvelle opération.
+ */
 export function OfflineRuntime() {
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -12,9 +22,9 @@ export function OfflineRuntime() {
     async function schedule() {
       clearTimeout(timer);
       if (!ownerId() || !navigator.onLine || disposed) return;
-      const copies = await listAttempts();
-      const pending = copies.filter(
-        (a) => ['EN_ATTENTE', 'EN_COURS'].includes(a.status) && a.retries < 6,
+      const [copies, operations] = await Promise.all([listAttempts(), listOperations()]);
+      const pending = [...copies, ...operations.map((row) => row.value)].filter(
+        (a) => ['EN_ATTENTE', 'EN_COURS'].includes(a.status) && a.retries < MAX_AUTOMATIC_RETRIES,
       );
       if (!pending.length || disposed) return;
       const due = Math.min(...pending.map((a) => a.nextRetryAt));
@@ -27,9 +37,14 @@ export function OfflineRuntime() {
     }
     async function run() {
       try {
-        if (navigator.onLine && ownerId()) await syncAttempts();
+        await ensureVaultRestored();
+        if (navigator.onLine && ownerId()) {
+          await syncAttempts();
+          if ((await syncOperations()) > 0) await queryClient.invalidateQueries();
+          await pruneSynchronized();
+        }
       } catch {
-        /* Les copies restent persistées ; une reconnexion ou action manuelle relancera. */
+        /* Les opérations restent persistées ; une reconnexion ou une action manuelle relancera. */
       } finally {
         if (!disposed) void schedule().catch(() => {});
       }
@@ -40,11 +55,14 @@ export function OfflineRuntime() {
     const connected = () => {
       void run();
     };
-    // Page ouverte sans réseau : TanStack se croit déjà en ligne et ne relance pas les erreurs.
+    // Retour du réseau : session revérifiée par le serveur, données locales remplacées par des
+    // copies à jour, puis envoi des opérations en attente.
     const reconnected = () => {
+      clearLocalFreshness();
+      void queryClient.invalidateQueries({ queryKey: meQueryOptions.queryKey });
       void queryClient.refetchQueries({
         type: 'active',
-        predicate: (q) => q.state.status === 'error',
+        predicate: (q) => q.state.status === 'error' || q.queryKey[0] !== 'auth',
       });
       connected();
     };

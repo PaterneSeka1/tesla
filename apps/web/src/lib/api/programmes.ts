@@ -58,14 +58,36 @@ export const importProgramme = (programmeId: string, content: string, apply: boo
     { content },
   );
 
+// Écritures différables hors connexion (D110) : rejouées par la file de l'appareil.
 export const createActivity = (input: CreateActivityInput) =>
-  apiSend('POST', '/activities', activityDetailSchema, input);
+  apiSend('POST', '/activities', activityDetailSchema, input, {
+    type: 'activity.create',
+    label: `Nouvelle activité « ${input.title} »`,
+    entity: { kind: 'activity', id: crypto.randomUUID() },
+    creates: true,
+  });
 
-export const updateActivity = (id: string, input: UpdateActivityInput) =>
-  apiSend('PATCH', `/activities/${id}`, activityDetailSchema, input);
+export const updateActivity = (id: string, input: UpdateActivityInput, label = 'Activité') =>
+  apiSend('PATCH', `/activities/${id}`, activityDetailSchema, input, {
+    type: 'activity.update',
+    label: `${label} : modification`,
+    entity: { kind: 'activity', id },
+  });
 
-export const changeActivityStatus = (id: string, input: ChangeActivityStatusInput) =>
-  apiSend('POST', `/activities/${id}/status`, activityDetailSchema, input);
+export const changeActivityStatus = (
+  id: string,
+  input: ChangeActivityStatusInput,
+  label = 'Activité',
+) =>
+  apiSend('POST', `/activities/${id}/status`, activityDetailSchema, input, {
+    type: 'activity.status',
+    label: `${label} : changement de statut`,
+    entity: { kind: 'activity', id },
+  });
 
-export const saveAttendance = (id: string, input: SaveAttendanceInput) =>
-  apiSend('PUT', `/activities/${id}/attendance`, attendanceSheetSchema, input);
+export const saveAttendance = (id: string, input: SaveAttendanceInput, label = 'Activité') =>
+  apiSend('PUT', `/activities/${id}/attendance`, attendanceSheetSchema, input, {
+    type: 'attendance.save',
+    label: `${label} : présences`,
+    entity: { kind: 'activity', id },
+  });

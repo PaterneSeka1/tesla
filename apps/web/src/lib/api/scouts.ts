@@ -54,11 +54,21 @@ export const stagesQueryOptions = queryOptions({
   staleTime: 60 * 60_000,
 });
 
+// Écritures différables hors connexion (D110) : rejouées par la file de l'appareil.
 export const createScout = (input: CreateScoutProfileInput) =>
-  apiSend('POST', '/scouts', scoutDetailSchema, input);
+  apiSend('POST', '/scouts', scoutDetailSchema, input, {
+    type: 'scout.create',
+    label: `Nouvelle fiche : ${input.firstName} ${input.lastName}`,
+    entity: { kind: 'scout', id: crypto.randomUUID() },
+    creates: true,
+  });
 
-export const updateScout = (id: string, input: UpdateScoutProfileInput) =>
-  apiSend('PATCH', `/scouts/${id}`, scoutDetailSchema, input);
+export const updateScout = (id: string, input: UpdateScoutProfileInput, name = 'Fiche') =>
+  apiSend('PATCH', `/scouts/${id}`, scoutDetailSchema, input, {
+    type: 'scout.update',
+    label: `${name} : modification de la fiche`,
+    entity: { kind: 'scout', id },
+  });
 
 export const setScoutActive = (id: string, active: boolean) =>
   apiSend('POST', `/scouts/${id}/${active ? 'activate' : 'deactivate'}`, scoutDetailSchema);
@@ -66,14 +76,22 @@ export const setScoutActive = (id: string, active: boolean) =>
 export const linkAccount = (id: string, input: LinkAccountInput) =>
   apiSend('POST', `/scouts/${id}/link-account`, scoutDetailSchema, input);
 
-export const assignTeam = (id: string, input: AssignTeamBody) =>
-  apiSend('POST', `/scouts/${id}/teams/assign`, teamAssignmentListSchema, input);
+export const assignTeam = (id: string, input: AssignTeamBody, label = 'Affectation d’équipe') =>
+  apiSend('POST', `/scouts/${id}/teams/assign`, teamAssignmentListSchema, input, {
+    type: 'team.assign',
+    label,
+    entity: { kind: 'scout', id },
+  });
 
 export const unassignTeam = (id: string) =>
   apiSend('POST', `/scouts/${id}/teams/unassign`, teamAssignmentListSchema);
 
-export const createObservation = (id: string, input: CreateObservationInput) =>
-  apiSend('POST', `/scouts/${id}/observations`, observationSchema, input);
+export const createObservation = (id: string, input: CreateObservationInput, name = 'Routier') =>
+  apiSend('POST', `/scouts/${id}/observations`, observationSchema, input, {
+    type: 'observation.create',
+    label: `${name} : nouvelle observation`,
+    entity: { kind: 'observation', id: crypto.randomUUID() },
+  });
 
 export const updateObservation = (
   id: string,

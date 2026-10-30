@@ -1,4 +1,9 @@
-import { type OfflineModulePackage, offlineModulePackageSchema } from '@tesla/shared';
+import {
+  catalogLessonSchema,
+  catalogModuleDetailSchema,
+  type OfflineModulePackage,
+  offlineModulePackageSchema,
+} from '@tesla/shared';
 import { apiFetch } from '@/lib/api/client';
 import { dbDelete } from './db';
 import { assertOnlineOwner, ownerId, readRecord, recordIds, writeRecord } from './vault';
@@ -117,6 +122,17 @@ export async function downloadModule(slug: string, progress: (message: string) =
       lastReadAt: null,
       lessonIndex: 0,
     };
+    // Écrans habituels du module et de ses leçons : copies conservées par le dépôt local.
+    progress('Leçons…');
+    const detail = await apiFetch(
+      `/modules/${encodeURIComponent(slug)}`,
+      catalogModuleDetailSchema,
+    );
+    for (const lesson of detail.lessons)
+      await apiFetch(
+        `/modules/${encodeURIComponent(slug)}/lessons/${lesson.id}`,
+        catalogLessonSchema,
+      );
     await writeRecord(`module:${slug}`, value, previous?.revision ?? 0);
     progress('Disponible hors ligne. Les ressources externes nécessitent une connexion.');
   } finally {

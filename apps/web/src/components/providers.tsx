@@ -20,7 +20,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       queryCache: new QueryCache({ onError: (error, query) => onError(error, query.queryKey) }),
       mutationCache: new MutationCache({ onError: (error) => onError(error) }),
       defaultOptions: {
+        // Hors connexion, `apiFetch` sert les copies locales : les requêtes ne sont jamais suspendues.
+        mutations: { networkMode: 'always' },
         queries: {
+          networkMode: 'always',
           staleTime: 60_000,
           refetchOnWindowFocus: false,
           // Pas de nouvel essai sur une erreur client (401, 403, 404…) : le résultat ne changera pas.

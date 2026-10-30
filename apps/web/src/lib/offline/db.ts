@@ -89,3 +89,21 @@ export async function dbDelete(store: string, id: string): Promise<void> {
     };
   });
 }
+/** Clés d'un préfixe, sans lire ni déchiffrer les valeurs (modules volumineux inclus). */
+export async function dbKeys(store: string, prefix: string): Promise<string[]> {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const request = tx
+      .objectStore(store)
+      .getAllKeys(IDBKeyRange.bound(prefix, `${prefix}￿`, false, false));
+    tx.oncomplete = () => {
+      db.close();
+      resolve(request.result as string[]);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}

@@ -197,3 +197,11 @@ export async function syncAttempts(manual = false) {
     syncing = false;
   }
 }
+/** Copie de cet appareil pour une évaluation (la plus récente non confirmée, sinon la dernière). */
+export async function findLocalAttempt(evaluationId: string): Promise<LocalAttempt | null> {
+  if (!ownerId()) return null;
+  const copies = (await listAttempts())
+    .filter((a) => a.package.session.evaluation.id === evaluationId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return copies.find((a) => a.status !== 'SYNCHRONISE') ?? null;
+}
