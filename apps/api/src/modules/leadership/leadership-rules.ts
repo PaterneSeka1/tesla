@@ -16,12 +16,16 @@ export function activeMandateWhere(date: Date): Prisma.LeadershipMandateWhereInp
   };
 }
 
-/** Délégation active : non révoquée, dans sa période, et délégant toujours plein en exercice. */
+/**
+ * Délégation active : non révoquée, dans sa période, délégant toujours plein en exercice et
+ * délégataire toujours sous mandat (la délégation ne survit pas à la fin du mandat du délégataire).
+ */
 export function activeDelegationWhere(date: Date): Prisma.DelegationWhereInput {
   return {
     revokedAt: null,
     startsOn: { lte: date },
     endsOn: { gte: date },
     delegator: { mandates: { some: { function: 'PLEIN', ...activeMandateWhere(date) } } },
+    delegate: { mandates: { some: activeMandateWhere(date) } },
   };
 }
