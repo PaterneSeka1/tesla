@@ -505,4 +505,24 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
     expect(me.user.permissions).not.toContain('team.manage');
     await memberClient.post('/teams', { name: 'Équipe refusée' }).expect(403);
   });
+
+  it('modification de la date de naissance : ancienne et nouvelle valeur journalisées', async () => {
+    const { client: admin } = await bootstrapAdmin();
+    const { client: pleinClient } = await plein(admin);
+    const scout = await json(
+      pleinClient.post('/scouts', {
+        firstName: 'Fictif',
+        lastName: 'Naissance',
+        joinedAt: TODAY,
+        birthDate: '2006-05-10',
+      }),
+      201,
+      scoutDetailSchema,
+    );
+    await pleinClient.patch(`/scouts/${scout.id}`, { birthDate: '2006-06-10' }).expect(200);
+    const entry = await prisma.auditLog.findFirstOrThrow({
+      where: { entityId: scout.id, action: 'scout_profile.birth_date_changed' },
+    });
+    expect(entry.metadata).toEqual({ previous: '2006-05-10', next: '2006-06-10' });
+  });
 });

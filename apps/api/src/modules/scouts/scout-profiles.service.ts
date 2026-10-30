@@ -299,6 +299,15 @@ export class ScoutProfilesService {
         if (identityFields.length > 0) {
           await audit('scout_profile.updated', { fields: identityFields });
         }
+        // La date de naissance détermine l'étape théorique et la sortie à 21 ans (définitive) :
+        // ancienne et nouvelle valeur sont conservées pour pouvoir reconstituer une erreur.
+        const day = (date: Date | null) => date?.toISOString().slice(0, 10) ?? null;
+        if (data.birthDate !== undefined && day(previous.birthDate) !== day(profile.birthDate)) {
+          await audit('scout_profile.birth_date_changed', {
+            previous: day(previous.birthDate),
+            next: day(profile.birthDate),
+          });
+        }
         return profile;
       });
     } catch (error) {
