@@ -94,12 +94,7 @@ export class AccountSelfController {
   ): Promise<MeResponse> {
     const userId = request.actor!.userId;
     await this.self.updateProfile(userId, body);
-    return {
-      user: {
-        ...(await this.auth.currentUser(userId)),
-        authorityValidUntil: await this.auth.authorityValidUntil(userId),
-      },
-    };
+    return { user: await this.auth.currentUser(userId) };
   }
 
   @Get('sessions')

@@ -51,8 +51,8 @@ const demoStage = (index: number): ProgressionStageCode =>
 
 /**
  * 26 comptes fictifs (domaine réservé .test). `routier.demo` n'a pas de profil : à rattacher.
- * L'encadrement n'a aucun mandat d'office (D93) : l'administration technique fictive consigne
- * l'année scoute et les mandats depuis l'écran « Mandats ».
+ * L'encadrement n'a aucune fonction d'office (D132) : l'administrateur fictif désigne le
+ * responsable plein, l'adjoint et les assistants depuis l'écran « Communauté ».
  */
 const DEMO_ACCOUNTS: DemoAccount[] = [
   {

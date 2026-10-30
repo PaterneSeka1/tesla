@@ -267,13 +267,30 @@ describe('Synchronisation différée des écritures (intégration PostgreSQL)', 
       .expect(201);
   });
 
-  it('expose l’échéance des habilitations pour borner l’usage local', async () => {
-    const responsable = await loginAs('RESPONSABLE');
-    const me = await json(responsable.get('/auth/me'), 200, meResponseSchema);
-    expect(me.user.authorityValidUntil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    const routier = await loginAs('ROUTIER');
+  it('au retour du réseau, une décision préparée par un ancien plein est refusée', async () => {
+    const former = await loginAs('RESPONSABLE');
+    const scout = await createScout(former, 'Delta');
+    const before = await json(former.get('/auth/me'), 200, meResponseSchema);
+    expect(before.user.permissions).toContain('scout.setActive');
+    // Remplacement pendant que l'appareil de l'ancien plein était hors ligne.
+    await loginAs('RESPONSABLE');
+    const after = await json(former.get('/auth/me'), 200, meResponseSchema);
+    expect(after.user.leaderFunction).toBeNull();
+    expect(after.user.permissions).not.toContain('scout.setActive');
+    expect(after.user.permissions).toContain('scout.read');
+    // Opération mise en file avant le changement, rejouée au retour du réseau : refusée, sans effet.
     expect(
-      (await json(routier.get('/auth/me'), 200, meResponseSchema)).user.authorityValidUntil,
-    ).toBeNull();
+      await errorCode(
+        former.patch(
+          `/scouts/${scout.id}`,
+          { lastName: 'Hors ligne', expectedUpdatedAt: scout.updatedAt },
+          crypto.randomUUID(),
+        ),
+        403,
+      ),
+    ).toBe('FORBIDDEN');
+    expect(
+      (await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } })).lastName,
+    ).toBe('Delta');
   });
 });

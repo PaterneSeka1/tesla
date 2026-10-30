@@ -14,8 +14,9 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Rôles d'accès applicatifs (synchronisés avec @tesla/shared ROLES). La fonction exercée dans
-/// l'encadrement (plein, adjoint, assistant) n'est jamais stockée ici : elle découle d'un mandat (D93).
+/// Rôles d'accès applicatifs (synchronisés avec @tesla/shared ROLES), internes : jamais affichés. La
+/// fonction exercée dans l'encadrement (plein, adjoint, assistant) n'est jamais stockée ici : elle
+/// découle d'une désignation `LeadershipAssignment` (D132).
 /// CHEF et RESPONSABLE sont des valeurs historiques conservées dans le type PostgreSQL (aucune
 /// suppression de valeur d'enum) mais interdites par la contrainte `users_role_current_check`.
 enum Role {
@@ -111,6 +112,9 @@ model User {
   delegationsGiven             Delegation[]              @relation("DelegationDelegator")
   delegationsReceived          Delegation[]              @relation("DelegationDelegate")
   delegationsRevoked           Delegation[]              @relation("DelegationRevokedBy")
+  leadershipAssignments        LeadershipAssignment[]    @relation("LeadershipAssignmentHolder")
+  leadershipAssigned           LeadershipAssignment[]    @relation("LeadershipAssignmentAssignedBy")
+  leadershipEnded              LeadershipAssignment[]    @relation("LeadershipAssignmentEndedBy")
   accountTokens                AccountToken[]            @relation("AccountTokenUser")
   accountTokensIssued          AccountToken[]            @relation("AccountTokenCreatedBy")
 
@@ -1618,7 +1622,8 @@ model CatchUpObligation {
   @@map("catch_up_obligations")
 }
 
-/// Année scoute (calendrier configurable). Périodes sans chevauchement (contrainte d'exclusion).
+/// Année scoute (calendrier configurable). **Historique, plus utilisée** depuis la suppression des
+/// mandats (D132) : conservée en lecture seule, aucune écriture applicative.
 model ScoutYear {
   id          String   @id @default(uuid(7)) @db.Uuid
   /// Libellé « AAAA-AAAA ».
@@ -1648,6 +1653,7 @@ enum MandateKind {
   CHANGEMENT_FONCTION
 }
 
+/// **Historique, plus utilisé** (D132) : remplacé par `LeadershipAssignment`. Conservé en lecture seule.
 /// Mandat annuel d'un membre de l'encadrement. Jamais supprimé ni réécrit (trigger) : seule une fin
 /// anticipée peut être enregistrée. Un seul plein à une date donnée, un seul mandat par personne à
 /// une date donnée (contraintes d'exclusion). Reconductions illimitées : chacune est un nouveau mandat.
@@ -1688,6 +1694,7 @@ model LeadershipMandate {
   @@map("leadership_mandates")
 }
 
+/// **Historique, plus utilisée** (D132) : les délégations ne produisent plus aucun droit.
 /// Délégation nominative, temporaire, révocable et historisée d'un sous-ensemble des permissions
 /// officielles du responsable plein. Jamais supprimée (trigger).
 model Delegation {
@@ -1712,6 +1719,40 @@ model Delegation {
   @@index([delegateId, startsOn])
   @@index([delegatorId])
   @@map("delegations")
+}
+
+/// Fonction d'encadrement d'une personne (D132), désignée par l'administrateur sans lien avec l'année
+/// scoute. En cours tant que `endedAt` est nul. Un seul responsable plein en cours et une seule
+/// fonction en cours par personne (index uniques partiels). Jamais supprimée ni réécrite (trigger) :
+/// seule la fin peut être enregistrée, une fois. L'historique conserve tous les changements.
+model LeadershipAssignment {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  userId          String         @map("user_id") @db.Uuid
+  function        LeaderFunction
+  startedAt       DateTime       @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt         DateTime?      @map("ended_at") @db.Timestamptz(3)
+  /// Motif ou référence de la désignation (texte libre, facultatif).
+  reason          String?
+  endReason       String?        @map("end_reason")
+  /// Null pour une reprise de données (migration depuis un mandat).
+  assignedById    String?        @map("assigned_by_id") @db.Uuid
+  endedById       String?        @map("ended_by_id") @db.Uuid
+  /// Mandat d'origine lorsque la fonction a été reprise d'un mandat en vigueur (migration).
+  sourceMandateId String?        @unique @map("source_mandate_id") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User  @relation("LeadershipAssignmentHolder", fields: [userId], references: [id], onDelete: Restrict)
+  assignedBy User? @relation("LeadershipAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  endedBy    User? @relation("LeadershipAssignmentEndedBy", fields: [endedById], references: [id], onDelete: Restrict)
+
+  @@unique([function], map: "leadership_assignments_one_plein", where: raw("ended_at IS NULL AND function = 'PLEIN'::\"LeaderFunction\""))
+  @@unique([userId], map: "leadership_assignments_one_per_user", where: raw("ended_at IS NULL"))
+  @@index([userId])
+  @@index([assignedById])
+  @@index([endedById])
+  @@index([startedAt])
+  @@map("leadership_assignments")
 }
 
 /// Écriture rejouable reçue d'un appareil (offline-first, D110) : l'identifiant d'opération est

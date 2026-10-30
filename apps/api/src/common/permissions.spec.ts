@@ -1,23 +1,20 @@
-import { DELEGABLE_PERMISSIONS, type Permission } from '@tesla/shared';
+import { type AccessLevel, PERMISSION_KEYS, PERMISSIONS } from '@tesla/shared';
 import { can } from './permissions.js';
 
 const chef = {
   userId: 'chef',
   role: 'ENCADREMENT',
   leaderFunction: 'ASSISTANT',
-  delegated: [],
 } as const;
 const responsable = {
   userId: 'resp',
   role: 'ENCADREMENT',
   leaderFunction: 'PLEIN',
-  delegated: [],
 } as const;
 const routier = {
   userId: 'routier',
   role: 'ROUTIER',
   leaderFunction: null,
-  delegated: [],
 } as const;
 
 describe('Permissions', () => {
@@ -86,23 +83,21 @@ describe('Permissions des modules pédagogiques', () => {
   });
 });
 
-describe('Fonctions, mandats et délégations (D94)', () => {
-  const encadrement = (
-    leaderFunction: 'PLEIN' | 'ADJOINT' | 'ASSISTANT' | null,
-    delegated: Permission[] = [],
-  ) => ({ userId: 'u', role: 'ENCADREMENT', leaderFunction, delegated }) as const;
-  const admin = {
-    userId: 'a',
-    role: 'ADMINISTRATEUR',
-    leaderFunction: null,
-    delegated: [],
-  } as const;
+describe('Fonctions d’encadrement, sans mandat ni délégation (D132)', () => {
+  const encadrement = (leaderFunction: 'PLEIN' | 'ADJOINT' | 'ASSISTANT' | null) =>
+    ({ userId: 'u', role: 'ENCADREMENT', leaderFunction }) as const;
+  const admin = { userId: 'a', role: 'ADMINISTRATEUR', leaderFunction: null } as const;
+  const official = PERMISSION_KEYS.filter((key) =>
+    (PERMISSIONS[key] as readonly AccessLevel[]).includes('OFFICIEL'),
+  );
 
-  it('le rôle ENCADREMENT seul n’accorde aucune décision officielle', () => {
-    for (const permission of DELEGABLE_PERMISSIONS) {
-      expect(can(encadrement(null), permission)).toBe(false);
-      expect(can(encadrement('ADJOINT'), permission)).toBe(false);
+  it('seul le responsable plein en fonction détient les décisions officielles', () => {
+    expect(official.length).toBeGreaterThan(10);
+    for (const permission of official) {
       expect(can(encadrement('PLEIN'), permission)).toBe(true);
+      expect(can(encadrement('ADJOINT'), permission)).toBe(false);
+      expect(can(encadrement('ASSISTANT'), permission)).toBe(false);
+      expect(can(encadrement(null), permission)).toBe(false);
     }
   });
 
@@ -113,37 +108,30 @@ describe('Fonctions, mandats et délégations (D94)', () => {
       'observation.create',
       'attempt.record',
     ] as const) {
-      expect(can(encadrement(null), permission)).toBe(true);
+      for (const fn of ['PLEIN', 'ADJOINT', 'ASSISTANT', null] as const) {
+        expect(can(encadrement(fn), permission)).toBe(true);
+      }
     }
   });
 
-  it('une délégation n’accorde que les permissions déléguées', () => {
-    const adjoint = encadrement('ADJOINT', ['module.review']);
-    expect(can(adjoint, 'module.review')).toBe(true);
-    expect(can(adjoint, 'competency.decide')).toBe(false);
-  });
-
-  it('les permissions du plein ne sont jamais délégables', () => {
-    expect(DELEGABLE_PERMISSIONS).not.toContain('delegation.manage');
-    expect(DELEGABLE_PERMISSIONS).not.toContain('mandate.recordTeam');
-    expect(can(encadrement('ADJOINT', ['delegation.manage']), 'delegation.manage')).toBe(false);
-  });
-
-  it('le plein ne consigne pas sa propre nomination ; l’administration technique n’a aucun droit pédagogique', () => {
-    expect(can(encadrement('PLEIN'), 'mandate.recordPlein')).toBe(false);
-    expect(can(encadrement('PLEIN'), 'mandate.recordTeam')).toBe(true);
-    expect(can(admin, 'mandate.recordPlein')).toBe(true);
+  it('l’administrateur désigne l’encadrement, sans aucun droit pédagogique', () => {
+    expect(can(admin, 'leadership.manage')).toBe(true);
+    expect(can(encadrement('PLEIN'), 'leadership.manage')).toBe(false);
     expect(can(admin, 'scout.read')).toBe(false);
     expect(can(admin, 'module.read')).toBe(false);
+    expect(can(admin, 'module.review')).toBe(false);
   });
 
-  it('comptes : administration technique et décision officielle seulement (D119)', () => {
+  it('tout membre connecté voit la composition de l’encadrement', () => {
+    for (const actor of [routier, chef, responsable, admin]) {
+      expect(can(actor, 'leadership.read')).toBe(true);
+    }
+  });
+
+  it('comptes : administrateur et responsable plein seulement (D119)', () => {
     expect(can(admin, 'account.manage')).toBe(true);
     expect(can(encadrement('PLEIN'), 'account.manage')).toBe(true);
     expect(can(encadrement('ADJOINT'), 'account.read')).toBe(false);
-    expect(can(encadrement('ADJOINT', ['account.manage']), 'account.manage')).toBe(true);
-    expect(
-      can({ userId: 'r', role: 'ROUTIER', leaderFunction: null, delegated: [] }, 'account.read'),
-    ).toBe(false);
+    expect(can({ userId: 'r', role: 'ROUTIER', leaderFunction: null }, 'account.read')).toBe(false);
   });
 });

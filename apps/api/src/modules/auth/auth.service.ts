@@ -3,19 +3,12 @@ import {
   type Authority,
   effectivePermissions,
   loginInputSchema,
-  type Permission,
-  PERMISSION_KEYS,
   type SessionUser,
 } from '@tesla/shared';
 import { parseInput } from '../../common/validation.js';
 import { ENV } from '../../config/config.module.js';
 import { type Env } from '../../config/env.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import {
-  activeDelegationWhere,
-  activeMandateWhere,
-  civilToday,
-} from '../leadership/leadership-rules.js';
 import { LoginRateLimiter } from './login-rate-limiter.js';
 import { verifyPassword } from './password.js';
 import { generateSessionToken, hashSessionToken } from './session-token.js';
@@ -139,36 +132,11 @@ export class AuthService {
   }
 
   /**
-   * Habilitations effectives à la date civile du jour : rôle d'accès, fonction du mandat en vigueur,
-   * délégations actives (D94). Recalculées à chaque requête : un mandat échu ou une délégation
-   * expirée cesse de produire ses effets sans tâche planifiée.
+   * Habilitations effectives : rôle d'accès et fonction d'encadrement en cours (D132). Recalculées à
+   * chaque requête : une désignation ou une fin de fonction s'applique dès la requête suivante.
    */
   async resolveAuthority(user: { id: string; role: string }): Promise<Authority> {
     return resolveAuthority(this.prisma, user);
-  }
-
-  /**
-   * Dernier jour où les habilitations actuelles restent acquises : fin du mandat en vigueur ou de
-   * la plus proche délégation active (null : aucune échéance, ex. routier). Borne l'usage local
-   * hors connexion (D112) ; l'API recalcule toujours les droits à chaque requête.
-   */
-  async authorityValidUntil(userId: string): Promise<string | null> {
-    const today = civilToday();
-    const [mandate, delegations] = await Promise.all([
-      this.prisma.leadershipMandate.findFirst({
-        where: { userId, ...activeMandateWhere(today) },
-        select: { endsOn: true, endedEarlyOn: true },
-      }),
-      this.prisma.delegation.findMany({
-        where: { delegateId: userId, ...activeDelegationWhere(today) },
-        select: { endsOn: true },
-      }),
-    ]);
-    const ends = [
-      ...(mandate ? [mandate.endedEarlyOn ?? mandate.endsOn] : []),
-      ...delegations.map((d) => d.endsOn),
-    ].map((date) => date.toISOString().slice(0, 10));
-    return ends.length > 0 ? ends.sort()[0]! : null;
   }
 
   /** Révoque la session (sans effet si elle est inconnue ou déjà révoquée). */
@@ -190,38 +158,21 @@ export class AuthService {
 }
 
 /**
- * Habilitations effectives à la date civile du jour : rôle d'accès, fonction du mandat en vigueur,
- * délégations actives (D94). Partagé par la garde de session et les commandes serveur.
+ * Habilitations effectives : rôle d'accès et fonction d'encadrement en cours (D132). Partagé par la
+ * garde de session et les commandes serveur.
  */
 export async function resolveAuthority(
-  prisma: Pick<PrismaService, 'leadershipMandate' | 'delegation'>,
+  prisma: Pick<PrismaService, 'leadershipAssignment'>,
   user: { id: string; role: string },
 ): Promise<Authority> {
   // Rôle historique (impossible en base après migration, contrainte users_role_current_check) :
   // aucun droit plutôt qu'un droit présumé.
-  if (!CURRENT_ROLES.has(user.role)) {
-    return { role: 'ROUTIER', leaderFunction: null, delegated: [] };
-  }
+  if (!CURRENT_ROLES.has(user.role)) return { role: 'ROUTIER', leaderFunction: null };
   const role = user.role as Authority['role'];
-  if (role !== 'ENCADREMENT') return { role, leaderFunction: null, delegated: [] };
-  const today = civilToday();
-  const [mandate, delegations] = await Promise.all([
-    prisma.leadershipMandate.findFirst({
-      where: { userId: user.id, ...activeMandateWhere(today) },
-      select: { function: true },
-    }),
-    prisma.delegation.findMany({
-      where: { delegateId: user.id, ...activeDelegationWhere(today) },
-      select: { permissions: true },
-    }),
-  ]);
-  const known = new Set<string>(PERMISSION_KEYS);
-  const delegated = [...new Set(delegations.flatMap((d) => d.permissions))].filter((p) =>
-    known.has(p),
-  ) as Permission[];
-  return {
-    role,
-    leaderFunction: mandate?.function ?? null,
-    delegated,
-  };
+  if (role !== 'ENCADREMENT') return { role, leaderFunction: null };
+  const assignment = await prisma.leadershipAssignment.findFirst({
+    where: { userId: user.id, endedAt: null },
+    select: { function: true },
+  });
+  return { role, leaderFunction: assignment?.function ?? null };
 }

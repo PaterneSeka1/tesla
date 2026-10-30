@@ -1,9 +1,4 @@
-import {
-  civilDateAt,
-  DELEGABLE_PERMISSIONS,
-  PROGRAMME_CATEGORIES,
-  PROGRESSION_STAGES,
-} from '@tesla/shared';
+import { PROGRAMME_CATEGORIES, PROGRESSION_STAGES } from '@tesla/shared';
 import { type Env } from '../src/config/env.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 
@@ -25,7 +20,7 @@ export function createTestPrisma(): PrismaService {
 /** Vide la base de test (TRUNCATE ne déclenche pas les triggers de ligne) et recharge les étapes. */
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(`TRUNCATE
-    delegations, leadership_mandates, scout_years, catch_up_obligations, route_membership_events,
+    leadership_assignments, delegations, leadership_mandates, scout_years, catch_up_obligations, route_membership_events,
     age_stage_rules, age_rule_sets,
     competency_evidences, competency_proposal_events, competency_validations, competency_proposals,
     competency_modules, activity_competencies, competencies,
@@ -67,32 +62,14 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
 
 /**
  * Profils de test : les anciens rôles restent des raccourcis lisibles dans les scénarios.
- * - `RESPONSABLE` : encadrement avec mandat de responsable plein en vigueur ; si un plein exerce déjà
- *   (un seul à la fois), mandat d'assistant et délégation de toutes les permissions délégables.
- * - `CHEF` : encadrement sans mandat (consultation, rédaction, accompagnement ; aucune décision officielle).
+ * - `RESPONSABLE` : encadrement désigné responsable plein (un seul à la fois : un nouveau
+ *   `RESPONSABLE` remplace le précédent, qui garde les droits de l'encadrement) ;
+ * - `CHEF` : encadrement sans fonction (consultation, rédaction, accompagnement ; aucune décision officielle).
  */
 export type TestPersona = 'ROUTIER' | 'CHEF' | 'RESPONSABLE' | 'ADMINISTRATEUR';
 
 export function personaRole(persona: TestPersona): 'ROUTIER' | 'ENCADREMENT' | 'ADMINISTRATEUR' {
   return persona === 'CHEF' || persona === 'RESPONSABLE' ? 'ENCADREMENT' : persona;
-}
-
-/** Année scoute de test couvrant la date du jour (1er septembre → 31 août). */
-export async function ensureTestScoutYear(
-  prisma: PrismaService,
-): Promise<{ id: string; startsOn: Date; endsOn: Date }> {
-  const today = civilDateAt(new Date());
-  const year = Number(today.slice(0, 4)) - (today.slice(5) < '09-01' ? 1 : 0);
-  const label = `${year}-${year + 1}`;
-  const existing = await prisma.scoutYear.findUnique({ where: { label } });
-  if (existing) return existing;
-  return prisma.scoutYear.create({
-    data: {
-      label,
-      startsOn: new Date(`${year}-09-01T00:00:00Z`),
-      endsOn: new Date(`${year + 1}-08-31T00:00:00Z`),
-    },
-  });
 }
 
 export async function grantPersona(
@@ -101,37 +78,11 @@ export async function grantPersona(
   persona: TestPersona,
 ): Promise<void> {
   if (persona !== 'RESPONSABLE') return;
-  const year = await ensureTestScoutYear(prisma);
-  const today = new Date(`${civilDateAt(new Date())}T00:00:00Z`);
-  const plein = await prisma.leadershipMandate.findFirst({
-    where: {
-      function: 'PLEIN',
-      startsOn: { lte: today },
-      endsOn: { gte: today },
-      endedEarlyOn: null,
-    },
+  await prisma.leadershipAssignment.updateMany({
+    where: { function: 'PLEIN', endedAt: null },
+    data: { endedAt: new Date(), endReason: 'Remplacement (tests)' },
   });
-  const base = {
-    userId,
-    scoutYearId: year.id,
-    startsOn: year.startsOn,
-    endsOn: year.endsOn,
-    kind: 'NOMINATION' as const,
-    appointingAuthority: 'Autorité fictive (tests)',
-  };
-  if (!plein) {
-    await prisma.leadershipMandate.create({ data: { ...base, function: 'PLEIN' } });
-    return;
-  }
-  await prisma.leadershipMandate.create({ data: { ...base, function: 'ASSISTANT' } });
-  await prisma.delegation.create({
-    data: {
-      delegatorId: plein.userId,
-      delegateId: userId,
-      permissions: [...DELEGABLE_PERMISSIONS],
-      startsOn: year.startsOn,
-      endsOn: year.endsOn,
-      reason: 'Délégation fictive (tests)',
-    },
+  await prisma.leadershipAssignment.create({
+    data: { userId, function: 'PLEIN', reason: 'Désignation fictive (tests)' },
   });
 }

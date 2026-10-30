@@ -9,15 +9,12 @@ import {
   catchUpObligationSchema,
   civilDateAt,
   CSRF_HEADER,
-  delegationSchema,
-  leadershipOverviewSchema,
-  mandateHistorySchema,
-  mandateSchema,
+  leadershipAdminSchema,
+  leadershipAssignmentSchema,
+  leadershipTeamSchema,
   meResponseSchema,
-  reconductionDraftSchema,
   scoutDetailSchema,
   scoutPathwaySchema,
-  scoutYearSchema,
 } from '@tesla/shared';
 import request, { type Test as SupertestRequest } from 'supertest';
 import { type App } from 'supertest/types.js';
@@ -33,7 +30,8 @@ import { MembershipService } from '../src/modules/progression/membership.service
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createTestPrisma, resetDatabase, testDatabaseUrl } from './int-database.js';
 
-// Refonte : mandats et délégations, permissions par fonction, progression par l'âge, rattrapages,
+// Refonte : fonctions d'encadrement désignées par l'administrateur (D132), permissions par fonction,
+// progression par l'âge, rattrapages,
 // sortie de la branche, typologie et catalogue de découverte. PostgreSQL réel, données fictives.
 const PASSWORD = 'mot-de-passe-fictif-de-test';
 const TODAY = civilDateAt(new Date());
@@ -51,7 +49,7 @@ async function errorCode(req: SupertestRequest, status: number): Promise<string>
   return (await json(req, status, apiErrorSchema)).code;
 }
 
-describe('Refonte parcours Route et mandats (intégration PostgreSQL)', () => {
+describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHash: string;
@@ -115,32 +113,18 @@ describe('Refonte parcours Route et mandats (intégration PostgreSQL)', () => {
   const me = async (client: Client) =>
     (await json(client.get('/auth/me'), 200, meResponseSchema)).user;
 
-  /** Années scoutes consécutives fictives (1er septembre → 31 août), la première couvrant aujourd'hui. */
-  async function createYears(admin: Client, count: number) {
-    const first = Number(TODAY.slice(0, 4)) - (TODAY.slice(5) < '09-01' ? 1 : 0);
-    const years = [];
-    for (let index = 0; index < count; index += 1) {
-      const year = first + index;
-      years.push(
-        await json(
-          admin.post('/scout-years', {
-            label: `${year}-${year + 1}`,
-            startsOn: `${year}-09-01`,
-            endsOn: `${year + 1}-08-31`,
-          }),
-          201,
-          scoutYearSchema,
-        ),
-      );
-    }
-    return years;
-  }
+  const assign = (admin: Client, body: object) => admin.post('/leadership/assignments', body);
+  const designate = async (admin: Client, userId: string, fn: string, confirm = true) =>
+    json(
+      assign(admin, { userId, function: fn, confirmReplacement: confirm }),
+      201,
+      leadershipAssignmentSchema,
+    );
+  const canTeam = (client: Client, status: number) =>
+    client.post('/teams', { name: `Équipe ${(counter += 1)}` }).expect(status);
 
-  const appoint = (admin: Client, body: object) =>
-    admin.post('/mandates', { appointingAuthority: 'Commissaire fictif', confirm: true, ...body });
-
-  describe('Mandats, fonctions et permissions', () => {
-    it('reprise : un ancien responsable sans mandat n’a aucun droit officiel mais garde la consultation', async () => {
+  describe('Gouvernance : fonctions désignées par l’administrateur (D132)', () => {
+    it('sans fonction : consultation seulement ; l’administrateur n’a aucun accès pédagogique ; anciennes routes supprimées', async () => {
       const former = await login('ENCADREMENT', 'RESPONSABLE');
       const profile = await me(former);
       expect(profile.leaderFunction).toBeNull();
@@ -152,333 +136,183 @@ describe('Refonte parcours Route et mandats (intégration PostgreSQL)', () => {
       );
 
       const admin = await login('ADMINISTRATEUR');
-      const overview = await json(admin.get('/leadership'), 200, leadershipOverviewSchema);
-      expect(overview.vacancies.plein).toBe(true);
-      expect(overview.withoutMandate).toEqual([
-        expect.objectContaining({ id: former.user.id, legacyRole: 'RESPONSABLE' }),
-      ]);
-      // L'administration technique n'a aucun accès pédagogique.
       await admin.get('/scouts').expect(403);
+      await admin.get('/modules').expect(403);
+      const view = await json(admin.get('/leadership/admin'), 200, leadershipAdminSchema);
+      expect(view.members).toEqual([]);
+      expect(view.staff).toEqual([
+        expect.objectContaining({ id: former.user.id, currentFunction: null }),
+      ]);
+      for (const path of ['/mandates', '/delegations', '/scout-years']) {
+        await admin.get(path).expect(404);
+        await admin.post(path, {}).expect(404);
+      }
     });
 
-    it('un seul plein à une date donnée ; le plein ne consigne pas sa propre nomination', async () => {
+    it('désignation directe du plein : droits immédiats, journalisés ; seul l’administrateur désigne', async () => {
       const admin = await login('ADMINISTRATEUR');
-      const [a, b] = [await login('ENCADREMENT'), await login('ENCADREMENT')];
-      const [year] = await createYears(admin, 1);
+      const plein = await login('ENCADREMENT');
+      const routier = await login('ROUTIER');
+      await canTeam(plein, 403);
+
+      // Accès direct à l'API par des personnes non habilitées.
+      for (const client of [plein, routier]) {
+        await client.get('/leadership/admin').expect(403);
+        await assign(client, { userId: plein.user.id, function: 'PLEIN' }).expect(403);
+      }
+      // Entrées invalides et personnes non éligibles.
+      await assign(admin, { userId: 'pas-un-uuid', function: 'PLEIN' }).expect(400);
+      await assign(admin, { userId: plein.user.id, function: 'CHEF' }).expect(400);
+      for (const user of [admin.user, routier.user]) {
+        expect(await errorCode(assign(admin, { userId: user.id, function: 'PLEIN' }), 400)).toBe(
+          'NOT_STAFF',
+        );
+      }
+
+      const created = await designate(admin, plein.user.id, 'PLEIN', false);
+      expect(created).toMatchObject({ function: 'PLEIN', endedAt: null, migrated: false });
+      expect((await me(plein)).leaderFunction).toBe('PLEIN');
+      await canTeam(plein, 201);
+      // Le plein ne gère pas l'encadrement (administrateur fonctionnel ≠ technique).
+      await plein.get('/leadership/admin').expect(403);
       expect(
-        await errorCode(
-          admin.post('/scout-years', {
-            label: 'XXXX',
-            startsOn: '2030-01-01',
-            endsOn: '2030-12-31',
-          }),
-          400,
-        ),
-      ).toBe('VALIDATION_ERROR');
-      await errorCode(
-        admin.post('/scout-years', {
-          label: `${year!.label.slice(0, 4)}-${Number(year!.label.slice(0, 4)) + 1}`,
-          startsOn: year!.startsOn,
-          endsOn: year!.endsOn,
-        }),
-        409,
+        await errorCode(assign(admin, { userId: plein.user.id, function: 'PLEIN' }), 409),
+      ).toBe('ALREADY_IN_FUNCTION');
+
+      const audit = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'leadership.assigned', entityId: created.id },
+      });
+      expect(audit.actorId).toBe(admin.user.id);
+
+      // Tout membre connecté voit la composition (noms et fonctions uniquement).
+      const team = await json(routier.get('/leadership'), 200, leadershipTeamSchema);
+      expect(team.members.map((m) => [m.function, m.user.id])).toEqual([['PLEIN', plein.user.id]]);
+      expect(Object.keys(team.members[0]!.user).sort()).toEqual(['firstName', 'id', 'lastName']);
+    });
+
+    it('remplacement du plein : confirmé, atomique, anciens droits retirés, historiques conservés', async () => {
+      const admin = await login('ADMINISTRATEUR');
+      const first = await login('ENCADREMENT');
+      const second = await login('ENCADREMENT');
+      const initial = await designate(admin, first.user.id, 'PLEIN');
+      const scout = await json(
+        first.post('/scouts', { firstName: 'Fictif', lastName: 'Historique', joinedAt: TODAY }),
+        201,
+        scoutDetailSchema,
       );
 
-      await json(
-        appoint(admin, {
-          userId: a.user.id,
-          function: 'PLEIN',
-          scoutYearId: year!.id,
-          kind: 'NOMINATION',
+      expect(
+        await errorCode(assign(admin, { userId: second.user.id, function: 'PLEIN' }), 409),
+      ).toBe('PLEIN_REPLACEMENT_UNCONFIRMED');
+      expect((await me(first)).leaderFunction).toBe('PLEIN');
+
+      const replacement = await designate(admin, second.user.id, 'PLEIN');
+      // Retrait immédiat, sans nouvelle connexion ; la personne garde l'accès de l'encadrement.
+      const formerProfile = await me(first);
+      expect(formerProfile.leaderFunction).toBeNull();
+      expect(formerProfile.permissions).not.toContain('team.manage');
+      await canTeam(first, 403);
+      await first.get(`/scouts/${scout.id}`).expect(200);
+      await canTeam(second, 201);
+
+      const view = await json(admin.get('/leadership/admin'), 200, leadershipAdminSchema);
+      expect(view.members.map((m) => m.user.id)).toEqual([second.user.id]);
+      const ended = view.history.find((row) => row.id === initial.id);
+      expect(ended).toMatchObject({ endReason: 'Remplacé comme responsable plein.' });
+      expect(ended?.endedAt).toBe(replacement.startedAt);
+      expect(ended?.endedBy?.id).toBe(admin.user.id);
+      // Les actions de l'ancien plein restent attribuées à son compte.
+      const created = await prisma.auditLog.findFirstOrThrow({
+        where: { entityId: scout.id, actorId: first.user.id },
+      });
+      expect(created).toBeTruthy();
+      const audit = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'leadership.assigned', entityId: replacement.id },
+      });
+      expect(audit.metadata).toMatchObject({ replacedUserId: first.user.id });
+    });
+
+    it('unicité du plein : contrainte en base et remplacements concurrents', async () => {
+      const admin = await login('ADMINISTRATEUR');
+      const people = [
+        await login('ENCADREMENT'),
+        await login('ENCADREMENT'),
+        await login('ENCADREMENT'),
+      ];
+      await designate(admin, people[0]!.user.id, 'PLEIN');
+      await expect(
+        prisma.leadershipAssignment.create({
+          data: { userId: people[1]!.user.id, function: 'PLEIN' },
         }),
-        201,
-        mandateSchema,
+      ).rejects.toThrow();
+      const results = await Promise.all(
+        people
+          .slice(1)
+          .map((person) =>
+            assign(admin, { userId: person.user.id, function: 'PLEIN', confirmReplacement: true }),
+          ),
       );
+      expect(results.map((r) => r.status).sort()).toEqual([201, 201]);
+      const open = await prisma.leadershipAssignment.findMany({
+        where: { function: 'PLEIN', endedAt: null },
+      });
+      expect(open).toHaveLength(1);
+      expect(await prisma.leadershipAssignment.count({ where: { function: 'PLEIN' } })).toBe(3);
+    });
+
+    it('adjoint et assistants : accompagnement sans décision officielle, changement et fin de fonction', async () => {
+      const admin = await login('ADMINISTRATEUR');
+      const adjoint = await login('ENCADREMENT');
+      const assistants = [await login('ENCADREMENT'), await login('ENCADREMENT')];
+      await designate(admin, adjoint.user.id, 'ADJOINT');
+      for (const person of assistants) await designate(admin, person.user.id, 'ASSISTANT');
+      for (const person of [adjoint, ...assistants]) {
+        const profile = await me(person);
+        expect(profile.permissions).toContain('observation.create');
+        expect(profile.permissions).toContain('module.write');
+        expect(profile.permissions).not.toContain('module.review');
+        await canTeam(person, 403);
+      }
+      let team = await json(adjoint.get('/leadership'), 200, leadershipTeamSchema);
+      expect(team.members.map((m) => m.function)).toEqual(['ADJOINT', 'ASSISTANT', 'ASSISTANT']);
+
+      // Changement de fonction : l'ancienne prend fin dans la même transaction.
+      const promoted = await designate(admin, assistants[0]!.user.id, 'ADJOINT');
+      expect((await me(assistants[0]!)).leaderFunction).toBe('ADJOINT');
+      const ended = await json(
+        admin.post(`/leadership/assignments/${promoted.id}/end`, { reason: 'Fin fictive' }),
+        201,
+        leadershipAssignmentSchema,
+      );
+      expect(ended.endedAt).not.toBeNull();
+      expect((await me(assistants[0]!)).leaderFunction).toBeNull();
       expect(
         await errorCode(
-          appoint(admin, {
-            userId: b.user.id,
-            function: 'PLEIN',
-            scoutYearId: year!.id,
-            kind: 'NOMINATION',
-          }),
+          admin.post(`/leadership/assignments/${promoted.id}/end`, { reason: 'Encore' }),
           409,
         ),
-      ).toBe('PLEIN_OVERLAP');
-      // Le plein en exercice ne consigne pas de mandat de plein (ni le sien ni un autre).
-      await appoint(a, {
-        userId: b.user.id,
-        function: 'PLEIN',
-        scoutYearId: year!.id,
-        kind: 'NOMINATION',
-      }).expect(403);
-      // Sans confirmation explicite : refus.
-      await admin
-        .post('/mandates', {
-          userId: b.user.id,
-          function: 'ADJOINT',
-          scoutYearId: year!.id,
-          kind: 'NOMINATION',
-          appointingAuthority: 'X fictif',
-        })
-        .expect(400);
-
-      expect((await me(a)).leaderFunction).toBe('PLEIN');
-      await a.post('/teams', { name: 'Équipe du plein' }).expect(201);
-      // Le plein nomme un adjoint ; l'adjoint n'a pas les droits officiels par défaut.
-      await json(
-        appoint(a, {
-          userId: b.user.id,
-          function: 'ADJOINT',
-          scoutYearId: year!.id,
-          kind: 'NOMINATION',
-        }),
-        201,
-        mandateSchema,
-      );
-      expect((await me(b)).permissions).not.toContain('team.manage');
-      await b.post('/teams', { name: 'Équipe de l’adjoint' }).expect(403);
-
-      // Contrainte en base, indépendamment du service.
-      await expect(
-        prisma.leadershipMandate.create({
-          data: {
-            userId: b.user.id,
-            function: 'PLEIN',
-            scoutYearId: year!.id,
-            startsOn: new Date(`${year!.startsOn}T00:00:00Z`),
-            endsOn: new Date(`${year!.endsOn}T00:00:00Z`),
-            kind: 'NOMINATION',
-            appointingAuthority: 'Contournement',
-          },
-        }),
-      ).rejects.toThrow();
+      ).toBe('ASSIGNMENT_ALREADY_ENDED');
+      await admin.post(`/leadership/assignments/${promoted.id}/end`, { reason: '' }).expect(400);
+      team = await json(adjoint.get('/leadership'), 200, leadershipTeamSchema);
+      expect(team.members.map((m) => m.function)).toEqual(['ADJOINT', 'ASSISTANT']);
+      const history = (await json(admin.get('/leadership/admin'), 200, leadershipAdminSchema))
+        .history;
+      expect(history.filter((row) => row.user.id === assistants[0]!.user.id)).toHaveLength(2);
     });
 
-    it('reconduction illimitée (dix reconductions), retour d’un ancien plein, historique immuable', async () => {
+    it('historique immuable : ni suppression ni réécriture ; anciennes tables gelées', async () => {
       const admin = await login('ADMINISTRATEUR');
-      const [a, b] = [await login('ENCADREMENT'), await login('ENCADREMENT')];
-      const years = await createYears(admin, 13);
-      let previous = await json(
-        appoint(admin, {
-          userId: a.user.id,
-          function: 'PLEIN',
-          scoutYearId: years[0]!.id,
-          kind: 'NOMINATION',
-        }),
-        201,
-        mandateSchema,
-      );
-      for (let index = 1; index <= 10; index += 1) {
-        const draft = await json(
-          admin.get(`/mandates/${previous.id}/reconduction`),
-          200,
-          reconductionDraftSchema,
-        );
-        expect(draft.nextScoutYear?.id).toBe(years[index]!.id);
-        expect(draft.consecutiveCount).toBe(index);
-        // Le préremplissage n'enregistre rien.
-        expect(
-          (await json(admin.get('/mandates'), 200, mandateHistorySchema)).mandates,
-        ).toHaveLength(index);
-        previous = await json(
-          appoint(admin, { ...draft.draft, startsOn: undefined, endsOn: undefined }),
-          201,
-          mandateSchema,
-        );
-        expect(previous.kind).toBe('RECONDUCTION');
-      }
-      // Reconduction incohérente (autre personne) refusée.
-      await appoint(admin, {
-        userId: b.user.id,
-        function: 'PLEIN',
-        scoutYearId: years[11]!.id,
-        kind: 'RECONDUCTION',
-        previousMandateId: previous.id,
-      }).expect(400);
-      // Un autre plein, puis le retour du premier.
-      await json(
-        appoint(admin, {
-          userId: b.user.id,
-          function: 'PLEIN',
-          scoutYearId: years[11]!.id,
-          kind: 'NOMINATION',
-        }),
-        201,
-        mandateSchema,
-      );
-      await json(
-        appoint(admin, {
-          userId: a.user.id,
-          function: 'PLEIN',
-          scoutYearId: years[12]!.id,
-          kind: 'NOMINATION',
-        }),
-        201,
-        mandateSchema,
-      );
-      const history = await json(
-        admin.get(`/mandates?userId=${a.user.id}`),
-        200,
-        mandateHistorySchema,
-      );
-      expect(history.mandates).toHaveLength(12);
-
+      const person = await login('ENCADREMENT');
+      const row = await designate(admin, person.user.id, 'ASSISTANT');
+      await expect(prisma.leadershipAssignment.delete({ where: { id: row.id } })).rejects.toThrow();
       await expect(
-        prisma.leadershipMandate.update({
-          where: { id: previous.id },
-          data: { function: 'ADJOINT' },
-        }),
+        prisma.leadershipAssignment.update({ where: { id: row.id }, data: { function: 'PLEIN' } }),
       ).rejects.toThrow();
       await expect(
-        prisma.leadershipMandate.delete({ where: { id: previous.id } }),
-      ).rejects.toThrow();
-    });
-
-    it('fin anticipée, changement de fonction, délégation nominative et révocable', async () => {
-      const admin = await login('ADMINISTRATEUR');
-      const [plein, member] = [await login('ENCADREMENT'), await login('ENCADREMENT')];
-      const [year] = await createYears(admin, 1);
-      await appoint(admin, {
-        userId: plein.user.id,
-        function: 'PLEIN',
-        scoutYearId: year!.id,
-        kind: 'NOMINATION',
-      }).expect(201);
-      const adjoint = await json(
-        appoint(plein, {
-          userId: member.user.id,
-          function: 'ADJOINT',
-          scoutYearId: year!.id,
-          kind: 'NOMINATION',
-        }),
-        201,
-        mandateSchema,
-      );
-      // Chevauchement pour une même personne : il faut d'abord terminer le mandat.
-      expect(
-        await errorCode(
-          appoint(plein, {
-            userId: member.user.id,
-            function: 'ASSISTANT',
-            scoutYearId: year!.id,
-            kind: 'CHANGEMENT_FONCTION',
-            previousMandateId: adjoint.id,
-          }),
-          400,
+        prisma.$executeRawUnsafe(
+          `INSERT INTO scout_years (id, label, starts_on, ends_on) VALUES (uuidv7(), '2099-2100', '2099-09-01', '2100-08-31')`,
         ),
-      ).toBe('PREVIOUS_MANDATE_MISMATCH');
-      const yesterday = addCalendarDays(TODAY, -1);
-      const canEndYesterday = yesterday >= year!.startsOn;
-      const endOn = canEndYesterday ? yesterday : TODAY;
-      await json(
-        plein.post(`/mandates/${adjoint.id}/end`, {
-          endedEarlyOn: endOn,
-          reason: 'Changement de fonction fictif',
-          confirm: true,
-        }),
-        201,
-        mandateSchema,
-      );
-      await plein
-        .post(`/mandates/${adjoint.id}/end`, {
-          endedEarlyOn: endOn,
-          reason: 'Deuxième fois',
-          confirm: true,
-        })
-        .expect(409);
-      if (canEndYesterday) {
-        await json(
-          appoint(plein, {
-            userId: member.user.id,
-            function: 'ASSISTANT',
-            scoutYearId: year!.id,
-            startsOn: TODAY,
-            kind: 'CHANGEMENT_FONCTION',
-            previousMandateId: adjoint.id,
-          }),
-          201,
-          mandateSchema,
-        );
-        expect((await me(member)).leaderFunction).toBe('ASSISTANT');
-
-        // Délégation limitée à une permission.
-        const delegation = await json(
-          plein.post('/delegations', {
-            delegateId: member.user.id,
-            permissions: ['team.manage'],
-            startsOn: TODAY,
-            endsOn: TODAY,
-            reason: 'Absence fictive du plein',
-            confirm: true,
-          }),
-          201,
-          delegationSchema,
-        );
-        expect(delegation.active).toBe(true);
-        await member.post('/teams', { name: 'Équipe déléguée' }).expect(201);
-        await member
-          .post('/competencies', {
-            code: 'X-01',
-            name: 'Compétence fictive',
-            description: '',
-            domain: null,
-            stageId: null,
-            observableCriteria: [],
-            minEvidenceCount: 1,
-          })
-          .expect(403);
-        // Seul le plein délègue ; une permission non délégable est refusée.
-        await member
-          .post('/delegations', {
-            delegateId: plein.user.id,
-            permissions: ['team.manage'],
-            startsOn: TODAY,
-            endsOn: TODAY,
-            reason: 'Refus attendu',
-            confirm: true,
-          })
-          .expect(403);
-        await plein
-          .post('/delegations', {
-            delegateId: member.user.id,
-            permissions: ['delegation.manage'],
-            startsOn: TODAY,
-            endsOn: TODAY,
-            reason: 'Refus attendu',
-            confirm: true,
-          })
-          .expect(400);
-
-        await json(
-          plein.post(`/delegations/${delegation.id}/revoke`, { reason: 'Retour du plein' }),
-          201,
-          delegationSchema,
-        );
-        await member.post('/teams', { name: 'Équipe après révocation' }).expect(403);
-      }
-
-      // Fin du mandat du plein : ses droits officiels cessent immédiatement (calcul à la lecture).
-      const pleinMandate = (
-        await json(admin.get('/leadership'), 200, leadershipOverviewSchema)
-      ).current.find((mandate) => mandate.function === 'PLEIN')!;
-      await json(
-        admin.post(`/mandates/${pleinMandate.id}/end`, {
-          endedEarlyOn: canEndYesterday ? yesterday : TODAY,
-          reason: 'Fin fictive',
-          confirm: true,
-        }),
-        201,
-        mandateSchema,
-      );
-      if (canEndYesterday) {
-        expect((await me(plein)).leaderFunction).toBeNull();
-        await plein.post('/teams', { name: 'Équipe refusée' }).expect(403);
-      }
-      const audit = await prisma.auditLog.findMany({
-        where: { entityType: { in: ['LeadershipMandate', 'Delegation'] } },
-      });
-      expect(audit.length).toBeGreaterThanOrEqual(3);
+      ).rejects.toThrow();
     });
   });
 
@@ -487,13 +321,7 @@ describe('Refonte parcours Route et mandats (intégration PostgreSQL)', () => {
       const admin = await login('ADMINISTRATEUR');
       const plein = await login('ENCADREMENT');
       const assistant = await login('ENCADREMENT');
-      const [year] = await createYears(admin, 1);
-      await appoint(admin, {
-        userId: plein.user.id,
-        function: 'PLEIN',
-        scoutYearId: year!.id,
-        kind: 'NOMINATION',
-      }).expect(201);
+      await designate(admin, plein.user.id, 'PLEIN');
       return { admin, plein, assistant };
     }
 

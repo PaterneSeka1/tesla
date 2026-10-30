@@ -1,534 +1,245 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
-  type CreateDelegationInput,
-  createDelegationInputSchema,
-  type CreateScoutYearInput,
-  createScoutYearInputSchema,
-  type Delegation,
-  type EndMandateInput,
-  endMandateInputSchema,
-  type LeadershipOverview,
-  type LegacyRole,
-  type Mandate,
-  type MandateHistory,
-  type ReconductionDraft,
-  type RecordMandateInput,
-  recordMandateInputSchema,
-  type RevokeDelegationInput,
-  revokeDelegationInputSchema,
-  type ScoutYear,
+  type AssignLeaderInput,
+  assignLeaderInputSchema,
+  type EndLeaderInput,
+  endLeaderInputSchema,
+  type LeaderFunction,
+  type LeadershipAdmin,
+  type LeadershipAssignment,
+  type LeadershipMember,
+  type LeadershipTeam,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
 import { assertCan } from '../../common/permissions.js';
-import { isExclusionViolation, isUniqueViolation } from '../../common/prisma-errors.js';
+import { isUniqueViolation } from '../../common/prisma-errors.js';
 import { parseInput } from '../../common/validation.js';
 import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { activeDelegationWhere, activeMandateWhere, civilToday } from './leadership-rules.js';
 
 const userSummary = { select: { id: true, firstName: true, lastName: true } } as const;
 
-const mandateInclude = {
+const assignmentInclude = {
   user: userSummary,
-  scoutYear: { select: { id: true, label: true } },
-  recordedBy: userSummary,
-} as const satisfies Prisma.LeadershipMandateInclude;
+  assignedBy: userSummary,
+  endedBy: userSummary,
+} as const satisfies Prisma.LeadershipAssignmentInclude;
 
-type MandateRow = Prisma.LeadershipMandateGetPayload<{ include: typeof mandateInclude }>;
+type AssignmentRow = Prisma.LeadershipAssignmentGetPayload<{ include: typeof assignmentInclude }>;
 
-const delegationInclude = {
-  delegator: userSummary,
-  delegate: userSummary,
-} as const satisfies Prisma.DelegationInclude;
+/** Ordre d'affichage : plein, adjoint, assistants. */
+const FUNCTION_ORDER: Record<LeaderFunction, number> = { PLEIN: 0, ADJOINT: 1, ASSISTANT: 2 };
 
-type DelegationRow = Prisma.DelegationGetPayload<{ include: typeof delegationInclude }>;
-
-const iso = (date: Date): string => date.toISOString().slice(0, 10);
-const toDate = (value: string): Date => new Date(`${value}T00:00:00Z`);
-
-function toScoutYear(row: { id: string; label: string; startsOn: Date; endsOn: Date }): ScoutYear {
-  return { id: row.id, label: row.label, startsOn: iso(row.startsOn), endsOn: iso(row.endsOn) };
+function toMember(row: AssignmentRow): LeadershipMember {
+  return {
+    assignmentId: row.id,
+    user: row.user,
+    function: row.function,
+    since: row.startedAt.toISOString(),
+  };
 }
 
-function toMandate(row: MandateRow, today: Date): Mandate {
-  const effectiveEnd = row.endedEarlyOn ?? row.endsOn;
+function toAssignment(row: AssignmentRow): LeadershipAssignment {
   return {
     id: row.id,
     user: row.user,
     function: row.function,
-    scoutYear: row.scoutYear,
-    startsOn: iso(row.startsOn),
-    endsOn: iso(row.endsOn),
-    endedEarlyOn: row.endedEarlyOn ? iso(row.endedEarlyOn) : null,
-    endReason: row.endReason,
-    effectiveEndOn: iso(effectiveEnd),
-    kind: row.kind,
-    appointingAuthority: row.appointingAuthority,
-    appointmentReference: row.appointmentReference,
-    previousMandateId: row.previousMandateId,
-    notes: row.notes,
-    recordedBy: row.recordedBy,
-    createdAt: row.createdAt.toISOString(),
-    active: row.startsOn <= today && effectiveEnd >= today,
-  };
-}
-
-function toDelegation(row: DelegationRow, activeIds: ReadonlySet<string>): Delegation {
-  return {
-    id: row.id,
-    delegator: row.delegator,
-    delegate: row.delegate,
-    permissions: row.permissions,
-    startsOn: iso(row.startsOn),
-    endsOn: iso(row.endsOn),
+    startedAt: row.startedAt.toISOString(),
+    endedAt: row.endedAt?.toISOString() ?? null,
     reason: row.reason,
-    revokedAt: row.revokedAt?.toISOString() ?? null,
-    revokeReason: row.revokeReason,
-    createdAt: row.createdAt.toISOString(),
-    active: activeIds.has(row.id),
+    endReason: row.endReason,
+    assignedBy: row.assignedBy,
+    endedBy: row.endedBy,
+    migrated: row.sourceMandateId !== null,
   };
 }
 
-const mandateNotFound = () =>
-  new NotFoundException({ code: 'MANDATE_NOT_FOUND', message: 'Mandat introuvable.' });
+const conflict = () =>
+  new ConflictException({
+    code: 'LEADERSHIP_CHANGED',
+    message: 'L’encadrement vient d’être modifié. Actualisez la page puis recommencez.',
+  });
 
 /**
- * Mandats annuels de l'encadrement, années scoutes et délégations (D100–D103).
- * Aucun mandat n'est créé, reconduit ou terminé automatiquement : chaque acte est explicite,
- * confirmé, attribué à son auteur et journalisé.
+ * Fonctions d'encadrement (D132) : le responsable plein, l'adjoint et les assistants sont désignés
+ * directement par l'administrateur, sans année scoute ni délégation. Chaque changement est
+ * transactionnel, sérialisé, journalisé et historisé. Les droits suivent dès la requête suivante :
+ * ils sont recalculés à chaque requête par la garde de session.
  */
 @Injectable()
 export class LeadershipService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async overview(actor: Actor): Promise<LeadershipOverview> {
-    assertCan(actor, 'mandate.read');
-    const today = civilToday();
-    const [years, current, staff, delegations, activeDelegations] = await Promise.all([
-      this.prisma.scoutYear.findMany({ orderBy: { startsOn: 'desc' } }),
-      this.prisma.leadershipMandate.findMany({
-        where: activeMandateWhere(today),
-        include: mandateInclude,
-        orderBy: [{ function: 'asc' }, { startsOn: 'asc' }],
-      }),
+  /** Composition actuelle, visible de tout membre connecté (noms et fonctions uniquement). */
+  async team(actor: Actor): Promise<LeadershipTeam> {
+    assertCan(actor, 'leadership.read');
+    return { members: await this.currentMembers() };
+  }
+
+  async admin(actor: Actor): Promise<LeadershipAdmin> {
+    assertCan(actor, 'leadership.manage');
+    const [members, staff, current, history] = await Promise.all([
+      this.currentMembers(),
       this.prisma.user.findMany({
         where: { role: 'ENCADREMENT', isActive: true },
-        select: { id: true, firstName: true, lastName: true, legacyRole: true },
+        select: { id: true, firstName: true, lastName: true },
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       }),
-      this.prisma.delegation.findMany({
-        where: { endsOn: { gte: today } },
-        include: delegationInclude,
-        orderBy: { startsOn: 'asc' },
+      this.prisma.leadershipAssignment.findMany({
+        where: { endedAt: null },
+        select: { userId: true, function: true },
       }),
-      this.prisma.delegation.findMany({
-        where: activeDelegationWhere(today),
-        select: { id: true },
+      this.prisma.leadershipAssignment.findMany({
+        include: assignmentInclude,
+        orderBy: [{ startedAt: 'desc' }, { createdAt: 'desc' }],
       }),
     ]);
-    const withMandate = new Set(current.map((m) => m.userId));
-    const activeIds = new Set(activeDelegations.map((d) => d.id));
-    const currentYear = years.find((y) => y.startsOn <= today && y.endsOn >= today);
+    const functionOf = new Map(current.map((row) => [row.userId, row.function]));
     return {
-      today: iso(today),
-      currentScoutYear: currentYear ? toScoutYear(currentYear) : null,
-      scoutYears: years.map(toScoutYear),
-      current: current.map((row) => toMandate(row, today)),
-      vacancies: {
-        plein: !current.some((m) => m.function === 'PLEIN'),
-        adjoint: !current.some((m) => m.function === 'ADJOINT'),
-      },
-      withoutMandate: staff
-        .filter((user) => !withMandate.has(user.id))
-        .map(({ legacyRole, ...user }) => ({
-          ...user,
-          legacyRole: legacyRole as LegacyRole | null,
-        })),
-      delegations: delegations.map((row) => toDelegation(row, activeIds)),
+      members,
+      staff: staff.map((user) => ({ ...user, currentFunction: functionOf.get(user.id) ?? null })),
+      history: history.map(toAssignment),
     };
   }
 
-  async history(
-    actor: Actor,
-    query: { scoutYearId?: string; userId?: string },
-  ): Promise<MandateHistory> {
-    assertCan(actor, 'mandate.read');
-    const today = civilToday();
-    const rows = await this.prisma.leadershipMandate.findMany({
-      where: {
-        ...(query.scoutYearId ? { scoutYearId: query.scoutYearId } : {}),
-        ...(query.userId ? { userId: query.userId } : {}),
-      },
-      include: mandateInclude,
-      orderBy: [{ startsOn: 'desc' }, { function: 'asc' }],
-    });
-    return { mandates: rows.map((row) => toMandate(row, today)) };
-  }
-
-  async createScoutYear(actor: Actor, input: CreateScoutYearInput): Promise<ScoutYear> {
-    assertCan(actor, 'scoutYear.manage');
-    const data = parseInput(createScoutYearInputSchema, input);
+  /**
+   * Désigne une personne à une fonction. Sa fonction précédente éventuelle prend fin ; désigner un
+   * nouveau responsable plein met fin à la fonction du plein actuel (remplacement confirmé). La
+   * personne remplacée garde son compte et les accès de l'encadrement, sans les décisions officielles.
+   */
+  async assign(actor: Actor, input: AssignLeaderInput): Promise<LeadershipAssignment> {
+    assertCan(actor, 'leadership.manage');
+    const data = parseInput(assignLeaderInputSchema, input);
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const row = await tx.scoutYear.create({
-          data: {
-            label: data.label,
-            startsOn: toDate(data.startsOn),
-            endsOn: toDate(data.endsOn),
-            createdById: actor.userId,
-          },
+        // Un seul changement d'encadrement à la fois (les index uniques restent le dernier rempart).
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('leadership_assignments'))`;
+        const user = await tx.user.findUnique({
+          where: { id: data.userId },
+          select: { isActive: true, role: true },
         });
-        await tx.auditLog.create({
-          data: {
-            actorId: actor.userId,
-            action: 'scoutYear.created',
-            entityType: 'ScoutYear',
-            entityId: row.id,
-            metadata: { label: row.label, startsOn: data.startsOn, endsOn: data.endsOn },
-          },
-        });
-        return toScoutYear(row);
-      });
-    } catch (error) {
-      if (isUniqueViolation(error) || isExclusionViolation(error, 'scout_years_no_overlap')) {
-        throw new ConflictException({
-          code: 'SCOUT_YEAR_CONFLICT',
-          message: 'Cette année scoute existe déjà ou chevauche une année existante.',
-        });
-      }
-      throw error;
-    }
-  }
-
-  /** Nomination, reconduction, remplacement ou changement de fonction : toujours un nouveau mandat. */
-  async record(actor: Actor, input: RecordMandateInput): Promise<Mandate> {
-    const data = parseInput(recordMandateInputSchema, input);
-    assertCan(actor, data.function === 'PLEIN' ? 'mandate.recordPlein' : 'mandate.recordTeam');
-    if (data.userId === actor.userId) {
-      throw new ForbiddenException({
-        code: 'SELF_APPOINTMENT',
-        message: 'Personne ne peut consigner sa propre nomination ou reconduction.',
-      });
-    }
-    const [user, year] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: data.userId } }),
-      this.prisma.scoutYear.findUnique({ where: { id: data.scoutYearId } }),
-    ]);
-    if (!user || !user.isActive || user.role !== 'ENCADREMENT') {
-      throw new BadRequestException({
-        code: 'NOT_STAFF',
-        message: 'Seul un compte actif de l’encadrement peut recevoir un mandat.',
-      });
-    }
-    if (!year) {
-      throw new NotFoundException({
-        code: 'SCOUT_YEAR_NOT_FOUND',
-        message: 'Année scoute introuvable.',
-      });
-    }
-    const startsOn = data.startsOn ?? iso(year.startsOn);
-    const endsOn = data.endsOn ?? iso(year.endsOn);
-    if (startsOn < iso(year.startsOn) || endsOn > iso(year.endsOn) || endsOn < startsOn) {
-      throw new BadRequestException({
-        code: 'MANDATE_OUTSIDE_YEAR',
-        message: `Le mandat doit être compris dans l’année scoute ${year.label}.`,
-      });
-    }
-    await this.checkPrevious(data, startsOn);
-
-    const today = civilToday();
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        const row = await tx.leadershipMandate.create({
+        if (!user || !user.isActive || user.role !== 'ENCADREMENT') {
+          throw new BadRequestException({
+            code: 'NOT_STAFF',
+            message: 'Seul un compte actif de l’encadrement peut recevoir une fonction.',
+          });
+        }
+        const [previous, currentPlein] = await Promise.all([
+          tx.leadershipAssignment.findFirst({ where: { userId: data.userId, endedAt: null } }),
+          data.function === 'PLEIN'
+            ? tx.leadershipAssignment.findFirst({ where: { function: 'PLEIN', endedAt: null } })
+            : null,
+        ]);
+        if (previous?.function === data.function) {
+          throw new ConflictException({
+            code: 'ALREADY_IN_FUNCTION',
+            message: 'Cette personne exerce déjà cette fonction.',
+          });
+        }
+        const replaced = currentPlein && currentPlein.userId !== data.userId ? currentPlein : null;
+        if (replaced && !data.confirmReplacement) {
+          throw new ConflictException({
+            code: 'PLEIN_REPLACEMENT_UNCONFIRMED',
+            message: 'Un responsable plein est déjà en fonction : confirmez son remplacement.',
+          });
+        }
+        const now = new Date();
+        const endings = [
+          ...(replaced ? [{ row: replaced, reason: 'Remplacé comme responsable plein.' }] : []),
+          ...(previous ? [{ row: previous, reason: 'Changement de fonction.' }] : []),
+        ];
+        for (const { row, reason } of endings) {
+          const { count } = await tx.leadershipAssignment.updateMany({
+            where: { id: row.id, endedAt: null },
+            data: { endedAt: now, endedById: actor.userId, endReason: reason },
+          });
+          if (count !== 1) throw conflict();
+        }
+        const created = await tx.leadershipAssignment.create({
           data: {
             userId: data.userId,
             function: data.function,
-            scoutYearId: data.scoutYearId,
-            startsOn: toDate(startsOn),
-            endsOn: toDate(endsOn),
-            kind: data.kind,
-            appointingAuthority: data.appointingAuthority,
-            appointmentReference: data.appointmentReference ?? null,
-            previousMandateId: data.previousMandateId ?? null,
-            notes: data.notes ?? null,
-            recordedById: actor.userId,
+            startedAt: now,
+            reason: data.reason ?? null,
+            assignedById: actor.userId,
           },
-          include: mandateInclude,
+          include: assignmentInclude,
         });
         await tx.auditLog.create({
           data: {
             actorId: actor.userId,
-            action: `mandate.${data.kind.toLowerCase()}`,
-            entityType: 'LeadershipMandate',
-            entityId: row.id,
+            action: 'leadership.assigned',
+            entityType: 'LeadershipAssignment',
+            entityId: created.id,
             metadata: {
               userId: data.userId,
               function: data.function,
-              scoutYear: year.label,
-              startsOn,
-              endsOn,
-              appointingAuthority: data.appointingAuthority,
-              previousMandateId: data.previousMandateId ?? null,
+              previousFunction: previous?.function ?? null,
+              replacedUserId: replaced?.userId ?? null,
             },
           },
         });
-        return toMandate(row, today);
+        return toAssignment(created);
       });
     } catch (error) {
-      if (isExclusionViolation(error, 'leadership_mandates_one_plein')) {
-        throw new ConflictException({
-          code: 'PLEIN_OVERLAP',
-          message:
-            'Un responsable plein exerce déjà sur cette période. Enregistrez d’abord la fin de son mandat.',
-        });
-      }
-      if (isExclusionViolation(error, 'leadership_mandates_one_per_user')) {
-        throw new ConflictException({
-          code: 'MANDATE_OVERLAP',
-          message:
-            'Cette personne exerce déjà un mandat sur cette période. Un changement de fonction suppose d’abord la fin du mandat en cours.',
-        });
-      }
+      if (isUniqueViolation(error)) throw conflict();
       throw error;
     }
   }
 
-  private async checkPrevious(
-    data: { userId: string; function: string; kind: string; previousMandateId?: string | null },
-    startsOn: string,
-  ): Promise<void> {
-    const needsPrevious = data.kind === 'RECONDUCTION' || data.kind === 'CHANGEMENT_FONCTION';
-    if (!data.previousMandateId) {
-      if (needsPrevious) {
-        throw new BadRequestException({
-          code: 'PREVIOUS_MANDATE_REQUIRED',
-          message: 'Indiquez le mandat précédent concerné.',
+  /** Met fin à une fonction (la personne garde son compte et les accès de l'encadrement). */
+  async end(actor: Actor, id: string, input: EndLeaderInput): Promise<LeadershipAssignment> {
+    assertCan(actor, 'leadership.manage');
+    const data = parseInput(endLeaderInputSchema, input);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('leadership_assignments'))`;
+      const row = await tx.leadershipAssignment.findUnique({ where: { id } });
+      if (!row) {
+        throw new NotFoundException({
+          code: 'ASSIGNMENT_NOT_FOUND',
+          message: 'Fonction introuvable.',
         });
       }
-      return;
-    }
-    const previous = await this.prisma.leadershipMandate.findUnique({
-      where: { id: data.previousMandateId },
-    });
-    if (!previous) throw mandateNotFound();
-    const previousEnd = iso(previous.endedEarlyOn ?? previous.endsOn);
-    const invalid =
-      (needsPrevious && previous.userId !== data.userId) ||
-      (data.kind === 'RECONDUCTION' && previous.function !== data.function) ||
-      (data.kind === 'CHANGEMENT_FONCTION' && previous.function === data.function) ||
-      (data.kind === 'REMPLACEMENT' && previous.function !== data.function) ||
-      previousEnd >= startsOn;
-    if (invalid) {
-      throw new BadRequestException({
-        code: 'PREVIOUS_MANDATE_MISMATCH',
-        message:
-          'Le mandat précédent ne correspond pas : même personne et même fonction pour une reconduction, fonction différente pour un changement, et fin antérieure au nouveau mandat.',
-      });
-    }
-  }
-
-  /** Fin anticipée (démission, remplacement, retrait) : le mandat est conservé, jamais supprimé. */
-  async end(actor: Actor, mandateId: string, input: EndMandateInput): Promise<Mandate> {
-    const data = parseInput(endMandateInputSchema, input);
-    const mandate = await this.prisma.leadershipMandate.findUnique({ where: { id: mandateId } });
-    if (!mandate) throw mandateNotFound();
-    assertCan(actor, mandate.function === 'PLEIN' ? 'mandate.recordPlein' : 'mandate.recordTeam');
-    const endsOn = iso(mandate.endsOn);
-    if (data.endedEarlyOn < iso(mandate.startsOn) || data.endedEarlyOn > endsOn) {
-      throw new BadRequestException({
-        code: 'END_OUTSIDE_MANDATE',
-        message: 'La date de fin doit être comprise dans la période du mandat.',
-      });
-    }
-    const today = civilToday();
-    return this.prisma.$transaction(async (tx) => {
-      const { count } = await tx.leadershipMandate.updateMany({
-        where: { id: mandateId, endedEarlyOn: null },
-        data: {
-          endedEarlyOn: toDate(data.endedEarlyOn),
-          endReason: data.reason,
-          endedById: actor.userId,
-        },
-      });
-      if (count === 0) {
+      if (row.endedAt) {
         throw new ConflictException({
-          code: 'MANDATE_ALREADY_ENDED',
-          message: 'La fin de ce mandat a déjà été enregistrée.',
+          code: 'ASSIGNMENT_ALREADY_ENDED',
+          message: 'Cette fonction a déjà pris fin.',
         });
       }
-      await tx.auditLog.create({
-        data: {
-          actorId: actor.userId,
-          action: 'mandate.ended_early',
-          entityType: 'LeadershipMandate',
-          entityId: mandateId,
-          metadata: { endedEarlyOn: data.endedEarlyOn, reason: data.reason },
-        },
-      });
-      return toMandate(
-        await tx.leadershipMandate.findUniqueOrThrow({
-          where: { id: mandateId },
-          include: mandateInclude,
-        }),
-        today,
-      );
-    });
-  }
-
-  /** Préremplit la reconduction pour l'année suivante ; rien n'est enregistré ici. */
-  async reconductionDraft(actor: Actor, mandateId: string): Promise<ReconductionDraft> {
-    const row = await this.prisma.leadershipMandate.findUnique({
-      where: { id: mandateId },
-      include: mandateInclude,
-    });
-    if (!row) throw mandateNotFound();
-    assertCan(actor, row.function === 'PLEIN' ? 'mandate.recordPlein' : 'mandate.recordTeam');
-    const nextYear = await this.prisma.scoutYear.findFirst({
-      where: { startsOn: { gt: row.endedEarlyOn ?? row.endsOn } },
-      orderBy: { startsOn: 'asc' },
-    });
-    let consecutiveCount = 1;
-    let cursor = row;
-    while (cursor.previousMandateId && cursor.kind === 'RECONDUCTION') {
-      const previous = await this.prisma.leadershipMandate.findUnique({
-        where: { id: cursor.previousMandateId },
-        include: mandateInclude,
-      });
-      if (!previous) break;
-      consecutiveCount += 1;
-      cursor = previous;
-    }
-    return {
-      previousMandate: toMandate(row, civilToday()),
-      nextScoutYear: nextYear ? toScoutYear(nextYear) : null,
-      draft: {
-        userId: row.userId,
-        function: row.function,
-        scoutYearId: nextYear?.id ?? null,
-        startsOn: nextYear ? iso(nextYear.startsOn) : null,
-        endsOn: nextYear ? iso(nextYear.endsOn) : null,
-        kind: 'RECONDUCTION',
-        previousMandateId: row.id,
-      },
-      consecutiveCount,
-    };
-  }
-
-  async listDelegations(actor: Actor): Promise<Delegation[]> {
-    assertCan(actor, 'delegation.read');
-    const today = civilToday();
-    const [rows, active] = await Promise.all([
-      this.prisma.delegation.findMany({
-        include: delegationInclude,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.delegation.findMany({
-        where: activeDelegationWhere(today),
-        select: { id: true },
-      }),
-    ]);
-    const activeIds = new Set(active.map((d) => d.id));
-    return rows.map((row) => toDelegation(row, activeIds));
-  }
-
-  /** Délégation nominative, limitée dans le temps, par le plein en exercice à un membre sous mandat. */
-  async delegate(actor: Actor, input: CreateDelegationInput): Promise<Delegation> {
-    assertCan(actor, 'delegation.manage');
-    const data = parseInput(createDelegationInputSchema, input);
-    if (data.delegateId === actor.userId) {
-      throw new BadRequestException({
-        code: 'SELF_DELEGATION',
-        message: 'Délégation à soi-même impossible.',
-      });
-    }
-    const plein = await this.prisma.leadershipMandate.findFirst({
-      where: { userId: actor.userId, function: 'PLEIN', ...activeMandateWhere(civilToday()) },
-    });
-    const delegateMandate = await this.prisma.leadershipMandate.findFirst({
-      where: { userId: data.delegateId, ...activeMandateWhere(toDate(data.startsOn)) },
-    });
-    if (!plein || data.endsOn > iso(plein.endedEarlyOn ?? plein.endsOn)) {
-      throw new BadRequestException({
-        code: 'DELEGATION_BEYOND_MANDATE',
-        message: 'Une délégation ne peut pas dépasser la fin du mandat du responsable plein.',
-      });
-    }
-    if (!delegateMandate) {
-      throw new BadRequestException({
-        code: 'DELEGATE_WITHOUT_MANDATE',
-        message: 'Le bénéficiaire doit exercer un mandat de l’encadrement à la date de début.',
-      });
-    }
-    const today = civilToday();
-    return this.prisma.$transaction(async (tx) => {
-      const row = await tx.delegation.create({
-        data: {
-          delegatorId: actor.userId,
-          delegateId: data.delegateId,
-          permissions: data.permissions,
-          startsOn: toDate(data.startsOn),
-          endsOn: toDate(data.endsOn),
-          reason: data.reason,
-        },
-        include: delegationInclude,
+      const updated = await tx.leadershipAssignment.update({
+        where: { id },
+        data: { endedAt: new Date(), endedById: actor.userId, endReason: data.reason },
+        include: assignmentInclude,
       });
       await tx.auditLog.create({
         data: {
           actorId: actor.userId,
-          action: 'delegation.granted',
-          entityType: 'Delegation',
-          entityId: row.id,
-          metadata: {
-            delegateId: data.delegateId,
-            permissions: data.permissions,
-            startsOn: data.startsOn,
-            endsOn: data.endsOn,
-          },
+          action: 'leadership.ended',
+          entityType: 'LeadershipAssignment',
+          entityId: id,
+          metadata: { userId: row.userId, function: row.function, reason: data.reason },
         },
       });
-      const active = row.startsOn <= today && row.endsOn >= today;
-      return toDelegation(row, new Set(active ? [row.id] : []));
+      return toAssignment(updated);
     });
   }
 
-  async revokeDelegation(
-    actor: Actor,
-    delegationId: string,
-    input: RevokeDelegationInput,
-  ): Promise<Delegation> {
-    assertCan(actor, 'delegation.manage');
-    const { reason } = parseInput(revokeDelegationInputSchema, input);
-    return this.prisma.$transaction(async (tx) => {
-      const { count } = await tx.delegation.updateMany({
-        where: { id: delegationId, revokedAt: null },
-        data: { revokedAt: new Date(), revokedById: actor.userId, revokeReason: reason },
-      });
-      if (count === 0) {
-        throw new ConflictException({
-          code: 'DELEGATION_NOT_REVOCABLE',
-          message: 'Délégation introuvable ou déjà révoquée.',
-        });
-      }
-      await tx.auditLog.create({
-        data: {
-          actorId: actor.userId,
-          action: 'delegation.revoked',
-          entityType: 'Delegation',
-          entityId: delegationId,
-          metadata: { reason },
-        },
-      });
-      const row = await tx.delegation.findUniqueOrThrow({
-        where: { id: delegationId },
-        include: delegationInclude,
-      });
-      return toDelegation(row, new Set());
+  private async currentMembers(): Promise<LeadershipMember[]> {
+    const rows = await this.prisma.leadershipAssignment.findMany({
+      where: { endedAt: null },
+      include: assignmentInclude,
     });
+    return rows
+      .sort(
+        (a, b) =>
+          FUNCTION_ORDER[a.function] - FUNCTION_ORDER[b.function] ||
+          a.startedAt.getTime() - b.startedAt.getTime(),
+      )
+      .map(toMember);
   }
 }

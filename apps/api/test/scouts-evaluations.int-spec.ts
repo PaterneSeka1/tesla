@@ -56,12 +56,11 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     const [chefUser, respUser] = await Promise.all([user(1), user(2)]);
     await grantPersona(prisma, respUser.id, 'RESPONSABLE');
     // Acteurs construits comme par la garde de session (habilitations effectives).
-    chef = { userId: chefUser.id, role: 'ENCADREMENT', leaderFunction: null, delegated: [] };
+    chef = { userId: chefUser.id, role: 'ENCADREMENT', leaderFunction: null };
     responsable = {
       userId: respUser.id,
       role: 'ENCADREMENT',
       leaderFunction: 'PLEIN',
-      delegated: [],
     };
 
     const stages = await prisma.progressionStage.findMany();
@@ -314,7 +313,6 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
       userId: stranger.id,
       role: 'ROUTIER',
       leaderFunction: null,
-      delegated: [],
     } as const;
     await expect(attempts.detail(routier, { code: attempt.code })).rejects.toThrow(
       ForbiddenException,
@@ -342,7 +340,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     await profiles.linkAccount(responsable, scout.id, owner.id);
     await expect(
       attempts.detail(
-        { userId: owner.id, role: 'ROUTIER', leaderFunction: null, delegated: [] },
+        { userId: owner.id, role: 'ROUTIER', leaderFunction: null },
         { code: attempt.code },
       ),
     ).rejects.toThrow(ForbiddenException);

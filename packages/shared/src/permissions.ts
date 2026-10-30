@@ -1,14 +1,13 @@
 import { type LeaderFunction, type Role } from './roles.js';
 
 /**
- * Niveaux d'habilitation (D94) :
+ * Niveaux d'habilitation, internes au serveur et jamais affichés (D132) :
  * - `ROUTIER`, `ENCADREMENT`, `ADMINISTRATEUR` : rôle d'accès du compte ;
- * - `OFFICIEL` : décision officielle — responsable plein en exercice, ou membre de l'encadrement
- *   titulaire d'une délégation active portant sur cette permission ;
- * - `PLEIN` : réservé au responsable plein en exercice, jamais délégable.
- * Le rôle `ENCADREMENT` seul n'accorde jamais une permission `OFFICIEL`.
+ * - `OFFICIEL` : décision officielle, réservée au responsable plein en fonction.
+ * Le rôle `ENCADREMENT` seul n'accorde jamais une permission `OFFICIEL` ; l'adjoint et les
+ * assistants ont les permissions de l'encadrement. Aucune délégation, aucun mandat.
  */
-export type AccessLevel = 'ROUTIER' | 'ENCADREMENT' | 'OFFICIEL' | 'PLEIN' | 'ADMINISTRATEUR';
+export type AccessLevel = 'ROUTIER' | 'ENCADREMENT' | 'OFFICIEL' | 'ADMINISTRATEUR';
 
 const ENCADREMENT = ['ENCADREMENT'] as const;
 const OFFICIEL = ['OFFICIEL'] as const;
@@ -81,22 +80,16 @@ export const PERMISSIONS = {
   'catchUp.decide': OFFICIEL,
   /** Appliquer les sorties de branche échues (traitement idempotent, aussi exécuté par la tâche quotidienne). */
   'membership.apply': OFFICIEL,
-  /** Mandats : consultation par l'encadrement et l'administration technique. */
-  'mandate.read': ['ENCADREMENT', 'ADMINISTRATEUR'],
+  /** Composition actuelle de l'encadrement (noms et fonctions) : tout membre connecté. */
+  'leadership.read': ['ROUTIER', 'ENCADREMENT', 'ADMINISTRATEUR'],
   /**
-   * Enregistrer la nomination, la reconduction ou la fin d'un responsable plein : l'autorité de
-   * nomination est extérieure (référencée sur le mandat) ; l'administration technique la consigne.
-   * Le plein ne se nomme ni ne se reconduit lui-même (D101, à confirmer).
+   * Désigner le responsable plein, l'adjoint et les assistants, mettre fin à une fonction, consulter
+   * l'historique : l'administrateur seul (D132). Jamais le plein pour lui-même.
    */
-  'mandate.recordPlein': ['ADMINISTRATEUR'],
-  /** Adjoints et assistants : le plein en exercice ou l'administration technique (D101, à confirmer). */
-  'mandate.recordTeam': ['PLEIN', 'ADMINISTRATEUR'],
-  'scoutYear.manage': ['ADMINISTRATEUR'],
-  'delegation.read': ['ENCADREMENT', 'ADMINISTRATEUR'],
-  'delegation.manage': ['PLEIN'],
+  'leadership.manage': ['ADMINISTRATEUR'],
   /**
-   * Comptes (D119, à confirmer) : l'administration technique gère tous les comptes ; la décision
-   * officielle (plein ou délégation) couvre les seuls comptes routiers (périmètre vérifié par le service).
+   * Comptes (D119, à confirmer) : l'administrateur gère tous les comptes ; le responsable plein
+   * couvre les seuls comptes routiers (périmètre vérifié par le service).
    */
   'account.read': ['ADMINISTRATEUR', 'OFFICIEL'],
   'account.manage': ['ADMINISTRATEUR', 'OFFICIEL'],
@@ -106,46 +99,11 @@ export type Permission = keyof typeof PERMISSIONS;
 
 export const PERMISSION_KEYS = Object.keys(PERMISSIONS) as Permission[];
 
-/** Permissions pouvant faire l'objet d'une délégation (niveau `OFFICIEL`). */
-export const DELEGABLE_PERMISSIONS = PERMISSION_KEYS.filter((key) =>
-  (PERMISSIONS[key] as readonly AccessLevel[]).includes('OFFICIEL'),
-);
-
-export const PERMISSION_LABELS: Partial<Record<Permission, string>> = {
-  'scout.create': 'Inscrire un routier',
-  'scout.update': 'Modifier une fiche',
-  'scout.setMatricule': 'Renseigner un matricule',
-  'scout.setActive': 'Activer ou désactiver une fiche',
-  'scout.setStage': 'Décider d’une étape officielle',
-  'scout.linkAccount': 'Rattacher un compte',
-  'team.manage': 'Gérer les équipes',
-  'team.assign': 'Affecter aux équipes',
-  'observation.readRestricted': 'Lire les observations réservées',
-  'attempt.decide': 'Examiner les résultats',
-  'attempt.reopen': 'Rouvrir un résultat',
-  'waiver.manage': 'Accorder des déblocages',
-  'module.writeAny': 'Modifier tous les modules',
-  'module.review': 'Approuver et publier les modules',
-  'evaluation.writeAny': 'Modifier tous les questionnaires',
-  'evaluation.review': 'Approuver et publier les questionnaires',
-  'competency.manage': 'Administrer les compétences',
-  'competency.decide': 'Valider les acquis',
-  'programme.configure': 'Configurer le programme annuel',
-  'dashboard.official': 'Tableau de bord des décisions',
-  'ageRules.manage': 'Gérer le référentiel d’âge',
-  'catchUp.decide': 'Statuer sur les rattrapages',
-  'membership.apply': 'Appliquer les sorties de branche',
-  'account.read': 'Consulter les comptes routiers',
-  'account.manage': 'Créer et gérer les comptes routiers',
-};
-
 /** Habilitations effectives d'un utilisateur, calculées par l'API à chaque requête. */
 export interface Authority {
   role: Role;
-  /** Fonction du mandat en vigueur aujourd'hui (date civile d'Abidjan), null sinon. */
+  /** Fonction d'encadrement en cours, null sinon. */
   leaderFunction: LeaderFunction | null;
-  /** Permissions déléguées actives aujourd'hui. */
-  delegated: readonly Permission[];
 }
 
 export function hasPermission(authority: Authority, permission: Permission): boolean {
@@ -157,13 +115,8 @@ export function hasPermission(authority: Authority, permission: Permission): boo
       case 'ENCADREMENT':
       case 'ADMINISTRATEUR':
         return role === level;
-      case 'PLEIN':
-        return role === 'ENCADREMENT' && leaderFunction === 'PLEIN';
       case 'OFFICIEL':
-        return (
-          role === 'ENCADREMENT' &&
-          (leaderFunction === 'PLEIN' || authority.delegated.includes(permission))
-        );
+        return role === 'ENCADREMENT' && leaderFunction === 'PLEIN';
     }
   });
 }

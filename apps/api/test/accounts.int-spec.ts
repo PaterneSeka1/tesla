@@ -1,20 +1,17 @@
 import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import {
+  leadershipAssignmentSchema,
   accountSchema,
   accountTokenInfoSchema,
   accountWithLinkSchema,
-  addCalendarDays,
   apiErrorSchema,
   civilDateAt,
   CSRF_HEADER,
-  delegationSchema,
-  mandateSchema,
   meResponseSchema,
   paginatedSchema,
   revokedSessionsSchema,
   scoutDetailSchema,
-  scoutYearSchema,
   sessionListSchema,
 } from '@tesla/shared';
 import request, { type Test as SupertestRequest } from 'supertest';
@@ -124,33 +121,20 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
     );
   }
 
-  /** Plein en exercice : compte d'encadrement créé et activé, année scoute et nomination consignées. */
+  /** Responsable plein : compte d'encadrement créé, activé et désigné par l'administrateur. */
   async function plein(admin: Client) {
     const created = await createAccount(admin, { role: 'ENCADREMENT' });
     await activate(created.link.token).expect(204);
-    const year = Number(TODAY.slice(0, 4)) - (TODAY.slice(5) < '09-01' ? 1 : 0);
-    const scoutYear = await json(
-      admin.post('/scout-years', {
-        label: `${year}-${year + 1}`,
-        startsOn: `${year}-09-01`,
-        endsOn: `${year + 1}-08-31`,
-      }),
-      201,
-      scoutYearSchema,
-    );
-    await json(
-      admin.post('/mandates', {
+    const assignment = await json(
+      admin.post('/leadership/assignments', {
         userId: created.account.id,
         function: 'PLEIN',
-        scoutYearId: scoutYear.id,
-        kind: 'NOMINATION',
-        appointingAuthority: 'Commissaire fictif',
-        confirm: true,
+        confirmReplacement: true,
       }),
       201,
-      mandateSchema,
+      leadershipAssignmentSchema,
     );
-    return { account: created.account, scoutYear, client: await signIn(created.account.email) };
+    return { account: created.account, assignment, client: await signIn(created.account.email) };
   }
 
   it('installation : premier administrateur par lien à usage unique ; second refusé ; secours', async () => {
@@ -455,55 +439,20 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
     expect(rows.some((row) => row.blockedUntil && row.blockedUntil > new Date())).toBe(true);
   });
 
-  it('une délégation cesse avec le mandat du délégataire', async () => {
+  it('la fin de fonction du plein retire immédiatement ses décisions, pas son compte', async () => {
     const { client: admin } = await bootstrapAdmin();
-    const { client: pleinClient, scoutYear } = await plein(admin);
-    const yesterday = addCalendarDays(TODAY, -1);
-    // Une fin anticipée la veille n'est possible que si l'année a commencé avant aujourd'hui.
-    if (yesterday < scoutYear.startsOn) return;
-    const member = await createAccount(admin, { role: 'ENCADREMENT' });
-    await activate(member.link.token).expect(204);
-    const memberClient = await signIn(member.account.email);
-    const mandate = await json(
-      pleinClient.post('/mandates', {
-        userId: member.account.id,
-        function: 'ASSISTANT',
-        scoutYearId: scoutYear.id,
-        startsOn: yesterday,
-        kind: 'NOMINATION',
-        appointingAuthority: 'Responsable plein fictif',
-        confirm: true,
-      }),
-      201,
-      mandateSchema,
-    );
-    const delegation = await json(
-      pleinClient.post('/delegations', {
-        delegateId: member.account.id,
-        permissions: ['team.manage'],
-        startsOn: yesterday,
-        endsOn: addCalendarDays(TODAY, 30),
-        reason: 'Délégation fictive',
-        confirm: true,
-      }),
-      201,
-      delegationSchema,
-    );
-    expect(delegation.active).toBe(true);
-    await memberClient.post('/teams', { name: 'Équipe déléguée' }).expect(201);
-
+    const { client: pleinClient, assignment } = await plein(admin);
+    await pleinClient.post('/teams', { name: 'Équipe décidée' }).expect(201);
     await json(
-      pleinClient.post(`/mandates/${mandate.id}/end`, {
-        endedEarlyOn: yesterday,
-        reason: 'Fin fictive du mandat',
-        confirm: true,
-      }),
+      admin.post(`/leadership/assignments/${assignment.id}/end`, { reason: 'Fin fictive' }),
       201,
-      mandateSchema,
+      leadershipAssignmentSchema,
     );
-    const me = await json(memberClient.get('/auth/me'), 200, meResponseSchema);
+    const me = await json(pleinClient.get('/auth/me'), 200, meResponseSchema);
+    expect(me.user.leaderFunction).toBeNull();
     expect(me.user.permissions).not.toContain('team.manage');
-    await memberClient.post('/teams', { name: 'Équipe refusée' }).expect(403);
+    expect(me.user.permissions).toContain('team.read');
+    await pleinClient.post('/teams', { name: 'Équipe refusée' }).expect(403);
   });
 
   it('modification de la date de naissance : ancienne et nouvelle valeur journalisées', async () => {

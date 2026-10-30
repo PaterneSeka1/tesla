@@ -157,7 +157,7 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
       expect(loggedIn).toMatchObject({ id: user.id, role: 'ENCADREMENT', leaderFunction: 'PLEIN' });
       // Permissions effectives exposées pour l'affichage (l'API reste l'autorité).
       expect(loggedIn.permissions).toContain('module.review');
-      expect(loggedIn.permissions).not.toContain('mandate.recordPlein');
+      expect(loggedIn.permissions).not.toContain('leadership.manage');
 
       const me = await json(agent.get('/api/v1/auth/me'), 200, meResponseSchema);
       expect(me.user.email).toBe(user.email);

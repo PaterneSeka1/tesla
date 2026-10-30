@@ -5,8 +5,8 @@
  *   publication ;
  * - module publié → questionnaire d'entraînement créé, soumis, approuvé et publié (s'il n'en a pas).
  *
- * Toutes les écritures passent par les services de l'API, au nom d'une personne habilitée (responsable
- * plein en exercice ou délégation) : mêmes contrôles, même historique, même journal d'audit qu'à
+ * Toutes les écritures passent par les services de l'API, au nom d'une personne habilitée (le
+ * responsable plein en fonction) : mêmes contrôles, même historique, même journal d'audit qu'à
  * l'écran. Idempotent : un module déjà publié ou un questionnaire déjà présent n'est pas retouché ; une
  * exécution interrompue reprend là où elle s'est arrêtée. Aucun module créé dans la plateforme (sans
  * provenance d'import) n'est concerné.
@@ -64,22 +64,16 @@ export async function releaseActor(prisma: PrismaClient, email?: string): Promis
     });
     if (!user) throw new Error('Aucun compte actif ne correspond à cette adresse.');
   } else {
-    const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
-    const mandates = await prisma.leadershipMandate.findMany({
-      where: {
-        function: 'PLEIN',
-        startsOn: { lte: today },
-        OR: [{ endedEarlyOn: { gte: today } }, { endedEarlyOn: null, endsOn: { gte: today } }],
-      },
-      select: { user: { select: { id: true, role: true, isActive: true } } },
+    const plein = await prisma.leadershipAssignment.findFirst({
+      where: { function: 'PLEIN', endedAt: null, user: { isActive: true } },
+      select: { user: { select: { id: true, role: true } } },
     });
-    const active = mandates.filter((mandate) => mandate.user.isActive);
-    if (active.length !== 1) {
+    if (!plein) {
       throw new Error(
-        'Aucun responsable plein en exercice (ou plusieurs) : précisez le compte avec --acteur <e-mail>.',
+        'Aucun responsable plein en fonction : précisez le compte avec --acteur <e-mail>.',
       );
     }
-    user = active[0]!.user;
+    user = plein.user;
   }
   const actor: Actor = {
     userId: user.id,
