@@ -163,6 +163,30 @@ export class AuthService {
     };
   }
 
+  /**
+   * Dernier jour où les habilitations actuelles restent acquises : fin du mandat en vigueur ou de
+   * la plus proche délégation active (null : aucune échéance, ex. routier). Borne l'usage local
+   * hors connexion (D112) ; l'API recalcule toujours les droits à chaque requête.
+   */
+  async authorityValidUntil(userId: string): Promise<string | null> {
+    const today = civilToday();
+    const [mandate, delegations] = await Promise.all([
+      this.prisma.leadershipMandate.findFirst({
+        where: { userId, ...activeMandateWhere(today) },
+        select: { endsOn: true, endedEarlyOn: true },
+      }),
+      this.prisma.delegation.findMany({
+        where: { delegateId: userId, ...activeDelegationWhere(today) },
+        select: { endsOn: true },
+      }),
+    ]);
+    const ends = [
+      ...(mandate ? [mandate.endedEarlyOn ?? mandate.endsOn] : []),
+      ...delegations.map((d) => d.endsOn),
+    ].map((date) => date.toISOString().slice(0, 10));
+    return ends.length > 0 ? ends.sort()[0]! : null;
+  }
+
   /** Révoque la session (sans effet si elle est inconnue ou déjà révoquée). */
   async logout(token: string): Promise<void> {
     await this.prisma.session.updateMany({

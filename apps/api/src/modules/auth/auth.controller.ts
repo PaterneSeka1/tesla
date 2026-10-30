@@ -79,7 +79,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Utilisateur connecté' })
   @ApiOkResponse({ schema: openApiSchema(meResponseSchema) })
   @ApiUnauthorizedResponse({ description: 'UNAUTHENTICATED' })
-  me(@Req() request: AuthenticatedRequest): MeResponse {
-    return { user: request.sessionUser! };
+  async me(@Req() request: AuthenticatedRequest): Promise<MeResponse> {
+    const user = request.sessionUser!;
+    return {
+      user: { ...user, authorityValidUntil: await this.auth.authorityValidUntil(user.id) },
+    };
   }
 }

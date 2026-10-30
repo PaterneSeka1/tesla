@@ -37,7 +37,7 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
     evaluation_version_events, evaluation_answer_options, evaluation_questions, evaluation_versions,
     evaluations,
     attempt_code_counters, team_assignments, teams, scout_observation_revisions, scout_observations,
-    scout_profiles, sessions, audit_logs, users,
+    scout_profiles, sessions, audit_logs, client_operations, users,
     progression_stages CASCADE`);
   for (const stage of PROGRESSION_STAGES) {
     await prisma.progressionStage.create({

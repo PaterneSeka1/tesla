@@ -11,6 +11,7 @@ import {
   type CreateActivityInput,
   createActivityInputSchema,
   formatModuleCode,
+  NOT_RECORDED,
   type Paginated,
   type SaveAttendanceInput,
   saveAttendanceInputSchema,
@@ -528,6 +529,18 @@ export class ActivitiesService {
         throw new UnprocessableEntityException({
           code: 'SCOUT_INACTIVE',
           message: 'Un routier désactivé ne peut pas être ajouté à la feuille de présence.',
+        });
+      }
+      // Saisie différée : une présence modifiée entre-temps par un autre membre n'est pas écrasée.
+      const conflicting = entries.filter((entry) => {
+        if (entry.expectedStatus === undefined) return false;
+        const current = previous.get(entry.scoutProfileId)?.status ?? NOT_RECORDED;
+        return current !== entry.expectedStatus && current !== entry.status;
+      });
+      if (conflicting.length > 0) {
+        throw new ConflictException({
+          code: 'ATTENDANCE_CHANGED',
+          message: `${conflicting.length} présence(s) ont été modifiées entre-temps par un autre membre de l’encadrement. Vérifiez la feuille avant de saisir à nouveau.`,
         });
       }
       const changed: { scoutProfileId: string; from: string; to: string }[] = [];

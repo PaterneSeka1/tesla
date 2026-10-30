@@ -240,6 +240,16 @@ export class ScoutProfilesService {
       return await this.prisma.$transaction(async (tx) => {
         const previous = await tx.scoutProfile.findUnique({ where: { id: scoutProfileId } });
         if (!previous) throw scoutProfileNotFound();
+        if (
+          data.expectedUpdatedAt !== undefined &&
+          previous.updatedAt.toISOString() !== new Date(data.expectedUpdatedAt).toISOString()
+        ) {
+          throw new ConflictException({
+            code: 'SCOUT_PROFILE_CHANGED',
+            message:
+              'Cette fiche a été modifiée entre-temps. Consultez la version à jour avant de reprendre vos changements.',
+          });
+        }
 
         const stageChanged =
           data.currentStageId !== undefined && data.currentStageId !== previous.currentStageId;

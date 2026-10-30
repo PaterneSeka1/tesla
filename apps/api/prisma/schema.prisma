@@ -68,6 +68,7 @@ model User {
   moduleLessonsCreated       ModuleLesson[]       @relation("ModuleLessonCreatedBy")
   moduleLessonsUpdated       ModuleLesson[]       @relation("ModuleLessonUpdatedBy")
   moduleResourcesCreated     ModuleResource[]
+  clientOperations           ClientOperation[]
   moduleCollaborations       ModuleCollaborator[] @relation("ModuleCollaboratorUser")
   moduleCollaboratorsAdded   ModuleCollaborator[] @relation("ModuleCollaboratorAddedBy")
   moduleCollaboratorsRemoved ModuleCollaborator[] @relation("ModuleCollaboratorRemovedBy")
@@ -1683,4 +1684,26 @@ model Delegation {
   @@index([delegateId, startsOn])
   @@index([delegatorId])
   @@map("delegations")
+}
+
+/// Écriture rejouable reçue d'un appareil (offline-first, D110) : l'identifiant d'opération est
+/// choisi par le client ; un second envoi identique renvoie la réponse enregistrée sans nouvel effet.
+/// Journal technique, jamais une décision métier.
+model ClientOperation {
+  id             String    @id @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  method         String
+  path           String
+  /// Empreinte SHA-256 du corps reçu : un même identifiant avec un autre contenu est refusé.
+  bodyHash       String    @map("body_hash")
+  /// Code HTTP et corps de la réponse ; null tant que l'opération est en cours.
+  responseStatus Int?      @map("response_status")
+  responseBody   Json?     @map("response_body")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@map("client_operations")
 }

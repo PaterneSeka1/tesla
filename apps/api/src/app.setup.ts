@@ -1,6 +1,6 @@
 import { type INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { API_PREFIX, CSRF_HEADER, SESSION_COOKIE_NAME } from '@tesla/shared';
+import { API_PREFIX, CSRF_HEADER, OPERATION_ID_HEADER, SESSION_COOKIE_NAME } from '@tesla/shared';
 import { APP_VERSION } from './config/app-version.js';
 import { type Env } from './config/env.js';
 import { AllExceptionsFilter } from './common/all-exceptions.filter.js';
@@ -22,7 +22,7 @@ export function configureApp(app: INestApplication, env: Env): void {
   app.enableCors({
     origin: env.CORS_ORIGINS,
     credentials: true, // sessions par cookie httpOnly
-    allowedHeaders: ['Content-Type', 'Accept', CSRF_HEADER],
+    allowedHeaders: ['Content-Type', 'Accept', CSRF_HEADER, OPERATION_ID_HEADER],
   });
   app.use(csrfProtection(env.CORS_ORIGINS));
 

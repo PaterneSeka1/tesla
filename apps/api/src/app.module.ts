@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { IdempotencyInterceptor } from './common/idempotency.interceptor.js';
 import { ConfigModule } from './config/config.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
@@ -29,5 +31,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
     DashboardsModule,
     AuditModule,
   ],
+  /** Écritures rejouées par la file de synchronisation des appareils (D110). */
+  providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],
 })
 export class AppModule {}

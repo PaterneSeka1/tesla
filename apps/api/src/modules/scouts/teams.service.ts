@@ -248,6 +248,14 @@ export class TeamsService {
           message: 'La nouvelle affectation doit commencer après la précédente.',
         });
       }
+      const openTeamId = latest && latest.endedAt === null ? latest.teamId : null;
+      if (data.expectedTeamId !== undefined && data.expectedTeamId !== openTeamId) {
+        throw new ConflictException({
+          code: 'TEAM_ASSIGNMENT_CHANGED',
+          message:
+            'L’équipe de ce routier a changé entre-temps. Vérifiez son affectation actuelle avant de la modifier.',
+        });
+      }
       let previousTeamId: string | null = null;
       if (latest && latest.endedAt === null) {
         if (latest.teamId === data.teamId) {
