@@ -60,10 +60,16 @@ export const updateScoutProfileInputSchema = z
     birthDate: calendarDateSchema.nullable().optional(),
     joinedAt: calendarDateSchema.optional(),
     currentStageId: z.uuid().nullable().optional(),
+    /** Version de la fiche vue lors de la saisie (synchronisation différée) : conflit si elle a changé. */
+    expectedUpdatedAt: z.iso.datetime().optional(),
   })
-  .refine((value) => Object.values(value).some((field) => field !== undefined), {
-    message: 'Aucune modification fournie.',
-  });
+  .refine(
+    ({ expectedUpdatedAt: _, ...value }) =>
+      Object.values(value).some((field) => field !== undefined),
+    {
+      message: 'Aucune modification fournie.',
+    },
+  );
 
 export type UpdateScoutProfileInput = z.input<typeof updateScoutProfileInputSchema>;
 
@@ -132,6 +138,8 @@ export const assignTeamInputSchema = z.object({
   scoutProfileId: z.uuid(),
   teamId: z.uuid(),
   startedAt: z.iso.datetime().optional(),
+  /** Équipe ouverte vue lors de la saisie (synchronisation différée) : conflit si elle a changé. */
+  expectedTeamId: z.uuid().nullable().optional(),
 });
 
 export type AssignTeamInput = z.input<typeof assignTeamInputSchema>;

@@ -30,6 +30,12 @@ export const sessionUserSchema = z.object({
   leaderFunction: z.enum(LEADER_FUNCTIONS).nullable(),
   /** Permissions effectives (rôle, mandat, délégations) : affichage seulement, l'API reste l'autorité. */
   permissions: z.array(z.enum(PERMISSION_KEYS as [string, ...string[]])),
+  /**
+   * Dernier jour (inclus) où ces permissions restent acquises sans nouvelle vérification : fin du
+   * mandat ou de la plus proche délégation active. Sert à borner l'usage local hors connexion ;
+   * absent ou null : aucune échéance connue. Renseigné par `GET /auth/me`.
+   */
+  authorityValidUntil: z.iso.date().nullable().optional(),
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;

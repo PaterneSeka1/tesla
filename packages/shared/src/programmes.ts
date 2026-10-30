@@ -301,6 +301,11 @@ export const saveAttendanceInputSchema = z.object({
         scoutProfileId: z.uuid(),
         status: z.enum(ATTENDANCE_STATUSES, { error: 'Statut de présence invalide.' }),
         note: optionalText(300).optional(),
+        /**
+         * Statut vu lors de la saisie (synchronisation différée) : si la présence a changé
+         * entre-temps sur le serveur, la saisie est refusée en conflit plutôt qu'écrasée.
+         */
+        expectedStatus: z.enum([...ATTENDANCE_STATUSES, NOT_RECORDED]).optional(),
       }),
     )
     .min(1, { error: 'Aucune présence à enregistrer.' })
