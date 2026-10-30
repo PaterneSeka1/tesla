@@ -201,3 +201,6 @@ node apps/web/test/offline-first.browser.mjs
 ```
 
 `SW_FILE` active le contrôle de mise à jour (le fichier est modifié puis restauré pendant le test). La recette est exécutée par la CI (job `browser`) avec Playwright installé à la volée ; la recette des comptes (`apps/web/test/accounts.browser.mjs`) suit la même procédure.
+
+## 14. Textes fondamentaux (2026-10-30)
+Un texte fondamental (Prière de la Route, future Charte) est un module : il se télécharge, s'imprime et se lit hors ligne comme les autres. Un module ne contient pas le texte qu'il cite (lien seulement) : le paquet hors ligne d'un module n'est pas modifié et son empreinte non plus ; pour lire un texte cité sans réseau, le télécharger lui aussi. La liste `texts` de la fiche du module est optionnelle dans le schéma (`[]` par défaut) : une fiche mise en cache avant cette évolution reste lisible.

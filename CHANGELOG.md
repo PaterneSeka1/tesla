@@ -4,6 +4,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — bibliothèque de formation à la Route, 2026-10-30
+- Catalogue initial de formation à la Route en brouillon : dix modules rédigés d'après le manuel SAPF-Route (Noviciat à Départ routier, 71 leçons) et la Prière de la Route (version rédactionnelle à valider) ; modules 01–02 repris des brouillons « Bases du scoutisme ».
+- Textes fondamentaux : catégorie de module, citation d'un texte par d'autres modules sans copie, rubrique dans la bibliothèque.
+- Duplication d'un module depuis l'éditeur.
+- Matrice de correspondance entre le manuel SAPF-Route et le référentiel d'âge (aucune règle nouvelle codée).
+- Mise en service du catalogue (commande) : brouillons vides supprimés, modules et questionnaires d'entraînement publiés au nom du responsable.
+- Suppression d'un brouillon vide par le responsable (motif, journal d'audit).
+- Téléchargement d'un cours en PDF aux couleurs de la communauté (logo, nom, page de garde, en-tête et pied de page).
+
 ### Ajouté — préparation à la production, 2026-10-30
 - Comptes : création par l'administration technique ou par décision officielle (comptes routiers, depuis la fiche), lien d'activation ou de réinitialisation à usage unique, désactivation motivée, réactivation, fermeture des sessions ; écran « Comptes ».
 - « Mon compte » : nom affiché, changement de mot de passe, sessions ouvertes.

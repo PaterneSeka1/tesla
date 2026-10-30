@@ -103,6 +103,9 @@ Toutes les permissions sont vérifiées côté serveur.
 | RM-025 | Consultation libre | Tout utilisateur connecté lit tous les modules publiés, quelle que soit son étape ; l'étape n'est qu'une recommandation. Aucun brouillon n'est exposé. | `module.read` ; catalogue limité à la version publiée |
 | RM-026 | Contenu sûr | Contenu structuré par liste blanche ; aucun HTML exécutable ; liens http(s)/mailto, images https ; ressources par URL externe, vidéos sur hébergeurs autorisés. | `lessonDocumentSchema`, `createResourceInputSchema`, CHECK SQL |
 | RM-027 | Traçabilité | Création, soumission, reprise et décisions historisées (ajout seul) ; décisions et collaborations journalisées. | `module_version_events`, `audit_logs` |
+| RM-028 | Textes fondamentaux | Prière, charte… sont des modules « Texte fondamental » soumis au même workflow ; les autres modules les citent sans copie ; un texte cité n'est visible des routiers qu'une fois publié ; la Charte n'est jamais inventée. | `module_text_links` (trigger brouillon, pas d'auto-citation) |
+| RM-030 | Suppression d'un brouillon vide | Seul un module jamais soumis ni publié, sans texte, ressource, collaborateur ni usage peut être supprimé, par le responsable, avec motif ; tout autre module s'archive. Le journal d'audit conserve l'import et la suppression. | `purge_empty_module_draft` (seul point d'entrée), audit `module.purged` |
+| RM-029 | Duplication | Dupliquer crée un nouveau brouillon sans modifier l'original ; le caractère obligatoire n'est jamais repris. | `POST /editor/modules/:id/duplicate`, audit `module.duplicated` |
 
 ### Règles de la phase 3 (évaluations)
 

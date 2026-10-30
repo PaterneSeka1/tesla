@@ -107,9 +107,10 @@ Seule la version publiée courante est exposée ; un module sans version publié
 
 | Méthode et chemin | Entrée → sortie |
 | --- | --- |
-| `GET /modules?search=&stageId=&theme=&page=&pageSize=` | → `catalogPageSchema` (`items`, pagination, `themes` disponibles, `myStageId` du routier connecté) |
-| `GET /modules/:slug` | → `catalogModuleDetailSchema` (objectifs, prérequis, leçons, ressources du module) |
+| `GET /modules?search=&stageId=&theme=&category=&page=&pageSize=` (`category=TEXTE_FONDAMENTAL` : rubrique « Textes fondamentaux ») | → `catalogPageSchema` (`items`, pagination, `themes` disponibles, `myStageId` du routier connecté) |
+| `GET /modules/:slug` | → `catalogModuleDetailSchema` (objectifs, prérequis, leçons, ressources du module, `texts` : textes fondamentaux cités **publiés**) |
 | `GET /modules/:slug/lessons/:lessonId` | → `catalogLessonSchema` (contenu, ressources, leçons précédente et suivante) |
+| `GET /modules/:slug/pdf` | → `application/pdf` en pièce jointe (`<code>-<slug>.pdf`) : support de cours A4 aux couleurs de la communauté |
 | `GET /modules/:slug/print` | → `printableModuleSchema` (tout le contenu publié, pour l'impression A4) |
 
 ### Espace éditorial (chefs, responsable)
@@ -135,6 +136,9 @@ Un chef n'accède qu'aux modules dont il est auteur ou collaborateur (sinon `404
 | `GET /editor/chefs` | → `chefCandidateListSchema` (chefs actifs) |
 | `POST /editor/modules/:id/collaborators` | `{ userId }` → `201` (auteur ou responsable) |
 | `DELETE /editor/modules/:id/collaborators/:userId` | → `204` (retrait daté, historique conservé) |
+| `GET /editor/texts` | → `textCandidateListSchema` (textes fondamentaux publiés, ou en rédaction et accessibles à l'acteur) |
+| `PUT /editor/modules/:id/texts` | `setTextLinksInputSchema { versionId, textModuleIds }` (liste complète, ≤ 10, brouillon seul) → `editorModuleDetailSchema` ; `422 INVALID_TEXT_LINK` si la cible n'est pas un texte fondamental ou est le module lui-même |
+| `POST /editor/modules/:id/duplicate` | → `201 editorModuleDetailSchema` du nouveau module (brouillon ; obligation non reprise ; audit `module.duplicated`) |
 | `GET /editor/activity` | → `moduleActivityListSchema` (20 derniers événements des modules accessibles) |
 
 ### Approbation (responsable uniquement, sinon `403`)
@@ -148,6 +152,7 @@ Un chef n'accède qu'aux modules dont il est auteur ou collaborateur (sinon `404
 | `POST /admin/modules/:id/reject` | `{ versionId, comment }` → `204` |
 | `POST /admin/modules/:id/publish` | `{ versionId }` → `204` (atomique ; remplace et archive la version en ligne) |
 | `POST /admin/modules/:id/archive` | `{ versionId, comment }` → `204` (version en ligne uniquement) |
+| `POST /admin/modules/:id/purge` | `{ versionId, comment }` → `204` : suppression définitive d'un brouillon vide jamais soumis ni publié ; `422 MODULE_NOT_EMPTY` sinon ; audit `module.purged` |
 | `GET /admin/modules/history?page=` | → page de `publicationHistoryItemSchema` (décisions) |
 
 ### Codes d'erreur

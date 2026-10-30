@@ -8,7 +8,7 @@ Import, en brouillon, de modules pédagogiques issus de documents fournis par la
 | --- | --- | --- |
 | `BASE DU SCOUTISME.pdf` (6 pages, SHA-256 `cc40c92e…29b8d9`) | Source principale des textes | `docs/sources/` |
 | `Nikola_Tesla_Modules_Scoutisme.md` | Proposition de découpage, d'étapes et d'objectifs | `docs/sources/` |
-| Manuel pédagogique SAPF-Route | Référentiel des étapes | **absent du dépôt** — non utilisé |
+| `SAPF-Route (2).pdf` (11 pages, SHA-256 `d9b0b69d…8244f6`) | Manuel de la branche Route : source des modules `NT-ROUTE-M03` à `M12` | `docs/sources/` (versé le 2026-10-30) |
 | `docs/PROGRAMME_ANNUEL_2026-2027.md` | Programme de l'année | **absent du dépôt** — non utilisé |
 
 Aucun contenu n'a été inventé pour remplacer les documents absents. Le texte du PDF a été extrait mécaniquement puis repris tel quel (coquilles comprises) ; un contrôle automatique a vérifié que chaque texte de leçon figure dans le PDF, à l'exception des ajouts éditoriaux signalés ci-dessous. Les deux sources sont versionnées dans `docs/sources/` à la demande du responsable.
@@ -71,7 +71,20 @@ Fichiers : `apps/api/prisma/seeds/scoutisme-base.seed.ts` (contenu), `source-mod
 4. Soumettre (chef collaborateur ou responsable), puis approuver et publier par le responsable (`/administration/modules-a-valider`). Chaque décision est attribuée à une personne.
 5. Préparer les évaluations dans le workflow habituel.
 
-## Catalogue « Découvrir la Route » (2026-10-29, D104)
+## Catalogue « Découvrir la Route » (2026-10-29, D104) — retiré le 2026-10-30 (D129)
 `prisma/seeds/decouverte.seed.ts` : 21 modules transversaux (`NT-DEC-A04` à `NT-DEC-D24`), en `BROUILLON`, catégorie `TRANSVERSAL`, sans étape, sans source officielle (contenu non homologué), une leçon vide « À rédiger » chacun et une note éditoriale « à compléter ». Aucun texte généré. Les intitulés 1 à 3 du catalogue sont couverts par `NT-SCOUT-M01` et `NT-SCOUT-M02` (pas de doublon). Même mécanisme d'import (ajout seul, empreinte, rapport d'écarts, `--dry-run`). Exécuté sur `tesla` (21 créations), réexécution sans écriture vérifiée.
 
 Le seed principal crée aussi, une seule fois, le référentiel d'âge `2026.1` (`prisma/seeds/age-rules.seed.ts`) et un compte fictif d'administration technique (`admin.demo@tesla.test`, si `DEMO_ACCOUNT_PASSWORD` est défini). Aucun mandat n'est créé.
+
+## Bibliothèque de la Route (2026-10-30, D124–D127)
+`prisma/seeds/route-bibliotheque.seed.ts` : texte fondamental `NT-TXT-PRIERE-ROUTE` puis dix modules `NT-ROUTE-M03` à `M12` (71 leçons au total, aucune vide), en `BROUILLON`, catégorie « Parcours d'étape » (ou « Texte fondamental » pour la prière), étape recommandée, sans source officielle ni obligation, sans questionnaire. Les modules 01 et 02 du catalogue réutilisent `NT-SCOUT-M01` et `M02` (aucun doublon). Détail des contenus, sources et décisions : [CATALOGUE_PEDAGOGIQUE_INITIAL.md](CATALOGUE_PEDAGOGIQUE_INITIAL.md).
+
+Évolutions du mécanisme d'import (`source-modules.ts`), rétrocompatibles :
+- champ facultatif `textLinks` (codes source des textes cités) : liens créés dans la même transaction que le module ; un module citant un texte non encore importé est **ignoré** et signalé (jamais créé sans son lien) ; l'ordre de la définition importe donc les textes d'abord ;
+- l'instantané n'inclut `textLinks` que s'il est défini : l'empreinte des imports antérieurs est inchangée (vérifié par test) ;
+- la réexécution signale « textes cités modifiés » si la liste change dans la source.
+
+Exécuté sur `tesla` le 2026-10-30 (après sauvegarde et `db:deploy` de la migration additive `20261105090000_fundamental_texts`) : 11 créations, réexécution sans écriture (36 modules « déjà importé »).
+
+## Mise en service (2026-10-30, D129–D130)
+`npm run pedagogy:release` (`prisma/seeds/mise-en-service.ts`, logique `release-catalog.ts`) : suppression des brouillons importés vides, publication des autres et de leurs questionnaires, au nom du responsable plein en exercice. Le catalogue « Découvrir la Route » (21 brouillons vides) est **retiré du seed** (`decouverte.seed.ts` supprimé) : une réexécution du seed ne le recrée pas. Voir [CATALOGUE_PEDAGOGIQUE_INITIAL.md](CATALOGUE_PEDAGOGIQUE_INITIAL.md) § 7.
