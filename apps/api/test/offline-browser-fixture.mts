@@ -1,14 +1,15 @@
 /**
- * Fixture fictive de la recette navigateur hors ligne (apps/web/test/offline.browser.mjs).
- * Base « _test » uniquement (TEST_DATABASE_URL) ; rejouable : un module publié n'est plus modifié,
- * une nouvelle évaluation est créée à chaque passage. Lancement depuis apps/api :
+ * Fixture fictive de la recette navigateur offline-first (apps/web/test/offline-first.browser.mjs).
+ * Base « _test » uniquement (TEST_DATABASE_URL), remise à zéro à chaque passage. Lancement depuis
+ * apps/api :
  *   TEST_DATABASE_URL=… npx tsx test/offline-browser-fixture.mts
  */
 import { writeFileSync } from 'node:fs';
 import { hashPassword } from '../src/modules/auth/password.js';
-import { createTestPrisma } from './int-database.js';
+import { createTestPrisma, grantPersona, resetDatabase } from './int-database.js';
 
 const db = createTestPrisma();
+await resetDatabase(db);
 const passwordHash = await hashPassword('phrase-fictive-recette-phase5');
 const stage = await db.progressionStage.findFirstOrThrow({ orderBy: { position: 'asc' } });
 const user = await db.user.upsert({
@@ -119,8 +120,53 @@ await db.evaluation.update({
   where: { id: evaluation.id },
   data: { publishedVersionId: evaluationVersion.id },
 });
+// Encadrement : responsable plein en exercice, deux routiers sans compte, une équipe, une activité
+// passée (présences à saisir).
+const responsable = await db.user.create({
+  data: {
+    email: 'responsable-offline@recette.test',
+    firstName: 'Responsable',
+    lastName: 'Fictif',
+    role: 'ENCADREMENT',
+    passwordHash,
+  },
+});
+await grantPersona(db, responsable.id, 'RESPONSABLE');
+const team = await db.team.create({ data: { name: 'Équipe fictive' } });
+const scouts = [];
+for (const lastName of ['Alpha', 'Beta']) {
+  const scout = await db.scoutProfile.create({
+    data: { firstName: 'Routier', lastName, currentStageId: stage.id, joinedAt: new Date() },
+  });
+  await db.teamAssignment.create({
+    data: {
+      scoutProfileId: scout.id,
+      teamId: team.id,
+      startedAt: new Date(Date.now() - 86_400_000),
+      assignedById: responsable.id,
+    },
+  });
+  scouts.push(scout.id);
+}
+const programme = await db.programme.findFirstOrThrow();
+const activity = await db.activity.create({
+  data: {
+    title: 'Sortie fictive',
+    origin: 'SUPPLEMENTAIRE',
+    plannedOn: new Date(Date.now() - 2 * 86_400_000),
+    programmeId: programme.id,
+    createdById: responsable.id,
+  },
+});
 writeFileSync(
-  process.env.OFFLINE_FIXTURE ?? '/tmp/tesla-phase5-fixture.json',
-  JSON.stringify({ evaluationId: evaluation.id, ownerId: user.id }),
+  process.env.OFFLINE_FIXTURE ?? '/tmp/tesla-offline-fixture.json',
+  JSON.stringify({
+    evaluationId: evaluation.id,
+    ownerId: user.id,
+    responsableId: responsable.id,
+    teamId: team.id,
+    scouts,
+    activityId: activity.id,
+  }),
 );
 await db.$disconnect();
