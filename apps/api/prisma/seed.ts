@@ -16,7 +16,7 @@ import { type Role } from '../src/generated/prisma/enums.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { hashPassword } from '../src/modules/auth/password.js';
 import { seedInitialAgeRuleSet } from './seeds/age-rules.seed.js';
-import { DISCOVERY_MODULES } from './seeds/decouverte.seed.js';
+import { FUNDAMENTAL_TEXTS, ROUTE_MODULES } from './seeds/route-bibliotheque.seed.js';
 import { SCOUTISME_BASE_MODULES } from './seeds/scoutisme-base.seed.js';
 import { formatImportReport, importSourceModules } from './seeds/source-modules.js';
 
@@ -164,7 +164,11 @@ try {
 
   console.log(
     formatImportReport(
-      await importSourceModules(prisma, [...SCOUTISME_BASE_MODULES, ...DISCOVERY_MODULES]),
+      await importSourceModules(prisma, [
+        ...SCOUTISME_BASE_MODULES,
+        ...FUNDAMENTAL_TEXTS,
+        ...ROUTE_MODULES,
+      ]),
     ),
   );
 

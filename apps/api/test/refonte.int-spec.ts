@@ -23,7 +23,7 @@ import request, { type Test as SupertestRequest } from 'supertest';
 import { type App } from 'supertest/types.js';
 import { type z } from 'zod';
 import { seedInitialAgeRuleSet } from '../prisma/seeds/age-rules.seed.js';
-import { DISCOVERY_MODULES } from '../prisma/seeds/decouverte.seed.js';
+import { FUNDAMENTAL_TEXTS, ROUTE_MODULES } from '../prisma/seeds/route-bibliotheque.seed.js';
 import { importSourceModules } from '../prisma/seeds/source-modules.js';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
@@ -688,15 +688,17 @@ describe('Refonte parcours Route et mandats (intégration PostgreSQL)', () => {
         .post('/editor/modules', { title: 'Module transversal fictif', category: 'TRANSVERSAL' })
         .expect(201);
 
-      const first = await importSourceModules(prisma, DISCOVERY_MODULES);
-      expect(first.filter((r) => r.outcome === 'CREE')).toHaveLength(21);
-      const second = await importSourceModules(prisma, DISCOVERY_MODULES);
+      const sources = [...FUNDAMENTAL_TEXTS, ...ROUTE_MODULES];
+      const first = await importSourceModules(prisma, sources);
+      expect(first.filter((r) => r.outcome === 'CREE')).toHaveLength(11);
+      const second = await importSourceModules(prisma, sources);
       expect(second.every((r) => r.outcome === 'DEJA_IMPORTE')).toBe(true);
       expect(
         await prisma.moduleVersion.count({
           where: { category: 'TRANSVERSAL', status: 'BROUILLON' },
         }),
-      ).toBe(22);
+      ).toBe(1);
+      expect(await prisma.moduleVersion.count({ where: { status: 'BROUILLON' } })).toBe(12);
       expect(await prisma.moduleVersion.count({ where: { status: { not: 'BROUILLON' } } })).toBe(0);
 
       const routier = await login('ROUTIER');

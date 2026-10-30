@@ -39,6 +39,11 @@ export interface SourceModule {
   sourceSha256: string;
   sourcePages: string;
   lessons: SourceLesson[];
+  /**
+   * Textes fondamentaux cités (codes source d'autres modules importés) : liens, jamais une copie.
+   * Absent pour les imports antérieurs (empreinte inchangée).
+   */
+  textLinks?: string[];
   /** Notes éditoriales : contenus à compléter, points à vérifier. Jamais transmises aux routiers. */
   notes: SourceEditorialNote[];
 }
@@ -81,6 +86,7 @@ export function snapshotOf(source: SourceModule) {
     sourceSha256: source.sourceSha256,
     lessons: source.lessons.map((lesson) => ({ title: lesson.title, content: lesson.content })),
     notes: source.notes,
+    textLinks: source.textLinks,
   };
 }
 
@@ -146,6 +152,7 @@ export function diffSnapshots(imported: Snapshot, current: Snapshot): string[] {
     }
   }
   if (!same(imported.notes, current.notes)) differences.push('notes éditoriales modifiées');
+  if (!same(imported.textLinks, current.textLinks)) differences.push('textes cités modifiés');
   return differences;
 }
 
@@ -224,6 +231,21 @@ async function importOne(
       `Étape « ${source.stageCode} » absente : exécutez d'abord le seed principal (npm run db:seed).`,
     );
   }
+  // Textes cités : importés auparavant (même exécution ou exécution antérieure).
+  const linked = await prisma.moduleSourceImport.findMany({
+    where: { sourceKey: { in: source.textLinks ?? [] } },
+    select: { sourceKey: true, moduleId: true },
+  });
+  const missing = (source.textLinks ?? []).filter(
+    (key) => !linked.some((row) => row.sourceKey === key),
+  );
+  if (missing.length > 0 && !dryRun) {
+    return {
+      key: source.key,
+      outcome: 'IGNORE',
+      reason: `texte(s) cité(s) non importé(s) : ${missing.join(', ')}`,
+    };
+  }
   if (dryRun) return { key: source.key, outcome: 'A_CREER', lessons: source.lessons.length };
 
   try {
@@ -254,6 +276,16 @@ async function importOne(
           createdById: null,
         })),
       });
+      if (source.textLinks && source.textLinks.length > 0) {
+        await tx.moduleTextLink.createMany({
+          data: source.textLinks.map((key, position) => ({
+            versionId: version.id,
+            textModuleId: linked.find((row) => row.sourceKey === key)!.moduleId,
+            position,
+            createdById: null,
+          })),
+        });
+      }
       await tx.moduleVersionEvent.create({
         data: {
           moduleId: module.id,
