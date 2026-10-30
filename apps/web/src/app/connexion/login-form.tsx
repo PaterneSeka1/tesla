@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DeviceUnlock } from '@/components/offline/device-unlock';
 import { login, meQueryOptions } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
-import { vaultExists } from '@/lib/offline/vault';
+import { confirmServerUser, lockVault, vaultExists } from '@/lib/offline/vault';
 import { resolvePostLoginPath } from '@/lib/navigation';
 
 const loginSchema = z.object({
@@ -54,6 +54,8 @@ export function LoginForm() {
     setServerError(null);
     try {
       const me = await login(values);
+      // Coffre d'un autre compte encore ouvert sur cet appareil : verrouillé avant toute lecture.
+      await confirmServerUser(me.user).catch(() => lockVault());
       queryClient.clear();
       queryClient.setQueryData(meQueryOptions.queryKey, me);
       router.replace(resolvePostLoginPath(me.user, requested));

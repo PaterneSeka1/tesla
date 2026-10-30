@@ -1,7 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import { type LoginInput, type MeResponse, meResponseSchema } from '@tesla/shared';
 import { z } from 'zod';
-import { confirmServerUser, localIdentity } from '@/lib/offline/vault';
+import { confirmServerUser, localIdentity, lockVault } from '@/lib/offline/vault';
 import { ApiError, apiFetch, apiSend } from './client';
 
 /** Session courante ; `local` : identité vérifiée lors d'une connexion précédente, sans réseau (D112). */
@@ -12,7 +12,9 @@ export const meQueryOptions = queryOptions({
   queryFn: async (): Promise<CurrentSession> => {
     try {
       const me = await apiFetch('/auth/me', meResponseSchema);
-      void confirmServerUser(me.user).catch(() => {});
+      // Avant toute autre lecture : le coffre ouvert d'un autre compte est verrouillé, sinon les
+      // copies de ce compte-ci y seraient écrites (appareil partagé).
+      await confirmServerUser(me.user).catch(() => lockVault());
       return me;
     } catch (error) {
       // Hors connexion uniquement : un refus du serveur (401) n'ouvre jamais l'usage local.
