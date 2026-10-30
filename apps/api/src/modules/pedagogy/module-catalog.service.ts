@@ -132,6 +132,14 @@ export class ModuleCatalogService {
         select: publicResourceSelect,
         orderBy: { createdAt: 'asc' },
       },
+      // Textes cités : seuls ceux dont une version est publiée sont exposés (jamais un brouillon).
+      textLinks: {
+        where: { textModule: { publishedVersionId: { not: null } } },
+        orderBy: { position: 'asc' },
+        select: {
+          textModule: { select: { slug: true, publishedVersion: { select: { title: true } } } },
+        },
+      },
     });
     return {
       ...toCatalogModule(module, version),
@@ -139,6 +147,10 @@ export class ModuleCatalogService {
       prerequisites: version.prerequisites,
       lessons: version.lessons,
       resources: version.resources,
+      texts: version.textLinks.map(({ textModule }) => ({
+        slug: textModule.slug,
+        title: textModule.publishedVersion!.title,
+      })),
       myStageId: await this.myStageId(actor),
     };
   }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { BookOpenText, Clock, Printer, Sparkles, Target } from 'lucide-react';
+import { BookOpenText, Clock, Printer, ScrollText, Sparkles, Target } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { DownloadModuleButton } from '@/components/download-module-button';
@@ -120,6 +120,30 @@ export function ModuleDetail() {
                 <ul className="list-disc space-y-1 pl-5 text-sm">
                   {module.objectives.map((objective, index) => (
                     <li key={index}>{objective}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+          {module.texts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ScrollText className="size-4 text-tesla-rouge" aria-hidden />
+                  Textes fondamentaux
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1 text-sm">
+                  {module.texts.map((text) => (
+                    <li key={text.slug}>
+                      <Link
+                        href={`/modules/${text.slug}`}
+                        className="font-medium text-tesla-bordeaux underline-offset-4 hover:underline"
+                      >
+                        {text.title}
+                      </Link>
+                    </li>
                   ))}
                 </ul>
               </CardContent>

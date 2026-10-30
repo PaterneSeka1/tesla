@@ -164,7 +164,12 @@ const objectivesSchema = z
   .max(20, { error: '20 objectifs au maximum.' });
 
 /** Typologie (D99). Synchronisé avec l'enum Prisma `ModuleCategory`. Le rattrapage n'en est pas une. */
-export const MODULE_CATEGORIES = ['TRANSVERSAL', 'ETAPE', 'COMPLEMENTAIRE'] as const;
+export const MODULE_CATEGORIES = [
+  'TRANSVERSAL',
+  'ETAPE',
+  'COMPLEMENTAIRE',
+  'TEXTE_FONDAMENTAL',
+] as const;
 
 export type ModuleCategory = (typeof MODULE_CATEGORIES)[number];
 
@@ -172,6 +177,7 @@ export const MODULE_CATEGORY_LABELS: Record<ModuleCategory, string> = {
   TRANSVERSAL: 'Découverte (toutes étapes)',
   ETAPE: 'Parcours d’étape',
   COMPLEMENTAIRE: 'Complémentaire',
+  TEXTE_FONDAMENTAL: 'Texte fondamental',
 };
 
 /** Synchronisé avec l'enum Prisma `ModuleObligation` ; null = non précisé. */
@@ -328,6 +334,34 @@ export const createResourceInputSchema = z
   });
 
 export type CreateResourceInput = z.input<typeof createResourceInputSchema>;
+
+/** Nombre maximal de textes fondamentaux cités par une version. */
+export const MAX_TEXT_LINKS = 10;
+
+/** Textes fondamentaux cités par le brouillon (liste complète, dans l'ordre d'affichage). */
+export const setTextLinksInputSchema = z.object({
+  versionId: z.uuid(),
+  textModuleIds: z
+    .array(z.uuid())
+    .max(MAX_TEXT_LINKS, { error: `${MAX_TEXT_LINKS} textes au maximum.` })
+    .refine((ids) => new Set(ids).size === ids.length, { error: 'Texte cité deux fois.' }),
+});
+
+export type SetTextLinksInput = z.input<typeof setTextLinksInputSchema>;
+
+/** Texte fondamental cité par une version (référence, jamais une copie). */
+export const moduleTextLinkSchema = z.object({
+  moduleId: z.uuid(),
+  code: z.string(),
+  slug: z.string(),
+  title: z.string(),
+  /** Faux tant qu'aucune version du texte n'est publiée : la bibliothèque ne l'affiche pas. */
+  published: z.boolean(),
+});
+
+export type ModuleTextLink = z.infer<typeof moduleTextLinkSchema>;
+
+export const textCandidateListSchema = z.object({ items: z.array(moduleTextLinkSchema) });
 
 export const addCollaboratorInputSchema = z.object({ userId: z.uuid() });
 
@@ -489,6 +523,7 @@ export const moduleVersionDetailSchema = z.object({
   archivedAt: z.iso.datetime().nullable(),
   lessons: z.array(moduleLessonSchema),
   resources: z.array(moduleResourceSchema),
+  textLinks: z.array(moduleTextLinkSchema),
 });
 
 export type ModuleVersionDetail = z.infer<typeof moduleVersionDetailSchema>;
@@ -568,6 +603,8 @@ export const editorModuleDetailSchema = z.object({
     canCreateVersion: z.boolean(),
     canManageCollaborators: z.boolean(),
     canReview: z.boolean(),
+    /** Brouillon vide supprimable définitivement par le responsable (D129). */
+    canPurge: z.boolean(),
   }),
 });
 
@@ -657,6 +694,8 @@ export const catalogModuleDetailSchema = catalogModuleSchema.extend({
   prerequisites: z.string().nullable(),
   lessons: z.array(catalogLessonSummarySchema),
   resources: z.array(publicResourceSchema),
+  /** Textes fondamentaux cités dont une version est publiée (absent des copies hors ligne antérieures). */
+  texts: z.array(z.object({ slug: z.string(), title: z.string() })).default([]),
   myStageId: z.uuid().nullable(),
 });
 

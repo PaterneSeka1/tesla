@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import {
   type ApproveModuleInput,
   approveModuleInputSchema,
@@ -18,10 +18,12 @@ import {
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
 import { assertCan } from '../../common/permissions.js';
+import { isForeignKeyViolation } from '../../common/prisma-errors.js';
 import { parseInput } from '../../common/validation.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { toUserSummary, userSummarySelect } from '../scouts/presenters.js';
 import {
+  emptyDraftOf,
   eventInclude,
   formatModuleCode,
   invalidTransition,
@@ -255,6 +257,48 @@ export class ModuleReviewService {
   }
 
   /** Historique des décisions de publication (le plus récent d'abord). */
+  /**
+   * Suppression définitive d'un brouillon vide (jamais soumis ni publié, sans contenu ni usage) :
+   * décision motivée du responsable, journalisée. Tout autre module reste conservé (archivage).
+   * Contrôles répétés en base par `purge_empty_module_draft` (même transaction).
+   */
+  async purgeEmptyDraft(
+    actor: Actor,
+    moduleId: string,
+    input: MotivatedDecisionInput,
+  ): Promise<void> {
+    assertCan(actor, 'module.review');
+    const { versionId, comment } = parseInput(motivatedDecisionInputSchema, input);
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const draft = await emptyDraftOf(tx, moduleId);
+        if (!draft) throw moduleNotFound();
+        if (!draft.empty || draft.versionId !== versionId) throw moduleNotEmpty();
+        await tx.$executeRaw`SELECT purge_empty_module_draft(${moduleId}::uuid)`;
+        await tx.auditLog.create({
+          data: {
+            actorId: actor.userId,
+            action: 'module.purged',
+            entityType: 'PedagogicalModule',
+            entityId: moduleId,
+            metadata: {
+              code: formatModuleCode(draft.number),
+              slug: draft.slug,
+              title: draft.title,
+              sourceKey: draft.sourceKey,
+              comment,
+            },
+          },
+        });
+      });
+    } catch (error) {
+      if (isForeignKeyViolation(error) || String(error).includes('MODULE_NOT_EMPTY')) {
+        throw moduleNotEmpty();
+      }
+      throw error;
+    }
+  }
+
   async history(actor: Actor, query: PaginationQuery): Promise<Paginated<PublicationHistoryItem>> {
     assertCan(actor, 'module.review');
     const { page, pageSize } = parseInput(publicationHistoryQuerySchema, query);
@@ -271,4 +315,12 @@ export class ModuleReviewService {
     ]);
     return { items: events.map(toActivityItem), page, pageSize, total };
   }
+}
+
+function moduleNotEmpty(): UnprocessableEntityException {
+  return new UnprocessableEntityException({
+    code: 'MODULE_NOT_EMPTY',
+    message:
+      'Seul un brouillon vide, jamais soumis ni publié, sans ressource ni usage, peut être supprimé. Archivez plutôt un module publié.',
+  });
 }

@@ -24,7 +24,10 @@ import {
   type ModuleActivityItem,
   type ModuleVersionDetail,
   type Paginated,
+  type ModuleTextLink,
   type ReorderLessonsInput,
+  type SetTextLinksInput,
+  setTextLinksInputSchema,
   reorderLessonsInputSchema,
   slugify,
   type SubmitModuleInput,
@@ -49,6 +52,7 @@ import { toUserSummary, userSummarySelect } from '../scouts/presenters.js';
 import {
   editableModulesWhere,
   editConflict,
+  emptyDraftOf,
   eventInclude,
   formatModuleCode,
   invalidTransition,
@@ -59,10 +63,12 @@ import {
   moduleNotFound,
   recordEvent,
   resolveAccess,
+  textModuleSelect,
   toActivityItem,
   toEvent,
   toSourceImport,
   toLessonDocument,
+  toTextLink,
   toVersionDetail,
   toVersionSummary,
   versionDetailInclude,
@@ -238,6 +244,8 @@ export class ModuleEditorService {
     const currentDetail = await this.versionDetail(current.id);
     const isWriter = access !== null;
     const status = current.status;
+    const canPurge =
+      can(actor, 'module.review') && !!(await emptyDraftOf(this.prisma, moduleId))?.empty;
     return {
       id: module.id,
       code: formatModuleCode(module.number),
@@ -262,6 +270,7 @@ export class ModuleEditorService {
         canCreateVersion: isWriter && !isWorkingStatus(status),
         canManageCollaborators: access === 'AUTEUR' || access === 'RESPONSABLE',
         canReview: can(actor, 'module.review'),
+        canPurge,
       },
     };
   }
@@ -344,7 +353,7 @@ export class ModuleEditorService {
         await tx.$queryRaw`SELECT id FROM pedagogical_modules WHERE id = ${moduleId}::uuid FOR UPDATE`;
         const versions = await tx.moduleVersion.findMany({
           where: { moduleId },
-          include: { lessons: { orderBy: { position: 'asc' } }, resources: true },
+          include: copySourceInclude,
           orderBy: { version: 'desc' },
         });
         if (versions.some((version) => isWorkingStatus(version.status)))
@@ -370,33 +379,7 @@ export class ModuleEditorService {
             updatedById: actor.userId,
           },
         });
-        const lessonIds = new Map<string, string>();
-        for (const lesson of source.lessons) {
-          const copy = await tx.moduleLesson.create({
-            data: {
-              versionId: created.id,
-              position: lesson.position,
-              title: lesson.title,
-              content: lesson.content as Prisma.InputJsonValue,
-              durationMinutes: lesson.durationMinutes,
-              createdById: actor.userId,
-            },
-          });
-          lessonIds.set(lesson.id, copy.id);
-        }
-        for (const resource of source.resources) {
-          await tx.moduleResource.create({
-            data: {
-              versionId: created.id,
-              lessonId: resource.lessonId ? (lessonIds.get(resource.lessonId) ?? null) : null,
-              kind: resource.kind,
-              title: resource.title,
-              url: resource.url,
-              description: resource.description,
-              createdById: actor.userId,
-            },
-          });
-        }
+        await copyContent(tx, source, created.id, actor.userId);
         await recordEvent(tx, actor, {
           moduleId,
           versionId: created.id,
@@ -648,6 +631,160 @@ export class ModuleEditorService {
     });
   }
 
+  // ─── Textes fondamentaux ─────────────────────────────────────────────────
+
+  /**
+   * Textes fondamentaux pouvant être cités : publiés, ou en cours de rédaction et accessibles à
+   * l'acteur. Un texte est un module dont la version publiée (à défaut, la plus récente) est classée
+   * TEXTE_FONDAMENTAL.
+   */
+  async textCandidates(actor: Actor): Promise<ModuleTextLink[]> {
+    assertCan(actor, 'module.write');
+    const modules = await this.prisma.pedagogicalModule.findMany({
+      where: {
+        OR: [
+          { publishedVersion: { category: 'TEXTE_FONDAMENTAL' } },
+          {
+            AND: [
+              editableModulesWhere(actor),
+              { versions: { some: { category: 'TEXTE_FONDAMENTAL' } } },
+            ],
+          },
+        ],
+      },
+      select: {
+        ...textModuleSelect,
+        publishedVersion: { select: { title: true, category: true } },
+        versions: {
+          select: { title: true, category: true },
+          orderBy: { version: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { number: 'asc' },
+    });
+    return modules.filter((module) => isTextModule(module)).map((module) => toTextLink(module));
+  }
+
+  /** Remplace la liste des textes cités par le brouillon (ordre conservé). Aucune copie du texte. */
+  async setTextLinks(actor: Actor, moduleId: string, input: SetTextLinksInput): Promise<void> {
+    assertCan(actor, 'module.write');
+    const { versionId, textModuleIds } = parseInput(setTextLinksInputSchema, input);
+    if (textModuleIds.includes(moduleId)) {
+      throw new UnprocessableEntityException({
+        code: 'INVALID_TEXT_LINK',
+        message: 'Un module ne peut pas se citer lui-même.',
+      });
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await resolveAccess(tx, actor, moduleId);
+      const locked = await lockVersion(tx, moduleId, versionId, 'SHARE');
+      if (locked.status !== 'BROUILLON') throw versionNotEditable(locked.status);
+      const targets = await tx.pedagogicalModule.findMany({
+        where: { id: { in: textModuleIds } },
+        select: {
+          id: true,
+          publishedVersion: { select: { category: true } },
+          versions: { select: { category: true }, orderBy: { version: 'desc' }, take: 1 },
+        },
+      });
+      if (targets.length !== textModuleIds.length || !targets.every(isTextModule)) {
+        throw new UnprocessableEntityException({
+          code: 'INVALID_TEXT_LINK',
+          message: 'Seul un module classé « Texte fondamental » peut être cité.',
+        });
+      }
+      await tx.moduleTextLink.deleteMany({ where: { versionId } });
+      await tx.moduleTextLink.createMany({
+        data: textModuleIds.map((textModuleId, position) => ({
+          versionId,
+          textModuleId,
+          position,
+          createdById: actor.userId,
+        })),
+      });
+      await touchModule(tx, moduleId);
+    });
+  }
+
+  // ─── Duplication ─────────────────────────────────────────────────────────
+
+  /**
+   * Nouveau module (version 1 en brouillon, auteur = acteur) reprenant le contenu de la version
+   * publiée, à défaut de la plus récente. Le caractère obligatoire n'est pas repris : il relève
+   * d'une décision sur le nouveau module. L'original n'est pas modifié.
+   */
+  async duplicate(actor: Actor, moduleId: string): Promise<{ id: string }> {
+    assertCan(actor, 'module.write');
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const { publishedVersionId } = await resolveAccess(tx, actor, moduleId);
+          const versions = await tx.moduleVersion.findMany({
+            where: { moduleId },
+            include: copySourceInclude,
+            orderBy: { version: 'desc' },
+          });
+          const source =
+            versions.find((version) => version.id === publishedVersionId) ?? versions[0]!;
+          const original = await tx.pedagogicalModule.findUniqueOrThrow({
+            where: { id: moduleId },
+            select: { number: true },
+          });
+          const title = `${source.title.slice(0, 140)} (copie)`;
+          const slug = await availableSlug(tx, slugify(title));
+          const module = await tx.pedagogicalModule.create({
+            data: { slug, createdById: actor.userId },
+          });
+          const version = await tx.moduleVersion.create({
+            data: {
+              moduleId: module.id,
+              version: 1,
+              title,
+              summary: source.summary,
+              objectives: source.objectives,
+              prerequisites: source.prerequisites,
+              durationMinutes: source.durationMinutes,
+              stageId: source.stageId,
+              theme: source.theme,
+              category: source.category,
+              obligation: null,
+              officialSource: source.officialSource,
+              createdById: actor.userId,
+              updatedById: actor.userId,
+            },
+          });
+          await copyContent(tx, source, version.id, actor.userId);
+          await recordEvent(tx, actor, {
+            moduleId: module.id,
+            versionId: version.id,
+            action: 'CREEE',
+            fromStatus: null,
+            toStatus: 'BROUILLON',
+            comment: `Copie de ${formatModuleCode(original.number)}, version ${source.version}.`,
+          });
+          await tx.auditLog.create({
+            data: {
+              actorId: actor.userId,
+              action: 'module.duplicated',
+              entityType: 'PedagogicalModule',
+              entityId: module.id,
+              metadata: { slug, sourceModuleId: moduleId, sourceVersionId: source.id },
+            },
+          });
+          return { id: module.id };
+        });
+      } catch (error) {
+        if (isUniqueViolation(error)) continue;
+        throw error;
+      }
+    }
+    throw new ConflictException({
+      code: 'SLUG_UNAVAILABLE',
+      message: 'Impossible d’attribuer une adresse à ce module : réessayez.',
+    });
+  }
+
   // ─── Collaborateurs ──────────────────────────────────────────────────────
 
   /** Membres actifs de l'encadrement pouvant être invités. */
@@ -777,6 +914,69 @@ function assertManager(access: ModuleAccess): void {
       message: 'Seuls l’auteur du module et le responsable gèrent les collaborateurs.',
     });
   }
+}
+
+/** Contenu recopié d'une version vers une autre (nouvelle version ou duplication). */
+const copySourceInclude = {
+  lessons: { orderBy: { position: 'asc' } },
+  resources: true,
+  textLinks: { orderBy: { position: 'asc' } },
+} as const satisfies Prisma.ModuleVersionInclude;
+
+type CopySource = Prisma.ModuleVersionGetPayload<{ include: typeof copySourceInclude }>;
+
+/** Recopie leçons, ressources (rattachement aux leçons conservé) et textes cités. */
+async function copyContent(
+  tx: Prisma.TransactionClient,
+  source: CopySource,
+  targetVersionId: string,
+  actorId: string,
+): Promise<void> {
+  const lessonIds = new Map<string, string>();
+  for (const lesson of source.lessons) {
+    const copy = await tx.moduleLesson.create({
+      data: {
+        versionId: targetVersionId,
+        position: lesson.position,
+        title: lesson.title,
+        content: lesson.content as Prisma.InputJsonValue,
+        durationMinutes: lesson.durationMinutes,
+        createdById: actorId,
+      },
+    });
+    lessonIds.set(lesson.id, copy.id);
+  }
+  for (const resource of source.resources) {
+    await tx.moduleResource.create({
+      data: {
+        versionId: targetVersionId,
+        lessonId: resource.lessonId ? (lessonIds.get(resource.lessonId) ?? null) : null,
+        kind: resource.kind,
+        title: resource.title,
+        url: resource.url,
+        description: resource.description,
+        createdById: actorId,
+      },
+    });
+  }
+  if (source.textLinks.length > 0) {
+    await tx.moduleTextLink.createMany({
+      data: source.textLinks.map((link) => ({
+        versionId: targetVersionId,
+        textModuleId: link.textModuleId,
+        position: link.position,
+        createdById: actorId,
+      })),
+    });
+  }
+}
+
+/** Classement d'un module : celui de sa version publiée, à défaut de sa version la plus récente. */
+function isTextModule(module: {
+  publishedVersion: { category: string | null } | null;
+  versions: { category: string | null }[];
+}): boolean {
+  return (module.publishedVersion ?? module.versions[0])?.category === 'TEXTE_FONDAMENTAL';
 }
 
 /** Date de dernière activité du module (tri des listes). */

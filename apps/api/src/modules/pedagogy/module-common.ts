@@ -1,9 +1,11 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import {
   formatModuleCode,
+  isLessonDocumentEmpty,
   type LessonDocument,
   type ModuleEvent,
   type ModuleSourceImport,
+  type ModuleTextLink,
   type ModuleVersionAction,
   type ModuleVersionDetail,
   type ModuleVersionStatus,
@@ -177,6 +179,65 @@ export async function recordEvent(
   }
 }
 
+// ─── Brouillon vide ───────────────────────────────────────────────────────
+
+/**
+ * Module supprimable (D129) : une seule version, brouillon jamais soumis, jamais publié, sans
+ * texte ni image dans ses leçons, sans ressource, texte cité, collaborateur, questionnaire, étude,
+ * activité, compétence, rattrapage ni citation par un autre module. Null si le module n'existe pas.
+ */
+export async function emptyDraftOf(client: Prisma.TransactionClient, moduleId: string) {
+  const module = await client.pedagogicalModule.findUnique({
+    where: { id: moduleId },
+    select: {
+      number: true,
+      slug: true,
+      publishedVersionId: true,
+      sourceImport: { select: { sourceKey: true } },
+      versions: {
+        select: {
+          id: true,
+          status: true,
+          title: true,
+          submittedAt: true,
+          lessons: { select: { content: true } },
+          _count: { select: { resources: true, textLinks: true } },
+        },
+      },
+      _count: {
+        select: {
+          collaborators: true,
+          evaluations: true,
+          studies: true,
+          activities: true,
+          competencies: true,
+          catchUps: true,
+          citedBy: true,
+        },
+      },
+    },
+  });
+  if (!module) return null;
+  const [version] = module.versions;
+  const empty =
+    module.versions.length === 1 &&
+    version!.status === 'BROUILLON' &&
+    version!.submittedAt === null &&
+    module.publishedVersionId === null &&
+    version!.lessons.every((lesson) => isLessonDocumentEmpty(toLessonDocument(lesson.content))) &&
+    version!._count.resources === 0 &&
+    version!._count.textLinks === 0 &&
+    Object.values(module._count).every((count) => count === 0);
+  return {
+    number: module.number,
+    slug: module.slug,
+    title: version!.title,
+    versionId: version!.id,
+    sourceKey: module.sourceImport?.sourceKey ?? null,
+    empty,
+  };
+}
+
 // ─── Présentation ──────────────────────────────────────────────────────────
 
 export const versionSummaryInclude = {
@@ -194,7 +255,36 @@ export const versionDetailInclude = {
   publishedBy: userSummarySelect,
   lessons: { orderBy: { position: 'asc' }, include: { updatedBy: userSummarySelect } },
   resources: { orderBy: { createdAt: 'asc' } },
+  textLinks: {
+    orderBy: { position: 'asc' },
+    include: {
+      textModule: {
+        select: {
+          id: true,
+          number: true,
+          slug: true,
+          publishedVersion: { select: { title: true } },
+          versions: { select: { title: true }, orderBy: { version: 'desc' }, take: 1 },
+        },
+      },
+    },
+  },
 } as const satisfies Prisma.ModuleVersionInclude;
+
+/** Texte cité : titre publié, à défaut celui de sa version la plus récente. */
+export const textModuleSelect = versionDetailInclude.textLinks.include.textModule.select;
+
+type TextModuleRow = Prisma.PedagogicalModuleGetPayload<{ select: typeof textModuleSelect }>;
+
+export function toTextLink(row: TextModuleRow): ModuleTextLink {
+  return {
+    moduleId: row.id,
+    code: formatModuleCode(row.number),
+    slug: row.slug,
+    title: row.publishedVersion?.title ?? row.versions[0]?.title ?? '',
+    published: row.publishedVersion !== null,
+  };
+}
 
 export const eventInclude = {
   actor: userSummarySelect,
@@ -281,6 +371,7 @@ export function toVersionDetail(row: DetailRow): ModuleVersionDetail {
       updatedBy: toUserSummary(lesson.updatedBy),
     })),
     resources: row.resources.map(toResource),
+    textLinks: row.textLinks.map((link) => toTextLink(link.textModule)),
   };
 }
 

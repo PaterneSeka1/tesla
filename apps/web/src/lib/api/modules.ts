@@ -21,9 +21,11 @@ import {
   printableModuleSchema,
   publicationHistoryItemSchema,
   type ReorderLessonsInput,
+  type SetTextLinksInput,
   submissionListSchema,
   type SubmissionListQuery,
   type SubmitModuleInput,
+  textCandidateListSchema,
   type UpdateLessonInput,
   type UpdateModuleVersionInput,
 } from '@tesla/shared';
@@ -92,6 +94,11 @@ export const chefCandidatesQueryOptions = queryOptions({
   queryFn: () => apiFetch('/editor/chefs', chefCandidateListSchema),
 });
 
+export const textCandidatesQueryOptions = queryOptions({
+  queryKey: ['modules', 'editor', 'texts'],
+  queryFn: () => apiFetch('/editor/texts', textCandidateListSchema),
+});
+
 export const createModule = (input: CreateModuleInput) =>
   apiSend('POST', '/editor/modules', editorModuleDetailSchema, input);
 
@@ -124,6 +131,12 @@ export const addResource = (id: string, input: CreateResourceInput) =>
 
 export const deleteResource = (resourceId: string) =>
   apiSend('DELETE', `/editor/resources/${resourceId}`, noContent);
+
+export const setTextLinks = (id: string, input: SetTextLinksInput) =>
+  apiSend('PUT', `/editor/modules/${id}/texts`, editorModuleDetailSchema, input);
+
+export const duplicateModule = (id: string) =>
+  apiSend('POST', `/editor/modules/${id}/duplicate`, editorModuleDetailSchema);
 
 export const addCollaborator = (id: string, input: AddCollaboratorInput) =>
   apiSend('POST', `/editor/modules/${id}/collaborators`, editorModuleDetailSchema, input);
@@ -163,6 +176,9 @@ export const rejectModule = (id: string, input: MotivatedDecisionInput) =>
 
 export const publishModule = (id: string, versionId: string) =>
   apiSend('POST', `/admin/modules/${id}/publish`, noContent, { versionId });
+
+export const purgeEmptyModule = (id: string, input: MotivatedDecisionInput) =>
+  apiSend('POST', `/admin/modules/${id}/purge`, noContent, input);
 
 export const archiveModule = (id: string, input: MotivatedDecisionInput) =>
   apiSend('POST', `/admin/modules/${id}/archive`, noContent, input);

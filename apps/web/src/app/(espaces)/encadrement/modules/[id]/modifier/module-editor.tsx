@@ -2,9 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { type EditorModuleDetail, MODULE_VERSION_ACTION_LABELS } from '@tesla/shared';
-import { CircleAlert, Eye, FilePlus2, RotateCcw, Send } from 'lucide-react';
+import { CircleAlert, Copy, Eye, FilePlus2, RotateCcw, Send, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { BackLink } from '@/components/back-link';
 import { CommentDialog } from '@/components/modules/comment-dialog';
 import { ModuleHistory } from '@/components/modules/module-history';
@@ -18,7 +18,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   createModuleVersion,
+  duplicateModule,
   editorModuleQueryOptions,
+  purgeEmptyModule,
   resumeModule,
   submitModule,
   updateModuleVersion,
@@ -26,6 +28,7 @@ import {
 import { CollaboratorsPanel } from './collaborators-panel';
 import { LessonsPanel } from './lessons-panel';
 import { ResourcesPanel } from './resources-panel';
+import { TextsPanel } from './texts-panel';
 
 const STATE_MESSAGES: Partial<Record<EditorModuleDetail['current']['status'], string>> = {
   SOUMIS: 'Cette version est soumise : elle est figée jusqu’à la décision du responsable.',
@@ -42,6 +45,7 @@ const STATE_MESSAGES: Partial<Record<EditorModuleDetail['current']['status'], st
 export function ModuleEditor() {
   const { id } = useParams<{ id: string }>();
   const run = useModuleAction();
+  const router = useRouter();
   const { data: module, error, isPending, refetch } = useQuery(editorModuleQueryOptions(id));
 
   if (isPending) return <TableSkeleton rows={6} />;
@@ -75,6 +79,57 @@ export function ModuleEditor() {
               Aperçu
             </Link>
           </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              let copyId = '';
+              const ok = await run(
+                async () => {
+                  const copy = await duplicateModule(module.id);
+                  copyId = copy.id;
+                  return copy;
+                },
+                {
+                  success: 'Module dupliqué',
+                  error: 'Duplication impossible',
+                  detail: 'La copie est un nouveau brouillon ; l’original est inchangé.',
+                },
+              );
+              if (ok) router.push(`/encadrement/modules/${copyId}/modifier`);
+            }}
+          >
+            <Copy aria-hidden />
+            Dupliquer
+          </Button>
+          {permissions.canPurge && (
+            <CommentDialog
+              trigger={
+                <Button variant="outline">
+                  <Trash2 aria-hidden />
+                  Supprimer ce brouillon vide
+                </Button>
+              }
+              title="Supprimer définitivement ce brouillon ?"
+              description={
+                <p>
+                  Ce module ne contient aucun texte et n’a jamais été soumis ni publié. Il sera
+                  supprimé de la plateforme ; la suppression reste tracée dans le journal.
+                </p>
+              }
+              label="Motif"
+              required
+              destructive
+              confirmLabel="Supprimer"
+              onConfirm={async (comment) => {
+                const ok = await run(
+                  () => purgeEmptyModule(module.id, { versionId: current.id, comment }),
+                  { success: 'Brouillon supprimé', error: 'Suppression impossible' },
+                );
+                if (ok) router.push('/administration/modules');
+                return ok;
+              }}
+            />
+          )}
           {permissions.canResume && (
             <Button
               onClick={() =>
@@ -191,6 +246,15 @@ export function ModuleEditor() {
         </CardHeader>
         <CardContent>
           <ResourcesPanel module={module} editable={permissions.canEdit} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Textes fondamentaux cités</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TextsPanel module={module} editable={permissions.canEdit} />
         </CardContent>
       </Card>
 

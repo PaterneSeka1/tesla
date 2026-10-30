@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -27,14 +38,18 @@ import {
   type EditorModuleListQuery,
   moduleActivityListSchema,
   type ModuleActivityItem,
+  type ModuleTextLink,
   type ModuleVersionDetail,
   moduleVersionDetailSchema,
   type Paginated,
   paginatedSchema,
   type ReorderLessonsInput,
   reorderLessonsInputSchema,
+  type SetTextLinksInput,
+  setTextLinksInputSchema,
   type SubmitModuleInput,
   submitModuleInputSchema,
+  textCandidateListSchema,
   type UpdateLessonInput,
   updateLessonInputSchema,
   type UpdateModuleVersionInput,
@@ -238,6 +253,38 @@ export class ModuleEditorController {
     const moduleId = parseId(id);
     await this.editor.addResource(actor, moduleId, body);
     return this.editor.get(actor, moduleId);
+  }
+
+  @Get('texts')
+  @ApiOperation({ summary: 'Textes fondamentaux pouvant être cités par un module' })
+  @ApiOkResponse({ schema: openApiSchema(textCandidateListSchema) })
+  async textCandidates(@CurrentActor() actor: Actor): Promise<{ items: ModuleTextLink[] }> {
+    return { items: await this.editor.textCandidates(actor) };
+  }
+
+  @Put('modules/:id/texts')
+  @ApiOperation({ summary: 'Définir les textes fondamentaux cités par le brouillon' })
+  @ApiBody({ schema: openApiSchema(setTextLinksInputSchema, 'input') })
+  @ApiOkResponse(detail)
+  async setTextLinks(
+    @CurrentActor() actor: Actor,
+    @Param('id') id: string,
+    @Body() body: SetTextLinksInput,
+  ): Promise<EditorModuleDetail> {
+    const moduleId = parseId(id);
+    await this.editor.setTextLinks(actor, moduleId, body);
+    return this.editor.get(actor, moduleId);
+  }
+
+  @Post('modules/:id/duplicate')
+  @ApiOperation({ summary: 'Dupliquer un module (nouveau module en brouillon)' })
+  @ApiCreatedResponse(detail)
+  async duplicate(
+    @CurrentActor() actor: Actor,
+    @Param('id') id: string,
+  ): Promise<EditorModuleDetail> {
+    const { id: created } = await this.editor.duplicate(actor, parseId(id));
+    return this.editor.get(actor, created);
   }
 
   @Delete('resources/:id')

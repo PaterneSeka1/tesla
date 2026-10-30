@@ -68,6 +68,7 @@ model User {
   moduleLessonsCreated       ModuleLesson[]       @relation("ModuleLessonCreatedBy")
   moduleLessonsUpdated       ModuleLesson[]       @relation("ModuleLessonUpdatedBy")
   moduleResourcesCreated     ModuleResource[]
+  moduleTextLinksCreated     ModuleTextLink[]     @relation("ModuleTextLinkCreatedBy")
   clientOperations           ClientOperation[]
   moduleCollaborations       ModuleCollaborator[] @relation("ModuleCollaboratorUser")
   moduleCollaboratorsAdded   ModuleCollaborator[] @relation("ModuleCollaboratorAddedBy")
@@ -774,6 +775,7 @@ model PedagogicalModule {
   activities       ActivityModule[]
   sourceImport     ModuleSourceImport?
   catchUps         CatchUpObligation[]
+  citedBy          ModuleTextLink[]
 
   @@index([createdById])
   @@map("pedagogical_modules")
@@ -836,6 +838,7 @@ model ModuleVersion {
   events             ModuleVersionEvent[]
   evaluationVersions EvaluationVersion[]
   studies            ModuleStudy[]
+  textLinks          ModuleTextLink[]
 
   @@unique([moduleId, version])
   /// Une seule version de travail (non close) par module.
@@ -898,6 +901,27 @@ model ModuleResource {
   @@index([lessonId])
   @@index([createdById])
   @@map("module_resources")
+}
+
+/// Texte fondamental cité par une version (référence, jamais une copie du texte). Modifiable uniquement à
+/// l'état BROUILLON (trigger SQL) ; recopié dans chaque nouvelle version. La bibliothèque n'affiche que les
+/// textes dont une version est publiée.
+model ModuleTextLink {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  versionId    String   @map("version_id") @db.Uuid
+  textModuleId String   @map("text_module_id") @db.Uuid
+  position     Int
+  createdById  String?  @map("created_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  version    ModuleVersion     @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  textModule PedagogicalModule @relation(fields: [textModuleId], references: [id], onDelete: Restrict)
+  createdBy  User?             @relation("ModuleTextLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([versionId, textModuleId])
+  @@index([textModuleId])
+  @@index([createdById])
+  @@map("module_text_links")
 }
 
 /// Chef autorisé à rédiger un module (en plus de son auteur). Retrait daté, jamais supprimé.
@@ -1463,6 +1487,8 @@ enum ModuleCategory {
   TRANSVERSAL
   ETAPE
   COMPLEMENTAIRE
+  /// Texte fondamental (prière, charte, loi…) : module de référence lié aux autres modules sans copie.
+  TEXTE_FONDAMENTAL
 }
 
 enum ModuleObligation {

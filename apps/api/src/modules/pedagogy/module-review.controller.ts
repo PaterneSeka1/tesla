@@ -136,4 +136,20 @@ export class ModuleReviewController {
   ): Promise<void> {
     return this.review.archive(actor, parseId(id), body);
   }
+
+  @Post(':id/purge')
+  @ApiOperation({
+    summary:
+      'Supprimer définitivement un brouillon vide (jamais soumis ni publié ; motif obligatoire)',
+  })
+  @ApiBody({ schema: openApiSchema(motivatedDecisionInputSchema, 'input') })
+  @ApiNoContentResponse()
+  @HttpCode(204)
+  purge(
+    @CurrentActor() actor: Actor,
+    @Param('id') id: string,
+    @Body() body: MotivatedDecisionInput,
+  ): Promise<void> {
+    return this.review.purgeEmptyDraft(actor, parseId(id), body);
+  }
 }

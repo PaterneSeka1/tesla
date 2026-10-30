@@ -31,7 +31,7 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
     competency_modules, activity_competencies, competencies,
     activity_attendances, activity_events, activity_categories, activity_modules, module_studies,
     activities, programmes, programme_categories, scout_stage_changes,
-    module_source_imports, module_version_events, module_resources, module_lessons, module_collaborators, module_versions,
+    module_text_links, module_source_imports, module_version_events, module_resources, module_lessons, module_collaborators, module_versions,
     pedagogical_modules,
     attempt_answers, evaluation_attempt_events, evaluation_attempts, evaluation_waivers,
     evaluation_version_events, evaluation_answer_options, evaluation_questions, evaluation_versions,
