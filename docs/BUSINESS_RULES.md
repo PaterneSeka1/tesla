@@ -8,7 +8,7 @@
 
 ## Rôles et permissions
 
-> **Refonte 2026-10-29 (D93–D94)** : la colonne « Chef » vaut désormais pour **tout membre de l'encadrement** (rôle `ENCADREMENT`, avec ou sans mandat) ; la colonne « Responsable » pour le **responsable plein en exercice** ou une personne titulaire d'une **délégation** sur l'action concernée. Matrice de référence : `packages/shared/src/permissions.ts`.
+> **Gouvernance 2026-10-30 (D132)** : la colonne « Chef » vaut pour **tout membre de l'encadrement** (avec ou sans fonction, adjoint et assistants compris) ; la colonne « Responsable » pour le **responsable plein en fonction**, désigné par l'administrateur. Aucun mandat, aucune délégation. Rôles et permissions restent internes et ne sont jamais affichés. Matrice de référence : `packages/shared/src/permissions.ts`.
 
 | Action | Routier | Chef | Responsable |
 | --- | :---: | :---: | :---: |
@@ -182,12 +182,13 @@ Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).
 
 Détails : [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md).
 
-## Refonte 2026-10-29 — âge, rattrapages, mandats
+## Refonte 2026-10-29 — âge, rattrapages, encadrement
 - **Étape théorique** : déterminée par l'âge (date de naissance) et le référentiel d'âge en vigueur, jamais par la date d'entrée ; distincte de l'étape officielle, de la progression pédagogique et du rattrapage. Voir [FEATURES/PROGRESSION_PAR_AGE.md](FEATURES/PROGRESSION_PAR_AGE.md).
 - **Noviciat** : du 18e anniversaire à un mois calendaire plus tard (règle fournie, à rapprocher du manuel). L'échéance ne valide rien.
 - **Sortie** : le jour du 21e anniversaire, le routier n'est plus membre actif ; historique intégralement conservé ; aucune étape attribuée.
 - **Rattrapage** : modules obligatoires (source officielle exigée) d'étapes dont la période est échue ; acquis seulement par décision humaine. Voir [FEATURES/RATTRAPAGE.md](FEATURES/RATTRAPAGE.md).
-- **Encadrement** : tous sont responsables (plein, adjoint, assistants) ; un seul plein à la fois, reconductible sans limite par un nouveau mandat explicite ; décisions officielles réservées au plein en exercice ou à ses délégataires. Voir [FEATURES/MANDATS_RESPONSABLES.md](FEATURES/MANDATS_RESPONSABLES.md).
+- **Encadrement** (D132, remplace les mandats) : responsable plein, adjoint, assistants désignés directement par l'administrateur, sans lien avec l'année scoute ; un seul plein en fonction ; remplacement confirmé, immédiat et historisé ; décisions officielles réservées au plein en fonction ; l'adjoint et les assistants accompagnent (droits de l'encadrement). Voir [FEATURES/ENCADREMENT.md](FEATURES/ENCADREMENT.md).
+- **Application unique** (D134) : aucun espace, aucun choix d'espace, aucun rôle technique affiché ; ce que voit chacun découle de ses permissions. Voir [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md).
 - Règles non confirmées et sources manquantes : [REFERENTIEL_PEDAGOGIQUE.md](REFERENTIEL_PEDAGOGIQUE.md) et décisions D93–D107.
 
 ## Offline-first (2026-10-30)
@@ -195,9 +196,9 @@ Détails : [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md).
 Référence : [OFFLINE_FIRST.md](OFFLINE_FIRST.md), décisions D109–D117.
 
 - Tout ce qui est fait sans réseau est **provisoire** : affiché comme « Enregistré sur cet appareil », jamais comme une décision. L'effet officiel naît de la réception par le serveur, qui revérifie session, permissions du jour et règles métier.
-- **Jamais différables** : changement d'étape, validation ou refus d'acquis, décisions de rattrapage, publications et approbations, nominations, reconductions, fins de mandat, délégations, déblocages, corrections et examens de résultats.
+- **Jamais différables** : changement d'étape, validation ou refus d'acquis, décisions de rattrapage, publications et approbations, désignations et fins de fonction d'encadrement, déblocages, corrections et examens de résultats.
 - **Différables** (avec version de référence) : présences, création et compte rendu d'activité, observation, création et modification de fiche, changement d'équipe. Une donnée modifiée entre-temps sur le serveur produit un **conflit** à résoudre, jamais un écrasement.
 - Aucun matricule, identifiant officiel ou code de tentative n'est créé localement : une création porte un identifiant provisoire remplacé par celui du serveur.
-- Une identité locale n'accorde aucun droit : usage sans réseau seulement, 14 jours au plus après la dernière vérification (**A_VALIDER**), permissions du mandat retirées à sa date de fin.
+- Une identité locale n'accorde aucun droit : usage sans réseau seulement, 14 jours au plus après la dernière vérification (**A_VALIDER**) ; au retour du réseau, chaque opération est revérifiée par le serveur et celle que la personne n'est plus habilitée à faire est rejetée et conservée (D133).
 - Les saisies non synchronisées ne sont jamais supprimées automatiquement ; seul un abandon confirmé les retire.
 - Évaluations : préparation en ligne obligatoire, réservation de 24 h inchangée (**A_VALIDER**, D78).

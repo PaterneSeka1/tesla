@@ -43,7 +43,7 @@ TanStack Query reste le gestionnaire d'état ; son cache mémoire n'est pas la b
 | Routiers et fiches (encadrement) | Liste préparée, fiche complète, parcours, progression, dossier, historique d'équipe, observations | Création de fiche (identifiant provisoire), modification de la fiche (version de référence ; un matricule saisi reste soumis aux contrôles du serveur), observation | Changement d'étape, activation, rattachement de compte, modification d'observation |
 | Équipes (encadrement) | Liste et membres | Changement d'affectation (équipe de référence) | Création, archivage d'équipe |
 | Activités et présences (encadrement) | Programme, liste, détail, feuille de présence | Création d'activité, modification et compte rendu (révision de référence), statut, présences (statut de référence par ligne) | Import du programme |
-| Responsables et mandats | Consultation des fonctions et mandats synchronisés | — (aucun brouillon de nomination : D116) | Nominations, reconductions, fins, délégations |
+| Encadrement | Consultation de la composition synchronisée | — (aucune désignation hors ligne) | Désignations et fins de fonction |
 | Validation des contenus, corrections, examens | — | — | Tout (corrigés et barèmes jamais stockés sur l'appareil, D113) |
 | Statistiques (encadrement) | Vue d'ensemble des parcours (tableau de bord) | — | Page Statistiques et ses filtres |
 
@@ -90,7 +90,7 @@ Aucun changement de schéma IndexedDB (aucune migration à risque) : les nouvell
 - Hors connexion, la phrase est essayée sur les coffres présents : aucune liste de comptes n'est affichée. Jamais de nouveau coffre par-dessus des données existantes d'un compte.
 - **Déverrouillage conservé 12 h** dans IndexedDB (clé non exportable) pour permettre rechargements, navigation et réouverture sans ressaisie ; supprimé au verrouillage, à la déconnexion et au changement de compte. Pendant cette période, quiconque utilise le profil du navigateur peut lire les données : verrouiller avant de prêter l'appareil.
 - **Identité locale** : enregistrée à chaque vérification serveur (`/auth/me`, connexion, déverrouillage en ligne). Utilisée **uniquement sans réseau** et pendant **14 jours** au plus (`OFFLINE_ACCESS_MAX_DAYS`, à valider) ; horloge antérieure à la vérification → refus. Au-delà, les données restent chiffrées mais ne sont plus affichées.
-- **Mandats** : `GET /auth/me` expose `authorityValidUntil` (fin du mandat ou de la plus proche délégation). Passée cette date, l'identité locale perd les permissions du mandat (permissions du rôle sans mandat), même hors connexion.
+- **Droits et changement de responsable (D133)** : les fonctions n'ont plus de date de fin ; l'identité locale (≤ 14 jours) ne sert qu'à l'affichage et à la préparation d'écritures différables, jamais de preuve d'autorisation. Au retour du réseau, `/auth/me` est relu (permissions à jour, informations locales remplacées) puis chaque opération est revérifiée par le serveur. Une opération que la personne n'est plus habilitée à faire (ex. ancien plein remplacé pendant qu'il était hors ligne) reçoit `403` → `REJETE` : elle reste visible sur l'appareil, rien n'est supprimé silencieusement ni appliqué. Toute réponse `403` en ligne relit aussi la session.
 - Une identité locale ne crée **jamais** de session serveur ni de droit : l'interface masque seulement ; chaque opération est revérifiée à la réception (session, permissions effectives du jour, règles métier).
 - **Refus explicite du serveur** (401) : jamais d'usage local ; reconnexion demandée, opérations conservées. Un autre compte connecté verrouille le coffre ouvert.
 - **Révocation pendant l'isolement** : un appareil sans réseau ne peut pas l'apprendre. Elle prend effet au premier contact (session refusée, opérations rejetées) ; la durée locale de 14 jours borne l'exposition.
@@ -133,7 +133,7 @@ Pas de « dernière écriture gagnante » pour les données partagées : chaque 
 | Même opération reçue deux fois | Identifiant d'opération | Réponse enregistrée, aucun doublon |
 | Évaluation déjà remise sur un autre appareil | `409 OFFLINE_ALREADY_RECEIVED` (phase 5) | Copie locale conservée, statut officiel consultable |
 | Module remplacé par une nouvelle version | Lecture : la copie locale reste la version téléchargée ; évaluation : corrigée sur la version réservée | Mise à jour proposée, jamais imposée |
-| Mandat expiré avant synchronisation | Permissions recalculées par le serveur → `403` → `REJETE` ; localement, permissions retirées après `authorityValidUntil` | Opération conservée jusqu'à abandon |
+| Fonction retirée (remplacement du plein) avant synchronisation | Permissions recalculées par le serveur → `403` → `REJETE` ; session relue, menu mis à jour | Opération conservée jusqu'à abandon |
 | Routier atteignant 21 ans pendant la coupure | Sortie calculée par le serveur (D95) : écritures refusées selon les règles existantes | Idem ; l'affichage local reste celui de la dernière copie |
 | Compétence validée sur le serveur | Aucune décision officielle n'est différable | — |
 | Doublon possible à la création d'une fiche | `409 POSSIBLE_DUPLICATE` → `CONFLIT` | Abandonner puis créer en ligne avec confirmation |
@@ -171,7 +171,7 @@ Une saisie refusée reste sur l'appareil (`CONFLIT`/`REJETE`, message du serveur
 
 Limites connues :
 - Recherche, filtres et pages de liste au-delà des vues préparées : non disponibles sans réseau.
-- Brouillons de nomination ou de délégation : non prévus (D116).
+- Brouillons de désignation d'encadrement : non prévus (D116).
 - Fenêtre résiduelle : arrêt du serveur entre l'effet métier et l'enregistrement de la réponse → `OPERATION_UNCONFIRMED`, vérification humaine.
 - Révocation inconnue tant que l'appareil reste isolé (borne : 14 jours).
 - Après un déploiement, les pages non revisitées restent celles de la version préparée tant que la préparation n'est pas mise à jour.

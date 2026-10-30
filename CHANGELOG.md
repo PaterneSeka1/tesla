@@ -4,6 +4,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — gouvernance simplifiée et application unique, 2026-10-30
+- Une seule application : accueil commun (`/accueil`) et menu unique affichant les seules fonctionnalités autorisées ; plus aucun espace, rôle technique ni libellé de permission affiché.
+- Le responsable plein, l'adjoint et les assistants sont désignés directement par l'administrateur depuis la page « Encadrement » (`/communaute`), visible de tous ; remplacement du plein confirmé et immédiat, historique conservé.
+- Anciennes adresses redirigées (`/routier`, `/encadrement`, `/chef`, `/responsable` → accueil ; `/mandats` → encadrement).
+- Hors ligne : une opération préparée par une personne qui n'est plus habilitée est rejetée au retour du réseau et conservée ; la session est relue dès qu'un droit est refusé.
+
+### Supprimé — gouvernance simplifiée, 2026-10-30
+- Mandats annuels, années scoutes, reconductions et délégations (écran, API `/mandates`, `/delegations`, `/scout-years`). Les données existantes restent en base, en lecture seule ; les mandats en vigueur ont été repris comme fonctions.
+
 ### Ajouté — bibliothèque de formation à la Route, 2026-10-30
 - Catalogue initial de formation à la Route en brouillon : dix modules rédigés d'après le manuel SAPF-Route (Noviciat à Départ routier, 71 leçons) et la Prière de la Route (version rédactionnelle à valider) ; modules 01–02 repris des brouillons « Bases du scoutisme ».
 - Textes fondamentaux : catégorie de module, citation d'un texte par d'autres modules sans copie, rubrique dans la bibliothèque.

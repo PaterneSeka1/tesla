@@ -230,3 +230,8 @@ Migration additive `20261030085910_client_operations` (aucune donnée existante 
 | `created_at`, `completed_at` | Réservation et fin ; réservation sans réponse depuis plus de 2 min → `OPERATION_UNCONFIRMED` |
 
 Index `(user_id, created_at)`. Journal technique, jamais une décision métier ; une erreur de traitement supprime la réservation. Purge non automatisée (volume faible ; à prévoir si nécessaire). Aucune colonne ajoutée aux tables métier : les versions de référence utilisent `updated_at`, `revision` et les affectations existants.
+
+## Gouvernance simplifiée — migration `20261107090000_leadership_assignments` (2026-10-30, additive)
+- `leadership_assignments` : fonction d'encadrement en cours tant que `ended_at` est nul ; index uniques partiels `leadership_assignments_one_plein` et `leadership_assignments_one_per_user` ; CHECK `leadership_assignments_end_check` ; trigger `leadership_assignments_guard` (ni suppression, ni réécriture ; fin enregistrée une fois).
+- Reprise : mandats en vigueur à la date civile d'Abidjan → fonctions (`source_mandate_id`).
+- `leadership_mandates`, `delegations`, `scout_years` : conservées, gelées par le trigger `archived_table_guard` (aucune nouvelle écriture). Aucune table ni donnée supprimée. Testée sur une base jetable copiée de `tesla_test`, puis appliquée sur `tesla_test` et `tesla` ; diff schéma ↔ base vide.

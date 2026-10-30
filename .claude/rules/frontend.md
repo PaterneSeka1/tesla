@@ -6,9 +6,9 @@ paths:
 
 ## Architecture Next.js
 - Next.js 16 diffère des versions antérieures : consulter la doc embarquée `node_modules/next/dist/docs/` (version installée) avant d'utiliser une API inconnue ; respecter les avertissements de dépréciation.
-- App Router dans `src/app`. Pages connectées dans le groupe `(espaces)/`, dont le `layout.tsx` unique monte `DashboardShell` ; les layouts de dossier ne portent que le titre (`metadata`). Aucun écran de choix d'espace : le rôle détermine tableau de bord et menu.
+- App Router dans `src/app`. Pages connectées dans le groupe `(espaces)/`, dont le `layout.tsx` unique monte `DashboardShell` ; les layouts de dossier ne portent que le titre (`metadata`). Application unique : aucun écran de choix d'espace, aucun rôle affiché ; les permissions effectives déterminent menu, pages et blocs de l'accueil (`/accueil`).
 - `cacheComponents` est activé : les données dynamiques serveur doivent être sous `<Suspense>`.
-- Navigation et accès : `src/lib/navigation.ts` (`NAVIGATION` par rôle, `ACCESS_RULES` par chemin, `getDefaultRouteForUser`, `resolvePostLoginPath`). Toute nouvelle page connectée doit avoir une règle d'accès. **Aucune entrée vers un écran inexistant ni en double** (vérifié par `navigation.test.ts`). Alignement avec `apps/api/src/common/permissions.ts`.
+- Navigation et accès : `src/lib/navigation.ts` (`NAVIGATION` unique filtré par permissions, `ACCESS_RULES` par chemin et permission, `HOME_ROUTE`, `resolvePostLoginPath`). Toute nouvelle page connectée doit avoir une règle d'accès. **Aucune entrée vers un écran inexistant ni en double** (vérifié par `navigation.test.ts`). Alignement avec `apps/api/src/common/permissions.ts`.
 
 ## Server / Client Components
 - Server Component par défaut. `'use client'` seulement pour l'état, les effets, les événements ou TanStack Query.

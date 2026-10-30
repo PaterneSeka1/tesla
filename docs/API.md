@@ -54,7 +54,7 @@ Révoque la session courante et efface le cookie → `204`.
 
 ### Comptes (`account.read` / `account.manage`, D119)
 
-Administration technique : tous les comptes ; décision officielle (plein ou délégation) : comptes routiers seulement. Hors périmètre : `404 ACCOUNT_NOT_FOUND` en lecture, `403 ACCOUNT_OUT_OF_SCOPE` à la création.
+Administrateur : tous les comptes ; responsable plein : comptes routiers seulement. Hors périmètre : `404 ACCOUNT_NOT_FOUND` en lecture, `403 ACCOUNT_OUT_OF_SCOPE` à la création.
 
 | Route | Effet |
 | --- | --- |
@@ -281,7 +281,7 @@ Gestion des comptes (création, activation, réinitialisation du mot de passe), 
 
 Les routes de progression, compétences, propositions, études, programmes, activités, présences et tableaux de bord sont exposées sous `/api/v1`, avec session, validation Zod, permissions dans les services et documentation Swagger. Catalogue par domaine : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md). L’édition générale d’un routier refuse un changement d’étape : utiliser `POST /scouts/:id/stage-changes` avec confirmation, motif et étape courante attendue.
 
-## Refonte 2026-10-29 — parcours, rattrapages, mandats
+## Refonte 2026-10-29 — parcours, rattrapages, encadrement
 
 `GET /auth/me` renvoie en plus `leaderFunction` et `permissions` (affichage uniquement).
 
@@ -294,13 +294,11 @@ Les routes de progression, compétences, propositions, études, programmes, acti
 | `GET /statistics/pathways?teamId=` | `statistics.read` | Indicateurs de parcours |
 | `POST /catch-ups/:id/decision` | `catchUp.decide` | `ACQUIS` ou `NON_APPLICABLE`, motif, `confirm: true` ; `409 CATCH_UP_ALREADY_DECIDED` |
 | `POST /membership/apply-exits` | `membership.apply` | Appliquer les sorties échues (idempotent) |
-| `GET /leadership` | `mandate.read` | Encadrement en exercice, vacances, comptes sans mandat, délégations |
-| `GET /mandates?scoutYearId=&userId=` | `mandate.read` | Historique des mandats |
-| `POST /mandates` | `mandate.recordPlein` (plein) / `mandate.recordTeam` | Nomination, reconduction, remplacement, changement de fonction ; `409 PLEIN_OVERLAP`, `409 MANDATE_OVERLAP`, `403 SELF_APPOINTMENT`, `400 PREVIOUS_MANDATE_MISMATCH` |
-| `POST /mandates/:id/end` | idem selon la fonction | Fin anticipée (`409 MANDATE_ALREADY_ENDED`) |
-| `GET /mandates/:id/reconduction` | idem | Préremplissage de l'année suivante (aucune écriture) |
-| `POST /scout-years` | `scoutYear.manage` | Déclarer une année scoute (`409 SCOUT_YEAR_CONFLICT`) |
-| `GET /delegations` | `delegation.read` | Délégations |
-| `POST /delegations`, `POST /delegations/:id/revoke` | `delegation.manage` | Déléguer ; révoquer |
+| `GET /leadership` | `leadership.read` | Encadrement en fonction (noms et fonctions), tout membre connecté |
+| `GET /leadership/admin` | `leadership.manage` | Composition, comptes désignables, historique |
+| `POST /leadership/assignments` | `leadership.manage` | Désigner (`userId`, `function`, `reason?`, `confirmReplacement?`) ; `400 NOT_STAFF`, `409 ALREADY_IN_FUNCTION`, `409 PLEIN_REPLACEMENT_UNCONFIRMED`, `409 LEADERSHIP_CHANGED` |
+| `POST /leadership/assignments/:id/end` | `leadership.manage` | Mettre fin (`reason`) ; `409 ASSIGNMENT_ALREADY_ENDED` |
+
+Supprimées le 2026-10-30 (D132) : `/mandates`, `/mandates/:id/end`, `/mandates/:id/reconduction`, `/scout-years`, `/delegations`, `/delegations/:id/revoke`. `GET /auth/me` ne renvoie plus `authorityValidUntil`.
 
 Modules : `category`, `obligation`, `officialSource` sur la création, la modification et le détail d'une version (`400 MODULE_TYPOLOGY_INVALID`) ; bibliothèque : filtre `?category=` et champs `category`, `obligation`, `official`. Éligibilité : nouveaux statuts `ELIGIBLE_RATTRAPAGE` et `SORTI_BRANCHE`.

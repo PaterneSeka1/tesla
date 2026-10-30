@@ -1,6 +1,6 @@
 # Référentiel pédagogique et traçabilité des règles
 
-Dernière mise à jour : 2026-10-30 (manuel SAPF-Route versé au dépôt, matrice manuel ↔ moteur, § 5) ; 2026-10-29 (refonte « parcours Route et mandats »).
+Dernière mise à jour : 2026-10-30 (manuel SAPF-Route versé au dépôt, matrice manuel ↔ moteur, § 5) ; 2026-10-29 (refonte « parcours Route et mandats ») ; 2026-10-30 (mandats supprimés : fonctions désignées par l'administrateur, D132).
 
 **Principe** : le manuel SAPF-Route est la référence pédagogique (document d'atelier régional, non présenté comme règlement national tant qu'il n'est pas validé). Aucune règle absente du manuel ou non validée par le responsable n'est codée. Une valeur non arbitrée reste **nulle** (jamais une valeur par défaut) et l'écran l'indique (« non déterminée », « non arbitré »).
 
@@ -38,12 +38,12 @@ Statuts : **Confirmée** (règle fournie ou validée par le responsable) · **Im
 | Seuil d'alerte avant 21 ans | Non défini | **Bloquée** | `exit_alert_months` nul → liste par date, sans alerte |
 | Droits d'un routier sorti de la branche | Non défini | **À valider** (D95) | Connexion et consultation conservées ; évaluations refusées (`SORTI_BRANCHE`) |
 | Validation officielle exclusivement humaine | RM / `.claude/rules/pedagogy.md` | Confirmée, implémentée | Décisions motivées, journalisées ; aucun calcul ne valide |
-| Un seul responsable plein à une date donnée | Mission | Confirmée, implémentée | Contrainte d'exclusion `leadership_mandates_one_plein` |
-| Reconduction illimitée, explicite, jamais automatique | Mission | Confirmée, implémentée | Nouveau mandat `RECONDUCTION` ; préremplissage sans écriture |
+| Un seul responsable plein à un instant donné | Mission | Confirmée, implémentée | Index unique partiel `leadership_assignments_one_plein` ; remplacement confirmé et atomique (D132) |
+| Désignation du plein, de l'adjoint et des assistants | Décision du 2026-10-30 | Confirmée, implémentée | Par l'administrateur, sans année scoute, sans reconduction (D132) ; mandats annuels supprimés |
 | Autorité qui nomme le plein | Non définie | **À valider** (D101) | Texte libre obligatoire ; consigné par l'administration technique ; auto-nomination refusée |
-| Habilitations de l'adjoint | Non définies | **À valider** (D103) | Aucune décision officielle par défaut ; délégations nominatives |
+| Habilitations de l'adjoint et des assistants | Décision du 2026-10-30 | Implémentée | Droits de l'encadrement (accompagnement) ; aucune décision officielle ; aucune délégation (D132) |
 | Qui nomme adjoint et assistants | Non défini | **À valider** (D101) | Plein en exercice ou administration technique |
-| Calendrier des années scoutes | Non défini | Configurable | `scout_years` (déclarées, sans chevauchement) |
+| Calendrier des années scoutes | Non défini | Plus utilisé pour l'encadrement | `scout_years` conservée en lecture seule (D132) |
 | Cérémonies, engagements, flots : conditions | Manuel p. 8–10 : moments, acteurs, objets ; pas de conditions | **Décrite, non codée** | Référence de cérémonie libre sur la décision d'étape (existant) |
 
 ## 3. État des lieux (audit initial)
@@ -63,7 +63,7 @@ Authentification et sessions ; fiches routiers avec ou sans compte, matricules, 
 - Espaces `/chef` et `/responsable` séparés → `/encadrement` unique, anciennes URL redirigées (D105).
 
 ### Risques de migration
-- **Décisions officielles suspendues après migration** tant qu'aucun mandat de plein n'est consigné (aucun mandat n'est attribué d'office, conformément à la mission). Voir « Mise en service ».
+- **Décisions officielles suspendues** tant qu'aucun responsable plein n'est désigné par l'administrateur (aucune fonction attribuée d'office ; les mandats en vigueur ont été repris, D132).
 - Valeurs d'enum `CHEF` / `RESPONSABLE` conservées dans le type PostgreSQL (aucune suppression) mais interdites par contrainte.
 - Comptes de démonstration : nom « Chef » remplacé par « Encadrant » au seed (adresses inchangées).
 
