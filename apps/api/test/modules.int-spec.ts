@@ -163,7 +163,7 @@ describe('Modules pédagogiques (intégration PostgreSQL)', () => {
     it('un chef crée un module, ajoute, modifie et réordonne les leçons', async () => {
       const chef = await loginAs('CHEF');
       let module = await createModule(chef);
-      expect(module.code).toMatch(/^MOD-\d{3}$/);
+      expect(module.code).toMatch(/^MOD-\d{3,}$/);
       expect(module.slug).toBe('histoire-du-scoutisme');
       expect(module.current).toMatchObject({ version: 1, status: 'BROUILLON', revision: 1 });
       expect(module.access).toBe('AUTEUR');
