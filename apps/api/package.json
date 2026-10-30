@@ -21,7 +21,8 @@
     "db:seed:pedagogy": "tsx prisma/seeds/pedagogy.ts",
     "db:studio": "prisma studio",
     "jobs:daily": "node dist/jobs/daily.js",
-    "admin:create": "node dist/jobs/create-admin.js"
+    "admin:create": "node dist/jobs/create-admin.js",
+    "pedagogy:release": "tsx prisma/seeds/mise-en-service.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.3.2",

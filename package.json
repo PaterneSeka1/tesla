@@ -32,6 +32,7 @@
     "db:deploy": "npm run db:deploy -w @tesla/api",
     "db:seed": "npm run db:seed -w @tesla/api",
     "db:seed:pedagogy": "npm run db:seed:pedagogy -w @tesla/api --",
+    "pedagogy:release": "npm run pedagogy:release -w @tesla/api --",
     "db:studio": "npm run db:studio -w @tesla/api",
     "audit:prod": "node scripts/audit-prod-deps.mjs"
   },
