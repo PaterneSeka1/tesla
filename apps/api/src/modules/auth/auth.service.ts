@@ -65,12 +65,13 @@ export class AuthService {
     context: { ip: string; userAgent?: string },
   ): Promise<{ token: string; expiresAt: Date; user: SessionUser }> {
     const { email, password } = parseInput(loginInputSchema, input);
-    this.limiter.assertAllowed(context.ip, email);
+    const throttleKeys = this.limiter.loginKeys(context.ip, email);
+    await this.limiter.assertAllowed(throttleKeys);
 
     const user = await this.prisma.user.findUnique({ where: { email }, include: userWithProfile });
     const passwordOk = await verifyPassword(user?.passwordHash ?? null, password);
     if (!user || !passwordOk || !user.isActive) {
-      this.limiter.recordFailure(context.ip, email);
+      await this.limiter.recordFailure(throttleKeys);
       if (user) {
         await this.prisma.auditLog.create({
           data: { action: 'auth.login_failed', entityType: 'User', entityId: user.id },
@@ -83,7 +84,7 @@ export class AuthService {
         message: 'Adresse e-mail ou mot de passe incorrect.',
       });
     }
-    this.limiter.recordSuccess(context.ip, email);
+    await this.limiter.recordSuccess(throttleKeys[0]!);
 
     const token = generateSessionToken();
     const now = new Date();
@@ -126,6 +127,15 @@ export class AuthService {
       await this.prisma.session.update({ where: { id: session.id }, data: { lastUsedAt: now } });
     }
     return { sessionId: session.id, user: toSessionUser(session.user, authority), authority };
+  }
+
+  /** Utilisateur tel que renvoyé par `/auth/me` (après une modification de son propre compte). */
+  async currentUser(userId: string): Promise<SessionUser> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: userWithProfile,
+    });
+    return toSessionUser(user, await this.resolveAuthority(user));
   }
 
   /**

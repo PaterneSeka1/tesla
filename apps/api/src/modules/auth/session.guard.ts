@@ -39,6 +39,7 @@ export class SessionGuard implements CanActivate {
     }
     request.actor = { userId: session.user.id, ...session.authority };
     request.sessionUser = session.user;
+    request.sessionId = session.sessionId;
     return true;
   }
 }

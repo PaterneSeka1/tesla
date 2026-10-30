@@ -136,4 +136,14 @@ describe('Fonctions, mandats et délégations (D94)', () => {
     expect(can(admin, 'scout.read')).toBe(false);
     expect(can(admin, 'module.read')).toBe(false);
   });
+
+  it('comptes : administration technique et décision officielle seulement (D119)', () => {
+    expect(can(admin, 'account.manage')).toBe(true);
+    expect(can(encadrement('PLEIN'), 'account.manage')).toBe(true);
+    expect(can(encadrement('ADJOINT'), 'account.read')).toBe(false);
+    expect(can(encadrement('ADJOINT', ['account.manage']), 'account.manage')).toBe(true);
+    expect(
+      can({ userId: 'r', role: 'ROUTIER', leaderFunction: null, delegated: [] }, 'account.read'),
+    ).toBe(false);
+  });
 });

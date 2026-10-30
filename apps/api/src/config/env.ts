@@ -20,6 +20,8 @@ const envSchema = z
     SWAGGER_ENABLED: booleanString.optional(),
     /** Durée de vie absolue d'une session (heures). */
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
+    /** Validité d'un lien d'activation ou de réinitialisation du mot de passe (heures, D118). */
+    ACCOUNT_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(336).default(72),
     /** Derrière un proxy inverse (Nginx) : utiliser X-Forwarded-For pour l'adresse IP du client. */
     TRUST_PROXY: booleanString.default(false),
   })

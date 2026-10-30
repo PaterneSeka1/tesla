@@ -110,6 +110,8 @@ model User {
   delegationsGiven             Delegation[]              @relation("DelegationDelegator")
   delegationsReceived          Delegation[]              @relation("DelegationDelegate")
   delegationsRevoked           Delegation[]              @relation("DelegationRevokedBy")
+  accountTokens                AccountToken[]            @relation("AccountTokenUser")
+  accountTokensIssued          AccountToken[]            @relation("AccountTokenCreatedBy")
 
   @@index([role])
   @@map("users")
@@ -1706,4 +1708,48 @@ model ClientOperation {
 
   @@index([userId, createdAt])
   @@map("client_operations")
+}
+
+/// Objet d'un lien de compte à usage unique (D118).
+enum AccountTokenPurpose {
+  ACTIVATION
+  REINITIALISATION
+}
+
+/// Lien d'activation ou de réinitialisation du mot de passe. Seul le hash SHA-256 du jeton est stocké ;
+/// le jeton n'est remis qu'une fois à la personne qui l'émet. Émettre un nouveau lien révoque les
+/// précédents non utilisés. Conservé (traçabilité), jamais supprimé.
+model AccountToken {
+  id          String              @id @default(uuid(7)) @db.Uuid
+  userId      String              @map("user_id") @db.Uuid
+  purpose     AccountTokenPurpose
+  tokenHash   String              @unique @map("token_hash")
+  expiresAt   DateTime            @map("expires_at") @db.Timestamptz(3)
+  usedAt      DateTime?           @map("used_at") @db.Timestamptz(3)
+  revokedAt   DateTime?           @map("revoked_at") @db.Timestamptz(3)
+  /// Null : lien émis par la procédure d'installation en ligne de commande (premier administrateur).
+  createdById String?             @map("created_by_id") @db.Uuid
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user      User  @relation("AccountTokenUser", fields: [userId], references: [id], onDelete: Restrict)
+  createdBy User? @relation("AccountTokenCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([createdById])
+  @@map("account_tokens")
+}
+
+/// Compteurs d'échecs d'authentification partagés par toutes les instances de l'API et conservés
+/// au redémarrage (D120). `key` : empreinte SHA-256 de la portée (adresse IP, compte), jamais en clair.
+/// Données techniques sans valeur propre : purgées par la tâche quotidienne.
+model AuthThrottle {
+  key          String    @id
+  failures     Int
+  windowStart  DateTime  @map("window_start") @db.Timestamptz(3)
+  blockedUntil DateTime? @map("blocked_until") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([updatedAt])
+  @@map("auth_throttles")
 }

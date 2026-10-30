@@ -12,6 +12,7 @@ import { type Actor } from '../../common/actor.js';
 export interface AuthenticatedRequest extends Request {
   actor?: Actor;
   sessionUser?: SessionUser;
+  sessionId?: string;
 }
 
 export const IS_PUBLIC = 'isPublic';

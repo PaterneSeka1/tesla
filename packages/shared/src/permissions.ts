@@ -94,6 +94,12 @@ export const PERMISSIONS = {
   'scoutYear.manage': ['ADMINISTRATEUR'],
   'delegation.read': ['ENCADREMENT', 'ADMINISTRATEUR'],
   'delegation.manage': ['PLEIN'],
+  /**
+   * Comptes (D119, à confirmer) : l'administration technique gère tous les comptes ; la décision
+   * officielle (plein ou délégation) couvre les seuls comptes routiers (périmètre vérifié par le service).
+   */
+  'account.read': ['ADMINISTRATEUR', 'OFFICIEL'],
+  'account.manage': ['ADMINISTRATEUR', 'OFFICIEL'],
 } as const satisfies Record<string, readonly AccessLevel[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -129,6 +135,8 @@ export const PERMISSION_LABELS: Partial<Record<Permission, string>> = {
   'ageRules.manage': 'Gérer le référentiel d’âge',
   'catchUp.decide': 'Statuer sur les rattrapages',
   'membership.apply': 'Appliquer les sorties de branche',
+  'account.read': 'Consulter les comptes routiers',
+  'account.manage': 'Créer et gérer les comptes routiers',
 };
 
 /** Habilitations effectives d'un utilisateur, calculées par l'API à chaque requête. */

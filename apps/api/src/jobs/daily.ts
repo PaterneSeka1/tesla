@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module.js';
+import { LoginRateLimiter } from '../modules/auth/login-rate-limiter.js';
 import { MembershipService } from '../modules/progression/membership.service.js';
 import { PathwayService } from '../modules/progression/pathway.service.js';
 import { todayCivil } from '../modules/progression/age-rules.js';
@@ -10,12 +11,15 @@ import { PrismaService } from '../prisma/prisma.service.js';
  * Traitement quotidien idempotent (à planifier une fois par jour, ex. cron du serveur) :
  * sorties de branche échues, puis recalcul des plans de rattrapage. Les statuts restent calculés
  * à la lecture : ce traitement ne fait qu'enregistrer les événements et les obligations.
+ * Une date de référence future est refusée : une sortie enregistrée est définitive.
+ * Purge aussi les compteurs de limitation des tentatives de connexion expirés.
  * Usage : `npm run jobs:daily -w @tesla/api [-- AAAA-MM-JJ]`.
  */
 async function main(): Promise<void> {
   const logger = new Logger('TraitementQuotidien');
   const referenceDate = process.argv[2] ?? todayCivil();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(referenceDate)) throw new Error('Date attendue : AAAA-MM-JJ.');
+  if (referenceDate > todayCivil()) throw new Error('Date de référence future refusée.');
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['log', 'error', 'warn'],
   });
@@ -34,6 +38,8 @@ async function main(): Promise<void> {
       `Terminé : ${membership.exited} sortie(s), ${created} obligation(s) de rattrapage créée(s), ${membership.anomalies.length} anomalie(s).`,
     );
     for (const anomaly of membership.anomalies) logger.warn(anomaly);
+    const purged = await app.get(LoginRateLimiter).purge();
+    logger.log(`${purged} compteur(s) de connexion expiré(s) purgé(s).`);
   } finally {
     await app.close();
   }
