@@ -4,6 +4,25 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — préparation à la production, 2026-10-30
+- Comptes : création par l'administration technique ou par décision officielle (comptes routiers, depuis la fiche), lien d'activation ou de réinitialisation à usage unique, désactivation motivée, réactivation, fermeture des sessions ; écran « Comptes ».
+- « Mon compte » : nom affiché, changement de mot de passe, sessions ouvertes.
+- Installation du premier administrateur en ligne de commande (`admin:create`), sans mot de passe codé.
+- Exploitation (non déployée) : systemd, Nginx, scripts de déploiement, de retour arrière, de sauvegarde chiffrée, de restauration et de contrôle de santé ; documentation de production.
+- CI : intégration PostgreSQL, contrôle des migrations, recettes navigateur, audit des dépendances.
+
+### Corrigé — préparation à la production, 2026-10-30
+- Appareil partagé : le coffre local d'un autre compte est verrouillé avant toute lecture.
+- Une délégation cesse avec le mandat de son titulaire.
+- Boucle de redirection après expiration de session.
+- La première visite ne recharge plus la page (saisie conservée).
+- « Prêt pour une utilisation sans connexion » n'est plus affiché si des données manquent ; un module téléchargé n'est plus mêlé à son ancienne version.
+- Une saisie hors ligne n'est plus fusionnée avec une écriture déjà envoyée (faux conflit).
+- Pages de création et de modification de fiche disponibles hors ligne après préparation.
+- Limitation des tentatives de connexion conservée au redémarrage.
+- En-têtes de sécurité, `Cache-Control: no-store` sur l'API, journaux sans chaîne de requête, API à l'écoute locale en production.
+- Date de naissance : ancienne et nouvelle valeur journalisées ; traitement quotidien refusant une date future.
+
 ### Ajouté — offline-first global, 2026-10-30
 - Tesla s'ouvre et se parcourt sans Internet après une préparation en ligne (« Cet appareil ») : mêmes écrans, même navigation, données du compte chiffrées sur l'appareil.
 - Saisies sans réseau, provisoires jusqu'à la synchronisation : présences, activités et comptes rendus, observations, fiches, changements d'équipe ; conflits détectés et résolus explicitement.

@@ -20,7 +20,7 @@ Base : `http://localhost:4000/api/v1` · OpenAPI : `/api/docs` (UI) et `/api/doc
 
 ## Authentification et sécurité
 
-Toutes les routes exigent une **session** sauf `GET /health`, `POST /auth/login` et `POST /auth/logout`. Sans session valide : `401 UNAUTHENTICATED`.
+Toutes les routes exigent une **session** sauf `GET /health`, `POST /auth/login`, `POST /auth/logout` et `POST /auth/account-link/*`. Sans session valide : `401 UNAUTHENTICATED`.
 
 | Élément | Règle |
 | --- | --- |
@@ -39,6 +39,34 @@ Révoque la session courante et efface le cookie → `204`.
 
 ### `GET /api/v1/auth/me`
 `200 { user: { id, email, firstName, lastName, role, scoutProfileId } }`.
+
+### Compte personnel (toute session)
+
+| Route | Effet |
+| --- | --- |
+| `POST /auth/account-link/inspect` (public) | `{ token }` → `{ purpose, firstName, expiresAt }` ; lien invalide, expiré ou utilisé : `400 INVALID_ACCOUNT_LINK` ; limité par adresse IP (`429`) |
+| `POST /auth/account-link/complete` (public) | `{ token, password }` (≥ 12 caractères) → `204` ; consomme le lien, ferme toutes les sessions du compte |
+| `POST /auth/password` | `{ currentPassword, newPassword }` → `204` ; ferme les autres sessions ; `400 INVALID_CURRENT_PASSWORD` |
+| `PATCH /auth/profile` | `{ firstName, lastName }` → `{ user }` |
+| `GET /auth/sessions` | Sessions ouvertes du compte (`current` pour la session de la requête) |
+| `POST /auth/sessions/:id/revoke` | `204` ; session d'un autre compte : `404` |
+| `POST /auth/sessions/revoke-others` | `{ revoked }` |
+
+### Comptes (`account.read` / `account.manage`, D119)
+
+Administration technique : tous les comptes ; décision officielle (plein ou délégation) : comptes routiers seulement. Hors périmètre : `404 ACCOUNT_NOT_FOUND` en lecture, `403 ACCOUNT_OUT_OF_SCOPE` à la création.
+
+| Route | Effet |
+| --- | --- |
+| `GET /users?search&role&status&page&pageSize` | Liste paginée (`status` : `A_ACTIVER`, `ACTIF`, `DESACTIVE`) |
+| `POST /users` | `{ email, firstName, lastName, role, scoutProfileId? }` → `201 { account, link }` ; lien remis une seule fois ; `scoutProfileId` (compte routier, exige aussi `scout.linkAccount`) rattache la fiche dans la même transaction ; `409 ACCOUNT_EXISTS` / `PROFILE_ALREADY_LINKED` |
+| `GET /users/:id`, `PATCH /users/:id` | Lecture ; modification de l'adresse ou du nom (ancienne adresse journalisée) |
+| `POST /users/:id/link` | Nouveau lien (activation si jamais activé, réinitialisation sinon) ; précédents révoqués ; compte désactivé : `409 ACCOUNT_INACTIVE` |
+| `POST /users/:id/deactivate` | `{ reason }` → compte désactivé, sessions et liens révoqués ; `409 CANNOT_DEACTIVATE_SELF` / `LAST_ADMINISTRATOR` |
+| `POST /users/:id/reactivate` | Réactivation |
+| `POST /users/:id/revoke-sessions` | `{ revoked }` |
+
+Les réponses de l'API portent `Cache-Control: no-store`. Routes `/auth/*` et `/users` jamais conservées hors ligne.
 
 ## Routes métier
 

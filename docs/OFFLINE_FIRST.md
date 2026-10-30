@@ -176,6 +176,18 @@ Limites connues :
 - Révocation inconnue tant que l'appareil reste isolé (borne : 14 jours).
 - Après un déploiement, les pages non revisitées restent celles de la version préparée tant que la préparation n'est pas mise à jour.
 
+## 12 bis. Corrections du 2026-10-30 (préparation à la production)
+
+- **Appareil partagé** : la session serveur est confirmée avant toute lecture (connexion et `/auth/me`) ; le coffre ouvert d'un autre compte est verrouillé (AUD-002).
+- **Lectures strictes** (`withStrictReads`) pendant la préparation et le téléchargement d'un module : ni repli sur une ancienne copie, ni copie non enregistrée comptée comme réussie ; « Prêt » reflète l'état réel (AUD-008).
+- **File d'opérations** : une écriture mise en file après un envoi interrompu (`sent`) n'est plus fusionnée ; elle compte comme un essai (AUD-009).
+- Pages de création et de modification de fiche préparées (AUD-010).
+- Après un 401, la dernière réponse `/auth/me` est retirée du cache : plus de boucle `/connexion` ↔ page protégée (AUD-006).
+- Première installation du service worker : plus de rechargement (la saisie en cours est conservée) ; seule une mise à jour acceptée recharge (AUD-007).
+- `/users` (gestion des comptes) exclu du coffre.
+
+Restent ouverts : phrase oubliée, verrou entre onglets, version de format IndexedDB, échéance locale des réservations, détection d'éviction ([PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md) AUD-019 à AUD-024).
+
 ## 13. Recette navigateur
 
 ```bash
@@ -188,4 +200,4 @@ PROFILE_DIR=/chemin/profil SW_FILE=$PWD/apps/web/public/sw.js [VIEWPORT_WIDTH=12
 node apps/web/test/offline-first.browser.mjs
 ```
 
-`SW_FILE` active le contrôle de mise à jour (le fichier est modifié puis restauré pendant le test).
+`SW_FILE` active le contrôle de mise à jour (le fichier est modifié puis restauré pendant le test). La recette est exécutée par la CI (job `browser`) avec Playwright installé à la volée ; la recette des comptes (`apps/web/test/accounts.browser.mjs`) suit la même procédure.

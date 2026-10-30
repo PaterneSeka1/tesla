@@ -173,3 +173,16 @@ Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md). `A_VALIDER` : valeur provisoire
 | D115 | Préparation explicite de l'appareil (« Cet appareil ») ; « Prêt » seulement si données et pages indispensables sont présentes | Le hors ligne fiable exige un téléchargement en ligne ; partiel signalé (images, filtres, pages non préparées). |
 | D116 | Suppression de l'onglet « Hors ligne » ; indicateur discret dans le cadre ; aucun brouillon de nomination ou de délégation | Une seule application ; un brouillon de mandat sans valeur risquerait d'être pris pour une décision. |
 | D117 | Passation d'une évaluation préparée dans `/evaluations/:id/passer` ; réservation de 24 h conservée | Garanties D77–D81 inchangées ; sans copie préparée, aucune tentative hors ligne. **A_VALIDER** avec D78 : durée. |
+
+## 2026-10-30 — Préparation à la production (branche `chore/preparation-production`)
+
+Détails : [PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md), [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). `A_VALIDER` : valeur provisoire à confirmer par le responsable.
+
+| # | Décision | Motif / conséquence |
+| --- | --- | --- |
+| D118 | Comptes créés sans mot de passe ; activation et réinitialisation par lien à usage unique (jeton 256 bits, hash seul en base, valable `ACCOUNT_LINK_TTL_HOURS`, 72 h par défaut), remis une seule fois à la personne qui l'émet et transmis par elle au titulaire | Aucun service d'e-mail requis ni mot de passe transmis ; un nouveau lien révoque les précédents ; l'utilisation ferme toutes les sessions. Jeton dans le fragment d'URL (`/activation#…`), jamais journalisé. **A_VALIDER** : durée de 72 h. |
+| D119 | Périmètre : l'administration technique gère tous les comptes ; une décision officielle (`account.manage` : plein ou délégation) gère les seuls comptes routiers, de préférence depuis la fiche (rattachement dans la même transaction) | Un compte hors périmètre est traité comme inexistant (404). Le dernier administrateur actif ne peut pas être désactivé ; personne ne se désactive soi-même. Changement de rôle d'accès non prévu. **A_VALIDER** : périmètre. |
+| D120 | Limitation des tentatives d'authentification persistée dans PostgreSQL (`auth_throttles`, empreintes SHA-256, compteurs atomiques), sans Redis | Une seule instance prévue ; la base est déjà là ; résistante au redémarrage et partagée si plusieurs instances. Seuils : IP + e-mail 5, e-mail seul 10, IP 20, liens 20, mot de passe actuel 5, sur 15 min. Nginx ajoute une limitation d'appoint. |
+| D121 | Premier administrateur par commande serveur (`admin:create`), refusée si un administrateur actif existe ; `--recover` pour un administrateur existant | Aucun mot de passe dans le code, l'environnement ni l'historique du shell ; l'accès au serveur est la racine de confiance. |
+| D122 | Exploitation : systemd (pas PM2), unités paramétrées par instance (production, préproduction), releases immuables, sauvegardes GnuPG par clé publique avec copie hors site rclone, restauration uniquement dans une nouvelle base | Aucune dépendance globale ; journald et timers natifs ; le serveur ne peut pas déchiffrer ses sauvegardes ; aucune restauration n'écrase une base. **A_VALIDER** : RPO 12 h, RTO 4 h, rétentions. |
+| D123 | Une délégation n'est active que si le délégataire est sous mandat en vigueur | Aligne la validité sur la règle de création ; corrige AUD-005. |

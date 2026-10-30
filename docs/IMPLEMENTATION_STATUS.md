@@ -1,6 +1,6 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-10-30 — **offline-first global** (une seule application avec ou sans réseau, préparation de l'appareil, file de synchronisation, conflits), voir [§ Offline-first](#offline-first-global-2026-10-30) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; 2026-10-29 — **sobriété des interfaces** (textes, libellés et état serveur), voir [§ Sobriété](#sobriété-des-interfaces-2026-10-29) ; **refonte parcours Route et mandats** (âge, rattrapages, sortie à 21 ans, fonctions plein / adjoint / assistant, espace d'encadrement unique), voir [§ Refonte](#refonte--parcours-route-et-mandats-2026-10-29) ; parcours de l'encadrement (file « À faire », frise de l'année, menu allégé), voir [§ Parcours encadrement](#parcours-du-responsable-et-des-chefs-2026-10-29) ; phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
+Dernière mise à jour : 2026-10-30 — **préparation à la production** (comptes, sécurité, exploitation, CI), voir [§ Préparation à la production](#préparation-à-la-production-2026-10-30) et [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) ; 2026-10-30 — **offline-first global** (une seule application avec ou sans réseau, préparation de l'appareil, file de synchronisation, conflits), voir [§ Offline-first](#offline-first-global-2026-10-30) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; 2026-10-29 — **sobriété des interfaces** (textes, libellés et état serveur), voir [§ Sobriété](#sobriété-des-interfaces-2026-10-29) ; **refonte parcours Route et mandats** (âge, rattrapages, sortie à 21 ans, fonctions plein / adjoint / assistant, espace d'encadrement unique), voir [§ Refonte](#refonte--parcours-route-et-mandats-2026-10-29) ; parcours de l'encadrement (file « À faire », frise de l'année, menu allégé), voir [§ Parcours encadrement](#parcours-du-responsable-et-des-chefs-2026-10-29) ; phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
 
 ## Réalisé et vérifié
 
@@ -30,13 +30,11 @@ Dernière mise à jour : 2026-10-30 — **offline-first global** (une seule appl
 - **Swagger** : documentation générée ; rendu de `/api/docs` non revu manuellement.
 - **PDF** : caractères hors Windows-1252 remplacés par « ? » ; questionnaire de plusieurs pages non recetté visuellement.
 - **Avertissement `pg`** « client.query() when the client is already executing a query » émis pendant certains tests d'intégration (interpréteur de requêtes de Prisma 7) ; sans effet aujourd'hui ; à surveiller avant `pg@9`.
-- **Limitation des tentatives de connexion** : en mémoire, réinitialisée au redémarrage.
-- **CI GitHub Actions** : non exécutée (aucun push) ; tests d'intégration non configurés en CI.
-- **Audit de dépendances** : non exécuté après l'ajout de `pdfkit`.
+- **CI GitHub Actions** : intégration, migrations et recettes configurées (2026-10-30) ; non exécutée (aucun push).
 - `REFUSEE` et la réouverture d'un résultat examiné : disponibles dans l'API, sans bouton dans les écrans.
 
 ## Non développé
-Gestion des comptes (création, activation, mot de passe), téléversement des copies numérisées, support de cours en PDF serveur, progression de lecture synchronisée avec le serveur, consultation du journal d'audit complet, déploiement. Voir [ROADMAP.md](ROADMAP.md).
+Envoi des liens de compte par e-mail, changement de rôle d'accès d'un compte, téléversement des copies numérisées, support de cours en PDF serveur, progression de lecture synchronisée avec le serveur, consultation du journal d'audit complet, déploiement. Voir [ROADMAP.md](ROADMAP.md).
 
 ## Phase 4 — progression, compétences, activités et pilotage (2026-10-29)
 
@@ -165,7 +163,7 @@ Non vérifié :
 
 ### Mise en service
 1. Sauvegarder la base, puis `npm run db:deploy -w @tesla/api` (deux migrations, additives).
-2. Créer un compte d'administration technique (rôle `ADMINISTRATEUR`) : la gestion des comptes n'étant pas développée, par le seed de démonstration hors production ou par une opération SQL encadrée en production.
+2. Créer le premier compte d'administration technique : `admin:create` (lien d'activation à usage unique, voir [DEPLOYMENT.md](DEPLOYMENT.md) § 3).
 3. Dans `/mandats` (administration technique) : déclarer l'année scoute en cours, puis consigner la nomination du responsable plein avec l'autorité de nomination. **Jusque-là, aucune décision officielle n'est possible** (D107).
 4. Le responsable plein consigne l'adjoint et les assistants, résout les comptes « sans mandat », et délègue si nécessaire.
 5. Renseigner les dates de naissance manquantes (indicateur du tableau de bord).
@@ -213,3 +211,20 @@ Non vérifié :
 - Recette non intégrée à la CI (Playwright hors dépôt).
 
 À arbitrer : durées D111 (12 h), D112 (14 jours), D117/D78 (24 h) ; purge des `client_operations`.
+
+## Préparation à la production (2026-10-30)
+
+Branche `chore/preparation-production` (commits atomiques, non poussée). Audit : [PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md) ; bilan et décision : [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) ; décisions D118–D123.
+
+Implémenté :
+- **Comptes** (API `/users`, `/auth/account-link/*`, `/auth/password`, `/auth/profile`, `/auth/sessions*` ; écrans `/activation`, `/compte`, `/administration/comptes`, « Créer son compte » sur la fiche) ; commande `admin:create` ; migration additive `20261104090000_account_lifecycle` (`account_tokens`, `auth_throttles`) appliquée sur `tesla_test` uniquement.
+- **Sécurité** : limitation persistante, en-têtes, `no-store`, journaux sans chaîne de requête, `API_HOST`, délégation liée au mandat du délégataire, coffre d'un autre compte verrouillé avant lecture.
+- **Offline-first** : lectures strictes (préparation, téléchargement), pas de fusion après envoi interrompu, pages de fiche préparées, boucle de redirection supprimée, pas de rechargement à la première installation du service worker.
+- **Exploitation** : `deploy/` (systemd, Nginx, scripts), [DEPLOYMENT.md](DEPLOYMENT.md), [BACKUP_RESTORE.md](BACKUP_RESTORE.md), [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+- **CI** : jobs `quality` (+ formatage, audit), `integration`, `browser` ; [TEST_PLAN.md](TEST_PLAN.md).
+
+Vérifications exécutées : format, lint, types, build réussis ; tests unitaires API 144 et web 74 ; intégration 94 (9 fichiers) ; dérive migrations nulle ; `audit:prod` 0 vulnérabilité (532 paquets) ; recettes Chromium offline-first 28/28 et comptes 9/9 à 390 et 1280 px ; sauvegarde, restauration d'essai, restauration, refus d'écrasement et détection d'altération sur `tesla_test`.
+
+Non exécuté : workflow GitHub, VPS (systemd, Nginx, Certbot, rclone), appareils réels, Safari, Firefox.
+
+**À faire sur la base de développement** : `npm run db:deploy` (migration additive des comptes, non appliquée sur `tesla` par cet audit).
