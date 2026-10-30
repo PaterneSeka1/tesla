@@ -52,7 +52,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     if (statusCode >= 500) {
       this.logger.error(
-        `${request.method} ${request.originalUrl}`,
+        `${request.method} ${request.originalUrl.split('?', 1)[0]}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
     }

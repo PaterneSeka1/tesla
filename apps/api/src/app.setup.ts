@@ -6,6 +6,7 @@ import { type Env } from './config/env.js';
 import { AllExceptionsFilter } from './common/all-exceptions.filter.js';
 import { csrfProtection } from './common/csrf.middleware.js';
 import { requestLogger } from './common/request-logger.middleware.js';
+import { securityHeaders } from './common/security-headers.middleware.js';
 
 /** Configuration HTTP commune au démarrage réel et aux tests e2e. */
 export function configureApp(app: INestApplication, env: Env): void {
@@ -17,6 +18,7 @@ export function configureApp(app: INestApplication, env: Env): void {
       1,
     );
   }
+  app.use(securityHeaders);
   app.use(requestLogger);
   app.useGlobalFilters(new AllExceptionsFilter());
   app.enableCors({
