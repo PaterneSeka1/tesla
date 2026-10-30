@@ -34,6 +34,8 @@ describe('dépôt local', () => {
       '/admin/evaluations/x/review',
       '/admin/attempts/x',
       '/corrections/NT-2026-000001',
+      '/auth/sessions',
+      '/users?page=1',
     ])
       expect(isCacheablePath(path)).toBe(false);
     expect(isCacheablePath('/scouts/x')).toBe(true);

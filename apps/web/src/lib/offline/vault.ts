@@ -243,15 +243,19 @@ export async function writeRecord(id: string, value: unknown, revision: number) 
   await dbWrite('records', { id: key, cipher, revision: revision + 1 } as RecordRow, revision);
   window.dispatchEvent(new Event('offline-data-change'));
 }
-/** Écriture sans contrôle de révision (copies de lecture, remplacées à chaque rafraîchissement). */
-export async function putRecord(id: string, value: unknown) {
+/**
+ * Écriture sans contrôle de révision (copies de lecture, remplacées à chaque rafraîchissement).
+ * `false` : coffre verrouillé entre-temps, rien n'est écrit. Une erreur de stockage est propagée.
+ */
+export async function putRecord(id: string, value: unknown): Promise<boolean> {
   const current = unlocked;
   const started = generation;
-  if (!current) return;
+  if (!current) return false;
   const key = `${current.ownerId}:${id}`;
   const cipher = await encrypt(current.key, value, key);
-  if (generation !== started) return;
+  if (generation !== started) return false;
   await dbWrite('records', { id: key, cipher, revision: 1 } as RecordRow);
+  return true;
 }
 export async function deleteRecord(id: string) {
   const owner = ownerId();

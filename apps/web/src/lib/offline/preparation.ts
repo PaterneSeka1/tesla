@@ -1,6 +1,6 @@
 import { type QueryClient } from '@tanstack/react-query';
 import { type SessionUser } from '@tesla/shared';
-import { ApiError } from '@/lib/api/client';
+import { ApiError, withStrictReads } from '@/lib/api/client';
 import {
   chefDashboardQueryOptions,
   myActivitiesQueryOptions,
@@ -130,7 +130,16 @@ export async function missingPages(paths: string[]): Promise<string[]> {
   }
 }
 
-export async function prepareDevice(
+/** Préparation complète, en lectures strictes : « Prêt » seulement si chaque copie est enregistrée. */
+export function prepareDevice(
+  client: QueryClient,
+  user: SessionUser,
+  progress: Progress,
+): Promise<PreparationReport> {
+  return withStrictReads(() => prepare(client, user, progress));
+}
+
+async function prepare(
   client: QueryClient,
   user: SessionUser,
   progress: Progress,
@@ -239,7 +248,10 @@ export async function prepareDevice(
       await get(scoutProgressionQueryOptions(scout.id), 'Progression du routier');
       await get(scoutTimelineQueryOptions(scout.id), 'Dossier pédagogique');
       pages.add(`/administration/routiers/${scout.id}`);
+      // Modification de fiche : écriture différable (`scout.update`).
+      if (userCan(user, 'scout.update')) pages.add(`/administration/routiers/${scout.id}/modifier`);
     }
+    if (userCan(user, 'scout.create')) pages.add('/administration/routiers/nouveau');
 
     progress('Activités et présences…');
     await get(programmesQueryOptions, 'Programme annuel');

@@ -4,7 +4,7 @@ import {
   type OfflineModulePackage,
   offlineModulePackageSchema,
 } from '@tesla/shared';
-import { apiFetch } from '@/lib/api/client';
+import { apiFetch, withStrictReads } from '@/lib/api/client';
 import { dbDelete } from './db';
 import { assertOnlineOwner, ownerId, readRecord, recordIds, writeRecord } from './vault';
 
@@ -71,7 +71,15 @@ async function boundedImage(url: string) {
   }
   return { mime, bytes: [...bytes] };
 }
-export async function downloadModule(slug: string, progress: (message: string) => void) {
+/**
+ * Lectures strictes : une coupure pendant le téléchargement échoue au lieu de mêler les leçons
+ * d'une ancienne copie à la nouvelle version ; la version déjà téléchargée reste intacte.
+ */
+export function downloadModule(slug: string, progress: (message: string) => void) {
+  return withStrictReads(() => download(slug, progress));
+}
+
+async function download(slug: string, progress: (message: string) => void) {
   if (active.has(slug)) throw new Error('Téléchargement déjà en cours.');
   active.add(slug);
   try {

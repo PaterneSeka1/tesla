@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { healthResponseSchema } from '@tesla/shared';
 import { z } from 'zod';
-import { ApiError, apiFetch, toQueryString } from './client';
+import { ApiError, apiFetch, toQueryString, withStrictReads } from './client';
 
 function mockFetch(implementation: () => Promise<Response>) {
   vi.stubGlobal('fetch', vi.fn(implementation));
@@ -70,5 +70,27 @@ describe('apiFetch', () => {
       '?search=kouassi&page=2',
     );
     expect(toQueryString({})).toBe('');
+  });
+});
+
+describe('lectures strictes (préparation de l’appareil)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const schema = z.object({ items: z.array(z.string()) });
+
+  it('une copie locale non enregistrée est une erreur, jamais un succès silencieux', async () => {
+    mockFetch(() => jsonResponse({ items: ['a'] }));
+    // Hors navigateur, aucun coffre n'est ouvert : la copie ne peut pas être enregistrée.
+    await expect(apiFetch('/teams', schema)).resolves.toEqual({ items: ['a'] });
+    await expect(withStrictReads(() => apiFetch('/teams', schema))).rejects.toThrow(
+      /Copie locale impossible/,
+    );
+  });
+
+  it('une coupure réseau n’est jamais compensée par une ancienne copie', async () => {
+    mockFetch(() => Promise.reject(new TypeError('Failed to fetch')));
+    await expect(withStrictReads(() => apiFetch('/teams', schema))).rejects.toMatchObject({
+      status: 0,
+      code: 'NETWORK_ERROR',
+    });
   });
 });

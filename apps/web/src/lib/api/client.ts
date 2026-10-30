@@ -15,6 +15,23 @@ export class ApiError extends Error {
   }
 }
 
+/** Profondeur des lectures strictes en cours (voir `withStrictReads`). */
+let strictReads = 0;
+
+/**
+ * Lectures strictes (préparation de l'appareil, téléchargement d'un module) : jamais de repli sur
+ * la copie locale, et une copie qui n'a pas pu être enregistrée (quota, appareil verrouillé) est
+ * une erreur. Un rapport « Prêt » ne peut donc pas reposer sur des données anciennes ou absentes.
+ */
+export async function withStrictReads<T>(run: () => Promise<T>): Promise<T> {
+  strictReads++;
+  try {
+    return await run();
+  } finally {
+    strictReads--;
+  }
+}
+
 /**
  * Appel typé de l'API : la réponse est validée par un schéma Zod partagé.
  * Les erreurs sont normalisées en `ApiError` avec un message affichable en français.
@@ -30,13 +47,15 @@ export async function apiFetch<T>(
   if (!read) return request(path, schema, init);
   // Lecture offline-first (D109) : réseau si disponible, sinon dernière copie de cet appareil.
   const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-  if (!offline) {
+  const strict = strictReads > 0;
+  if (!offline || strict) {
     try {
       const data = await request(path, schema, init);
-      await storeResponse(path, data).catch(() => {});
+      if (strict) await storeResponse(path, data, { strict });
+      else await storeResponse(path, data).catch(() => {});
       return data;
     } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 0) throw error;
+      if (strict || !(error instanceof ApiError) || error.status !== 0) throw error;
     }
   }
   const stored = await readStoredResponse(path).catch(() => null);
@@ -101,11 +120,12 @@ export async function apiSend<T>(
   offline?: OfflineWrite,
 ): Promise<T> {
   const operationId = offline ? crypto.randomUUID() : null;
-  const queue = async (): Promise<never> => {
-    const op = await enqueueOperation(operationId!, method, path, body, offline!);
+  const queue = async (sent: boolean): Promise<never> => {
+    const op = await enqueueOperation(operationId!, method, path, body, offline!, { sent });
     throw new OfflineQueuedError(op.id, op.tempId);
   };
-  if (offline && typeof navigator !== 'undefined' && navigator.onLine === false) return queue();
+  if (offline && typeof navigator !== 'undefined' && navigator.onLine === false)
+    return queue(false);
   try {
     return await apiFetch(path, schema, {
       method,
@@ -117,7 +137,7 @@ export async function apiSend<T>(
     });
   } catch (error) {
     // Réseau coupé pendant l'envoi : même identifiant, le serveur déduplique s'il l'avait reçu.
-    if (offline && error instanceof ApiError && error.status === 0) return queue();
+    if (offline && error instanceof ApiError && error.status === 0) return queue(true);
     throw error;
   }
 }

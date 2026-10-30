@@ -54,15 +54,18 @@ export function clearLocalFreshness() {
   freshnessChanged();
 }
 
-export async function storeResponse(path: string, body: unknown) {
+/** `strict` : une copie non enregistrée (appareil verrouillé, quota dépassé) lève une erreur. */
+export async function storeResponse(path: string, body: unknown, { strict = false } = {}) {
   if (!isCacheablePath(path)) return;
   await ensureVaultRestored();
-  if (!ownerId()) return;
-  if (servedLocally.delete(path)) freshnessChanged();
-  await putRecord(key(path), {
-    body,
-    fetchedAt: new Date().toISOString(),
-  } satisfies CachedResponse);
+  const written =
+    ownerId() !== null &&
+    (await putRecord(key(path), {
+      body,
+      fetchedAt: new Date().toISOString(),
+    } satisfies CachedResponse));
+  if (written && servedLocally.delete(path)) freshnessChanged();
+  if (!written && strict) throw new Error('Copie locale impossible : appareil verrouillé.');
 }
 
 export async function readStoredResponse(path: string): Promise<CachedResponse | null> {

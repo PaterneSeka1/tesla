@@ -194,13 +194,18 @@ export async function listOperations(): Promise<{ value: LocalOperation; revisio
     .sort((a, b) => a.value.createdAt.localeCompare(b.value.createdAt));
 }
 
-/** Enregistre une écriture différée après contrôle local des permissions connues. */
+/**
+ * Enregistre une écriture différée après contrôle local des permissions connues.
+ * `sent` : l'envoi a déjà été tenté (coupure pendant la requête) ; le serveur a peut-être reçu ce
+ * corps sous cet identifiant, qui ne doit donc plus changer : aucune fusion, dans un sens ou l'autre.
+ */
 export async function enqueueOperation(
   operationId: string,
   method: LocalOperation['method'],
   path: string,
   body: unknown,
   write: OfflineWrite,
+  { sent = false } = {},
 ): Promise<LocalOperation> {
   const owner = ownerId();
   const identity = await localIdentity();
@@ -217,15 +222,16 @@ export async function enqueueOperation(
   const existing = await listOperations();
   const unsettled = existing.filter((row) => !FINAL.includes(row.value.status));
   // Fusion dans une saisie identique pas encore partie (aucun envoi tenté).
-  const mergeable = definition.merge
-    ? unsettled.find(
-        (row) =>
-          row.value.type === write.type &&
-          row.value.entity.id === write.entity.id &&
-          row.value.status === 'EN_ATTENTE' &&
-          row.value.retries === 0,
-      )
-    : undefined;
+  const mergeable =
+    definition.merge && !sent
+      ? unsettled.find(
+          (row) =>
+            row.value.type === write.type &&
+            row.value.entity.id === write.entity.id &&
+            row.value.status === 'EN_ATTENTE' &&
+            row.value.retries === 0,
+        )
+      : undefined;
   if (mergeable && definition.merge && isRecord(mergeable.value.body) && isRecord(body)) {
     const merged = { ...mergeable.value, body: definition.merge(mergeable.value.body, body) };
     await writeRecord(opKey(merged.id), merged, mergeable.revision);
@@ -254,7 +260,8 @@ export async function enqueueOperation(
       .map((row) => row.value.id),
     createdAt: new Date().toISOString(),
     status: 'EN_ATTENTE',
-    retries: 0,
+    // Un envoi déjà tenté compte comme essai : l'opération n'est plus fusionnable.
+    retries: sent ? 1 : 0,
     nextRetryAt: 0,
     lastError: null,
     serverCode: null,
