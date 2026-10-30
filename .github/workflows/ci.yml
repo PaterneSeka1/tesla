@@ -12,38 +12,137 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+  # Base PostgreSQL éphémère du job (service ci-dessous), jamais une base réelle.
+  TEST_DATABASE_URL: postgresql://tesla:tesla_ci@localhost:5432/tesla_test?schema=public
+
 jobs:
   quality:
-    name: Lint, types, tests, build
+    name: Format, lint, types, tests unitaires, build, dépendances
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      # Valeurs factices : aucun service externe n'est requis (les tests simulent la base).
+      # Valeurs factices : aucun service n'est requis (les tests unitaires simulent la base).
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
-      NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
-
-      - name: Installation (génère aussi le client Prisma)
+      - name: Installation reproductible (génère aussi le client Prisma)
         run: npm ci
-
       - name: Validation du schéma Prisma
         run: npx -w @tesla/api prisma validate
-
+      - name: Formatage
+        run: npm run format:check
       - name: Lint
         run: npm run lint
-
       - name: Typecheck
         run: npm run typecheck
-
-      - name: Tests
+      - name: Tests unitaires
         run: npm run test
-
-      - name: Build
+      - name: Build de production
         run: npm run build
+      - name: Audit des dépendances de production (gravité ≥ high)
+        run: npm run audit:prod
+
+  integration:
+    name: Intégration PostgreSQL et migrations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: tesla
+          POSTGRES_PASSWORD: tesla_ci
+          POSTGRES_DB: tesla_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tesla -d tesla_test" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build:shared
+      - name: Migrations appliquées sur base vide (migrate deploy)
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+      - name: Aucune dérive entre migrations et schéma
+        working-directory: apps/api
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+      - name: Tests d'intégration (contraintes, triggers, permissions, concurrence)
+        run: npm run test:int -w @tesla/api
+
+  browser:
+    name: Recettes navigateur (comptes, offline-first)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: [quality]
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: tesla
+          POSTGRES_PASSWORD: tesla_ci
+          POSTGRES_DB: tesla_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tesla -d tesla_test" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://tesla:tesla_ci@localhost:5432/tesla_test?schema=public
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      CORS_ORIGINS: http://localhost:3000
+      PLAYWRIGHT_VERSION: 1.56.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+      - name: Playwright (hors dépendances du dépôt) et Chromium
+        run: |
+          npm install --no-save --workspaces=false "playwright@${PLAYWRIGHT_VERSION}"
+          npx playwright install --with-deps chromium
+      - name: Fixture fictive (base « _test » remise à zéro)
+        working-directory: apps/api
+        run: OFFLINE_FIXTURE="$RUNNER_TEMP/fixture.json" npx tsx test/offline-browser-fixture.mts
+      - name: Démarrage de l'API et du web de production
+        run: |
+          NODE_ENV=production SWAGGER_ENABLED=false node apps/api/dist/main.js > "$RUNNER_TEMP/api.log" 2>&1 &
+          npm run start -w @tesla/web > "$RUNNER_TEMP/web.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fs http://localhost:4000/api/v1/health > /dev/null && curl -fs http://localhost:3000/connexion > /dev/null && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/api.log" "$RUNNER_TEMP/web.log"
+          exit 1
+      - name: Recette offline-first (390 px)
+        run: |
+          OFFLINE_FIXTURE="$RUNNER_TEMP/fixture.json" PROFILE_DIR="$RUNNER_TEMP/profile" \
+          SW_FILE="$PWD/apps/web/public/sw.js" node apps/web/test/offline-first.browser.mjs
+      - name: Recette des comptes (installation, activation, gestion)
+        run: |
+          node apps/api/dist/jobs/create-admin.js --email admin-recette@recette.test \
+            --web-url http://localhost:3000 > "$RUNNER_TEMP/link.txt"
+          LINK_FILE="$RUNNER_TEMP/link.txt" node apps/web/test/accounts.browser.mjs
+      - name: Journaux des serveurs (en cas d'échec)
+        if: failure()
+        run: tail -n 200 "$RUNNER_TEMP/api.log" "$RUNNER_TEMP/web.log"
