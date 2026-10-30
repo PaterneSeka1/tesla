@@ -30,3 +30,8 @@ paths:
 - Mobile-first : concevoir pour 360 px puis élargir (`sm`, `lg`).
 - Contraste AA, `lang="fr"`, labels associés, `aria-invalid`/`aria-describedby` sur les champs, focus visible, lien d'évitement.
 - Images via `next/image`. Pas de bibliothèque lourde sans justification. Pas de polices distantes (build hors réseau, VPS léger).
+
+## Offline-first (D109–D117)
+- Toute lecture passe par `apiFetch` : la copie locale est automatique, ne pas créer de cache par écran. Nouvelle route API contenant corrigés, barèmes ou secrets : l'ajouter aux exclusions de `src/lib/offline/repository.ts`.
+- Écriture utilisable sans réseau : la déclarer dans `OPERATION_TYPES` (`src/lib/offline/operations.ts`) avec sa permission et une version de référence, passer un `OfflineWrite` à `apiSend`, traiter `OfflineQueuedError` comme « Enregistré sur cet appareil ». Jamais pour une décision officielle.
+- Nouvelle page : vérifier qu'elle est préparée (`src/lib/offline/preparation.ts`) si elle doit fonctionner sans réseau. Voir `docs/OFFLINE_FIRST.md`.

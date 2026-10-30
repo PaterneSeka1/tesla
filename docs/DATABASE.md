@@ -215,3 +215,18 @@ Migrations **additives** (aucune table, colonne ni valeur d'enum supprimée), te
    - Fonction `append_only_guard()` réutilisable.
 
 Retour arrière : la migration étant additive, un retour du code antérieur exigerait de rétablir les rôles (`UPDATE users SET role = legacy_role::"Role"` après suppression de la contrainte) — opération à planifier et valider, jamais automatique.
+
+## Offline-first — opérations rejouables (2026-10-30)
+
+Migration additive `20261030085910_client_operations` (aucune donnée existante modifiée) : table technique `client_operations`.
+
+| Colonne | Rôle |
+| --- | --- |
+| `id` (UUID, PK) | Identifiant d'opération choisi par l'appareil (`x-tesla-operation-id`) |
+| `user_id` (FK `users`, `RESTRICT`) | Compte émetteur ; un autre compte ne peut pas réutiliser l'identifiant |
+| `method`, `path` | Requête reçue (sans paramètres) |
+| `body_hash` | SHA-256 du corps ; même identifiant avec un autre contenu → `409` |
+| `response_status`, `response_body` | Réponse renvoyée à un second envoi identique ; nulles tant que l'opération est en cours |
+| `created_at`, `completed_at` | Réservation et fin ; réservation sans réponse depuis plus de 2 min → `OPERATION_UNCONFIRMED` |
+
+Index `(user_id, created_at)`. Journal technique, jamais une décision métier ; une erreur de traitement supprime la réservation. Purge non automatisée (volume faible ; à prévoir si nécessaire). Aucune colonne ajoutée aux tables métier : les versions de référence utilisent `updated_at`, `revision` et les affectations existants.

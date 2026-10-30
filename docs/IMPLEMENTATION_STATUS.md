@@ -1,6 +1,6 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-10-29 — **sobriété des interfaces** (textes, libellés et état serveur), voir [§ Sobriété](#sobriété-des-interfaces-2026-10-29) ; **refonte parcours Route et mandats** (âge, rattrapages, sortie à 21 ans, fonctions plein / adjoint / assistant, espace d'encadrement unique), voir [§ Refonte](#refonte--parcours-route-et-mandats-2026-10-29) ; parcours de l'encadrement (file « À faire », frise de l'année, menu allégé), voir [§ Parcours encadrement](#parcours-du-responsable-et-des-chefs-2026-10-29) ; phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
+Dernière mise à jour : 2026-10-30 — **offline-first global** (une seule application avec ou sans réseau, préparation de l'appareil, file de synchronisation, conflits), voir [§ Offline-first](#offline-first-global-2026-10-30) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; 2026-10-29 — **sobriété des interfaces** (textes, libellés et état serveur), voir [§ Sobriété](#sobriété-des-interfaces-2026-10-29) ; **refonte parcours Route et mandats** (âge, rattrapages, sortie à 21 ans, fonctions plein / adjoint / assistant, espace d'encadrement unique), voir [§ Refonte](#refonte--parcours-route-et-mandats-2026-10-29) ; parcours de l'encadrement (file « À faire », frise de l'année, menu allégé), voir [§ Parcours encadrement](#parcours-du-responsable-et-des-chefs-2026-10-29) ; phase 6 (navigation par rôle, UX, audit ESLint), voir [§ Phase 6](#phase-6--navigation-par-rôle-ux-et-stabilisation-2026-10-29) ; seed des modules « Bases du scoutisme » (brouillons), voir [§ Seed pédagogique](#seed-pédagogique--bases-du-scoutisme-2026-10-29) ; phase 5 (hors ligne) livrée, voir [§ Phase 5](#phase-5--pwa-hors-ligne-2026-10-29) et [OFFLINE_FIRST.md](OFFLINE_FIRST.md) ; phase 4 livrée en complément de la phase 3 ; voir [rapport de livraison](FEATURES/PHASE_4_REPORT.md). Phase 3 (évaluations : questionnaires, passation en ligne, papier, correction, examen des résultats). Détails fonctionnels : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md), [FEATURES/MODULES_PEDAGOGIQUES.md](FEATURES/MODULES_PEDAGOGIQUES.md), [FEATURES/WORKFLOW_PUBLICATION.md](FEATURES/WORKFLOW_PUBLICATION.md), [FEATURES/ROUTIERS_EQUIPES.md](FEATURES/ROUTIERS_EQUIPES.md).
 
 ## Réalisé et vérifié
 
@@ -185,3 +185,31 @@ Nettoyage du frontend, sans changement de règle, de workflow, de permission ni 
 Conservé volontairement : règles de validation humaine, avertissements d'irréversibilité, confidentialité des observations et des corrigés, échéances, conflits d'édition, formats de saisie (matricule, code de tentative).
 
 Vérifications : lint, typecheck, `npm run test` (API 146, web 57) et build web réussis. Accueil et connexion contrôlés en Chromium headless à 390 et 1280 px (aucun défilement horizontal). **Non exécuté** : recette visuelle des écrans connectés (identifiants de démonstration non disponibles dans cette session).
+
+## Offline-first global (2026-10-30)
+
+Branche `feat/offline-first-global` (non commitée, non poussée). Référence : [OFFLINE_FIRST.md](OFFLINE_FIRST.md) (matrice des fonctionnalités § 2), décisions D109–D117.
+
+Implémenté :
+- Lecture offline-first de tous les écrans par `apiFetch` (copie chiffrée par compte, date des données affichée) ; session sans réseau par identité locale bornée (14 jours, fin de mandat) ; déverrouillage local sur la connexion et dans le cadre.
+- Coffres par compte (tous les rôles), compatibles avec le coffre de la phase 5 ; déverrouillage conservé 12 h ; changement de compte.
+- Préparation de l'appareil (`/appareil`) par rôle : données autorisées, pages et segments RSC, rapport « Prêt » / « Préparation incomplète », vérification sans réseau.
+- Service worker `v4` : pages, charges RSC, ressources statiques ; repli `/hors-ligne` réservé aux pages jamais préparées ; mise à jour proposée.
+- File d'opérations globale (présences, activités, observations, fiches, affectations) : identifiants provisoires, dépendances, fusion, rebasage, affichage provisoire, conflits, réessai et abandon confirmé.
+- API : idempotence générique (`client_operations`, migration additive `20261030085910_client_operations` appliquée sur `tesla` et `tesla_test`), versions de référence facultatives (fiche, équipe, présences), `authorityValidUntil` dans `/auth/me`.
+- Évaluations : préparation et passation hors ligne dans les écrans habituels ; onglet « Hors ligne », `OfflineHub` et `OfflineReader` supprimés (`/telechargements`, `/synchronisation` → `/appareil`).
+
+Vérifications exécutées (2026-10-30) :
+- `npm run lint`, `npm run typecheck`, `npm run build` (API, web) : réussis.
+- `npm run test` : API 146 tests (18 fichiers), web 69 tests (5 fichiers, dont 13 offline-first : clés du dépôt, exclusions, identité locale et fin de mandat, identifiants provisoires, classement des échecs, fusion, rebasage, affichage provisoire, absence de décision officielle différable) — réussis.
+- `npm run test:int -w @tesla/api` (`tesla_test`) : 85 tests (8 fichiers) réussis, dont `offline-sync.int-spec.ts` (6) : rejeu sans doublon, identifiant réutilisé ou d'un autre compte refusé, permissions revérifiées et réservation libérée, réception non confirmée, conflits de présence, de fiche et d'équipe, échéance des habilitations.
+- Recette navigateur `apps/web/test/offline-first.browser.mjs` (Chromium headless Playwright, profil persistant, API et web de production sur `tesla_test`, comptes fictifs) : **28 contrôles réussis à 390 px et à 1280 px**, aucune erreur JavaScript — scénarios 1 à 25 de la mission (hors 26–27), sans aucune redirection vers `/hors-ligne`.
+
+Non vérifié :
+- Appareils réels (Android, iOS), Safari, Firefox, Edge ; installation PWA depuis l'écran d'accueil ; éviction réelle du stockage.
+- Scénarios 26 (21 ans) et 27 (fin de mandat) hors connexion : couverts par tests unitaires (identité locale) et règles serveur existantes, pas par la recette navigateur.
+- Création d'activité et de fiche hors ligne, changement d'équipe hors ligne : couverts par la logique commune et les tests d'intégration de conflits, non recettés dans le navigateur.
+- Bouton « Mettre à jour » lui-même : le mécanisme (activation, repli de rechargement, conservation des opérations) est recetté, le clic sur le bouton non.
+- Recette non intégrée à la CI (Playwright hors dépôt).
+
+À arbitrer : durées D111 (12 h), D112 (14 jours), D117/D78 (24 h) ; purge des `client_operations`.

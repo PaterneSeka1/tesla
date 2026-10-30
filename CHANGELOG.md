@@ -4,6 +4,17 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — offline-first global, 2026-10-30
+- Tesla s'ouvre et se parcourt sans Internet après une préparation en ligne (« Cet appareil ») : mêmes écrans, même navigation, données du compte chiffrées sur l'appareil.
+- Saisies sans réseau, provisoires jusqu'à la synchronisation : présences, activités et comptes rendus, observations, fiches, changements d'équipe ; conflits détectés et résolus explicitement.
+- Évaluations préparées passées dans leur écran habituel, avec ou sans réseau.
+- Indicateur discret : hors connexion, modifications en attente, conflits, date des données, mise à jour disponible.
+- API : écritures rejouables sans doublon (`x-tesla-operation-id`, table `client_operations`), versions de référence facultatives, `authorityValidUntil` dans `/auth/me`.
+
+### Modifié — offline-first global, 2026-10-30
+- Onglet « Hors ligne » supprimé ; `/telechargements` et `/synchronisation` redirigent vers `/appareil` ; `/hors-ligne` ne sert plus qu'aux pages jamais préparées.
+- Coffre local ouvert à tous les rôles, un coffre par compte ; service worker `v4`.
+
 ### Modifié — sobriété des interfaces, 2026-10-29
 - Plus aucun état technique (serveur, version d'API) affiché aux utilisateurs ; supervision inchangée.
 - Titres et libellés de menu raccourcis, descriptions de page limitées aux règles utiles, états vides allégés.

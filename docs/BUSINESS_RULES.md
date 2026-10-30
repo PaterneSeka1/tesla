@@ -13,8 +13,11 @@
 | Action | Routier | Chef | Responsable |
 | --- | :---: | :---: | :---: |
 | Consulter les modules publiés | ✅ | ✅ | ✅ |
-| Télécharger un module pour lecture hors ligne (coffre local chiffré, D79) | ✅ | — | — |
+| Télécharger un module pour lecture hors ligne (coffre local chiffré, D79) | ✅ | ✅ | ✅ |
 | Préparer et synchroniser une évaluation hors ligne (sa propre tentative) | ✅ | — | — |
+| Préparer l'appareil et consulter sans connexion son périmètre autorisé (D115) | ✅ | ✅ | ✅ |
+| Saisir sans connexion présences, activités, observations (provisoire, D110) | — | ✅ | ✅ |
+| Créer ou modifier une fiche, changer d'équipe sans connexion (provisoire, revérifié) | — | — | ✅ |
 | Créer un module ; modifier un brouillon dont on est auteur ou collaborateur | — | ✅ | ✅ (tous les modules) |
 | Inviter / retirer un chef collaborateur | — | auteur du module | ✅ |
 | Soumettre un module à l'approbation | — | auteur, collaborateur | ✅ |
@@ -183,3 +186,15 @@ Détails : [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md).
 - **Rattrapage** : modules obligatoires (source officielle exigée) d'étapes dont la période est échue ; acquis seulement par décision humaine. Voir [FEATURES/RATTRAPAGE.md](FEATURES/RATTRAPAGE.md).
 - **Encadrement** : tous sont responsables (plein, adjoint, assistants) ; un seul plein à la fois, reconductible sans limite par un nouveau mandat explicite ; décisions officielles réservées au plein en exercice ou à ses délégataires. Voir [FEATURES/MANDATS_RESPONSABLES.md](FEATURES/MANDATS_RESPONSABLES.md).
 - Règles non confirmées et sources manquantes : [REFERENTIEL_PEDAGOGIQUE.md](REFERENTIEL_PEDAGOGIQUE.md) et décisions D93–D107.
+
+## Offline-first (2026-10-30)
+
+Référence : [OFFLINE_FIRST.md](OFFLINE_FIRST.md), décisions D109–D117.
+
+- Tout ce qui est fait sans réseau est **provisoire** : affiché comme « Enregistré sur cet appareil », jamais comme une décision. L'effet officiel naît de la réception par le serveur, qui revérifie session, permissions du jour et règles métier.
+- **Jamais différables** : changement d'étape, validation ou refus d'acquis, décisions de rattrapage, publications et approbations, nominations, reconductions, fins de mandat, délégations, déblocages, corrections et examens de résultats.
+- **Différables** (avec version de référence) : présences, création et compte rendu d'activité, observation, création et modification de fiche, changement d'équipe. Une donnée modifiée entre-temps sur le serveur produit un **conflit** à résoudre, jamais un écrasement.
+- Aucun matricule, identifiant officiel ou code de tentative n'est créé localement : une création porte un identifiant provisoire remplacé par celui du serveur.
+- Une identité locale n'accorde aucun droit : usage sans réseau seulement, 14 jours au plus après la dernière vérification (**A_VALIDER**), permissions du mandat retirées à sa date de fin.
+- Les saisies non synchronisées ne sont jamais supprimées automatiquement ; seul un abandon confirmé les retire.
+- Évaluations : préparation en ligne obligatoire, réservation de 24 h inchangée (**A_VALIDER**, D78).

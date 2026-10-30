@@ -33,3 +33,7 @@ paths:
 - Vitest. Unitaires `*.spec.ts` à côté du code ; e2e `test/*.e2e-spec.ts` via `configureApp` + Supertest.
 - Tester au minimum : cas nominal, refus d'autorisation, entrée invalide.
 - Contraintes SQL, triggers et concurrence : tests d'intégration `test/*.int-spec.ts` sur base réelle (`npm run test:int`, `TEST_DATABASE_URL` vers une base `*_test`).
+
+## Écritures rejouables (offline-first, D110)
+- `IdempotencyInterceptor` (global) traite `x-tesla-operation-id` : ne rien dupliquer dans les services.
+- Une écriture différable accepte une version de référence facultative (`expectedUpdatedAt`, révision, `expectedStatus`…) et répond `409` avec un code stable en cas de changement, sans écraser.

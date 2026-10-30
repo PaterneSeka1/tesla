@@ -39,7 +39,7 @@ Le navigateur appelle directement l'API (CORS restreint aux origines déclarées
 | `components/evaluations/` | `QuestionForm`, `QuestionList`, `EvaluationSettingsForm`, `EvaluationList`, `CorrectionWorkspace` (saisie papier, notation, soumission), `CopyHeader`/`CopyAnswers`/`CopyHistory`, `AttemptTable`, badges, `useEvaluationAction` |
 | `components/` | `ConfirmDialog`, `Pagination`, `QueryError`/`TableSkeleton`, `FormField`, `FollowUpOverview` (indicateurs) |
 | `lib/api/` | `apiFetch`/`apiSend` (client typé, cookie, en-tête anti-CSRF, erreurs normalisées) et `queryOptions` par domaine (`auth`, `teams`, `scouts`, `modules`, `evaluations`) |
-| `lib/offline/` | IndexedDB versionnée (`db.ts`), coffre chiffré AES-GCM (`vault.ts`), téléchargements (`downloads.ts`), tentatives et file de synchronisation (`attempts.ts`) — voir [OFFLINE_FIRST.md](OFFLINE_FIRST.md) |
+| `lib/offline/` | IndexedDB (`db.ts`), coffres chiffrés par compte et identité locale (`vault.ts`), dépôt de lecture (`repository.ts`), file d'opérations (`operations.ts`), préparation de l'appareil (`preparation.ts`), mises à jour (`app-update.ts`), modules avec images (`downloads.ts`), copies d'évaluation (`attempts.ts`) — voir [OFFLINE_FIRST.md](OFFLINE_FIRST.md) |
 | `lib/navigation.ts` | Source unique : tableau de bord par rôle (`getDefaultRouteForUser`), accès par chemin (`canAccessPath`), destination après connexion (`resolvePostLoginPath`), menu groupé par rôle (`NAVIGATION`). Voir [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md) |
 | `public/sw.js` | Service worker (enregistré en production uniquement) |
 
@@ -123,7 +123,14 @@ Le module NestJS `progression` gère étapes, référentiel, propositions et ét
 - **Web** : coquille publique `/hors-ligne` (alias `/telechargements`, `/synchronisation`) rendue par `DashboardShell offline` sans `SessionGate` ; `OfflineHub`, `OfflineReader`, `OfflineAttempt`, `DownloadModuleButton` ; `OfflineRuntime` (dans `Providers`) planifie les envois et relance les requêtes en erreur au retour du réseau. `AnswerFields` est partagé avec la passation en ligne.
 - **Service worker `v2`** : pré-cache de la coquille et de ses ressources statiques ; `/api` et `/connexion` jamais interceptés.
 
-Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).
+Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md). Remplacé côté web par l'offline-first global ci-dessous.
+
+## Offline-first global (2026-10-30)
+
+- **Un seul chemin réseau** : `apiFetch` lit le réseau puis la copie chiffrée du compte (`repository.ts`) ; `apiSend(…, offline)` rend une écriture rejouable et la met en file sans réseau (`operations.ts`). Les écrans gardent leurs `queryOptions` et mutations ; seules les fonctions d'écriture différables portent un descripteur `OfflineWrite`.
+- **Session** : `meQueryOptions` retombe sur l'identité locale sans réseau ; `SessionGate` propose le déverrouillage de l'appareil ; `/appareil` gère coffre, préparation, file, copies d'évaluation et stockage.
+- **Service worker `v4`** : pages, charges RSC et ressources statiques (voir OFFLINE_FIRST § 3).
+- **API** : `IdempotencyInterceptor` global (`APP_INTERCEPTOR`) actif seulement avec `x-tesla-operation-id` ; versions de référence facultatives dans les schémas partagés (`expectedUpdatedAt`, `expectedTeamId`, `expectedStatus`) ; `GET /auth/me` renvoie `authorityValidUntil`. Aucun nouveau service d'infrastructure.
 
 ## Refonte 2026-10-29 — âge, rattrapages, mandats
 - **Calculs purs partagés** (`packages/shared/src/age-progression.ts`, `permissions.ts`, `pathway.ts`) : âge, échéances, étape théorique, statut de rattrapage, écart d'étapes et matrice de permissions sont des fonctions déterministes testées sans base ; les services n'ajoutent que la lecture et l'écriture transactionnelles.
