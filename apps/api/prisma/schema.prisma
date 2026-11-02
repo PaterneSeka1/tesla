@@ -55,6 +55,7 @@ model User {
   attemptsCreated      EvaluationAttempt[]        @relation("AttemptCreatedBy")
   attemptsRecorded     EvaluationAttempt[]        @relation("AttemptRecordedBy")
   attemptsDecided      EvaluationAttempt[]        @relation("AttemptDecidedBy")
+  attemptsTransmitted  EvaluationAttempt[]        @relation("AttemptTransmittedBy")
   attemptEvents        EvaluationAttemptEvent[]
   waiversGranted       EvaluationWaiver[]         @relation("WaiverGrantedBy")
   waiversRevoked       EvaluationWaiver[]         @relation("WaiverRevokedBy")
@@ -533,6 +534,9 @@ model EvaluationAttempt {
   completedAt              DateTime?      @map("completed_at") @db.Timestamptz(3)
   /// Dernier enregistrement de la correction dans l'application.
   recordedAt               DateTime?      @map("recorded_at") @db.Timestamptz(3)
+  /// Copie papier transmise pour correction après la saisie des réponses (D161) ; null : saisie en cours.
+  transmittedAt            DateTime?      @map("transmitted_at") @db.Timestamptz(3)
+  transmittedById          String?        @map("transmitted_by_id") @db.Uuid
   /// Format antérieur à la phase 3 (réponses en JSON) : conservé pour l'historique ; voir `AttemptAnswer`.
   answers                  Json?
   score                    Decimal?       @db.Decimal(7, 2)
@@ -569,6 +573,7 @@ model EvaluationAttempt {
   createdBy      User                     @relation("AttemptCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   recordedBy     User?                    @relation("AttemptRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
   decidedBy      User?                    @relation("AttemptDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  transmittedBy  User?                    @relation("AttemptTransmittedBy", fields: [transmittedById], references: [id], onDelete: Restrict)
   events         EvaluationAttemptEvent[]
   attemptAnswers AttemptAnswer[]
   evidences      CompetencyEvidence[]
@@ -581,6 +586,7 @@ model EvaluationAttempt {
   @@index([evaluationVersionId, evaluationId])
   @@index([status])
   @@index([waiverId])
+  @@index([transmittedById])
   @@map("evaluation_attempts")
 }
 
@@ -1880,6 +1886,10 @@ model AccountToken {
   userId      String              @map("user_id") @db.Uuid
   purpose     AccountTokenPurpose
   tokenHash   String              @unique @map("token_hash")
+  /// Code de secours saisi avec l'e-mail (D162) : empreinte seulement, jamais le code en clair.
+  codeHash    String?             @unique @map("code_hash")
+  /// Codes erronés : au-delà du seuil, le jeton (lien compris) est révoqué.
+  codeFailures Int                @default(0) @map("code_failures")
   expiresAt   DateTime            @map("expires_at") @db.Timestamptz(3)
   usedAt      DateTime?           @map("used_at") @db.Timestamptz(3)
   revokedAt   DateTime?           @map("revoked_at") @db.Timestamptz(3)
