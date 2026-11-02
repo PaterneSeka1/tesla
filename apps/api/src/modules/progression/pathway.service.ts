@@ -35,6 +35,7 @@ import {
   effectiveMembership,
   loadRuleSetRow,
   ruleSetInclude,
+  stillRequiredModuleWhere,
   type RuleSetRow,
   todayCivil,
   toSnapshot,
@@ -292,11 +293,7 @@ export class PathwayService {
 
   private async mandatoryModules(): Promise<MandatoryModule[]> {
     const rows = await this.prisma.pedagogicalModule.findMany({
-      where: {
-        publishedVersion: {
-          is: { obligation: 'OBLIGATOIRE', category: 'ETAPE', stageId: { not: null } },
-        },
-      },
+      where: stillRequiredModuleWhere,
       select: {
         id: true,
         publishedVersion: { select: { stageId: true, stage: { select: { code: true } } } },

@@ -14,6 +14,16 @@ type RuleSetReader = Pick<Prisma.TransactionClient, 'ageRuleSet'>;
 
 const iso = (date: Date): string => date.toISOString().slice(0, 10);
 
+/**
+ * Module obligatoire d'étape dans sa version publiée : seule une obligation de rattrapage sur un
+ * tel module reste exigible et ouvre l'évaluation correspondante (AUD-028).
+ */
+export const stillRequiredModuleWhere = {
+  publishedVersion: {
+    is: { obligation: 'OBLIGATOIRE', category: 'ETAPE', stageId: { not: null } },
+  },
+} satisfies Prisma.PedagogicalModuleWhereInput;
+
 export const ruleSetInclude = {
   stages: { include: { stage: { select: { code: true, name: true, position: true } } } },
 } as const satisfies Prisma.AgeRuleSetInclude;

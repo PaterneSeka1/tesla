@@ -15,6 +15,7 @@ import { questionInclude } from './evaluation-common.js';
 import {
   effectiveMembership,
   loadRuleSetRow,
+  stillRequiredModuleWhere,
   todayCivil,
   toSnapshot,
 } from '../progression/age-rules.js';
@@ -199,6 +200,7 @@ export async function loadEligibility(
             scoutProfileId: profile.id,
             moduleId: input.evaluation.moduleId,
             decision: null,
+            module: stillRequiredModuleWhere,
           },
         })) > 0
       : false;

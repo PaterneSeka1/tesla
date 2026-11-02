@@ -5,6 +5,7 @@ import {
   addCalendarMonths,
   anniversaryOf,
   apiErrorSchema,
+  availableEvaluationSchema,
   catalogPageSchema,
   catchUpObligationSchema,
   civilDateAt,
@@ -18,7 +19,7 @@ import {
 } from '@tesla/shared';
 import request, { type Test as SupertestRequest } from 'supertest';
 import { type App } from 'supertest/types.js';
-import { type z } from 'zod';
+import { z } from 'zod';
 import { seedInitialAgeRuleSet } from '../prisma/seeds/age-rules.seed.js';
 import { FUNDAMENTAL_TEXTS, ROUTE_MODULES } from '../prisma/seeds/route-bibliotheque.seed.js';
 import { importSourceModules } from '../prisma/seeds/source-modules.js';
@@ -433,6 +434,49 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       );
       expect(novicePathWay.catchUps).toHaveLength(0);
       expect(novicePathWay.stageModules.map((m) => m.id)).toEqual([module.id]);
+
+      // Évaluation du module : ouverte au titre du rattrapage tant que le module reste
+      // obligatoire ; fermée dès qu'il ne l'est plus, même sans décision (AUD-028).
+      const evaluation = await prisma.evaluation.create({
+        data: {
+          title: 'Quiz fictif du rattrapage',
+          stageId: stages.NOVICIAT!,
+          moduleId: module.id,
+        },
+      });
+      const evaluationVersion = await prisma.evaluationVersion.create({
+        data: { evaluationId: evaluation.id, version: 1, title: 'Quiz fictif du rattrapage' },
+      });
+      for (const status of ['SOUMIS', 'APPROUVE', 'PUBLIE'] as const)
+        await prisma.evaluationVersion.update({
+          where: { id: evaluationVersion.id },
+          data: { status, ...(status === 'PUBLIE' && { publishedAt: new Date() }) },
+        });
+      await prisma.evaluation.update({
+        where: { id: evaluation.id },
+        data: { publishedVersionId: evaluationVersion.id },
+      });
+      const eligibilityOf = async () =>
+        (
+          await json(
+            plein.get(`/evaluations?scoutProfileId=${late.id}`),
+            200,
+            z.object({ items: z.array(availableEvaluationSchema) }),
+          )
+        ).items.find((item) => item.id === evaluation.id)?.eligibility?.status;
+      expect(await eligibilityOf()).toBe('ELIGIBLE_RATTRAPAGE');
+      const published = await prisma.moduleVersion.findFirstOrThrow({
+        where: { moduleId: module.id },
+      });
+      await prisma.pedagogicalModule.update({
+        where: { id: module.id },
+        data: { publishedVersionId: null },
+      });
+      expect(await eligibilityOf()).not.toMatch(/^ELIGIBLE/);
+      await prisma.pedagogicalModule.update({
+        where: { id: module.id },
+        data: { publishedVersionId: published.id },
+      });
 
       const obligationId = first.catchUps[0]!.id;
       const decision = {

@@ -43,6 +43,7 @@ import {
 import {
   effectiveMembership,
   loadRuleSetRow,
+  stillRequiredModuleWhere,
   todayCivil,
   toSnapshot,
 } from '../progression/age-rules.js';
@@ -114,7 +115,11 @@ export class EvaluationSessionsService {
             where: { scoutProfileId: subject.profile.id, evaluationId: { in: ids } },
           }),
           this.prisma.catchUpObligation.findMany({
-            where: { scoutProfileId: subject.profile.id, decision: null },
+            where: {
+              scoutProfileId: subject.profile.id,
+              decision: null,
+              module: stillRequiredModuleWhere,
+            },
             select: { moduleId: true },
           }),
         ])
