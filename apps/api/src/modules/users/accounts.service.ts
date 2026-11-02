@@ -1,3 +1,4 @@
+import { createHash, randomInt } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -13,13 +14,17 @@ import {
   type AccountListQuery,
   type AccountStatus,
   type AccountTokenInfo,
-  accountTokenInputSchema,
   type AccountTokenPurpose,
   type AccountWithLink,
-  completeAccountTokenInputSchema,
+  ACTIVATION_CODE_ALPHABET,
+  ACTIVATION_CODE_LENGTH,
+  accountCredentialSchema,
+  completeAccountCredentialInputSchema,
   createAccountInputSchema,
   deactivateAccountInputSchema,
   type Paginated,
+  passwordResetRequestInputSchema,
+  type PasswordResetRequestResult,
   type Role,
   updateAccountInputSchema,
 } from '@tesla/shared';
@@ -31,9 +36,10 @@ import { ENV } from '../../config/config.module.js';
 import { type Env } from '../../config/env.js';
 import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { LoginRateLimiter } from '../auth/login-rate-limiter.js';
+import { CODE_MAX_FAILURES, LoginRateLimiter } from '../auth/login-rate-limiter.js';
 import { hashPassword } from '../auth/password.js';
 import { generateSessionToken, hashSessionToken } from '../auth/session-token.js';
+import { AccountMailer } from './account-mailer.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -72,6 +78,32 @@ const invalidLink = () =>
     message: 'Ce lien est invalide, expiré ou déjà utilisé. Demandez-en un nouveau.',
   });
 
+// Même message que l'e-mail soit connu ou non (aucune énumération des comptes).
+const invalidCode = () =>
+  new BadRequestException({
+    code: 'INVALID_ACCOUNT_CODE',
+    message:
+      'Adresse e-mail ou code incorrect, expiré ou déjà utilisé. Vérifiez votre saisie ou demandez un nouveau code.',
+  });
+
+/** Code de secours (D162) : tirage cryptographique uniforme dans l'alphabet de Crockford. */
+export function generateActivationCode(): string {
+  let code = '';
+  for (let index = 0; index < ACTIVATION_CODE_LENGTH; index += 1) {
+    code += ACTIVATION_CODE_ALPHABET[randomInt(ACTIVATION_CODE_ALPHABET.length)];
+  }
+  return code;
+}
+
+/** Empreinte du code liée à l'e-mail : seul le couple (e-mail, code) ouvre l'invitation. */
+export function hashActivationCode(email: string, code: string): string {
+  return createHash('sha256').update(`account-code\u0000${email}\u0000${code}`).digest('hex');
+}
+
+const formatCode = (code: string) => `${code.slice(0, 5)}-${code.slice(5)}`;
+
+type ParsedCredential = { token: string } | { email: string; code: string };
+
 /**
  * Cycle de vie des comptes (D118–D121). Périmètre : l'administration technique gère tous les
  * comptes ; une décision officielle (plein ou délégation `account.manage`) ne couvre que les comptes
@@ -83,6 +115,7 @@ export class AccountsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly limiter: LoginRateLimiter,
+    private readonly mailer: AccountMailer,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -177,7 +210,7 @@ export class AccountsService {
     this.assertScope(actor, data.role);
     if (data.scoutProfileId) assertCan(actor, 'scout.linkAccount');
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const created = await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
             email: data.email,
@@ -230,6 +263,8 @@ export class AccountsService {
         });
         return { account: await this.toAccount(row, tx), link };
       });
+      const sentByEmail = await this.mailLink(created.account, created.link);
+      return { ...created, link: { ...created.link, sentByEmail } };
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new ConflictException({
@@ -280,7 +315,8 @@ export class AccountsService {
    */
   async issueAccountLink(actor: Actor, id: string): Promise<AccountWithLink> {
     assertCan(actor, 'account.manage');
-    return this.prisma.$transaction(async (tx) => {
+    await this.limiter.consume(this.limiter.userKeys('reissue', id));
+    const issued = await this.prisma.$transaction(async (tx) => {
       const row = await this.findInScope(actor, id, tx);
       if (!row.isActive) {
         throw new ConflictException({
@@ -292,6 +328,8 @@ export class AccountsService {
       const link = await this.issueLink(tx, id, purpose, actor.userId);
       return { account: await this.toAccount(row, tx), link };
     });
+    const sentByEmail = await this.mailLink(issued.account, issued.link);
+    return { ...issued, link: { ...issued.link, sentByEmail } };
   }
 
   async deactivate(actor: Actor, id: string, input: unknown): Promise<Account> {
@@ -390,22 +428,39 @@ export class AccountsService {
     });
   }
 
-  /** Jeton à usage unique ; seul son hash est conservé. Révoque les liens précédents du compte. */
+  /**
+   * Jeton à usage unique et code de secours équivalent (D162) ; seules leurs empreintes sont
+   * conservées. Révoque les liens précédents du compte. Durée : `ttlMs`, ou la durée des liens
+   * transmis par une personne habilitée (ACCOUNT_LINK_TTL_HOURS).
+   */
   private async issueLink(
     tx: Tx,
     userId: string,
     purpose: AccountTokenPurpose,
     createdById: string | null,
+    ttlMs = this.env.ACCOUNT_LINK_TTL_HOURS * 3_600_000,
   ): Promise<AccountLink> {
     const now = new Date();
     await tx.accountToken.updateMany({
       where: { userId, usedAt: null, revokedAt: null },
       data: { revokedAt: now },
     });
+    const { email } = await tx.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { email: true },
+    });
     const token = generateSessionToken();
-    const expiresAt = new Date(now.getTime() + this.env.ACCOUNT_LINK_TTL_HOURS * 3_600_000);
+    const code = generateActivationCode();
+    const expiresAt = new Date(now.getTime() + ttlMs);
     await tx.accountToken.create({
-      data: { userId, purpose, tokenHash: hashSessionToken(token), expiresAt, createdById },
+      data: {
+        userId,
+        purpose,
+        tokenHash: hashSessionToken(token),
+        codeHash: hashActivationCode(email, code),
+        expiresAt,
+        createdById,
+      },
     });
     await tx.auditLog.create({
       data: {
@@ -416,12 +471,34 @@ export class AccountsService {
         metadata: { purpose, expiresAt: expiresAt.toISOString() },
       },
     });
-    return { token, purpose, expiresAt: expiresAt.toISOString() };
+    return {
+      token,
+      code: formatCode(code),
+      purpose,
+      expiresAt: expiresAt.toISOString(),
+      sentByEmail: false,
+    };
   }
 
-  private async findUsableToken(token: string) {
+  /**
+   * Envoi par e-mail d'un lien émis par une personne habilitée, si SMTP est configuré. Le lien reste
+   * affiché une fois à l'émetteur dans tous les cas (récupération administrée).
+   */
+  private async mailLink(account: Account, link: AccountLink): Promise<boolean> {
+    if (!this.mailer.enabled) return false;
+    return this.mailer.sendAccountLink({
+      to: account.email,
+      firstName: account.firstName,
+      purpose: link.purpose,
+      token: link.token,
+      code: link.code.replace('-', ''),
+      expiresAt: new Date(link.expiresAt),
+    });
+  }
+
+  private async findUsable(where: { tokenHash: string } | { codeHash: string }) {
     const row = await this.prisma.accountToken.findUnique({
-      where: { tokenHash: hashSessionToken(token) },
+      where,
       include: { user: { select: { firstName: true, isActive: true } } },
     });
     if (!row || row.usedAt || row.revokedAt || row.expiresAt <= new Date() || !row.user.isActive) {
@@ -430,16 +507,68 @@ export class AccountsService {
     return row;
   }
 
-  /** Vérification d'un lien avant la saisie du mot de passe (route publique, limitée par adresse IP). */
-  async inspectToken(input: unknown, ip: string): Promise<AccountTokenInfo> {
-    const keys = this.limiter.tokenKeys(ip);
+  /**
+   * Contrôle commun du lien et du code (D162), pour une finalité donnée (`null` : anciennes routes
+   * `/auth/account-link`, la finalité du jeton fait foi). Un jeton d'activation n'ouvre jamais la
+   * récupération, et inversement. Échecs comptés par adresse IP (et par e-mail pour un code) ; un
+   * code erroné compte aussi sur l'invitation en cours, révoquée au 5e essai.
+   */
+  private async resolveCredential(
+    credential: ParsedCredential,
+    purpose: AccountTokenPurpose | null,
+    ip: string,
+  ) {
+    const byToken = 'token' in credential;
+    const keys = byToken ? this.limiter.tokenKeys(ip) : this.limiter.codeKeys(ip, credential.email);
     await this.limiter.assertAllowed(keys);
-    const { token } = parseInput(accountTokenInputSchema, input);
-    const row = await this.findUsableToken(token);
-    if (!row) {
-      await this.limiter.recordFailure(keys);
-      throw invalidLink();
+    const row = await this.findUsable(
+      byToken
+        ? { tokenHash: hashSessionToken(credential.token) }
+        : { codeHash: hashActivationCode(credential.email, credential.code) },
+    );
+    if (row && (purpose === null || row.purpose === purpose)) return row;
+    await this.limiter.recordFailure(keys);
+    if (byToken) throw invalidLink();
+    const pending = {
+      user: { email: credential.email },
+      usedAt: null,
+      revokedAt: null,
+      expiresAt: { gt: new Date() },
+      ...(purpose && { purpose }),
+    } satisfies Prisma.AccountTokenWhereInput;
+    await this.prisma.accountToken.updateMany({
+      where: pending,
+      data: { codeFailures: { increment: 1 } },
+    });
+    const revoked = await this.prisma.accountToken.updateMany({
+      where: { ...pending, codeFailures: { gte: CODE_MAX_FAILURES } },
+      data: { revokedAt: new Date() },
+    });
+    if (revoked.count > 0) {
+      const user = await this.prisma.user.findUnique({
+        where: { email: credential.email },
+        select: { id: true },
+      });
+      await this.prisma.auditLog.create({
+        data: {
+          action: 'account.code_locked',
+          entityType: 'User',
+          entityId: user?.id ?? null,
+          metadata: { purpose },
+        },
+      });
     }
+    throw invalidCode();
+  }
+
+  /** Vérification préalable d'un lien ou d'un code (route publique) : ne consomme rien. */
+  async verifyCredential(
+    input: unknown,
+    ip: string,
+    purpose: AccountTokenPurpose | null,
+  ): Promise<AccountTokenInfo> {
+    const credential: ParsedCredential = parseInput(accountCredentialSchema, input);
+    const row = await this.resolveCredential(credential, purpose, ip);
     return {
       purpose: row.purpose,
       firstName: row.user.firstName,
@@ -447,20 +576,31 @@ export class AccountsService {
     };
   }
 
-  /**
-   * Définit le mot de passe du titulaire du lien. Le jeton est consommé par une mise à jour
-   * conditionnelle (deux envois simultanés : un seul réussit) ; toutes les sessions existantes
-   * sont révoquées.
-   */
+  /** Ancienne route `/auth/account-link/inspect` (liens `/activation#…` déjà émis). */
+  async inspectToken(input: unknown, ip: string): Promise<AccountTokenInfo> {
+    return this.verifyCredential(input, ip, null);
+  }
+
+  /** Ancienne route `/auth/account-link/complete`. */
   async completeToken(input: unknown, ip: string): Promise<void> {
-    const keys = this.limiter.tokenKeys(ip);
-    await this.limiter.assertAllowed(keys);
-    const { token, password } = parseInput(completeAccountTokenInputSchema, input);
-    const row = await this.findUsableToken(token);
-    if (!row) {
-      await this.limiter.recordFailure(keys);
-      throw invalidLink();
-    }
+    return this.completeCredential(input, ip, null);
+  }
+
+  /**
+   * Définit le mot de passe choisi par le titulaire. La preuve (lien ou code) est revérifiée puis
+   * consommée par une mise à jour conditionnelle (deux envois simultanés : un seul réussit) ;
+   * toutes les sessions existantes sont révoquées. Un compte désactivé n'est jamais réactivé.
+   */
+  async completeCredential(
+    input: unknown,
+    ip: string,
+    purpose: AccountTokenPurpose | null,
+  ): Promise<void> {
+    const parsed = parseInput(completeAccountCredentialInputSchema, input);
+    const { password } = parsed;
+    const credential: ParsedCredential =
+      'token' in parsed ? { token: parsed.token } : { email: parsed.email, code: parsed.code };
+    const row = await this.resolveCredential(credential, purpose, ip);
     const passwordHash = await hashPassword(password);
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
@@ -468,13 +608,13 @@ export class AccountsService {
         where: { id: row.id, usedAt: null, revokedAt: null, expiresAt: { gt: now } },
         data: { usedAt: now },
       });
-      if (count === 0) throw invalidLink();
+      if (count === 0) throw 'token' in credential ? invalidLink() : invalidCode();
       const user = await tx.user.updateMany({
         where: { id: row.userId, isActive: true },
         data: { passwordHash },
       });
       if (user.count === 0) throw invalidLink();
-      await tx.session.updateMany({
+      const sessions = await tx.session.updateMany({
         where: { userId: row.userId, revokedAt: null },
         data: { revokedAt: now },
       });
@@ -484,9 +624,57 @@ export class AccountsService {
           action: row.purpose === 'ACTIVATION' ? 'account.activated' : 'account.password_reset',
           entityType: 'User',
           entityId: row.userId,
+          metadata: {
+            method: 'token' in credential ? 'lien' : 'code',
+            revokedSessions: sessions.count,
+          },
         },
       });
     });
+  }
+
+  /**
+   * « Mot de passe oublié » en libre-service (D166). Réponse identique que le compte existe ou non,
+   * et au même rythme (l'envoi n'est pas attendu). Sans SMTP, rien n'est émis : la personne
+   * s'adresse à un responsable habilité (récupération administrée). Compte désactivé ou jamais
+   * activé : aucune émission.
+   */
+  async requestPasswordReset(input: unknown, ip: string): Promise<PasswordResetRequestResult> {
+    const { email } = parseInput(passwordResetRequestInputSchema, input);
+    await this.limiter.consume(this.limiter.resetRequestKeys(ip, email));
+    if (!this.mailer.enabled) return { channel: 'RESPONSABLE' };
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, firstName: true, isActive: true, passwordHash: true },
+    });
+    if (user?.isActive && user.passwordHash !== null) {
+      const link = await this.prisma.$transaction(async (tx) => {
+        await tx.auditLog.create({
+          data: {
+            actorId: null,
+            action: 'account.password_reset_requested',
+            entityType: 'User',
+            entityId: user.id,
+          },
+        });
+        return this.issueLink(
+          tx,
+          user.id,
+          'REINITIALISATION',
+          null,
+          this.env.PASSWORD_RESET_TTL_MINUTES * 60_000,
+        );
+      });
+      void this.mailer.sendAccountLink({
+        to: user.email,
+        firstName: user.firstName,
+        purpose: 'REINITIALISATION',
+        token: link.token,
+        code: link.code.replace('-', ''),
+        expiresAt: new Date(link.expiresAt),
+      });
+    }
+    return { channel: 'EMAIL' };
   }
 
   /**

@@ -4,20 +4,84 @@ import { ROLES } from './roles.js';
 
 /**
  * Cycle de vie des comptes (D118–D121). Un compte est créé sans mot de passe par une personne
- * habilitée ; son titulaire choisit son mot de passe grâce à un lien d'activation à usage unique,
- * transmis hors de l'application (aucun service d'e-mail). La réinitialisation suit le même
- * mécanisme. Le routier sans compte reste la règle (RM-001) : le compte se rattache à sa fiche.
+ * habilitée ; son titulaire choisit son mot de passe grâce à un lien d'activation à usage unique
+ * (ou au code de secours qui l'accompagne, D162), transmis par une personne habilitée ou par e-mail
+ * si SMTP est configuré (D166). La réinitialisation suit le même mécanisme, avec des jetons, des
+ * routes et des journaux distincts. Le routier sans compte reste la règle (RM-001) : le compte se
+ * rattache à sa fiche. Personne d'autre que le titulaire ne choisit ni ne connaît le mot de passe.
  */
 
 /** Longueur minimale d'un mot de passe (recommandation NIST SP 800-63B : longueur, sans règles de composition). */
 export const PASSWORD_MIN_LENGTH = 12;
+
+/** Longueur maximale acceptée (phrases de passe ; jamais de troncature silencieuse). */
+export const PASSWORD_MAX_LENGTH = 256;
+
+/**
+ * Mots de passe trop courants parmi ceux qui atteignent la longueur minimale (liste locale, sans
+ * service externe). Comparaison sans casse ni espaces.
+ */
+const COMMON_PASSWORDS = new Set([
+  '123456789012',
+  '1234567890123',
+  '12345678901234',
+  '123456789123',
+  '1234567890ab',
+  '123456789abc',
+  'abcdefghijkl',
+  'abc123456789',
+  'azertyuiop12',
+  'azertyuiop123',
+  'azertyuiopqs',
+  'azertyuiopqsd',
+  'qwertyuiop12',
+  'qwertyuiop123',
+  'qwertyuiopas',
+  'password1234',
+  'password12345',
+  'passwordpassword',
+  'motdepasse12',
+  'motdepasse123',
+  'motdepasse1234',
+  'motdepassemotdepasse',
+  'iloveyou1234',
+  'jetaime123456',
+  'bonjour12345',
+  'bonjour123456',
+  'soleil123456',
+  'abidjan12345',
+  'abidjan123456',
+  'cotedivoire225',
+  'nikolatesla1',
+  'nikolatesla123',
+  'nikolateslaacademie',
+  'scoutisme1234',
+  'routier12345',
+  'routier123456',
+  'azerty123456',
+  'qwerty123456',
+  'welcome12345',
+  'administrator',
+  'administrateur',
+]);
+
+/** Refus des mots de passe triviaux : liste courante, un seul caractère répété. */
+export function isWeakPassword(value: string): boolean {
+  const normalized = value.toLowerCase().replace(/\s+/g, '');
+  return COMMON_PASSWORDS.has(normalized) || /^(.)\1*$/u.test(normalized);
+}
 
 export const newPasswordSchema = z
   .string()
   .min(PASSWORD_MIN_LENGTH, {
     error: `Le mot de passe doit contenir au moins ${PASSWORD_MIN_LENGTH} caractères.`,
   })
-  .max(256, { error: 'Mot de passe trop long.' });
+  .max(PASSWORD_MAX_LENGTH, {
+    error: `Le mot de passe ne peut pas dépasser ${PASSWORD_MAX_LENGTH} caractères.`,
+  })
+  .refine((value) => !isWeakPassword(value), {
+    error: 'Ce mot de passe est trop courant. Choisissez une phrase plus personnelle.',
+  });
 
 const accountEmailSchema = z
   .email({ error: 'Adresse e-mail invalide.' })
@@ -35,6 +99,31 @@ export const accountTokenSchema = z
   .string()
   .trim()
   .regex(/^[A-Za-z0-9_-]{43}$/, { error: 'Lien invalide ou incomplet.' });
+
+/**
+ * Code de secours (D162) : 10 caractères de l'alphabet de Crockford (sans I, L, O, U), affichés
+ * « ABCDE-FGHJK ». Saisi avec l'e-mail ; lettres ambiguës, espaces et tirets tolérés à la saisie.
+ */
+export const ACTIVATION_CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+export const ACTIVATION_CODE_LENGTH = 10;
+
+export function normalizeActivationCode(value: string): string {
+  return value
+    .toUpperCase()
+    .replace(/[\s-]+/g, '')
+    .replace(/O/g, '0')
+    .replace(/[IL]/g, '1');
+}
+
+export const activationCodeSchema = z
+  .string()
+  .max(40)
+  .transform(normalizeActivationCode)
+  .pipe(
+    z.string().regex(new RegExp(`^[${ACTIVATION_CODE_ALPHABET}]{${ACTIVATION_CODE_LENGTH}}$`), {
+      error: 'Code invalide : 10 caractères, par exemple ABCDE-12345.',
+    }),
+  );
 
 export const ACCOUNT_TOKEN_PURPOSES = ['ACTIVATION', 'REINITIALISATION'] as const;
 export type AccountTokenPurpose = (typeof ACCOUNT_TOKEN_PURPOSES)[number];
@@ -119,6 +208,10 @@ export type Account = z.infer<typeof accountSchema>;
  */
 export const accountLinkSchema = z.object({
   token: z.string(),
+  /** Code de secours équivalent au lien (D162), à transmettre séparément si possible. */
+  code: z.string(),
+  /** Vrai seulement si l'e-mail est réellement parti (SMTP configuré et envoi accepté, D166). */
+  sentByEmail: z.boolean(),
   purpose: z.enum(ACCOUNT_TOKEN_PURPOSES),
   expiresAt: z.iso.datetime(),
 });
@@ -142,6 +235,55 @@ export const accountTokenInfoSchema = z.object({
 });
 
 export type AccountTokenInfo = z.infer<typeof accountTokenInfoSchema>;
+
+/**
+ * Preuve d'invitation ou de récupération (D162) : le jeton du lien, ou l'e-mail avec le code de
+ * secours. Les deux mènent au même contrôle serveur ; un matricule ou une date de naissance ne
+ * suffisent jamais.
+ */
+export const accountCredentialSchema = z.union([
+  z.object({ token: accountTokenSchema }),
+  z.object({
+    email: z
+      .email({ error: 'Adresse e-mail invalide.' })
+      .max(254)
+      .transform((value) => value.trim().toLowerCase()),
+    code: activationCodeSchema,
+  }),
+]);
+
+export type AccountCredential = z.input<typeof accountCredentialSchema>;
+
+/** Vérification préalable (ne consomme rien) : renvoie le prénom et l'échéance seulement. */
+export const verifyAccountCredentialInputSchema = accountCredentialSchema;
+
+/** Définition du mot de passe : la preuve est revérifiée et consommée atomiquement. */
+export const completeAccountCredentialInputSchema = z.intersection(
+  accountCredentialSchema,
+  z.object({ password: newPasswordSchema }),
+);
+
+export type CompleteAccountCredentialInput = z.input<typeof completeAccountCredentialInputSchema>;
+
+/** « Mot de passe oublié » en libre-service (public, réponse neutre). */
+export const passwordResetRequestInputSchema = z.object({
+  email: z
+    .email({ error: 'Adresse e-mail invalide.' })
+    .max(254)
+    .transform((value) => value.trim().toLowerCase()),
+});
+
+export type PasswordResetRequestInput = z.input<typeof passwordResetRequestInputSchema>;
+
+/**
+ * Réponse identique que le compte existe ou non. `channel` ne dépend que de la configuration :
+ * `EMAIL` si l'envoi est configuré, `RESPONSABLE` sinon (récupération administrée, rien n'est envoyé).
+ */
+export const passwordResetRequestResultSchema = z.object({
+  channel: z.enum(['EMAIL', 'RESPONSABLE']),
+});
+
+export type PasswordResetRequestResult = z.infer<typeof passwordResetRequestResultSchema>;
 
 /** Définition du mot de passe par le titulaire du lien (public). */
 export const completeAccountTokenInputSchema = z.object({

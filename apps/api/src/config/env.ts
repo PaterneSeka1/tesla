@@ -24,6 +24,29 @@ const envSchema = z
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
     /** Validité d'un lien d'activation ou de réinitialisation du mot de passe (heures, D118). */
     ACCOUNT_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(336).default(72),
+    /** Validité d'une demande « mot de passe oublié » en libre-service (minutes, D166). */
+    PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(10).max(1440).default(60),
+    /**
+     * Adresse publique du site (liens envoyés par e-mail), ex. https://tesla.example.org. Requise
+     * avec SMTP ; jamais déduite de l'en-tête Host de la requête (empoisonnement de lien).
+     */
+    PUBLIC_APP_URL: z
+      .url({ protocol: /^https?$/, error: 'URL http(s) du site attendue' })
+      .transform((value) => value.replace(/\/+$/, ''))
+      .optional(),
+    /**
+     * Envoi des liens d'activation et de récupération par e-mail (facultatif, D166). Tout ou rien :
+     * absent, la récupération est administrée (lien remis par une personne habilitée) et aucun
+     * message ne prétend qu'un e-mail a été envoyé.
+     */
+    SMTP_HOST: z.string().trim().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+    /** true : TLS dès la connexion (port 465) ; false : STARTTLS exigé (port 587). */
+    SMTP_SECURE: booleanString.default(false),
+    SMTP_USER: z.string().trim().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    /** Expéditeur, ex. « Nikola Tesla Académie <no-reply@example.org> ». */
+    SMTP_FROM: z.string().trim().min(3).optional(),
     /** Derrière un proxy inverse (Nginx) : utiliser X-Forwarded-For pour l'adresse IP du client. */
     TRUST_PROXY: booleanString.default(false),
     /**
@@ -107,6 +130,33 @@ const envSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['R2_ENDPOINT'],
+        message: 'https:// obligatoire en production.',
+      });
+    }
+  })
+  .superRefine((env, ctx) => {
+    const keys = ['SMTP_HOST', 'SMTP_FROM', 'PUBLIC_APP_URL'] as const;
+    if (env.SMTP_HOST === undefined && env.SMTP_FROM === undefined) return;
+    for (const key of keys) {
+      if (env[key] === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: `${key} manquant : configuration SMTP incomplète.`,
+        });
+      }
+    }
+    if ((env.SMTP_USER === undefined) !== (env.SMTP_PASSWORD === undefined)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMTP_USER'],
+        message: 'SMTP_USER et SMTP_PASSWORD vont ensemble.',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.PUBLIC_APP_URL?.startsWith('http:')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PUBLIC_APP_URL'],
         message: 'https:// obligatoire en production.',
       });
     }

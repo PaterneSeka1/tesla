@@ -5,6 +5,7 @@ import { AppModule } from '../app.module.js';
 import { ENV } from '../config/config.module.js';
 import { type Env } from '../config/env.js';
 import { loadRootEnvFile } from '../config/load-env-file.js';
+import { ACCOUNT_LINK_PATHS } from '../modules/users/account-mailer.js';
 import { AccountsService } from '../modules/users/accounts.service.js';
 
 /**
@@ -43,7 +44,7 @@ async function main(): Promise<void> {
     const webUrl = (values['web-url'] ?? env.CORS_ORIGINS[0] ?? '').replace(/\/$/, '');
     // Sortie standard uniquement (jamais dans les journaux applicatifs) : à transmettre au titulaire.
     process.stdout.write(
-      `${link.purpose === 'ACTIVATION' ? 'Activation' : 'Réinitialisation'} — lien à usage unique, valable jusqu'au ${link.expiresAt} :\n${webUrl}/activation#${link.token}\n`,
+      `${link.purpose === 'ACTIVATION' ? 'Activation' : 'Réinitialisation'} — lien à usage unique, valable jusqu'au ${link.expiresAt} :\n${webUrl}${ACCOUNT_LINK_PATHS[link.purpose]}#${link.token}\nCode de secours (avec l'adresse e-mail) : ${link.code}\n`,
     );
   } finally {
     await app.close();
