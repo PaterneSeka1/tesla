@@ -1,29 +1,17 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { BrandLogo } from '@/components/brand-logo';
-import { ActivationForm } from './activation-form';
+import { AccountPageShell } from '@/components/auth/account-page-shell';
+import { LegacyLinkRedirect } from './activation-form';
 
-export const metadata: Metadata = { title: 'Choisir un mot de passe', robots: { index: false } };
+export const metadata: Metadata = { title: 'Lien de compte', robots: { index: false } };
 
-/** Lien d'activation ou de réinitialisation (`/activation#<jeton>`), transmis par une personne habilitée. */
+/**
+ * Anciens liens `/activation#<jeton>` (émis avant D162) : renvoyés vers la page de leur finalité,
+ * le jeton restant dans le fragment.
+ */
 export default function ActivationPage() {
   return (
-    <main className="flex min-h-dvh items-start justify-center bg-background px-4 py-12 sm:items-center">
-      <div className="w-full max-w-sm space-y-6 rounded-2xl border bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-3">
-          <BrandLogo size={40} />
-          <p className="font-semibold text-tesla-bordeaux">Nikola Tesla Académie</p>
-        </div>
-        <ActivationForm />
-        <p className="text-center text-sm">
-          <Link
-            href="/connexion"
-            className="text-muted-foreground underline-offset-4 hover:text-tesla-rouge hover:underline"
-          >
-            Aller à la connexion
-          </Link>
-        </p>
-      </div>
-    </main>
+    <AccountPageShell>
+      <LegacyLinkRedirect />
+    </AccountPageShell>
   );
 }

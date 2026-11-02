@@ -30,7 +30,7 @@ export function AccountLinkDialog({
   onClose: () => void;
 }) {
   const toast = useToast();
-  const url = link ? accountLinkUrl(link.token) : '';
+  const url = link ? accountLinkUrl(link.token, link.purpose) : '';
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -47,8 +47,11 @@ export function AccountLinkDialog({
             {link?.purpose === 'ACTIVATION' ? 'Lien d’activation' : 'Lien de réinitialisation'}
           </DialogTitle>
           <DialogDescription>
-            À transmettre uniquement à {name}, par un canal personnel. Il ne fonctionne qu’une fois,
-            jusqu’au {link ? formatDateTime(link.expiresAt) : ''}, et ne sera plus affiché.
+            {link?.sentByEmail
+              ? `Envoyé par e-mail à ${name}. `
+              : `À transmettre uniquement à ${name}, par un canal personnel, après avoir vérifié son identité. `}
+            Il ne fonctionne qu’une fois, jusqu’au {link ? formatDateTime(link.expiresAt) : ''}, et
+            ne sera plus affiché. Personne d’autre que {name} ne choisit son mot de passe.
           </DialogDescription>
         </DialogHeader>
         <Input
@@ -57,6 +60,17 @@ export function AccountLinkDialog({
           aria-label="Lien à transmettre"
           onFocus={(e) => e.target.select()}
         />
+        <div className="space-y-1 text-sm">
+          <p className="text-muted-foreground">
+            Si le lien ne s’ouvre pas : code à saisir avec l’adresse e-mail du compte.
+          </p>
+          <p
+            className="font-mono text-lg font-semibold tracking-widest"
+            aria-label="Code de secours"
+          >
+            {link?.code}
+          </p>
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Fermer

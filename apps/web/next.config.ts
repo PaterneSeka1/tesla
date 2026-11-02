@@ -56,6 +56,16 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
         ],
       },
+      // Pages de compte : aucun référent transmis, jamais mises en cache (D162, D166).
+      ...['/inscription', '/activation', '/mot-de-passe-oublie', '/reinitialiser-mot-de-passe'].map(
+        (source) => ({
+          source,
+          headers: [
+            { key: 'Referrer-Policy', value: 'no-referrer' },
+            { key: 'Cache-Control', value: 'no-store' },
+          ],
+        }),
+      ),
       {
         source: '/sw.js',
         headers: [

@@ -59,10 +59,23 @@ export default function LoginPage() {
           <Suspense fallback={<Skeleton className="h-56" />}>
             <LoginForm />
           </Suspense>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Mot de passe oublié ou compte à activer : demandez un lien à la personne qui gère votre
-            compte.
-          </p>
+          <nav
+            aria-label="Aide à la connexion"
+            className="mt-4 flex flex-wrap justify-between gap-2 text-sm"
+          >
+            <Link
+              href="/mot-de-passe-oublie"
+              className="inline-flex min-h-11 items-center font-medium text-tesla-rouge underline-offset-4 hover:underline"
+            >
+              Mot de passe oublié ?
+            </Link>
+            <Link
+              href="/inscription"
+              className="inline-flex min-h-11 items-center font-medium text-tesla-rouge underline-offset-4 hover:underline"
+            >
+              Activer mon compte
+            </Link>
+          </nav>
           <p className="mt-6 text-center text-sm">
             <Link
               href="/"

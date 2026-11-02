@@ -4,7 +4,7 @@
 // - les pages HTML et charges RSC mises en cache sont génériques : Next.js les rend sans cookie ni
 //   donnée de compte ; tout contenu personnel est lu ensuite dans le coffre de l'utilisateur ;
 // - une mise à jour ne touche jamais à IndexedDB (opérations locales conservées).
-const VERSION = 'v4';
+const VERSION = 'v5';
 const SHELL_CACHE = `tesla-shell-${VERSION}`;
 const PAGES_CACHE = 'tesla-pages';
 const STATIC_CACHE = 'tesla-static';
@@ -57,8 +57,17 @@ async function cacheAssets(urls) {
 const pageKey = (url) => new URL(url.pathname, self.location.origin).href;
 
 /** Page générique réellement servie pour ce chemin (pas une redirection vers la connexion). */
+/** Pages de compte (invitation, récupération) : jamais conservées, elles exigent le serveur (D162). */
+const NEVER_STORED = [
+  '/activation',
+  '/inscription',
+  '/mot-de-passe-oublie',
+  '/reinitialiser-mot-de-passe',
+];
+
 function isStorablePage(response, url) {
   return (
+    !NEVER_STORED.includes(url.pathname) &&
     response.ok &&
     !response.redirected &&
     new URL(response.url || url.href).pathname === url.pathname &&
