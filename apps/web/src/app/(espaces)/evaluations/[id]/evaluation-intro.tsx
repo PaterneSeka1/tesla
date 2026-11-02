@@ -127,7 +127,11 @@ export function EvaluationIntro() {
             </Button>
           )}
           {!localCopy && eligibility?.allowed && (!open || open.mode === 'HORS_LIGNE') && (
-            <Button asChild variant="outline">
+            <Button
+              asChild
+              variant="outline"
+              className="h-auto min-h-9 max-w-full whitespace-normal py-2"
+            >
               <Link href={`/evaluations/${data.id}/preparer`}>
                 Préparer pour passer sans connexion
               </Link>

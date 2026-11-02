@@ -380,7 +380,9 @@ export function ActivityDetail({ id }: { id: string }) {
             </fieldset>
           </>
         )}
-        <Button disabled={busy}>Enregistrer la préparation et le compte rendu</Button>
+        <Button disabled={busy} className="h-auto min-h-9 max-w-full whitespace-normal py-2">
+          Enregistrer la préparation et le compte rendu
+        </Button>
       </form>
       {error && <p role="alert">{error}</p>}
       {attendance.data ? (

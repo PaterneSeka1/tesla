@@ -27,8 +27,9 @@ export function HomeDashboard() {
     <div className="space-y-6">
       {pathway && (
         <>
-          <MyPathwayOverview />
+          {/* Étape actuelle et activité d'abord ; le détail du calcul par l'âge ensuite. */}
           <RoutierPedagogyDashboard />
+          <MyPathwayOverview />
         </>
       )}
       {staff && <StaffDashboard />}

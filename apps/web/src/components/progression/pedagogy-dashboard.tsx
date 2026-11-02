@@ -533,7 +533,7 @@ function OfflineSummary() {
     <Kpi
       label="Modules avec images"
       value={count ?? '—'}
-      hint={count === null ? 'Coffre local verrouillé' : 'Sur cet appareil'}
+      hint={count === null ? 'Déverrouillez « Cet appareil » pour les voir' : 'Sur cet appareil'}
       href="/appareil"
       icon={CloudDownload}
     />
