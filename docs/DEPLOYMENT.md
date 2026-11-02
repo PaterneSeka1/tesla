@@ -24,7 +24,7 @@ Internet ── 443 ── Nginx ──┬── /api/*  → 127.0.0.1:4000  tes
 | PostgreSQL | 18 (dépôt PGDG), écoute `localhost` uniquement |
 | Paquets | `nginx`, `certbot`, `python3-certbot-nginx`, `git`, `gnupg`, `rclone`, `curl` |
 | Réseau | DNS du domaine vers le VPS ; pare-feu : 22, 80, 443 |
-| Hors VPS | Stockage distant chiffré au repos pour les sauvegardes ; clé privée GnuPG de sauvegarde conservée hors ligne par deux personnes |
+| Hors VPS | Cloudflare R2 : compartiment privé des fichiers applicatifs et compartiment verrouillé des sauvegardes, jetons distincts ([STORAGE_R2.md](STORAGE_R2.md) § 6) ; clé privée GnuPG, `MEDICAL_DATA_KEY` et mots de passe rclone crypt conservés hors ligne par deux personnes |
 
 ## 3. Première installation (production)
 
@@ -105,7 +105,8 @@ Règles :
 | Échecs | `systemctl --failed` (sauvegarde, traitement quotidien, contrôle de santé) |
 | Journaux | `journalctl -u tesla-api@production -u tesla-web@production --since today` ; Nginx : `/var/log/nginx/tesla.*.log` |
 | Certificat | `certbot certificates` ; renouvellement automatique par `certbot.timer`, Nginx rechargé par le plugin |
-| Disque | Sauvegardes locales (14 jours), journaux (journald plafonné à 1 Go) |
+| Disque | Sauvegardes locales (`BACKUP_RETENTION_DAYS`, 2 jours proposés avec R2), contrôle d'espace avant chaque dump, journaux (journald plafonné à 1 Go) ; aucun fichier téléversé sur le VPS (envoi direct à R2) |
+| Stockage objet | Journal de `tesla-daily@<instance>` (envois abandonnés, fichiers par statut, sans référence) ; métriques R2 du tableau de bord Cloudflare |
 
 Alerte e-mail ou messagerie : non configurée (aucun service externe choisi) ; à brancher sur `systemctl --failed` ou sur la sonde externe.
 

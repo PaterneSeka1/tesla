@@ -27,7 +27,8 @@ PostgreSQL 18 (Docker Compose en développement) · Prisma 7 avec `@prisma/adapt
 | `PedagogicalModule` (`pedagogical_modules`) | Module pédagogique | `number` (SERIAL, code `MOD-001`), `slug` unique et stable, `createdById`, `publishedVersionId` (unique, nullable : version en ligne) |
 | `ModuleVersion` (`module_versions`) | Version éditoriale | `(moduleId, version)` unique ; `status` (`ModuleVersionStatus`) ; titre, `summary`, `objectives` (text[]), `prerequisites`, `durationMinutes`, `stageId` (étape recommandée), `theme` (libellé libre) ; `revision` (concurrence optimiste) ; `basedOnVersionId` ; auteurs et dates de soumission, approbation, publication, archivage ; `submissionNote` |
 | `ModuleLesson` (`module_lessons`) | Leçon ordonnée | `versionId`, `position` (0…n, contiguë), `title`, `content` (JSONB validé par liste blanche), `durationMinutes`, `revision`, `createdById`, `updatedById` |
-| `ModuleResource` (`module_resources`) | Ressource externe | `versionId`, `lessonId` (null = module), `kind` (`IMAGE`, `DOCUMENT`, `VIDEO`, `LIEN`), `title`, `url`, `description` |
+| `ModuleResource` (`module_resources`) | Ressource externe ou fichier joint | `versionId`, `lessonId` (null = module), `kind` (`IMAGE`, `DOCUMENT`, `VIDEO`, `LIEN`), `title`, `url` (null pour un fichier), `fileId` (D143), `description` |
+| `StoredFile` (`stored_files`) | Métadonnées d'un objet du stockage R2 (D143) | `category`, `status` (`EN_ATTENTE`, `VALIDE`, `REJETE`, `ABANDONNE`), `bucket`, `storageKey` (unique, générée), `originalName`, `mimeType`, `sizeBytes`, `sha256`, `moduleId`, `createdById`, `uploadExpiresAt`, `validatedAt`, `rejectionReason`, `objectDeletedAt` |
 | `ModuleCollaborator` (`module_collaborators`) | Chef collaborateur | `moduleId`, `userId`, `addedById` ; retrait par `removedAt`/`removedById` (jamais supprimé) ; une invitation active par chef et par module |
 | `ModuleVersionEvent` (`module_version_events`) | Historique des versions et décisions | Ajout seul : `action` (`ModuleVersionAction`), `fromStatus`, `toStatus`, `actorId`, `comment` |
 | `AuditLog` (`audit_logs`) | Journal | Ajout seul ; `actorId` null = action système ; index `(entityType, entityId)`, `actorId`, `createdAt` |
@@ -235,3 +236,9 @@ Index `(user_id, created_at)`. Journal technique, jamais une décision métier ;
 - `leadership_assignments` : fonction d'encadrement en cours tant que `ended_at` est nul ; index uniques partiels `leadership_assignments_one_plein` et `leadership_assignments_one_per_user` ; CHECK `leadership_assignments_end_check` ; trigger `leadership_assignments_guard` (ni suppression, ni réécriture ; fin enregistrée une fois).
 - Reprise : mandats en vigueur à la date civile d'Abidjan → fonctions (`source_mandate_id`).
 - `leadership_mandates`, `delegations`, `scout_years` : conservées, gelées par le trigger `archived_table_guard` (aucune nouvelle écriture). Aucune table ni donnée supprimée. Testée sur une base jetable copiée de `tesla_test`, puis appliquée sur `tesla_test` et `tesla` ; diff schéma ↔ base vide.
+
+## Stockage objet — migration `20261110090000_stored_files` (2026-11-02, additive)
+
+- Table `stored_files` : CHECK de taille positive, empreinte hexadécimale, clé sûre (`[a-z0-9-]` par segment, aucun `..`), type en liste blanche, propriétaire de module pour `MODULE_RESOURCE`, `validated_at` présent si et seulement si `VALIDE`. Trigger `stored_files_guard` : aucune suppression ; compartiment, clé, empreinte, taille, type, catégorie, module, auteur et date de création immuables ; statut modifiable seulement depuis `EN_ATTENTE`.
+- `module_resources` : `url` devient facultative, `file_id` ajoutée (FK `RESTRICT`), CHECK `module_resources_url_or_file` (adresse **ou** fichier ; fichier seulement pour `IMAGE`/`DOCUMENT`). Les lignes existantes ont toutes une URL : aucune donnée modifiée.
+- Appliquée sur `tesla` et `tesla_test`. Aucun binaire ni URL signée en base.

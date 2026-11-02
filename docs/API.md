@@ -274,6 +274,17 @@ Statut renvoyé : `{ id, status, syncStatus: LOCAL | SYNCHRONISE | REJETE, code,
 
 Erreurs : `403 EVALUATION_NOT_ELIGIBLE`, `409 ATTEMPT_ALREADY_OPEN`, `404 OFFLINE_ATTEMPT_NOT_FOUND` (tentative d'un autre compte), `409 OFFLINE_PACKAGE_CONFLICT` (autorisation ou version différente), `409 OFFLINE_ALREADY_RECEIVED` (autre copie déjà reçue), `409 OFFLINE_INCOMPLETE`, `400` (réponses invalides ou champ inconnu, dont un score). Les routes de passation en ligne refusent les tentatives `HORS_LIGNE` (404). Le contrat suggéré `GET /offline/modules/:id/manifest` n'existe pas : la version publiée est lue par `GET /modules/:slug` et le paquet contient la version exacte. Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).
 
+## Fichiers des modules (D143, [STORAGE_R2.md](STORAGE_R2.md))
+
+| Méthode | Route | Accès | Effet |
+| --- | --- | --- | --- |
+| POST | `/editor/modules/:id/files` | rédacteurs du module (`module.write` + accès), version en brouillon | `{ fileName, mimeType, sizeBytes, sha256 }` → `UploadTicket` (URL `PUT` signée, en-têtes à envoyer, expiration) |
+| POST | `/editor/modules/:id/files/:fileId/complete` | auteur de l'envoi ou responsable | vérification serveur → `StoredFile` `VALIDE` ; `409 FILE_NOT_UPLOADED`, `422 FILE_REJECTED` |
+| POST | `/editor/modules/:id/resources` | inchangé | accepte `fileId` à la place de `url` (`422 FILE_NOT_AVAILABLE`, `FILE_KIND_MISMATCH`) |
+| GET | `/module-files/:fileId` | version publiée qui le référence, sinon rédacteurs | `302` vers une URL signée courte, `Cache-Control: no-store` ; sinon `404 FILE_NOT_FOUND` |
+
+Ressources renvoyées : champ `file` (`{ id, originalName, mimeType, sizeBytes }` ou `null`) ; `url` vide pour un fichier. Stockage absent : `503 FILE_STORAGE_UNAVAILABLE` ; panne : `503 FILE_STORAGE_ERROR`. Trop d'envois en attente : `429 TOO_MANY_PENDING_UPLOADS`.
+
 ## Endpoints prévus (non implémentés)
 Gestion des comptes (création, activation, réinitialisation du mot de passe), consultation du journal d'audit, téléversement des copies numérisées, support de cours en PDF serveur (`GET /modules/:slug/print.pdf` ; aujourd'hui : impression navigateur de `/modules/:slug/imprimer`).
 

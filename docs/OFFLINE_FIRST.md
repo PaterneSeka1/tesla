@@ -156,6 +156,7 @@ Une saisie refusée reste sur l'appareil (`CONFLIT`/`REJETE`, message du serveur
 ## 11. Stockage et confidentialité
 
 - **Fiche médicale (D137)** : `/me/medical-record` et son PDF ne sont jamais conservés sur l'appareil (exclusion du dépôt local, requête sans conservation en mémoire), jamais préparés ni rejoués ; le reste du parcours personnel (`/me/dashboard`, `/me/attempts`…) reste disponible hors ligne. Test : `offline-first.test.ts`.
+- **Fichiers joints (D143)** : fichiers stockés sur R2 consultables en ligne uniquement, listés comme indisponibles dans un module téléchargé ; aucune URL signée ni fichier joint dans le coffre ; aucun envoi de fichier sans réseau (refus immédiat, pas de file). Les images du texte des leçons restent téléchargées comme avant. Voir [STORAGE_R2.md](STORAGE_R2.md) § 8.
 - **Reprise de lecture** : la dernière leçon ouverte (`reading:last`) est enregistrée dans le coffre chiffré de la personne et proposée sur l'accueil du routier.
 
 - Estimation affichée (`navigator.storage.estimate`), « Demander la conservation durable » (`persist()`, sans garantie).

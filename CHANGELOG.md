@@ -4,6 +4,16 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — stockage objet Cloudflare R2 et sauvegardes externes, 2026-11-02
+- Images (PNG, JPEG, WebP, GIF) et PDF joints aux modules, envoyés directement au stockage objet (Cloudflare R2) et vérifiés par le serveur (taille, type réel, empreinte) avant de pouvoir être utilisés ; consultables par tous une fois le module publié, par les seuls rédacteurs avant.
+- Nouvelles variables facultatives `R2_*` (sans elles, les fichiers sont indisponibles, le reste fonctionne) ; migration additive `20261110090000_stored_files`.
+- Sauvegardes : copie vérifiée par relecture, copie locale réduite ou supprimée après vérification, contrôle d'espace disque, alerte d'échec et signal de réussite, copie chiffrée des fichiers applicatifs.
+
+### Corrigé — sauvegardes, 2026-11-02
+- `backup.sh` pouvait échouer à tort au contrôle de l'archive (`grep -q` sous `pipefail`).
+- `verify-backup.sh` comptait une table gelée (`leadership_mandates`) au lieu des fonctions d'encadrement.
+- `production.env.example` omettait `MEDICAL_DATA_KEY`, obligatoire en production.
+
 ### Ajouté — académie : fiches médicales, quiz, navigation, 2026-10-30
 - Fiche médicale personnelle dans « Mon profil » pour les routiers et l'encadrement (pas pour le compte administrateur, technique) : création, modifications illimitées, aperçu, impression et téléchargement PDF A4 aux couleurs de la communauté, suppression ; visible du seul titulaire, chiffrée en base, jamais conservée hors ligne. Nouvelle variable obligatoire en production : `MEDICAL_DATA_KEY`.
 - Réponses courtes corrigées automatiquement lorsqu'elles correspondent à une variante acceptée déclarée par l'auteur ; sinon correction humaine.
