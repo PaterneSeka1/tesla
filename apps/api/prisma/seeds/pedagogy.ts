@@ -1,6 +1,8 @@
 /**
  * Seed pédagogique seul : `npm run db:seed:pedagogy` (ou `-- --dry-run` pour prévisualiser sans écrire).
- * Requiert les étapes de progression (seed principal). Ne modifie jamais un module déjà importé.
+ * Requiert les étapes de progression (seed principal). Ne modifie jamais un module déjà importé, sauf
+ * avec `-- --mettre-a-jour` : la source révisée est alors appliquée aux seuls brouillons restés
+ * intacts (aucune intervention humaine), avec une révision tracée (voir `source-modules.ts`).
  */
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -17,13 +19,14 @@ if (existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL est requis pour le seed.');
 const dryRun = process.argv.includes('--dry-run');
+const applyRevisions = process.argv.includes('--mettre-a-jour');
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 try {
   const results = await importSourceModules(
     prisma,
     [...SCOUTISME_BASE_MODULES, ...FUNDAMENTAL_TEXTS, ...ROUTE_MODULES],
-    { dryRun },
+    { dryRun, applyRevisions },
   );
   console.log(formatImportReport(results, dryRun));
 } finally {

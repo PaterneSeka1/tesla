@@ -416,21 +416,52 @@ export function toEvent(row: EventRow): ModuleEvent {
   };
 }
 
-/** Provenance d'un module importé (notes éditoriales écrites par le seed, validées à l'import). */
-export function toSourceImport(row: {
-  sourceKey: string;
-  sourceDocument: string;
-  sourcePages: string;
-  editorialNotes: Prisma.JsonValue;
-  createdAt: Date;
-}): ModuleSourceImport {
+/** Sélection de la dernière révision de source (notes éditoriales en vigueur). */
+export const latestSourceRevision = {
+  orderBy: { revision: 'desc' },
+  take: 1,
+  select: { sourcePages: true, editorialNotes: true },
+} as const;
+
+/**
+ * Provenance d'un module importé (notes éditoriales écrites par le seed, validées à l'import). Les
+ * notes et pages en vigueur sont celles de la dernière révision de source, s'il y en a une.
+ */
+export function toSourceImport(
+  row: {
+    sourceKey: string;
+    sourceDocument: string;
+    sourcePages: string;
+    editorialNotes: Prisma.JsonValue;
+    createdAt: Date;
+  },
+  latest?: { sourcePages: string; editorialNotes: Prisma.JsonValue },
+): ModuleSourceImport {
   return {
     sourceKey: row.sourceKey,
     sourceDocument: row.sourceDocument,
-    sourcePages: row.sourcePages,
+    sourcePages: latest?.sourcePages ?? row.sourcePages,
     importedAt: row.createdAt.toISOString(),
-    editorialNotes: row.editorialNotes as unknown as SourceEditorialNote[],
+    editorialNotes: (latest?.editorialNotes ??
+      row.editorialNotes) as unknown as SourceEditorialNote[],
   };
+}
+
+/** Notes éditoriales en vigueur d'un module importé (null : module créé dans la plateforme). */
+export async function currentEditorialNotes(
+  prisma: Pick<Prisma.TransactionClient, 'moduleSourceImport' | 'moduleSourceRevision'>,
+  moduleId: string,
+): Promise<SourceEditorialNote[] | null> {
+  const imported = await prisma.moduleSourceImport.findUnique({
+    where: { moduleId },
+    select: { editorialNotes: true },
+  });
+  if (!imported) return null;
+  const latest = await prisma.moduleSourceRevision.findFirst({
+    where: { moduleId },
+    ...latestSourceRevision,
+  });
+  return (latest?.editorialNotes ?? imported.editorialNotes) as unknown as SourceEditorialNote[];
 }
 
 /** Élément d'activité ou d'historique des publications (événement + identité du module). */

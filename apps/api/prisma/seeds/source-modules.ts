@@ -5,6 +5,11 @@
  *   « créée » sans acteur humain, provenance, journal d'audit). Aucune approbation ni publication.
  * - Module déjà importé (même code source) : aucune écriture. Les écarts entre la source actuelle et
  *   l'instantané importé sont signalés, ainsi que les modifications faites depuis dans la plateforme.
+ * - Révision (`applyRevisions`, option `--mettre-a-jour`) : la source modifiée est appliquée par le
+ *   système au seul brouillon resté intact (version 1 jamais soumise, aucune écriture humaine, aucun
+ *   questionnaire, ressource ou collaborateur). Une révision en ajout seul (`module_source_revisions`)
+ *   conserve l'instantané, l'empreinte et les notes ; l'import d'origine est inchangé. Un module
+ *   touché par une personne n'est jamais réécrit : ses écarts restent signalés.
  * - Mode prévisualisation (`dryRun`) : aucune écriture, même rapport.
  */
 import { createHash } from 'node:crypto';
@@ -53,12 +58,22 @@ export type ImportResult =
   | { key: string; outcome: 'A_CREER'; lessons: number }
   | {
       key: string;
+      /** Source modifiée appliquée au brouillon intact (`A_REVISER` en prévisualisation). */
+      outcome: 'REVISE' | 'A_REVISER';
+      moduleId: string;
+      revision: number;
+      differences: string[];
+    }
+  | {
+      key: string;
       outcome: 'DEJA_IMPORTE';
       moduleId: string;
       /** Écarts entre la source actuelle et l'instantané importé (jamais appliqués). */
       differences: string[];
       /** Évolutions du module dans la plateforme depuis l'import (information). */
       changesSinceImport: string[];
+      /** Écarts applicables par `--mettre-a-jour` (brouillon resté intact). */
+      revisable?: boolean;
     }
   | { key: string; outcome: 'IGNORE'; reason: string };
 
@@ -167,7 +182,9 @@ async function changesSinceImport(
     include: {
       versions: {
         orderBy: { version: 'asc' },
-        include: { lessons: { select: { revision: true, updatedById: true } } },
+        include: {
+          lessons: { select: { revision: true, updatedById: true, createdById: true } },
+        },
       },
     },
   });
@@ -175,10 +192,13 @@ async function changesSinceImport(
   const first = module.versions[0]!;
   // Hors brouillon, l'état suffit : la soumission elle-même incrémente la révision.
   if (first.status !== 'BROUILLON') changes.push(`version 1 à l'état ${first.status}`);
-  else if (first.updatedById !== null || first.revision > 1) {
+  else if (first.updatedById !== null) {
+    // La révision seule ne suffit pas : une révision de source l'incrémente sans auteur humain.
     changes.push('informations de la version 1 modifiées');
   }
-  const editedLessons = first.lessons.filter((l) => l.updatedById !== null || l.revision > 1);
+  const editedLessons = first.lessons.filter(
+    (l) => l.updatedById !== null || l.createdById !== null || l.revision > 1,
+  );
   if (editedLessons.length > 0) changes.push(`${editedLessons.length} leçon(s) modifiée(s)`);
   if (first.lessons.length !== importedLessons) {
     changes.push(`${first.lessons.length} leçon(s) au lieu de ${importedLessons} importée(s)`);
@@ -191,28 +211,173 @@ async function changesSinceImport(
   return changes;
 }
 
+/** Dernier instantané appliqué : dernière révision de source, sinon l'import d'origine. */
+async function currentProvenance(prisma: PrismaClient, moduleId: string) {
+  const imported = await prisma.moduleSourceImport.findUniqueOrThrow({ where: { moduleId } });
+  const latest = await prisma.moduleSourceRevision.findFirst({
+    where: { moduleId },
+    orderBy: { revision: 'desc' },
+  });
+  return {
+    revision: latest?.revision ?? 1,
+    contentHash: latest?.contentHash ?? imported.contentHash,
+    snapshot: (latest?.importedContent ?? imported.importedContent) as unknown as Snapshot,
+  };
+}
+
+/**
+ * Vrai si aucune personne n'est intervenue sur le module : une seule version, en brouillon jamais
+ * soumis, écrite par le système seul, sans ressource, collaborateur ni questionnaire.
+ */
+async function isUntouchedDraft(prisma: PrismaClient, moduleId: string): Promise<boolean> {
+  const module = await prisma.pedagogicalModule.findUniqueOrThrow({
+    where: { id: moduleId },
+    include: {
+      versions: { include: { lessons: true, resources: true, textLinks: true } },
+      collaborators: { select: { id: true }, take: 1 },
+      evaluations: { select: { id: true }, take: 1 },
+    },
+  });
+  const [only] = module.versions;
+  return (
+    module.versions.length === 1 &&
+    module.publishedVersionId === null &&
+    module.createdById === null &&
+    module.collaborators.length === 0 &&
+    module.evaluations.length === 0 &&
+    only!.status === 'BROUILLON' &&
+    only!.submittedAt === null &&
+    only!.createdById === null &&
+    only!.updatedById === null &&
+    only!.resources.length === 0 &&
+    only!.textLinks.every((link) => link.createdById === null) &&
+    only!.lessons.every((l) => l.createdById === null && l.updatedById === null && l.revision === 1)
+  );
+}
+
+/** Applique la source au brouillon intact, en une transaction, au nom du système. */
+async function reviseOne(
+  prisma: PrismaClient,
+  source: SourceModule,
+  moduleId: string,
+  revision: number,
+  differences: string[],
+): Promise<void> {
+  const stage = source.stageCode
+    ? await prisma.progressionStage.findUnique({ where: { code: source.stageCode } })
+    : null;
+  if (source.stageCode && !stage) throw new Error(`Étape « ${source.stageCode} » absente.`);
+  const linked = await prisma.moduleSourceImport.findMany({
+    where: { sourceKey: { in: source.textLinks ?? [] } },
+    select: { sourceKey: true, moduleId: true },
+  });
+  if (linked.length !== (source.textLinks ?? []).length) {
+    throw new Error(`Source ${source.key} : texte cité non importé.`);
+  }
+  await prisma.$transaction(async (tx) => {
+    const version = await tx.moduleVersion.findFirstOrThrow({
+      where: { moduleId, version: 1, status: 'BROUILLON', updatedById: null },
+    });
+    await tx.moduleVersion.update({
+      where: { id: version.id },
+      data: {
+        title: source.title,
+        summary: source.summary,
+        objectives: source.objectives,
+        stageId: stage?.id ?? null,
+        theme: source.theme,
+        category: source.category ?? null,
+        // Contrôle de concurrence : un éditeur ouvert sur l'ancien contenu sera refusé.
+        revision: { increment: 1 },
+      },
+    });
+    // Les leçons système sont remplacées (brouillon jamais lu par un routier ni soumis).
+    await tx.moduleLesson.deleteMany({ where: { versionId: version.id, createdById: null } });
+    await tx.moduleLesson.createMany({
+      data: source.lessons.map((lesson, position) => ({
+        versionId: version.id,
+        position,
+        title: lesson.title,
+        content: lesson.content as unknown as Prisma.InputJsonObject,
+        createdById: null,
+      })),
+    });
+    await tx.moduleTextLink.deleteMany({ where: { versionId: version.id, createdById: null } });
+    if (source.textLinks && source.textLinks.length > 0) {
+      await tx.moduleTextLink.createMany({
+        data: source.textLinks.map((key, position) => ({
+          versionId: version.id,
+          textModuleId: linked.find((row) => row.sourceKey === key)!.moduleId,
+          position,
+          createdById: null,
+        })),
+      });
+    }
+    const hash = contentHash(source);
+    await tx.moduleSourceRevision.create({
+      data: {
+        moduleId,
+        revision,
+        sourceSha256: source.sourceSha256,
+        sourcePages: source.sourcePages,
+        editorialNotes: source.notes,
+        importedContent: snapshotOf(source) as unknown as Prisma.InputJsonObject,
+        contentHash: hash,
+        changes: differences,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorId: null,
+        action: 'module.source_revised',
+        entityType: 'PedagogicalModule',
+        entityId: moduleId,
+        metadata: { sourceKey: source.key, revision, contentHash: hash, changes: differences },
+      },
+    });
+  });
+}
+
 async function importOne(
   prisma: PrismaClient,
   source: SourceModule,
   dryRun: boolean,
+  applyRevisions: boolean,
 ): Promise<ImportResult> {
   const existing = await prisma.moduleSourceImport.findUnique({
     where: { sourceKey: source.key },
   });
   if (existing) {
+    const current = await currentProvenance(prisma, existing.moduleId);
+    const differences =
+      current.contentHash === contentHash(source)
+        ? []
+        : diffSnapshots(current.snapshot, snapshotOf(source));
+    const revisable = differences.length > 0 && (await isUntouchedDraft(prisma, existing.moduleId));
+    if (revisable && applyRevisions) {
+      const revision = current.revision + 1;
+      if (!dryRun) {
+        await reviseOne(prisma, source, existing.moduleId, revision, differences);
+      }
+      return {
+        key: source.key,
+        outcome: dryRun ? 'A_REVISER' : 'REVISE',
+        moduleId: existing.moduleId,
+        revision,
+        differences,
+      };
+    }
     return {
       key: source.key,
       outcome: 'DEJA_IMPORTE',
       moduleId: existing.moduleId,
-      differences:
-        existing.contentHash === contentHash(source)
-          ? []
-          : diffSnapshots(existing.importedContent as unknown as Snapshot, snapshotOf(source)),
+      differences,
       changesSinceImport: await changesSinceImport(
         prisma,
         existing.moduleId,
-        (existing.importedContent as unknown as Snapshot).lessons.length,
+        current.snapshot.lessons.length,
       ),
+      revisable,
     };
   }
   const slugTaken = await prisma.pedagogicalModule.findUnique({ where: { slug: source.slug } });
@@ -344,7 +509,8 @@ async function importOne(
 export async function importSourceModules(
   prisma: PrismaClient,
   sources: readonly SourceModule[],
-  options: { dryRun?: boolean } = {},
+  /** `applyRevisions` : appliquer la source modifiée aux brouillons restés intacts. */
+  options: { dryRun?: boolean; applyRevisions?: boolean } = {},
 ): Promise<ImportResult[]> {
   const keys = new Set(sources.map((source) => source.key));
   const slugs = new Set(sources.map((source) => source.slug));
@@ -353,7 +519,9 @@ export async function importSourceModules(
   }
   sources.forEach(assertValidSource);
   const results: ImportResult[] = [];
-  for (const source of sources) results.push(await importOne(prisma, source, !!options.dryRun));
+  for (const source of sources) {
+    results.push(await importOne(prisma, source, !!options.dryRun, !!options.applyRevisions));
+  }
   return results;
 }
 
@@ -370,13 +538,26 @@ export function formatImportReport(results: readonly ImportResult[], dryRun = fa
       case 'A_CREER':
         lines.push(`- ${result.key} : serait créé en brouillon (${result.lessons} leçons).`);
         break;
+      case 'REVISE':
+      case 'A_REVISER':
+        lines.push(
+          `- ${result.key} : brouillon intact ${
+            result.outcome === 'REVISE' ? 'mis à jour' : 'serait mis à jour'
+          } (révision ${result.revision} de la source).`,
+        );
+        lines.push(...result.differences.map((d) => `    · ${d}`));
+        break;
       case 'IGNORE':
         lines.push(`- ${result.key} : ignoré, ${result.reason}.`);
         break;
       case 'DEJA_IMPORTE':
         lines.push(`- ${result.key} : déjà importé, aucune modification appliquée.`);
         if (result.differences.length > 0) {
-          lines.push('  Écarts entre la source et l’import (à reporter manuellement si utile) :');
+          lines.push(
+            result.revisable
+              ? '  Écarts applicables au brouillon intact (relancer avec --mettre-a-jour) :'
+              : '  Écarts entre la source et l’import (à reporter manuellement si utile) :',
+          );
           lines.push(...result.differences.map((d) => `    · ${d}`));
         }
         if (result.changesSinceImport.length > 0) {

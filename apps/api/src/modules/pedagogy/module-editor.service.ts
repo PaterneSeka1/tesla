@@ -68,6 +68,7 @@ import {
   textModuleSelect,
   toActivityItem,
   toEvent,
+  latestSourceRevision,
   toSourceImport,
   toLessonDocument,
   toTextLink,
@@ -238,6 +239,7 @@ export class ModuleEditorService {
         },
         events: { include: eventInclude, orderBy: { createdAt: 'desc' }, take: 100 },
         sourceImport: true,
+        sourceRevisions: latestSourceRevision,
       },
     });
     if (!module) throw moduleNotFound();
@@ -256,7 +258,8 @@ export class ModuleEditorService {
       createdAt: module.createdAt.toISOString(),
       access,
       publishedVersionId: module.publishedVersionId,
-      sourceImport: module.sourceImport && toSourceImport(module.sourceImport),
+      sourceImport:
+        module.sourceImport && toSourceImport(module.sourceImport, module.sourceRevisions[0]),
       current: currentDetail,
       versions: module.versions.map(toVersionSummary),
       collaborators: module.collaborators.map((collaborator) => ({

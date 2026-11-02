@@ -183,6 +183,7 @@ describe('Seed pédagogique (intégration PostgreSQL)', () => {
         moduleId: expect.any(String) as string,
         differences: [],
         changesSinceImport: [],
+        revisable: false,
       })),
     );
     expect(await importAll(true)).toEqual(again);

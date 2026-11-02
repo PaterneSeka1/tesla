@@ -12,7 +12,6 @@ import {
   type PublicationHistoryItem,
   publicationHistoryQuerySchema,
   type SubmissionItem,
-  type SourceEditorialNote,
   type SubmissionListQuery,
   submissionListQuerySchema,
   type VersionActionInput,
@@ -25,6 +24,7 @@ import { parseInput } from '../../common/validation.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { toUserSummary, userSummarySelect } from '../scouts/presenters.js';
 import {
+  currentEditorialNotes,
   emptyDraftOf,
   eventInclude,
   formatModuleCode,
@@ -106,13 +106,8 @@ export class ModuleReviewService {
     await this.prisma.$transaction(async (tx) => {
       const locked = await lockVersion(tx, moduleId, versionId);
       if (locked.status !== 'SOUMIS') throw invalidTransition(locked.status);
-      const source = await tx.moduleSourceImport.findUnique({
-        where: { moduleId },
-        select: { editorialNotes: true },
-      });
-      const pending = source
-        ? pendingEditorialNotes(source.editorialNotes as unknown as SourceEditorialNote[]).length
-        : 0;
+      const notes = await currentEditorialNotes(tx, moduleId);
+      const pending = notes ? pendingEditorialNotes(notes).length : 0;
       if (pending > 0 && editorialNotesAcknowledged !== true) {
         throw new UnprocessableEntityException({
           code: 'EDITORIAL_NOTES_NOT_ACKNOWLEDGED',

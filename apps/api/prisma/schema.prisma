@@ -784,6 +784,7 @@ model PedagogicalModule {
   studies          ModuleStudy[]
   activities       ActivityModule[]
   sourceImport     ModuleSourceImport?
+  sourceRevisions  ModuleSourceRevision[]
   catchUps         CatchUpObligation[]
   citedBy          ModuleTextLink[]
   files            StoredFile[]
@@ -1060,6 +1061,30 @@ model ModuleSourceImport {
   module PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
 
   @@map("module_source_imports")
+}
+
+/// Révision d'une source documentaire appliquée par le système à un brouillon importé resté intact
+/// (aucune modification humaine, jamais soumis ni publié). Ajout seul : chaque révision conserve
+/// l'instantané appliqué, son empreinte et les notes éditoriales en vigueur ; l'import d'origine
+/// (`ModuleSourceImport`) reste inchangé. Les notes courantes sont celles de la dernière révision.
+model ModuleSourceRevision {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  moduleId        String   @map("module_id") @db.Uuid
+  /// Numéro de révision (2, 3…) ; l'import d'origine compte comme révision 1.
+  revision        Int
+  sourceSha256    String   @map("source_sha256")
+  sourcePages     String   @map("source_pages")
+  editorialNotes  Json     @map("editorial_notes")
+  importedContent Json     @map("imported_content")
+  contentHash     String   @map("content_hash")
+  /// Écarts appliqués (lisibles), repris du rapport de réexécution.
+  changes         String[]
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  module PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  @@unique([moduleId, revision])
+  @@map("module_source_revisions")
 }
 
 // ─── Phase 4 : progression, compétences, programme annuel, activités ─────────────
