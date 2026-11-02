@@ -91,6 +91,12 @@ export const PERMISSIONS = {
    * Comptes (D119, à confirmer) : l'administrateur gère tous les comptes ; le responsable plein
    * couvre les seuls comptes routiers (périmètre vérifié par le service).
    */
+  /**
+   * Fiche médicale personnelle (D135, D142) : chaque routier et membre de l'encadrement gère la
+   * sienne, et seulement la sienne. Le compte administrateur, purement technique, n'en a pas.
+   * Distincte de toute permission pédagogique : aucune ne donne accès à la fiche d'autrui.
+   */
+  'medicalRecord.own': ['ROUTIER', 'ENCADREMENT'],
   'account.read': ['ADMINISTRATEUR', 'OFFICIEL'],
   'account.manage': ['ADMINISTRATEUR', 'OFFICIEL'],
 } as const satisfies Record<string, readonly AccessLevel[]>;

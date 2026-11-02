@@ -40,6 +40,14 @@ describe('dépôt local', () => {
     expect(isCacheablePath('/scouts/x')).toBe(true);
     expect(isCacheablePath('/modules/m/lessons/l')).toBe(true);
   });
+
+  it('ne conserve jamais la fiche médicale ni son PDF (D137)', () => {
+    for (const path of ['/me/medical-record', '/me/medical-record/pdf'])
+      expect(isCacheablePath(path)).toBe(false);
+    // Le parcours personnel reste disponible hors ligne.
+    for (const path of ['/me/dashboard', '/me/attempts?page=1', '/me/pathway', '/me/progression'])
+      expect(isCacheablePath(path)).toBe(true);
+  });
 });
 
 describe('identité locale (D112)', () => {

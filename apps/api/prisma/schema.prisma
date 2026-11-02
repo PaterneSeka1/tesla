@@ -46,6 +46,7 @@ model User {
 
   sessions     Session[]
   scoutProfile ScoutProfile?
+  medicalRecord MedicalRecord?
   auditLogs    AuditLog[]
 
   teamAssignmentsMade  TeamAssignment[]           @relation("TeamAssignmentAssignedBy")
@@ -1819,4 +1820,27 @@ model AuthThrottle {
 
   @@index([updatedAt])
   @@map("auth_throttles")
+}
+
+/// Fiche médicale personnelle (D135–D137, D142) : une par compte de routier ou d'encadrement.
+/// Contenu chiffré par l'API (AES-256-GCM, identifiant du titulaire en données associées) : la base,
+/// ses sauvegardes et le journal d'audit ne contiennent aucune information médicale en clair.
+/// Seul le titulaire y accède ; supprimée sur sa demande (aucun historique des versions).
+model MedicalRecord {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @unique @map("user_id") @db.Uuid
+  ciphertext Bytes
+  /// Vecteur d'initialisation de 12 octets, unique par chiffrement.
+  iv         Bytes
+  authTag    Bytes    @map("auth_tag")
+  /// Version de la clé de chiffrement (rotation future).
+  keyVersion Int      @default(1) @map("key_version")
+  /// Révision optimiste : incrémentée à chaque enregistrement.
+  revision   Int      @default(1)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("medical_records")
 }

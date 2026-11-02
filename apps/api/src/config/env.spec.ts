@@ -15,7 +15,13 @@ describe('validateEnv', () => {
   });
 
   it('désactive Swagger par défaut en production', () => {
-    expect(validateEnv({ ...baseEnv, NODE_ENV: 'production' }).SWAGGER_ENABLED).toBe(false);
+    // Clé fictive (32 octets nuls) : la clé des fiches médicales est obligatoire en production.
+    const production = {
+      ...baseEnv,
+      NODE_ENV: 'production',
+      MEDICAL_DATA_KEY: Buffer.alloc(32).toString('base64'),
+    };
+    expect(validateEnv(production).SWAGGER_ENABLED).toBe(false);
   });
 
   it('découpe les origines CORS', () => {

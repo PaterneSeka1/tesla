@@ -11,6 +11,7 @@ import {
 import { LoaderCircle, LogOut } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { type z } from 'zod';
+import { MedicalRecordCard } from '@/components/accounts/medical-record-card';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { FormField, fieldA11y } from '@/components/form-field';
 import { PasswordInput } from '@/components/password-input';
@@ -28,14 +29,22 @@ import {
   updateProfile,
 } from '@/lib/api/accounts';
 import { meQueryOptions } from '@/lib/api/auth';
+import { userCan } from '@/lib/navigation';
 import { formatDateTime } from '@/lib/format';
 
-/** Compte personnel : nom affiché, mot de passe, sessions ouvertes (serveur requis). */
+/** Mon profil : nom affiché, mot de passe, fiche médicale, sessions ouvertes (serveur requis). */
 export function AccountSettings() {
+  const user = useSessionUser();
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <ProfileCard />
       <PasswordCard />
+      {/* Fiche médicale : chaque titulaire habilité ; jamais le compte administrateur (D142). */}
+      {userCan(user, 'medicalRecord.own') && (
+        <div className="lg:col-span-2">
+          <MedicalRecordCard />
+        </div>
+      )}
       <div className="lg:col-span-2">
         <SessionsCard />
       </div>

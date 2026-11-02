@@ -26,6 +26,21 @@ const envSchema = z
     ACCOUNT_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(336).default(72),
     /** Derrière un proxy inverse (Nginx) : utiliser X-Forwarded-For pour l'adresse IP du client. */
     TRUST_PROXY: booleanString.default(false),
+    /**
+     * Clé de chiffrement des fiches médicales (32 octets en base64, D136). Obligatoire en production ;
+     * absente ailleurs, les fiches médicales sont indisponibles (503) plutôt que stockées en clair.
+     */
+    MEDICAL_DATA_KEY: z
+      .string()
+      .trim()
+      .refine((value) => Buffer.from(value, 'base64').length === 32, {
+        error: '32 octets encodés en base64 attendus (openssl rand -base64 32).',
+      })
+      .optional(),
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || env.MEDICAL_DATA_KEY !== undefined, {
+    error: 'MEDICAL_DATA_KEY est obligatoire en production.',
+    path: ['MEDICAL_DATA_KEY'],
   })
   .transform((env) => ({
     ...env,
