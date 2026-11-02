@@ -443,9 +443,13 @@ describe('Fichiers des modules (intégration PostgreSQL, stockage simulé)', () 
     const files = app.get(StoredFilesService);
     const later = new Date(Date.now() + 300_000 + ABANDON_GRACE_MS + 1000);
 
+    // Fiche réservée avant la suppression : l'échec du stockage laisse un abandon à retenter,
+    // et une confirmation concurrente ne peut plus valider l'objet en cours de suppression.
     storage.failNext('delete');
-    expect(await files.cleanupAbandoned(later)).toEqual({ abandoned: 0, failed: 1 });
-    expect(await files.cleanupAbandoned(later)).toEqual({ abandoned: 1, failed: 0 });
+    expect(await files.cleanupAbandoned(later)).toEqual({ abandoned: 1, failed: 1 });
+    expect(storage.objects.has(keyOf(abandoned.ticket.uploadUrl))).toBe(true);
+    expect(await errorCode(abandoned.confirm(), 422)).toBe('FILE_REJECTED');
+    expect(await files.cleanupAbandoned(later)).toEqual({ abandoned: 0, failed: 0 });
     expect(await files.cleanupAbandoned(later)).toEqual({ abandoned: 0, failed: 0 }); // idempotent
     expect(storage.objects.has(keyOf(abandoned.ticket.uploadUrl))).toBe(false);
     expect(storage.objects.has(keyOf(kept.ticket.uploadUrl))).toBe(true);

@@ -169,8 +169,10 @@ export class StoredFilesService {
   }
 
   /**
-   * Envois jamais confirmés (URL expirée depuis plus d'une heure) : objet éventuel supprimé, fiche
-   * conservée en `ABANDONNE`. Idempotent ; un échec du stockage laisse la fiche en attente.
+   * Envois jamais confirmés (URL expirée depuis plus d'une heure) : fiche conservée en `ABANDONNE`,
+   * objet éventuel supprimé. La fiche est réservée avant la suppression : une confirmation
+   * concurrente échoue au lieu de valider un objet supprimé. Idempotent ; un échec du stockage est
+   * retenté au passage suivant (`objectDeletedAt` reste nul).
    */
   async cleanupAbandoned(now = new Date()): Promise<{ abandoned: number; failed: number }> {
     if (!this.storage) return { abandoned: 0, failed: 0 };
@@ -182,8 +184,8 @@ export class StoredFilesService {
             status: 'EN_ATTENTE',
             uploadExpiresAt: { lt: new Date(now.getTime() - ABANDON_GRACE_MS) },
           },
-          // Rejet dont la suppression de l'objet avait échoué : nouvel essai.
-          { status: 'REJETE', objectDeletedAt: null },
+          // Rejet ou abandon dont la suppression de l'objet avait échoué : nouvel essai.
+          { status: { in: ['REJETE', 'ABANDONNE'] }, objectDeletedAt: null },
         ],
       },
       take: 500,
@@ -191,24 +193,21 @@ export class StoredFilesService {
     let abandoned = 0;
     let failed = 0;
     for (const file of stale) {
-      try {
-        await storage.delete(file.storageKey);
-        if (file.status === 'REJETE') {
-          await this.prisma.storedFile.update({
-            where: { id: file.id },
-            data: { objectDeletedAt: new Date() },
-          });
-          continue;
-        }
+      if (file.status === 'EN_ATTENTE') {
         const { count } = await this.prisma.storedFile.updateMany({
           where: { id: file.id, status: 'EN_ATTENTE' },
-          data: {
-            status: 'ABANDONNE',
-            rejectionReason: 'Envoi jamais confirmé.',
-            objectDeletedAt: new Date(),
-          },
+          data: { status: 'ABANDONNE', rejectionReason: 'Envoi jamais confirmé.' },
         });
-        abandoned += count;
+        // Confirmé entre-temps : l'objet est conservé.
+        if (count === 0) continue;
+        abandoned += 1;
+      }
+      try {
+        await storage.delete(file.storageKey);
+        await this.prisma.storedFile.update({
+          where: { id: file.id },
+          data: { objectDeletedAt: new Date() },
+        });
       } catch (error) {
         failed += 1;
         this.logger.warn(`Nettoyage du fichier ${file.id} reporté : ${describe(error)}`);
