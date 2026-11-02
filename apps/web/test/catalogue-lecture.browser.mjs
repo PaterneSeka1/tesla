@@ -80,6 +80,44 @@ try {
   await page.getByRole('heading', { name: 'Les dix articles de la loi scoute' }).waitFor();
   check('navigation vers la leçon précédente');
 
+  // Domaines d'action : un seul module, dix leçons, encadrés « exemple » et « précautions ».
+  const domains = catalog.items.filter(
+    (item) => item.title === 'Domaines d’action de l’Entreprise',
+  );
+  assert.equal(domains.length, 1, 'un seul module des domaines d’action');
+  const m10 = await (await page.request.get(`${api}/modules/${domains[0].slug}`)).json();
+  assert.equal(m10.lessons.length, 10);
+  await page.goto(`${origin}/modules/${m10.slug}`);
+  await page.getByText('Éducation et protection de l’enfance').first().waitFor();
+  await noHorizontalScroll();
+  const childhood = m10.lessons.find((l) => l.title === 'Éducation et protection de l’enfance');
+  await page.goto(`${origin}/modules/${m10.slug}/lecons/${childhood.id}`);
+  await page.getByRole('heading', { name: childhood.title }).waitFor();
+  for (const label of [
+    'Exemples d’Entreprise (proposition pédagogique)',
+    'Précautions particulières',
+    'Pour réfléchir',
+  ]) {
+    assert.equal(await page.locator(`aside[aria-label="${label}"]`).count(), 1, label);
+  }
+  await noHorizontalScroll();
+  check('domaines d’action : un module, dix leçons, encadrés exemple et précautions');
+
+  // Entreprise : fiches pratiques imprimables sur la page du module.
+  const entreprise = catalog.items.find((item) => item.title === 'L’Entreprise routière');
+  await page.goto(`${origin}/modules/${entreprise.slug}`);
+  await page.getByText('Fiches pratiques').first().waitFor();
+  assert.equal(
+    await page.locator(`a[href*="/modules/${entreprise.slug}/sheets/"]`).count(),
+    9,
+    'neuf fiches pratiques',
+  );
+  await noHorizontalScroll();
+  const sheet = await page.request.get(`${api}/modules/${entreprise.slug}/sheets/budget/pdf`);
+  assert.equal(sheet.status(), 200);
+  assert.equal(sheet.headers()['content-type'], 'application/pdf');
+  check('Entreprise : neuf fiches pratiques listées, PDF téléchargé');
+
   // Questionnaire d'entraînement publié et accessible à l'étape du routier, corrigé jamais transmis.
   const evaluations = await (await page.request.get(`${api}/evaluations?pageSize=100`)).json();
   const quiz = (evaluations.items ?? evaluations).find((e) =>
@@ -105,7 +143,10 @@ try {
   await page.goto(`${origin}/modules/${methode.slug}/lecons/${lesson.id}`).catch(() => {});
   await page.getByRole('heading', { name: lesson.title }).waitFor({ timeout: 30_000 });
   assert.equal(await page.locator('aside[aria-label="À retenir"]').count(), 1);
-  check('leçon du catalogue lue sans réseau, mise en forme conservée');
+  await page.goto(`${origin}/modules/${m10.slug}/lecons/${childhood.id}`).catch(() => {});
+  await page.getByRole('heading', { name: childhood.title }).waitFor({ timeout: 30_000 });
+  assert.equal(await page.locator('aside[aria-label="Précautions particulières"]').count(), 1);
+  check('leçons du catalogue (dont un domaine d’action) lues sans réseau, mise en forme conservée');
   await context.setOffline(false);
 
   assert.deepEqual(errors, [], `erreurs de page : ${errors.join(' | ')}`);
