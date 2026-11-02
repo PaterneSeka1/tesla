@@ -13,7 +13,12 @@
  *   importés (pas de doublon) ; voir docs/CATALOGUE_PEDAGOGIQUE_INITIAL.md.
  */
 import { createHash } from 'node:crypto';
-import { type LessonBlock, type LessonDocument, type SourceEditorialNote } from '@tesla/shared';
+import {
+  type ActionDomain,
+  type LessonBlock,
+  type LessonDocument,
+  type SourceEditorialNote,
+} from '@tesla/shared';
 import { type SourceModule } from './source-modules.js';
 
 const SAPF_DOCUMENT = 'SAPF-Route (2).pdf';
@@ -1074,192 +1079,749 @@ const M08: SourceModule = {
   ],
 };
 
+// ─── Entreprise routière : sources complémentaires (mission du 2026-11-02) ──
+
+const GUIDE_DOCUMENT = 'Entreprise_Route_Nikola_Tesla_Edition_Officielle.pdf';
+const GUIDE_SHA256 = '46c8bdbcba843d3e0b9dede4186a5cd109af269004489f50a17e9aed28bebff2';
+const FICHE7_SHA256 = 'c583b2dc61026d835a433ed560a723299245d1d8f66417057bde6082d4e9c0a0';
+const OSSATURE_SHA256 = '870894213f85e0386a6e13227c69a20d1afd101ce36a380d77c85396dd347f67';
+const TDR_SHA256 = '569ab14bbd21126e82a7fa56b2778356acda34764c6cb6213bc7d971fc475771';
+
+/** Guide de l'Entreprise de la communauté (pages du PDF, sans numérotation imprimée). */
+const guide = (pages: string): LessonBlock => ({
+  type: 'paragraph',
+  content: [
+    text(
+      `Source : « Guide pédagogique — L’Entreprise à la Route », Nikola Tesla 2026–2027, ${pages}.`,
+      true,
+    ),
+  ],
+});
+/** Fiche technique n° 7 « Méthodologie Entreprise » : ancien support, repères historiques. */
+const fiche7 = (pages: string): LessonBlock => ({
+  type: 'paragraph',
+  content: [
+    text(
+      `Source : fiche technique n° 7 « Méthodologie Entreprise » (ancien support), ${pages}.`,
+      true,
+    ),
+  ],
+});
+const ossature = (): LessonBlock => ({
+  type: 'paragraph',
+  content: [text('Source : « Ossature de rédaction de l’Entreprise Route ».', true)],
+});
+const tdr = (pages: string): LessonBlock => ({
+  type: 'paragraph',
+  content: [
+    text(
+      `Source : termes de référence du CAFDR, communauté Martin Luther King (exemple externe), ${pages}.`,
+      true,
+    ),
+  ],
+});
+/** Exemple construit pour la compréhension, jamais un projet réalisé. */
+const example = (...content: LessonBlock[]): LessonBlock[] => [
+  h('Exemple (illustratif)'),
+  ...content,
+];
+
 const M09: SourceModule = {
   key: 'NT-ROUTE-M09',
   slug: 'route-m09-l-entreprise-routiere',
   title: 'L’Entreprise routière',
   summary:
-    'Le cœur de la pédagogie de la Route : un projet collectif qui répond à un besoin réel de la société.',
+    'Guide pratique de l’Entreprise, cœur de la pédagogie de la Route : comprendre, choisir, préparer, rédiger le dossier, budgéter, réaliser, évaluer et transmettre.',
   objectives: [
-    'Définir l’Entreprise et son rôle dans la formation par l’action.',
-    'Conduire les étapes d’un projet : besoin, objectifs, planification, réalisation, évaluation, bilan.',
-    'Transmettre l’expérience acquise.',
+    'Expliquer ce qu’est l’Entreprise, ses sept dimensions éducatives et le rôle de chacun.',
+    'Choisir une Entreprise à partir d’un besoin réel, avec les bénéficiaires, par une décision collective consignée.',
+    'Préparer l’Entreprise et rédiger un dossier complet : objectifs mesurables, organisation, calendrier, budget et financement.',
+    'Conduire la réalisation, puis évaluer, relire et transmettre l’expérience.',
   ],
   stageCode: 'COMPAGNONNAGE',
   theme: THEME,
   category: 'ETAPE',
   sourceDocument: SAPF_DOCUMENT,
   sourceSha256: SAPF_SHA256,
-  sourcePages: 'p. 3 à 6',
+  sourcePages:
+    'SAPF-Route p. 3 à 6 ; Guide de l’Entreprise Nikola Tesla p. 1 à 9 ; fiche technique n° 7 p. 2 à 6 ; Ossature de rédaction ; TDR du CAFDR (exemple externe)',
   lessons: [
+    // ─── A. Comprendre ────────────────────────────────────────────────────
     {
-      title: 'Définition de l’Entreprise',
+      title: 'Comprendre l’Entreprise',
       content: doc(
         p(
-          'L’Entreprise est un projet collectif structuré, conçu et réalisé par les routiers pour répondre à un besoin réel de la société. Elle constitue l’outil principal de formation par l’action à la Route.',
+          '« Pas de Route sans Entreprise » : cette devise ouvre la fiche technique n° 7 comme le Guide de l’Entreprise de la communauté. Elle rappelle que l’Entreprise est la grande base pratique de l’éducation à la Route.',
+        ),
+        h('Définition'),
+        p(
+          'Le manuel SAPF-Route la définit comme un projet collectif structuré, conçu et réalisé par les routiers pour répondre à un besoin réel de la société. Elle constitue l’outil principal de formation par l’action à la Route.',
         ),
         p(
-          'Au compagnonnage, le routier en assure la conduite ou la coordination. Le tableau synoptique lui consacre 8 mois (18 ans), 5 mois (19 ans) ou 3 mois (20 ans) ; elle est reconnue par un label de domaine d’action.',
+          'La fiche technique n° 7 reprend la définition du Père Forestier (« Scoutisme, route de la liberté ») :',
         ),
-        sapf('p. 3 à 6'),
+        quote(
+          '« Un service collectif assumé par la communauté ou l’équipe, faisant appel à la générosité des Routiers, présentant des difficultés et de l’intérêt, susceptible de développer des compétences, et introduisant à la compréhension des problèmes apostoliques ou sociaux. »',
+        ),
+        p(
+          'Le Guide de la communauté la résume ainsi : un service collectif pensé, préparé, réalisé et évalué par les routiers en réponse à un besoin réel.',
+        ),
+        h('Ce que vise l’Entreprise'),
+        p(
+          'Selon la fiche n° 7, l’Entreprise place les routiers dans des conditions qui leur permettent de :',
+        ),
+        ul(
+          'développer leurs potentialités humaines et spirituelles ;',
+          'acquérir des compétences ;',
+          'se confronter au réel et découvrir des réalités nouvelles ;',
+          'approfondir le sens qu’ils veulent donner à leur vie ;',
+          'agir dans la société.',
+        ),
+        h('Une école de service, pas une collecte de fonds'),
+        p(
+          'Une Entreprise réussie ne se mesure pas seulement à sa taille ou à l’argent mobilisé : elle répond à un besoin authentique, fait grandir les routiers en responsabilité et laisse un résultat utile et vérifiable. Le Guide la décrit d’abord comme une école de service, de discernement et de vie en équipe. La recherche de fonds n’est qu’un moyen au service du projet.',
+        ),
+        h('Place dans le parcours'),
+        p(
+          'L’Entreprise est l’activité phare du compagnonnage. Le texte du manuel consacre à cette étape dix mois : deux pour la préparation du Raid et huit pour la préparation de l’Entreprise. Le tableau synoptique indique 8, 5 ou 3 mois selon les colonnes « 18 ans », « 19 ans » et « 20 ans », dont le sens reste à confirmer par le responsable ; la plateforme n’en tire aucune règle.',
+        ),
+        p(
+          'La fiche n° 7, plus ancienne, situait l’Entreprise en deuxième année, avec une recherche de fonds possible dès la première, et la décrivait comme un projet d’envergure mené pendant les grandes vacances, conclu si possible par le Brevet Scouts du Monde. Ce sont des repères historiques, pas des obligations actuelles.',
+        ),
+        reflect(
+          'Avec tes mots, quelle différence fais-tu entre une Entreprise et une simple activité de collecte de fonds ?',
+          'Quelle expérience de service as-tu déjà vécue qui ressemblait à une Entreprise ?',
+        ),
+        sapf('p. 3, 4 et 6'),
+        fiche7('p. 2'),
+        guide('p. 1, 2 et 9'),
       ),
     },
     {
-      title: 'Identification d’un besoin réel',
+      title: 'Dimensions éducatives et responsabilités',
       content: doc(
         p(
-          'Toute Entreprise commence par l’analyse du besoin. Elle apprend au routier à analyser une situation et à identifier un besoin réel de la société.',
+          'L’Entreprise appartient aux routiers : ce sont eux qui la choisissent, la préparent, la conduisent et en rendent compte. Le coordinateur accompagne. Cette répartition fait de l’Entreprise une expérience de responsabilité collective.',
         ),
+        h('Les sept dimensions éducatives'),
         p(
-          'Le coordinateur questionne la pertinence du projet et veille à sa cohérence avec l’esprit de la Route.',
-        ),
-        reflect('Autour de toi, quel besoin concret pourrait justifier une Entreprise ?'),
-        sapf('p. 6'),
-      ),
-    },
-    {
-      title: 'Conception du projet',
-      content: doc(
-        p(
-          'L’Entreprise apprend à concevoir et planifier un projet. Ses étapes sont claires : analyse du besoin, définition des objectifs, planification, réalisation, évaluation et bilan.',
+          'Le Guide de la communauté demande de vérifier que chaque Entreprise fait vivre ces sept dimensions, déjà présentées par la fiche n° 7 comme les sept points que doit contenir toute Entreprise :',
         ),
         ol(
-          'Analyse du besoin.',
-          'Définition des objectifs.',
-          'Planification.',
-          'Réalisation.',
-          'Évaluation.',
-          'Bilan.',
+          'Vie en équipe et coresponsabilité.',
+          'Ouverture au monde et écoute des populations.',
+          'Découverte de soi et progression personnelle.',
+          'Action concrète au sein de la société.',
+          'Esprit de service et engagement.',
+          'Respect de la nature et des ressources.',
+          'Collaboration avec des partenaires adaptés.',
         ),
-        h('Ce que l’Entreprise fait grandir'),
-        p('Selon le manuel, l’Entreprise permet au routier de :'),
+        h('L’esprit de service'),
+        p(
+          'L’Entreprise fait appel à la générosité des routiers : on agit pour un besoin qui n’est pas le sien, avec les personnes concernées et non seulement pour elles. Le manuel y voit l’occasion de s’engager concrètement au service des autres.',
+        ),
+        h('Les responsabilités des routiers'),
+        p(
+          'Le Guide propose des fonctions de projet, qui ne sont pas des grades : coordination opérationnelle, secrétariat et compte rendu, trésorerie, logistique, partenariats, sécurité, suivi et évaluation. Chaque fonction produit un livrable : plan d’action actualisé, budget et justificatifs, contacts et accords écrits, inventaire du matériel, indicateurs et rapport final.',
+        ),
+        h('Le rôle du coordinateur'),
+        p(
+          'Le coordinateur de communauté accompagne sans diriger. Il questionne la pertinence du projet, veille à sa cohérence avec l’esprit de la Route et garantit la qualité éducative, sans se substituer aux porteurs du projet.',
+        ),
         ul(
-          'apprendre à analyser une situation et identifier un besoin ;',
-          'concevoir et planifier un projet ;',
-          'travailler en équipe ;',
-          's’engager concrètement au service des autres ;',
-          'relire et évaluer son action.',
+          'Il pose des questions plutôt que de donner les réponses.',
+          'Il rappelle le cap lorsque l’essentiel se dilue.',
+          'Il veille à la sécurité et au respect du cadre de l’association.',
+          'Il ne prend pas les décisions de l’équipe à sa place.',
         ),
-        sapf('p. 6'),
+        reflect(
+          'Parmi les sept dimensions, laquelle te semble la plus difficile à faire vivre, et pourquoi ?',
+          'Quelle fonction de projet correspond le mieux à tes compétences actuelles ? Laquelle aimerais-tu apprendre ?',
+        ),
+        sapf('p. 2 et 6'),
+        fiche7('p. 2'),
+        guide('p. 2 et 6'),
       ),
     },
+    // ─── B. Choisir ───────────────────────────────────────────────────────
     {
-      title: 'Objectifs et planification',
+      title: 'Observer un besoin réel',
       content: doc(
         p(
-          'Après l’analyse du besoin viennent la définition des objectifs et la planification. Le domaine d’action choisi (voir le module « Domaines d’action de l’Entreprise ») oriente les objectifs.',
+          'Toute Entreprise commence par l’analyse du besoin. Le manuel en fait la première compétence travaillée : apprendre à analyser une situation et à identifier un besoin réel de la société. Le Guide en fait la première phase : un diagnostic réalisé avec les bénéficiaires.',
         ),
-        reflect('Comment saurez-vous, à la fin, que l’objectif est atteint ?'),
-        sapf('p. 6'),
-      ),
-    },
-    {
-      title: 'Mobilisation des ressources',
-      content: doc(
+        h('Observer'),
         p(
-          'Le compagnonnage inclut l’implication dans des partenariats extérieurs. L’Entreprise mobilise l’équipe et, le cas échéant, des partenaires.',
+          'Les idées naissent des enquêtes, des sorties, des réunions et des contacts des routiers. Il s’agit de regarder autour de soi avec attention : quartier, paroisse, école, village, structure d’accueil.',
+        ),
+        h('Consulter les bénéficiaires'),
+        p('Le Guide propose de répondre à ces questions avant de retenir une idée :'),
+        ul(
+          'Quel problème concret a été observé, et par qui ?',
+          'Qui subit le problème, à quelle fréquence et avec quelles conséquences ?',
+          'Quelles solutions existent déjà, et pourquoi sont-elles insuffisantes ?',
+          'Comment les bénéficiaires participent-ils à la définition de la réponse ?',
+          'Quelles données, visites ou témoignages permettent de confirmer le besoin ?',
+        ),
+        h('Impression ou diagnostic ?'),
+        p(
+          'Le Guide met en garde contre une confusion fréquente : une impression personnelle n’est pas un diagnostic. « Les enfants de ce quartier manquent de livres » reste une impression tant que l’équipe n’a pas rencontré les familles, l’école ou la bibliothèque, ni vérifié ce qui existe déjà.',
         ),
         h('Application pratique'),
-        p('Avant la réalisation, l’équipe fait l’inventaire de ce dont le projet a besoin :'),
-        ul(
-          'les personnes : qui fait quoi, et avec quelles compétences ;',
-          'le matériel et les lieux ;',
-          'les autorisations nécessaires ;',
-          'les partenaires possibles (structure d’accueil, association, paroisse, commune).',
+        ol(
+          'Noter les constats de chacun, sans juger les idées.',
+          'Rencontrer les personnes concernées et les acteurs locaux (responsables de la structure, autorités, associations présentes).',
+          'Vérifier les solutions déjà en place pour ne pas faire double emploi.',
+          'Rédiger un court état des lieux : c’est la preuve attendue à la fin du diagnostic.',
         ),
-        p(
-          'Le coordinateur questionne la pertinence de chaque choix et sa cohérence avec l’esprit de la Route.',
+        ...example(
+          p(
+            'Des routiers apprennent qu’une école voisine manque de points d’eau en état de marche. Avant de proposer quoi que ce soit, ils rencontrent la direction, des parents et des élèves : le problème est-il réel, depuis quand, qui est touché, une réparation est-elle déjà prévue ? Leur état des lieux mentionne le nombre de points d’eau hors service et ce qu’en disent les personnes rencontrées.',
+          ),
         ),
-        reflect('Quel partenaire extérieur pourrait rendre votre Entreprise plus utile ?'),
-        sapf('p. 4 et 6'),
+        reflect(
+          'Cite un besoin que tu crois avoir repéré autour de toi. Quelles personnes devrais-tu rencontrer pour vérifier qu’il est réel ?',
+        ),
+        sapf('p. 6'),
+        fiche7('p. 3'),
+        guide('p. 2, 4 et 5'),
       ),
     },
     {
-      title: 'Réalisation',
+      title: 'Choisir l’Entreprise ensemble',
       content: doc(
         p(
-          'La réalisation met en jeu le travail en équipe et l’engagement concret au service des autres. Le coordinateur accompagne sans diriger.',
+          'Le choix de l’Entreprise est une décision collective. La fiche n° 7 décrit une démarche que le Guide complète par une grille de sélection et un procès-verbal.',
+        ),
+        h('Les étapes du choix'),
+        ol(
+          'Rechercher plusieurs idées : chaque routier ou chaque équipe présente des projets, fruits de ses enquêtes et de ses contacts.',
+          'Présenter les propositions à la communauté, avec le besoin observé et les premières informations recueillies.',
+          'Comparer les avantages et les difficultés de chaque projet, son urgence et son utilité.',
+          'Noter les projets avec la grille de sélection.',
+          'Délibérer : chacun exprime son avis et l’écoute de tous est garantie.',
+          'Voter : la communauté choisit un projet, et tous les routiers s’engagent à le réaliser.',
+          'Consigner la décision dans un procès-verbal.',
+        ),
+        h('La grille de sélection'),
+        p('Le Guide propose six critères, chacun noté sur cinq points, soit un total sur trente :'),
+        ul(
+          'besoin réel établi ;',
+          'participation des bénéficiaires ;',
+          'impact social ou éducatif ;',
+          'faisabilité et sécurité ;',
+          'mobilisation possible de l’équipe ;',
+          'durabilité de l’action.',
+        ),
+        p(
+          'La grille aide à comparer ; elle ne décide pas à la place de la communauté. Deux projets proches au total se départagent par la délibération, en regardant les critères où ils diffèrent.',
+        ),
+        h('Le procès-verbal de décision'),
+        p(
+          'Le Guide demande de conserver le compte rendu de décision. Il est conseillé d’y faire figurer : la date et le lieu, le nombre de présents, les projets comparés avec leur total, les principaux arguments, le résultat du vote, le projet retenu et son domaine principal, les engagements pris et les prochaines étapes. Le secrétaire (rapporteur) le rédige et le signe avec la coordination.',
+        ),
+        h('Choisir le domaine d’action'),
+        p(
+          'Un projet peut relever de plusieurs domaines, mais il convient d’en choisir un principal et de justifier les autres. Le domaine découle du besoin observé, pas l’inverse : on ne choisit pas un domaine pour ensuite chercher un problème. Le module « Domaines d’action de l’Entreprise » présente les dix domaines.',
+        ),
+        reflect(
+          'Pourquoi un vote sans comparaison préalable des projets risque-t-il de produire un mauvais choix ?',
+          'Quel critère de la grille te paraît le plus souvent négligé ?',
+        ),
+        fiche7('p. 3'),
+        guide('p. 2, 8 et 9 (annexe A)'),
+      ),
+    },
+    // ─── C. Préparer ──────────────────────────────────────────────────────
+    {
+      title: 'Préparer : objectifs, faisabilité et équipes',
+      content: doc(
+        p(
+          'Selon la fiche n° 7, la préparation se fait en conseil d’équipe : on « démonte » l’Entreprise, c’est-à-dire qu’on cherche tout ce qui doit être mis en œuvre pour la réaliser (contacts, matériaux, responsabilités, compétences, travaux), puis on entre en contact avec les autorités.',
+        ),
+        h('Formuler des objectifs'),
+        p(
+          'Le Guide demande un objectif général, qui décrit le changement souhaité, puis des objectifs spécifiques mesurables, réalistes et datés. Il distingue les actions (ce que l’on fait), les résultats (ce qui est produit) et les effets (ce qui change pour les bénéficiaires).',
+        ),
+        p(
+          'Un objectif est mesurable lorsqu’on peut vérifier, à une date donnée, s’il est atteint : un nombre, un état observable, une échéance. « Aider l’école » n’est pas mesurable ; « remettre en état trois points d’eau identifiés avant la fin de l’intervention » l’est.',
+        ),
+        ...example(
+          p('Formulations proposées par le Guide :'),
+          ul(
+            'Objectif général : contribuer à de meilleures conditions d’apprentissage dans une école partenaire.',
+            'Objectif spécifique : remettre en état trois points d’eau identifiés avant la fin de l’intervention.',
+            'Activité : diagnostiquer les installations, acquérir les pièces, organiser les travaux.',
+            'Indicateur : nombre de points d’eau fonctionnels lors de la réception.',
+          ),
+        ),
+        h('Analyser la faisabilité'),
+        p(
+          'Le Guide demande d’expliquer les difficultés possibles : insuffisance de fonds, disponibilité des routiers, météo, autorisations, sécurité et maintenance. Pour chacune, on précise la mesure préventive et la personne qui en est responsable. Un projet séduisant mais irréalisable avec les moyens de la communauté doit être redimensionné.',
+        ),
+        h('Constituer les équipes'),
+        p(
+          'Chaque fonction de projet est confiée à un routier ou à une équipe qui l’accepte : coordination, trésorerie, partenariats, logistique, sécurité, suivi et bilan, secrétariat. Une répartition écrite évite les oublis et les doublons ; chacun sait ce qu’il doit produire et à quelle échéance.',
+        ),
+        h('Partenaires et autorisations'),
+        p(
+          'Le dossier précise les personnes ou structures consultées, leurs engagements confirmés, les autorisations à obtenir et les modalités de coordination. Les accords sont obtenus par écrit et conservés. Le logo d’un partenaire n’apparaît qu’avec son accord.',
+        ),
+        reflect(
+          'Transforme « sensibiliser les jeunes à l’hygiène » en un objectif spécifique mesurable et daté.',
+          'Quelle difficulté de faisabilité ton équipe sous-estime-t-elle le plus souvent ?',
+        ),
+        fiche7('p. 3'),
+        guide('p. 4, 5 et 6'),
+      ),
+    },
+    {
+      title: 'Préparer : ressources, sécurité et calendrier',
+      content: doc(
+        p(
+          'Une fois les objectifs et les équipes fixés, la préparation recense les ressources, anticipe les risques et organise le temps.',
+        ),
+        h('Ressources humaines'),
+        p(
+          'L’ossature demande de présenter les personnes avec qui l’on va réaliser le projet, leur nombre et leurs capacités. Le Guide ajoute : faire l’inventaire des compétences disponibles, puis identifier ce qui manque (savoir-faire technique, encadrement, accompagnement extérieur).',
+        ),
+        h('Ressources matérielles'),
+        p(
+          'On fait l’inventaire du matériel à disposition, puis de ce qu’il faut acheter, emprunter ou recevoir. Le Guide demande de distinguer les contributions en nature (prêt de matériel, transport, temps de bénévolat) des apports financiers.',
+        ),
+        h('Risques et sécurité'),
+        p(
+          'Le Guide demande un plan de prévention et la prise en compte de la protection des participants. Les interventions techniques (électricité, santé, construction) nécessitent des professionnels qualifiés et les autorisations appropriées. Les règles de sécurité de l’association et de la communauté s’appliquent en priorité ; l’encadrement les précise.',
+        ),
+        p('Méthode proposée pour chaque risque identifié :'),
+        ul(
+          'décrire la situation à risque (lieu, activité, public) ;',
+          'prévoir la mesure qui l’évite ou la réduit ;',
+          'désigner la personne responsable de cette mesure ;',
+          'savoir qui prévenir et quoi faire si l’incident se produit.',
+        ),
+        h('Le calendrier'),
+        p(
+          'Le Guide demande de distinguer cinq temps : diagnostic, préparation, mobilisation des ressources, intervention et évaluation, avec des dates réalistes qui tiennent compte du calendrier scout et de la disponibilité des bénéficiaires. Le chronogramme indique pour chaque étape la période, le responsable et la preuve attendue (état des lieux, compte rendu, devis et reçus, fiche d’exécution, bilan signé). L’ossature ajoute un programme d’activités précis, avec les dates et si possible les heures.',
         ),
         h('Application pratique'),
+        p('Avant de lancer la réalisation, l’équipe vérifie la checklist du Guide :'),
         ul(
-          'Chacun connaît sa tâche, son échéance et la personne à prévenir en cas de difficulté.',
-          'Des points d’étape réguliers permettent d’ajuster le plan face aux imprévus.',
-          'Les bénéficiaires sont associés : on agit avec eux, pas seulement pour eux.',
+          'le besoin est confirmé par les bénéficiaires ;',
+          'les rôles et tâches sont acceptés ;',
+          'le dossier et le calendrier sont validés ;',
+          'les autorisations sont réunies ;',
+          'le budget est réaliste et les dépenses traçables ;',
+          'les risques et la protection des participants sont pris en compte ;',
+          'les modalités de suivi, de réception et d’entretien sont définies.',
+        ),
+        reflect(
+          'Pour une activité avec des enfants, quels risques faut-il prévoir, et qui en serait responsable ?',
+        ),
+        ossature(),
+        guide('p. 4, 5, 6 et 9 (annexe C)'),
+      ),
+    },
+    // ─── D. Rédiger le dossier ────────────────────────────────────────────
+    {
+      title: 'Rédiger le dossier : de la page de garde aux bénéficiaires',
+      content: doc(
+        p(
+          'Le dossier de l’Entreprise est un document explicatif qui présente l’équipe, le déroulement et les actions du projet, ses partenaires et son budget. Il sert à convaincre et à informer les responsables, les bénéficiaires et les partenaires. Le Guide précise ce qu’il faut écrire dans chaque partie ; les informations propres au projet sont renseignées par l’équipe.',
+        ),
+        h('1. Page de garde'),
+        p(
+          'Elle identifie immédiatement le porteur et l’objet du projet : logo de la communauté, identifiants associatifs officiels selon les supports autorisés, titre, domaine d’action, lieu, période et partenaires confirmés. L’ancien modèle demandait le logo de l’ASCCI, celui de la branche Route, le titre et les logos des partenaires.',
+        ),
+        h('2. Fiche résumé'),
+        p(
+          'Placée juste après la couverture (deuxième page), elle tient sur une page et présente l’essentiel : titre, porteurs, problème constaté, objectif global, bénéficiaires, site et calendrier, partenaires, budget (total, ressources acquises, financement restant) et deux à quatre résultats vérifiables. On la rédige en dernier, quand le reste du dossier est stable.',
+        ),
+        h('3. Introduction'),
+        p(
+          'Elle présente le contexte général, la situation locale observée et le domaine d’action retenu, puis explique brièvement pourquoi l’intervention est utile, pertinente et compatible avec les moyens de la communauté. Elle part d’un constat et amène l’intérêt du projet (son bien-fondé).',
+        ),
+        h('4. Présentation du scoutisme et des porteurs'),
+        p(
+          'D’abord, une présentation succincte et vérifiée du scoutisme, de l’Association des Scouts Catholiques de Côte d’Ivoire, de la branche Route et de la place de l’Entreprise. Ensuite, les porteurs : la communauté Nikola Tesla, les équipes mobilisées, leurs compétences et les responsabilités acceptées. Le coordinateur est mentionné comme accompagnateur pédagogique.',
+        ),
+        h('5. Cadre du projet'),
+        ul(
+          'Titre et domaine : un intitulé simple et clair, qui suffit à comprendre l’idée ; le domaine principal et, le cas échéant, les domaines complémentaires.',
+          'Site : le lieu exact, pourquoi il a été choisi, ses conditions d’accès, les acteurs locaux, les conditions favorables et défavorables (l’ossature cite la présence d’une rivière, favorable au jardinage). Une carte ou des photographies légendées seulement avec les autorisations nécessaires.',
+          'Période : les dates du diagnostic, de la préparation, de la mobilisation des ressources, de l’intervention et de l’évaluation.',
+          'Partenaires et autorisations : structures consultées, engagements confirmés, autorisations à obtenir.',
+        ),
+        h('6. Justification'),
+        p(
+          'C’est le constat qui motive le projet. Il répond aux questions du diagnostic : quel problème se pose, quelle population est concernée, quelles sont les conséquences actuelles, en quoi le projet est une solution, comment la population a participé au choix. Il s’appuie sur des données, des visites ou des témoignages.',
+        ),
+        h('7. Objectifs'),
+        p(
+          'Le but (objectif général) et les objectifs spécifiques mesurables, réalistes et datés, avec leurs indicateurs, comme vu dans la leçon « Préparer : objectifs, faisabilité et équipes ».',
+        ),
+        h('8. Bénéficiaires'),
+        p(
+          'Ceux qui tireront profit du projet : catégories (enfants, jeunes, personnes âgées, femmes, hommes), nombre estimé, besoins exprimés et critères de choix. Le Guide distingue les bénéficiaires directs (qui reçoivent l’action) et indirects (qui en profitent par ricochet), et précise leur rôle dans la mise en œuvre : ils sont associés aux décisions et au bilan.',
+        ),
+        reflect(
+          'Pourquoi la fiche résumé se rédige-t-elle de préférence à la fin, alors qu’elle est placée au début ?',
+        ),
+        fiche7('p. 3 à 5'),
+        ossature(),
+        guide('p. 3, 4 et 5'),
+      ),
+    },
+    {
+      title: 'Rédiger le dossier : de l’organisation à la conclusion',
+      content: doc(
+        p(
+          'La seconde partie du dossier montre que l’équipe sait comment elle va agir, avec quels moyens, à quel coût et comment elle rendra compte.',
+        ),
+        h('9. Organisation'),
+        p(
+          'Elle présente les responsables du projet et leurs fonctions, puis les activités dans leur ordre logique. Pour chaque activité : le public concerné, la durée, le responsable, les ressources nécessaires et le résultat attendu.',
+        ),
+        h('10. Ressources'),
+        p(
+          'Les ressources humaines (personnes mobilisées, nombre, compétences) et matérielles (inventaire de ce qui est disponible, liste de ce qui manque). Les contributions en nature sont distinguées des apports financiers.',
+        ),
+        h('11. Chronogramme'),
+        p(
+          'Le tableau des étapes avec période, responsable et preuve attendue, complété par le programme détaillé des activités (dates et, si possible, heures).',
+        ),
+        h('12. Étude financière'),
+        p(
+          'Le budget précis et honnête du projet, en francs CFA, organisé par postes, avec quantités, prix unitaires et devis (voir la leçon « Budget et financement »).',
+        ),
+        h('13. Financement'),
+        p(
+          'La stratégie de mobilisation des ressources : démarches de collecte, partenaires ciblés, dossier transmis, contreparties éventuelles compatibles avec les valeurs scoutes, suivi des engagements. Aucun financement incertain n’est comptabilisé comme acquis.',
+        ),
+        h('14. Suivi et évaluation'),
+        p(
+          'Comment l’équipe saura que les objectifs sont atteints : indicateurs, moments de vérification, recueil de l’avis des bénéficiaires, bilan financier avec pièces justificatives. On y précise aussi qui assurera l’entretien ou la continuité des réalisations après l’Entreprise.',
+        ),
+        h('15. Conclusion'),
+        p(
+          'Les modèles donnent seulement le titre de cette partie. Il est conseillé d’y rappeler en quelques lignes le besoin, la réponse proposée, l’engagement de l’équipe et ce qui est attendu des lecteurs (accord, soutien, partenariat).',
+        ),
+        h('Pièces à conserver'),
+        p(
+          'Le Guide demande de conserver : compte rendu de décision, diagnostic, lettres d’accord, devis, budget, plan de prévention, feuilles de présence, justificatifs de dépenses, preuves de réalisation et bilan final.',
+        ),
+        h('Conseils de rédaction'),
+        ul(
+          'Écrire des phrases courtes et des chiffres vérifiables.',
+          'Ne pas publier de nom, de photographie ou d’information personnelle sur un bénéficiaire sans son accord.',
+          'Faire relire le dossier par un routier qui n’a pas participé à sa rédaction.',
+        ),
+        reflect(
+          'Quelle partie du dossier serait la plus difficile à écrire pour ton équipe, et pourquoi ?',
+        ),
+        fiche7('p. 5 et 6'),
+        ossature(),
+        guide('p. 2, 6 et 7'),
+      ),
+    },
+    // ─── E. Budget et financement ─────────────────────────────────────────
+    {
+      title: 'Budget et financement',
+      content: doc(
+        p(
+          'Le budget doit être précis, transparent, basé sur des quantités et, autant que possible, sur des devis. C’est l’estimation honnête du coût des moyens nécessaires.',
+        ),
+        h('Deux catégories de coûts'),
+        ul(
+          'Coûts d’investissement : matériel, machines, véhicule, constructions et tout équipement dont la durée d’utilisation dépasse une année.',
+          'Coûts de fonctionnement : frais de gestion quotidienne et administrative du projet, par exemple transport, carburant, consommables, fournitures, communication, restauration.',
+        ),
+        h('Quantités, prix unitaires et justificatifs'),
+        p(
+          'Chaque ligne du budget indique un poste, une quantité, un prix unitaire et un montant : montant = quantité × prix unitaire. Le prix unitaire s’appuie sur un devis, une facture pro forma ou un relevé de prix ; ce justificatif est conservé.',
+        ),
+        ...example(
+          p(
+            'Calcul seulement, montants fictifs : 4 brouettes × 25 000 FCFA = 100 000 FCFA. La ligne renvoie au devis n° 1.',
+          ),
+        ),
+        h('Financements confirmés et financements recherchés'),
+        p(
+          'Le tableau de financement du Guide distingue, pour chaque source, le montant prévu et le montant acquis : apport des routiers, activités d’autofinancement, dons et partenariats. Un financement n’est acquis que lorsqu’il est reçu ou confirmé par écrit ; tant qu’il est seulement sollicité, il reste « recherché ».',
+        ),
+        h('Les contributions en nature'),
+        p(
+          'Le prêt de matériel, un transport offert ou le temps de bénévolat ont une valeur, mais ils ne sont pas de l’argent. Le Guide demande de les valoriser à part, sans les mélanger aux apports financiers.',
+        ),
+        h('Le seuil historique d’un tiers'),
+        p(
+          'L’ancienne méthodologie (fiche n° 7, ossature) demandait un apport personnel des organisateurs égal ou supérieur au tiers du budget, le reste venant des partenaires, des sponsors, des dons et legs. Le Guide de la communauté présente ce seuil comme un repère historique à vérifier auprès de l’encadrement compétent avant de l’appliquer comme obligation. La plateforme ne l’impose pas.',
+        ),
+        h('Suivre les dépenses'),
+        p(
+          'Le Guide demande de désigner un responsable de la tenue de caisse et de prévoir une validation des dépenses. Chaque dépense réelle est appuyée par un reçu. La dépense prévue est celle du budget ; la dépense réelle est celle du reçu. Tout écart est noté et expliqué.',
+        ),
+        ...example(
+          p(
+            'Montants fictifs : poste « transport » prévu à 100 000 FCFA, dépense réelle de 112 000 FCFA. L’écart de 12 000 FCFA est expliqué (hausse du prix du trajet) et compensé par une économie sur un autre poste, décidée avec la trésorerie.',
+          ),
+        ),
+        reflect(
+          'Pourquoi est-il dangereux de compter comme acquis un financement seulement promis oralement ?',
+        ),
+        fiche7('p. 6'),
+        ossature(),
+        guide('p. 6 et 7'),
+      ),
+    },
+    // ─── F. Réaliser ──────────────────────────────────────────────────────
+    {
+      title: 'Réaliser l’Entreprise',
+      content: doc(
+        p(
+          'La réalisation met en jeu le travail en équipe et l’engagement concret au service des autres. Le Guide y associe quatre exigences : actions sur le terrain, suivi des dépenses, sécurité et coordination. Le coordinateur accompagne sans diriger.',
+        ),
+        h('Coordination'),
+        p(
+          'La coordination opérationnelle tient le plan d’action à jour et organise des points d’étape réguliers. La fiche de suivi d’exécution indique, pour chaque action, le responsable, l’échéance et l’état d’avancement ou l’obstacle rencontré.',
+        ),
+        h('Exécution des activités'),
+        p(
+          'Les activités se déroulent dans l’ordre prévu. Chacun connaît sa tâche, son échéance et la personne à prévenir en cas de difficulté. Les présences sont notées sur des feuilles de présence, conservées avec le dossier.',
+        ),
+        h('Sécurité'),
+        p(
+          'Le plan de prévention est appliqué. Les interventions techniques sont confiées à des professionnels qualifiés. Les règles de l’association et de la communauté sur la protection des participants, notamment des enfants, s’appliquent sans exception.',
+        ),
+        h('Gestion du matériel'),
+        p(
+          'La logistique tient l’inventaire : ce qui sort, ce qui revient, ce qui est consommé, ce qui est abîmé. Le matériel emprunté est rendu en bon état et à la date convenue.',
+        ),
+        h('Relations avec les bénéficiaires'),
+        p(
+          'On agit avec les bénéficiaires, pas seulement pour eux. On respecte leur dignité, leurs usages et leur temps. Aucune photographie n’est prise ou diffusée sans leur accord.',
+        ),
+        h('Gestion financière'),
+        p(
+          'La trésorerie enregistre chaque dépense avec son justificatif, compare le réel au prévu et alerte avant tout dépassement. Les dépenses sont validées selon la règle fixée lors de la préparation.',
+        ),
+        h('Suivi du calendrier et imprévus'),
+        p(
+          'Un retard se signale dès qu’il apparaît. Face à un imprévu (pluie, absence, matériel manquant, autorisation retardée), l’équipe s’informe, informe le coordinateur, décide ensemble de l’ajustement et le note dans la fiche de suivi.',
         ),
         quote('« Le scout obéit sans réplique et ne fait rien à moitié. » (loi scoute, article 7)'),
+        reflect(
+          'Un samedi, la moitié de l’équipe est absente le jour d’une action prévue avec des bénéficiaires. Que faites-vous, et qui prévenez-vous ?',
+        ),
         sapf('p. 6'),
         base('p. 2'),
+        guide('p. 2, 6, 7 et 9 (annexe B)'),
       ),
     },
+    // ─── G. Évaluer ───────────────────────────────────────────────────────
     {
-      title: 'Évaluation',
+      title: 'Évaluer, relire et transmettre',
       content: doc(
         p(
-          'L’Entreprise apprend à relire et évaluer son action. L’évaluation compare ce qui a été réalisé aux objectifs définis.',
+          'L’Entreprise apprend à relire et évaluer son action. Le Guide demande de comparer les résultats obtenus aux objectifs, de recueillir l’avis des bénéficiaires, d’établir le bilan financier avec pièces justificatives et de décrire les compétences acquises par les routiers.',
         ),
-        h('Grille simple d’évaluation'),
-        ul(
-          'Objectifs : lesquels sont atteints, en partie atteints, non atteints ?',
-          'Bénéficiaires : qu’en disent les personnes servies ?',
-          'Équipe : comment avons-nous travaillé ensemble ?',
-          'Moyens : le temps et les ressources prévus étaient-ils réalistes ?',
-        ),
-        reflect('Qu’est-ce qui a fonctionné ? Qu’est-ce qui n’a pas fonctionné, et pourquoi ?'),
-        sapf('p. 6'),
-      ),
-    },
-    {
-      title: 'Bilan et transmission',
-      content: doc(
+        h('Résultats et objectifs'),
         p(
-          'Le bilan clôt l’Entreprise. Le compagnonnage fait passer du faire au transmettre : le routier partage ce qu’il a appris et soutient les plus jeunes.',
+          'Pour chaque objectif spécifique, on reprend l’indicateur prévu et on note le résultat obtenu : atteint, en partie atteint ou non atteint. On cherche ensuite les causes des écarts, sans chercher de coupable.',
         ),
-        reflect('Que transmettrais-tu à une équipe qui commence sa première Entreprise ?'),
-        conclude(
-          'L’Entreprise répond à un besoin réel ; elle n’est pas une activité pour soi.',
-          'Elle suit des étapes claires, de l’analyse au bilan.',
-          'Elle se conclut par la transmission.',
+        h('Bilan financier'),
+        p(
+          'Le bilan compare le budget prévu aux dépenses réelles, explique les écarts et rassemble les justificatifs. Il est présenté à la communauté et, le cas échéant, aux partenaires.',
+        ),
+        h('Les bénéficiaires'),
+        p(
+          'Leur avis est recueilli : la réalisation répond-elle à leur besoin ? Le Guide demande que la communauté concernée soit associée au bilan comme elle l’a été aux décisions.',
+        ),
+        h('Difficultés et compétences acquises'),
+        p(
+          'On relit les difficultés rencontrées et les réponses apportées, puis ce que chacun a appris. Les sept dimensions éducatives servent de grille : qu’avons-nous vécu en équipe, avec les populations, pour nous-mêmes, dans la société, au service des autres, pour la nature, avec nos partenaires ?',
+        ),
+        h('Relecture collective'),
+        p(
+          'Le manuel fait du compagnonnage un temps fort de relecture personnelle et collective : le routier y approfondit le sens de son engagement et de son rôle dans la communauté.',
+        ),
+        h('Pérennité'),
+        p(
+          'Le Guide demande de préciser qui assurera l’entretien ou la continuité des réalisations après l’Entreprise : un point d’eau sans responsable de l’entretien ne durera pas.',
+        ),
+        h('Transmission'),
+        p(
+          'Le compagnonnage fait passer du faire au transmettre. L’équipe partage son expérience avec les plus jeunes, conserve son dossier et ses pièces, et note ce qu’elle referait et ce qu’elle changerait.',
+        ),
+        p(
+          'Un projet réussi ne donne pas automatiquement droit à un brevet ou à un label : les conditions de reconnaissance sont fixées par les instances de la branche Route. La validation officielle des acquis reste une décision humaine du responsable.',
+        ),
+        reflect(
+          'Qu’est-ce qui a fonctionné ? Qu’est-ce qui n’a pas fonctionné, et pourquoi ?',
+          'Que transmettrais-tu à une équipe qui commence sa première Entreprise ?',
         ),
         sapf('p. 4 et 6'),
+        guide('p. 2, 7, 8 et 9'),
+      ),
+    },
+    {
+      title: 'Étude de cas : des termes de référence (exemple externe)',
+      content: doc(
+        p(
+          'Pour s’exercer à structurer un projet, il est utile d’étudier un document réel. Les termes de référence (TDR) du « Camp d’aptitudes formelles de développement routier » (CAFDR), préparés par une autre communauté du district, la communauté Martin Luther King, en sont un bon exemple.',
+        ),
+        p(
+          'Attention : ce document n’est pas une Entreprise de la communauté Nikola Tesla, ni même une Entreprise. C’est une activité éducative de formation et d’évaluation. Il est étudié ici uniquement pour la qualité de sa structure.',
+        ),
+        h('Comment le document est construit'),
+        ol(
+          'Contexte et justification : pourquoi l’activité est organisée et à quoi elle doit servir.',
+          'Objectifs : un objectif général, puis des objectifs spécifiques.',
+          'Résultats attendus : ce qui doit être constaté à l’issue de l’activité.',
+          'Méthodologie : les formats retenus (ateliers par étape, activités sportives, assises de la communauté).',
+          'Conditions de participation.',
+          'Évaluation des routiers : ce qui est observé à chaque étape et les critères annoncés.',
+          'Programme : horaires, activités, publics visés et responsables.',
+          'Conclusion : la finalité de l’activité et l’appel à l’implication de tous.',
+        ),
+        h('Ce que l’on peut en retenir pour un dossier d’Entreprise'),
+        ul(
+          'Distinguer l’objectif général des objectifs spécifiques, comme le demande le Guide.',
+          'Formuler des résultats attendus vérifiables : « une feuille de route est définie » se constate.',
+          'Adapter les ateliers au public : le CAFDR prévoit des panels différents selon l’étape des routiers.',
+          'Indiquer pour chaque activité son public et son responsable, comme dans le chronogramme.',
+          'Annoncer à l’avance les critères d’évaluation : engagement et participation, mise en application des compétences, capacité à collaborer et à prendre des initiatives, adhésion aux valeurs scoutes.',
+        ),
+        h('Les limites de l’exemple'),
+        p(
+          'Les dates, les coordonnées, la participation financière et les horaires de cet événement appartiennent à la communauté qui l’a organisé : ils ne sont pas repris ici et ne s’appliquent pas à Nikola Tesla. De même, ses critères d’évaluation ne sont pas des règles de la plateforme : à Nikola Tesla, la validation officielle des acquis reste une décision humaine du responsable.',
+        ),
+        reflect(
+          'Reprends le plan des TDR pour une idée de projet de ton équipe : quel serait l’objectif général ? Quels deux résultats attendus pourrait-on constater à la fin ?',
+        ),
+        tdr('p. 2 à 6'),
+        guide('p. 5 et 9'),
+      ),
+    },
+    {
+      title: 'Boîte à outils : les fiches pratiques',
+      content: doc(
+        p(
+          'Le Guide de l’Entreprise propose des tableaux et des annexes que l’équipe remplit au fil du projet. Ils sont regroupés en neuf fiches pratiques, téléchargeables en PDF depuis la page de ce module (rubrique « Fiches pratiques »). Ce sont des modèles vierges : ils ne contiennent aucun projet.',
+        ),
+        h('Les neuf fiches'),
+        ol(
+          'Grille de comparaison des projets : six critères sur cinq points, total sur trente, pour comparer les idées avant le vote.',
+          'Procès-verbal de choix : la réunion, les projets présentés, le vote, la décision et les engagements.',
+          'Fiche résumé de l’Entreprise : l’essentiel du projet sur une page, placée après la page de garde.',
+          'Modèle de chronogramme : étapes, périodes, responsables et preuves attendues.',
+          'Tableau de budget : postes, nature (investissement ou fonctionnement), quantités, prix unitaires, montants et justificatifs.',
+          'Tableau de financement : montants prévus et acquis par source, contributions en nature valorisées à part.',
+          'Fiche de suivi d’exécution : actions, responsables, échéances, obstacles, et suivi des dépenses prévues et réelles.',
+          'Grille de bilan : objectifs et résultats, bilan financier, avis des bénéficiaires, continuité et sept dimensions éducatives.',
+          'Checklist avant lancement : les sept conditions à réunir avant de commencer la réalisation.',
+        ),
+        h('Application pratique'),
+        ul(
+          'Chaque fiche a un responsable : la grille et le procès-verbal pour le secrétariat, le budget et le financement pour la trésorerie, le chronogramme et le suivi pour la coordination, le bilan pour la fonction suivi et évaluation.',
+          'Les fiches remplies sont classées avec les pièces justificatives et jointes au dossier ou au bilan.',
+          'Une fiche se met à jour : la date de la dernière modification est notée en haut.',
+        ),
+        conclude(
+          'L’Entreprise est un service collectif qui répond à un besoin réel ; elle n’est pas une collecte de fonds.',
+          'Elle suit des étapes claires : observer et choisir, préparer, rédiger, réaliser, évaluer et transmettre.',
+          'Les décisions se prennent ensemble et se consignent ; les dépenses se prévoient, se justifient et se comparent au réel.',
+          'Le coordinateur accompagne ; les routiers portent le projet.',
+        ),
+        guide('p. 2, 3, 6, 7 et 9 (annexes A à C)'),
       ),
     },
   ],
   notes: [
     ...commonNotes('Compagnonnage'),
     note(
-      'A_COMPLETER',
-      4,
-      'Mobilisation des ressources (budget, matériel, financement, partenariats) : à peine évoquée par le manuel. À compléter d’après une source vérifiée.',
+      'INFORMATION',
+      null,
+      `Sources complémentaires versées le 2026-11-02 (docs/sources/) : ${GUIDE_DOCUMENT} (SHA-256 ${GUIDE_SHA256}) ; « METHODOLOGIE ENTREPRISE.pdf », fiche technique n° 7 (SHA-256 ${FICHE7_SHA256}) ; « Ossature de rédaction de l’Entreprise route.docx » (SHA-256 ${OSSATURE_SHA256}) ; TDR du CAFDR (SHA-256 ${TDR_SHA256}), exemple externe dont les coordonnées, la participation financière et le calendrier ne sont pas repris. Pages citées : pages du PDF.`,
     ),
     note(
-      'A_COMPLETER',
-      3,
-      'Outils de planification (calendrier, répartition des tâches) : non décrits par le manuel.',
+      'A_VERIFIER',
+      8,
+      'Apport personnel d’au moins un tiers du budget : règle de l’ancienne méthodologie, présentée comme repère historique (Guide p. 7). Confirmer auprès de l’encadrement compétent s’il s’applique aux Entreprises de la communauté.',
+    ),
+    note(
+      'A_VERIFIER',
+      0,
+      'Durées de l’Entreprise (8, 5 ou 3 mois selon le tableau synoptique ; deuxième année selon la fiche n° 7) : présentées comme repères, aucune règle appliquée. Voir docs/REFERENTIEL_PEDAGOGIQUE.md § 5.',
+    ),
+    note(
+      'A_VERIFIER',
+      null,
+      'Ajouts pédagogiques à valider : contenu conseillé du procès-verbal (leçon 4), méthode d’analyse des risques (leçon 6), conseils pour la conclusion et la rédaction (leçon 8), exemples illustratifs à montants fictifs (leçon 9). Les exemples sont signalés « Exemple (illustratif) ».',
+    ),
+    note(
+      'A_VERIFIER',
+      11,
+      'Étude de cas : TDR du CAFDR de la communauté Martin Luther King, utilisé comme exemple externe de structuration (ni Entreprise, ni activité de Nikola Tesla). Confirmer que la communauté organisatrice accepte cette citation pédagogique.',
+    ),
+    note(
+      'INFORMATION',
+      12,
+      'Fiches pratiques : neuf modèles vierges définis dans @tesla/shared (PRACTICAL_SHEETS) et rendus en PDF par l’API (GET /modules/:slug/sheets/:key/pdf), affichés sur la page du module publié. Aucun projet fictif.',
     ),
   ],
 };
 
-/** Domaine d'action : texte du manuel et exemples éditoriaux clairement signalés. */
-const domain = (
-  title: string,
-  description: string,
-  programmes: string[],
-  outcome: string,
-  examples: string[],
-  pages: string,
-  extra: LessonBlock[] = [],
-) => ({
-  title,
+/** Domaine d'action : texte du manuel et du Guide, ajouts pédagogiques et exemples signalés. */
+interface DomainLesson {
+  title: ActionDomain;
+  /** Définition du manuel SAPF-Route. */
+  definition: string;
+  /** Pistes de projets du Guide Nikola Tesla (p. 8). */
+  guidePistes: string;
+  /** Phrase du manuel sur ce que le routier apprend, développée. */
+  objective: string[];
+  society: string;
+  examples: string[];
+  skills: string[];
+  distinguish: string[];
+  precautions: string[];
+  programmes: string[];
+  reflection: string[];
+  sapfPages: string;
+  extra?: LessonBlock[];
+}
+
+const domain = (lesson: DomainLesson) => ({
+  title: lesson.title,
   content: doc(
-    p(description),
-    h('Programmes OMMS associés'),
-    ul(...programmes),
-    p(outcome),
-    h('Exemples de projets (proposition éditoriale)'),
-    p('Ces exemples ne figurent pas dans le manuel : ce sont des pistes à adapter et à valider.'),
-    ul(...examples),
-    extra,
-    sapf(pages),
+    h('Définition'),
+    p(lesson.definition),
+    p(`Pistes de projets retenues par le Guide de l’Entreprise : ${lesson.guidePistes}`),
+    h('Objectif éducatif'),
+    ...lesson.objective.map(p),
+    h('Intérêt pour la société'),
+    p(lesson.society),
+    h('Exemples d’Entreprise (proposition pédagogique)'),
+    p(
+      'Pistes à adapter après un diagnostic mené avec les bénéficiaires. Aucune n’est un projet déjà réalisé par la communauté.',
+    ),
+    ul(...lesson.examples),
+    h('Compétences développées'),
+    ul(...lesson.skills),
+    h('À distinguer des domaines proches'),
+    ul(...lesson.distinguish),
+    h('Précautions particulières'),
+    ul(...lesson.precautions),
+    h('Programmes OMMS cités par le manuel'),
+    p(
+      'Le manuel rattache ce domaine aux programmes suivants. Leur disponibilité et leurs conditions sont à vérifier auprès de l’association avant toute inscription.',
+    ),
+    ul(...lesson.programmes),
+    lesson.extra ?? [],
+    reflect(...lesson.reflection),
+    sapf(lesson.sapfPages),
+    guide('p. 8'),
   ),
 });
 
@@ -1268,177 +1830,467 @@ const M10: SourceModule = {
   slug: 'route-m10-domaines-d-action-de-l-entreprise',
   title: 'Domaines d’action de l’Entreprise',
   summary:
-    'Les dix domaines d’action du manuel, leurs programmes OMMS associés et des pistes de projets.',
+    'Les dix domaines d’action de l’Entreprise, un par leçon : définition, objectif éducatif, intérêt pour la société, pistes de projets, compétences, précautions et réflexion. Un projet relève d’un domaine principal, parfois complété par d’autres.',
   objectives: [
-    'Présenter les dix domaines d’action de la branche Route.',
-    'Relier une Entreprise aux programmes de l’OMMS.',
-    'Choisir un domaine adapté à un besoin réel.',
+    'Identifier les dix domaines d’action retenus par le manuel SAPF-Route et le Guide de l’Entreprise Nikola Tesla 2026–2027.',
+    'Associer une idée d’Entreprise à son domaine principal et distinguer les domaines proches.',
+    'Justifier le choix d’un domaine principal et de domaines complémentaires à partir d’un besoin réel.',
+    'Repérer les précautions propres à chaque domaine.',
   ],
   stageCode: 'COMPAGNONNAGE',
   theme: THEME,
   category: 'ETAPE',
   sourceDocument: SAPF_DOCUMENT,
   sourceSha256: SAPF_SHA256,
-  sourcePages: 'p. 6 à 8',
+  sourcePages:
+    'SAPF-Route p. 6 à 8 ; Guide de l’Entreprise Nikola Tesla p. 8 ; fiche technique n° 7 p. 2 et 7 à 10 (historique)',
   lessons: [
-    domain(
-      'Santé et sport',
-      'Ce domaine vise la promotion d’un mode de vie sain, l’équilibre physique et mental, ainsi que la prévention des comportements à risque. Les entreprises peuvent porter sur la sensibilisation à la santé, l’organisation d’activités sportives éducatives ou l’accompagnement de populations vulnérables.',
-      [
+    domain({
+      title: 'Santé et sport',
+      definition:
+        'Ce domaine vise la promotion d’un mode de vie sain, l’équilibre physique et mental, ainsi que la prévention des comportements à risque. Les entreprises peuvent porter sur la sensibilisation à la santé, l’organisation d’activités sportives éducatives ou l’accompagnement de populations vulnérables.',
+      guidePistes: 'prévention, santé communautaire, activité physique éducative.',
+      objective: [
+        'Selon le manuel, le routier apprend à prendre soin de lui-même et à promouvoir la santé comme un enjeu communautaire.',
+        'Le scoutisme a toujours fait une large place à la santé et à la pratique du sport : on développe son corps en s’entraînant, en se fatiguant sans forcer, pour rester en bonne santé.',
+      ],
+      society:
+        'Une population informée prévient mieux les maladies et recourt plus tôt aux soins. Le sport éducatif rassemble, apprend les règles et le respect de l’adversaire, et offre aux jeunes un cadre sain.',
+      examples: [
+        'Campagne de sensibilisation à une maladie courante, menée avec des professionnels de santé.',
+        'Tournoi sportif éducatif pour les jeunes d’une paroisse, avec un temps d’échange sur l’hygiène de vie.',
+        'Appui logistique bénévole à une compétition handisport organisée par une structure compétente.',
+      ],
+      skills: [
+        'Organiser une action de prévention avec des partenaires qualifiés.',
+        'Animer un groupe et faire respecter des règles de jeu.',
+        'Communiquer un message de santé simple et exact.',
+        'Prendre soin de sa propre condition physique.',
+      ],
+      distinguish: [
+        'Éducation sexuelle : la prévention liée à l’affectivité et à la sexualité relève de ce domaine distinct.',
+        'Développement social : l’accompagnement de malades démunis peut relever des deux ; le domaine principal dépend de l’objectif (soin et prévention, ou lutte contre la précarité).',
+        'Dans l’ancienne fiche n° 7, « Santé » et « Sport » étaient deux labels distincts ; le référentiel actuel les réunit en un seul domaine.',
+      ],
+      precautions: [
+        'Aucun acte médical par les routiers : diagnostic, soins, dépistage et conseils thérapeutiques relèvent de professionnels qualifiés.',
+        'Messages de santé vérifiés auprès d’une source fiable ou d’un professionnel.',
+        'Activités physiques adaptées à l’âge et à la condition des participants, avec de quoi boire et se reposer.',
+        'Confidentialité absolue sur l’état de santé des personnes rencontrées.',
+      ],
+      programmes: [
         'LifeLeaders : développement des compétences de vie et du bien-être personnel.',
         'Scouts for SDGs (ODD 3 – Bonne santé et bien-être).',
       ],
-      'Le routier apprend à prendre soin de lui-même et à promouvoir la santé comme un enjeu communautaire.',
-      [
-        'Journée de sensibilisation à l’hygiène dans un quartier, avec un professionnel de santé.',
-        'Tournoi sportif éducatif pour les jeunes d’une paroisse.',
+      reflection: [
+        'Quel comportement à risque observes-tu chez les jeunes de ton entourage ? Quelle action de prévention serait utile, et avec quel professionnel ?',
       ],
-      'p. 6',
-    ),
-    domain(
-      'Développement social',
-      'Ce domaine regroupe les actions de solidarité, d’inclusion sociale, de lutte contre la pauvreté et d’accompagnement des communautés défavorisées.',
-      [
+      sapfPages: 'p. 6',
+    }),
+    domain({
+      title: 'Développement social',
+      definition:
+        'Ce domaine regroupe les actions de solidarité, d’inclusion sociale, de lutte contre la pauvreté et d’accompagnement des communautés défavorisées.',
+      guidePistes: 'solidarité, inclusion, lutte contre la précarité.',
+      objective: [
+        'Selon le manuel, le routier découvre sa capacité à transformer concrètement son environnement social.',
+        'La fiche n° 7 le formule ainsi : les besoins immenses et les bonnes intentions ne suffisent pas, il faut agir, au travers d’actions efficaces et en collaboration avec des partenaires.',
+      ],
+      society:
+        'Les actions de solidarité soulagent des situations de précarité, renforcent les liens entre les habitants et aident des personnes isolées ou défavorisées à retrouver leur place dans la communauté.',
+      examples: [
+        'Collecte et distribution de fournitures scolaires avec une structure d’accueil qui connaît les familles.',
+        'Réhabilitation d’un local communautaire avec ses usagers.',
+        'Soirée de sensibilisation à la solidarité au sein du groupe ou de la paroisse.',
+      ],
+      skills: [
+        'Écouter les personnes concernées et partir de leurs besoins.',
+        'Travailler avec un partenaire social (association caritative, structure d’accueil, paroisse).',
+        'Organiser une collecte transparente et en rendre compte.',
+        'Respecter la dignité des personnes aidées.',
+      ],
+      distinguish: [
+        'Éducation et protection de l’enfance : si les bénéficiaires principaux sont des enfants et que l’objectif est éducatif ou protecteur, ce domaine est le domaine principal.',
+        'Agro-pastorale : un projet de sécurité alimentaire par la production agricole relève d’abord de l’agro-pastorale.',
+        'Santé et sport : une action centrée sur le soin ou la prévention relève d’abord de la santé.',
+      ],
+      precautions: [
+        'Respecter la dignité des bénéficiaires : pas de photographie humiliante, aucune diffusion sans accord.',
+        'Préférer agir avec les personnes plutôt que distribuer pour elles ; prévoir ce qui se passe après l’action.',
+        'Tenir une comptabilité claire des dons reçus et distribués.',
+        'Passer par une structure qui connaît les familles pour identifier les bénéficiaires.',
+      ],
+      programmes: [
         'Messengers of Peace : promotion de la solidarité, de la cohésion sociale et du dialogue.',
         'Scouts for SDGs (ODD 1, 10, 11).',
       ],
-      'Le routier découvre sa capacité à transformer concrètement son environnement social.',
-      [
-        'Collecte et distribution de fournitures scolaires avec une structure d’accueil.',
-        'Soutien scolaire régulier pour des enfants d’un quartier.',
+      reflection: [
+        'Quelle différence fais-tu entre « donner » et « agir avec » ? Comment une distribution peut-elle devenir un vrai projet de développement social ?',
       ],
-      'p. 6 et 7',
-    ),
-    domain(
-      'Éducation à la paix',
-      'Ce domaine concerne la promotion de la paix, du dialogue, de la citoyenneté et de la résolution non violente des conflits.',
-      ['Dialogue for Peace.', 'Messengers of Peace.', 'Scouts of the World Award.'],
-      'Le routier devient acteur du vivre-ensemble et apprend à gérer les conflits avec maturité.',
-      [
-        'Ateliers de dialogue entre jeunes de communautés différentes.',
-        'Animation d’un débat citoyen dans un établissement scolaire.',
+      sapfPages: 'p. 6 et 7',
+    }),
+    domain({
+      title: 'Éducation à la paix',
+      definition:
+        'Ce domaine concerne la promotion de la paix, du dialogue, de la citoyenneté et de la résolution non violente des conflits.',
+      guidePistes: 'dialogue, citoyenneté, médiation et cohésion.',
+      objective: [
+        'Selon le manuel, le routier devient acteur du vivre-ensemble et apprend à gérer les conflits avec maturité.',
+        'La fiche n° 7 rappelle que la paix est toujours fragile : il reste tant à faire pour que s’instaurent entre les personnes une meilleure compréhension, davantage de tolérance et de respect.',
       ],
-      'p. 7',
-    ),
-    domain(
-      'Environnement',
-      'Ce domaine vise la protection de la nature, la lutte contre le changement climatique et la sensibilisation aux comportements écoresponsables.',
-      [
+      society:
+        'Le dialogue entre groupes qui se méfient, la médiation et l’éducation à la citoyenneté réduisent les tensions et préparent une société plus juste et plus solidaire.',
+      examples: [
+        'Ateliers de dialogue entre jeunes de quartiers ou de communautés différentes.',
+        'Animation d’un débat citoyen dans un établissement scolaire, avec l’accord de sa direction.',
+        'Journée sportive ou culturelle de cohésion réunissant des groupes qui se côtoient peu.',
+      ],
+      skills: [
+        'Écouter des points de vue opposés sans les juger.',
+        'Animer un échange respectueux et reformuler.',
+        'Comprendre les mécanismes d’un conflit et les voies non violentes pour le dépasser.',
+        'Exercer sa citoyenneté de manière responsable.',
+      ],
+      distinguish: [
+        'Vie et foi : une rencontre interreligieuse dont le but premier est la prière ou le témoignage relève de « Vie et foi » ; si le but premier est la cohésion entre communautés, elle relève de l’éducation à la paix.',
+        'Art et culture : un spectacle interculturel relève de la paix si son objectif est le dialogue, de l’art et de la culture si son objectif est l’expression ou la valorisation du patrimoine.',
+      ],
+      precautions: [
+        'Rester neutre : le scoutisme est apolitique ; aucune action partisane.',
+        'Ne pas s’improviser médiateur dans un conflit grave : s’appuyer sur des personnes formées et sur les autorités locales.',
+        'Évaluer la sécurité du lieu et du contexte avant toute rencontre entre groupes en tension.',
+        'Garantir à chacun un espace de parole respectueux.',
+      ],
+      programmes: ['Dialogue for Peace.', 'Messengers of Peace.', 'Scouts of the World Award.'],
+      reflection: [
+        'Pense à un conflit que tu as vécu dans ton équipe. Qu’est-ce qui a permis, ou aurait permis, de le dépasser sans violence ?',
+      ],
+      sapfPages: 'p. 7',
+    }),
+    domain({
+      title: 'Environnement',
+      definition:
+        'Ce domaine vise la protection de la nature, la lutte contre le changement climatique et la sensibilisation aux comportements écoresponsables.',
+      guidePistes: 'protection de la nature, gestion des déchets, sensibilisation écologique.',
+      objective: [
+        'Selon le manuel, le routier développe une conscience écologique active et responsable.',
+        'La fiche n° 7 propose de vivre dans la nature pour mieux la connaître et l’aimer, de s’intéresser aux questions environnementales dans leur complexité, d’agir pour les sols, l’eau, l’air, les plantes et les animaux, et de communiquer ses savoir-faire en matière d’écocitoyenneté.',
+      ],
+      society:
+        'La gestion des déchets, la protection des espaces naturels et l’usage sage des ressources améliorent la santé et le cadre de vie de tous, aujourd’hui et pour les générations futures.',
+      examples: [
+        'Opération de ramassage et de tri des déchets plastiques sur une plage ou dans un quartier, avec la filière qui les reprend.',
+        'Plantation et entretien d’arbres avec une école, en choisissant des espèces conseillées par un spécialiste.',
+        'Campagne de sensibilisation aux gestes écoresponsables auprès des familles d’un quartier.',
+      ],
+      skills: [
+        'Observer un milieu naturel et en comprendre les équilibres.',
+        'Mobiliser des habitants autour d’une action concrète.',
+        'Organiser une logistique de collecte et d’élimination des déchets.',
+        'Sensibiliser sans culpabiliser.',
+      ],
+      distinguish: [
+        'Agro-pastorale : un potager ou un élevage vise d’abord la production et l’autonomie alimentaire ; l’environnement vise d’abord la protection de la nature.',
+        'Santé et sport : l’assainissement d’un quartier peut relever des deux ; le domaine principal dépend de l’objectif (protéger le milieu ou prévenir les maladies).',
+      ],
+      precautions: [
+        'Prévoir où partent les déchets collectés : une collecte sans filière d’élimination déplace le problème.',
+        'Gants, chaussures fermées et matériel adapté ; ne jamais manipuler de déchets dangereux (seringues, produits chimiques) : les signaler.',
+        'Obtenir l’accord de la commune ou du propriétaire du site.',
+        'Planter seulement après avis sur les espèces et prévoir qui arrosera et entretiendra.',
+      ],
+      programmes: [
         'Plastic Tide Turners : lutte contre la pollution plastique.',
         'Scouts Go Solar : promotion des énergies renouvelables.',
         'Earth Tribe : mobilisation mondiale des scouts pour la planète.',
         'Scouts for SDGs (ODD 13, 14, 15).',
       ],
-      'Le routier développe une conscience écologique active et responsable.',
-      [
-        'Opération de ramassage et de tri des déchets plastiques sur une plage ou dans un quartier.',
-        'Plantation et entretien d’arbres avec une école.',
+      reflection: [
+        'Quel problème environnemental vois-tu chaque jour sur ton trajet ? Qui pourrait agir avec vous pour le résoudre durablement ?',
       ],
-      'p. 7',
-    ),
-    domain(
-      'Éducation sexuelle',
-      'Ce domaine aborde l’éducation à l’affectivité, à la sexualité responsable, au respect du corps et à la prévention.',
-      ['LifeLeaders.', 'Scouts for SDGs (ODD 3 et 5 – Santé et égalité des genres).'],
-      'Le routier acquiert une vision responsable et respectueuse de la personne humaine.',
-      [
-        'Causerie de prévention animée avec des professionnels de santé, auprès de jeunes adultes.',
+      sapfPages: 'p. 7',
+    }),
+    domain({
+      title: 'Éducation sexuelle',
+      definition:
+        'Ce domaine aborde l’éducation à l’affectivité, à la sexualité responsable, au respect du corps et à la prévention.',
+      guidePistes: 'éducation à l’affectivité, respect du corps et prévention adaptée.',
+      objective: [
+        'Selon le manuel, le routier acquiert une vision responsable et respectueuse de la personne humaine.',
+        'Il apprend à parler de ces sujets avec justesse, à respecter l’autre et lui-même, et à relayer une information de prévention exacte.',
+      ],
+      society:
+        'Une information juste et respectueuse aide les jeunes à faire des choix responsables, à se protéger, à refuser les violences et à respecter l’égalité entre les femmes et les hommes.',
+      examples: [
+        'Causerie sur l’affectivité et le respect animée avec des professionnels de santé, auprès de jeunes adultes.',
         'Campagne de sensibilisation au respect et à l’égalité entre filles et garçons.',
+        'Relais d’une campagne de prévention menée par une structure de santé reconnue.',
       ],
-      'p. 7',
-    ),
-    domain(
-      'Agro-pastorale',
-      'Ce domaine concerne les actions liées à l’agriculture, à l’élevage, à la sécurité alimentaire et au développement rural.',
-      [
+      skills: [
+        'Aborder un sujet intime avec délicatesse et respect.',
+        'Distinguer une information vérifiée d’une rumeur.',
+        'Travailler avec des professionnels et respecter leur rôle.',
+        'Garantir la confidentialité.',
+      ],
+      distinguish: [
+        'Santé et sport : la prévention des maladies en général relève de la santé ; l’éducation à l’affectivité et à la sexualité relève de ce domaine.',
+        'Éducation et protection de l’enfance : la prévention des abus envers les enfants relève d’abord de la protection de l’enfance.',
+      ],
+      precautions: [
+        'Intervention animée ou validée par des professionnels qualifiés ; les routiers ne s’improvisent pas formateurs.',
+        'Contenu adapté à l’âge du public et validé par l’encadrement, dans le respect du cadre éducatif de l’association.',
+        'Aucun témoignage personnel exigé ; confidentialité de ce qui est dit.',
+        'Toute situation de violence ou d’abus révélée est signalée au responsable, selon les règles de protection de l’association.',
+      ],
+      programmes: ['LifeLeaders.', 'Scouts for SDGs (ODD 3 et 5 – Santé et égalité des genres).'],
+      reflection: [
+        'Pourquoi ce domaine exige-t-il plus que d’autres l’appui de professionnels ? Quelles règles ton équipe se donnerait-elle avant d’agir ?',
+      ],
+      sapfPages: 'p. 7',
+    }),
+    domain({
+      title: 'Agro-pastorale',
+      definition:
+        'Ce domaine concerne les actions liées à l’agriculture, à l’élevage, à la sécurité alimentaire et au développement rural.',
+      guidePistes: 'agriculture, élevage, sécurité alimentaire et autonomie.',
+      objective: [
+        'Selon le manuel, le routier comprend les enjeux de l’autonomie alimentaire et du développement local durable.',
+        'Il apprend un savoir-faire concret, la patience des cycles naturels et la valeur du travail de la terre.',
+      ],
+      society:
+        'Produire localement améliore l’alimentation, crée des ressources pour une communauté ou une œuvre sociale et valorise les savoirs agricoles.',
+      examples: [
+        'Création d’un jardin potager communautaire avec une école ou une structure d’accueil.',
+        'Appui à un petit élevage au profit d’une œuvre sociale, avec un technicien.',
+        'Atelier de transformation ou de conservation de produits agricoles avec des producteurs locaux.',
+      ],
+      skills: [
+        'Planifier une production selon les saisons.',
+        'Apprendre des techniques auprès de producteurs ou de techniciens.',
+        'Organiser un entretien régulier dans la durée.',
+        'Gérer une petite activité productive et en rendre compte.',
+      ],
+      distinguish: [
+        'Environnement : l’agro-pastorale vise la production et l’autonomie alimentaire ; l’environnement vise la protection de la nature. Un potager biologique peut avoir l’environnement comme domaine complémentaire.',
+        'Développement social : si la production sert d’abord à lutter contre la précarité d’un groupe, le développement social peut être un domaine complémentaire justifié.',
+      ],
+      precautions: [
+        'Accord écrit du propriétaire du terrain et accès à l’eau vérifié.',
+        'Produits phytosanitaires et soins aux animaux confiés à des personnes compétentes.',
+        'Outils manipulés avec prudence ; équipement adapté.',
+        'Prévoir dès le départ qui entretiendra le jardin ou l’élevage après l’Entreprise.',
+      ],
+      programmes: [
         'Scouts for SDGs (ODD 2 – Faim zéro, ODD 12 – Consommation responsable).',
         'Projets Better World Framework liés au développement durable.',
       ],
-      'Le routier comprend les enjeux de l’autonomie alimentaire et du développement local durable.',
-      [
-        'Création d’un jardin potager communautaire.',
-        'Appui à un petit élevage au profit d’une œuvre sociale.',
+      reflection: [
+        'Un potager est créé avec enthousiasme, puis abandonné trois mois plus tard. Qu’aurait-il fallu prévoir dès la préparation ?',
       ],
-      'p. 7 et 8',
-    ),
-    domain(
-      'Vie et foi',
-      'Ce domaine regroupe les actions spirituelles, pastorales et de témoignage de foi, vécues dans le respect des convictions de chacun.',
-      [
+      sapfPages: 'p. 7 et 8',
+    }),
+    domain({
+      title: 'Vie et foi',
+      definition:
+        'Ce domaine regroupe les actions spirituelles, pastorales et de témoignage de foi, vécues dans le respect des convictions de chacun.',
+      guidePistes: 'service pastoral, engagement spirituel et témoignage.',
+      objective: [
+        'Selon le manuel, le routier approfondit sa foi et apprend à la vivre comme source d’engagement et de service.',
+        'La fiche n° 7 citait le pèlerinage, la nuit de l’Évangile, la pastorale des malades et l’animation chrétienne des rassemblements du mouvement.',
+      ],
+      society:
+        'Les actions de ce domaine soutiennent la vie des communautés de foi, rejoignent des personnes seules ou malades et témoignent de valeurs de service et de fraternité.',
+      examples: [
+        'Service régulier auprès d’une paroisse (accueil, animation), en lien avec ses responsables.',
+        'Visites régulières de malades ou de personnes âgées, avec une équipe de pastorale.',
+        'Préparation et animation d’un temps spirituel lors d’un rassemblement du mouvement.',
+      ],
+      skills: [
+        'Préparer et animer un temps de prière ou de célébration.',
+        'Rejoindre des personnes fragiles avec délicatesse.',
+        'Relire son action à la lumière de sa foi.',
+        'Respecter les convictions de chacun.',
+      ],
+      distinguish: [
+        'Éducation à la paix : une rencontre interreligieuse dont le but premier est le dialogue et la cohésion relève de l’éducation à la paix.',
+        'Développement social : une action caritative portée par une paroisse peut relever des deux ; le domaine principal dépend de l’objectif.',
+        'Dans l’ancienne fiche n° 7, ce domaine s’appelait « Engagement chrétien ».',
+      ],
+      precautions: [
+        'Respect des convictions de chacun : aucune pression ni prosélytisme insistant.',
+        'Coordination avec l’aumônier et les responsables de la paroisse ou de l’aumônerie.',
+        'Auprès des malades : respect des horaires et des consignes du lieu, discrétion, hygiène.',
+      ],
+      programmes: [
         'Dialogue for Peace (dimension interreligieuse).',
         'Dimension spirituelle du Better World Framework.',
       ],
-      'Le routier approfondit sa foi et apprend à la vivre comme source d’engagement et de service.',
-      [
-        'Service régulier auprès d’une paroisse (accueil, animation).',
-        'Rencontre de dialogue interreligieux entre jeunes.',
+      reflection: [
+        'Comment ta foi, ou tes convictions, nourrissent-elles ton envie de servir ? Comment respecter celles des autres dans un projet commun ?',
       ],
-      'p. 8',
-    ),
-    domain(
-      'Art et culture',
-      'Ce domaine vise la promotion de la créativité, de l’expression artistique et de la valorisation du patrimoine culturel.',
-      [
+      sapfPages: 'p. 8',
+    }),
+    domain({
+      title: 'Art et culture',
+      definition:
+        'Ce domaine vise la promotion de la créativité, de l’expression artistique et de la valorisation du patrimoine culturel.',
+      guidePistes: 'patrimoine, expression artistique, dialogue culturel.',
+      objective: [
+        'Selon le manuel, le routier développe son identité culturelle et sa capacité à dialoguer avec les autres cultures.',
+        'Il découvre la richesse du patrimoine, exerce sa créativité et apprend à la mettre au service des autres.',
+      ],
+      society:
+        'Valoriser un patrimoine, transmettre des contes, des chants ou des savoir-faire, et offrir des espaces d’expression renforce l’identité d’une communauté et le respect entre les cultures.',
+      examples: [
+        'Exposition sur le patrimoine d’une commune d’Abidjan, préparée avec des personnes ressources.',
+        'Atelier de contes et de chants traditionnels pour des enfants, avec des anciens du quartier.',
+        'Montage d’un spectacle pour les enfants d’une structure d’accueil.',
+      ],
+      skills: [
+        'Rechercher et vérifier des informations sur un patrimoine.',
+        'Créer et présenter une œuvre collective.',
+        'Interroger des personnes ressources avec respect.',
+        'Organiser un événement culturel.',
+      ],
+      distinguish: [
+        'Éducation à la paix : si l’objectif premier est le dialogue entre groupes, c’est l’éducation à la paix.',
+        'Éducation et protection de l’enfance : un spectacle pour enfants dont l’objectif est éducatif peut avoir ce domaine comme domaine principal ; l’art et la culture deviennent alors complémentaires.',
+      ],
+      precautions: [
+        'Respecter les détenteurs d’un savoir ou d’un rite : demander leur accord, surtout pour les éléments sacrés.',
+        'Droit à l’image et droits d’auteur : autorisations avant de photographier, filmer, reproduire ou diffuser.',
+        'Citer ses sources et les personnes ressources.',
+      ],
+      programmes: [
         'Patrimonito : protection et valorisation du patrimoine culturel.',
         'Dialogue for Peace (dialogue interculturel).',
       ],
-      'Le routier développe son identité culturelle et sa capacité à dialoguer avec les autres cultures.',
-      [
-        'Exposition sur le patrimoine d’une commune d’Abidjan.',
-        'Atelier de contes et de chants traditionnels pour des enfants.',
+      reflection: [
+        'Quel élément du patrimoine de ton quartier ou de ta région risque d’être oublié ? Qui pourrait vous aider à le transmettre ?',
       ],
-      'p. 8',
-    ),
-    domain(
-      'Éducation et protection de l’enfance',
-      'Ce domaine concerne l’éducation, la prévention des abus, la protection des enfants et l’encadrement éducatif.',
-      ['Safe from Harm : politique mondiale de protection de l’enfance.', 'Messengers of Peace.'],
-      'Le routier devient un adulte responsable, conscient de son rôle protecteur et éducatif.',
-      [
-        'Animation d’activités éducatives dans un centre d’accueil, avec l’accord et l’encadrement de ses responsables.',
+      sapfPages: 'p. 8',
+    }),
+    domain({
+      title: 'Éducation et protection de l’enfance',
+      definition:
+        'Ce domaine concerne l’éducation, la prévention des abus, la protection des enfants et l’encadrement éducatif.',
+      guidePistes: 'soutien éducatif, protection et environnement sûr pour les enfants.',
+      objective: [
+        'Selon le manuel, le routier devient un adulte responsable, conscient de son rôle protecteur et éducatif.',
+        'La fiche n° 7 citait la participation aux colonies de vacances, l’animation d’une bibliothèque mobile, le soutien scolaire, la réhabilitation d’une école primaire ou l’animation d’un grand jeu pour les enfants d’un quartier.',
+      ],
+      society:
+        'Le soutien éducatif aide des enfants à réussir et à s’épanouir ; la prévention des abus et la création d’environnements sûrs protègent les plus vulnérables.',
+      examples: [
+        'Soutien scolaire régulier dans un centre d’accueil, avec l’accord et l’encadrement de ses responsables.',
+        'Animation d’une bibliothèque mobile pour les enfants d’un quartier.',
         'Sensibilisation des parents à la protection de l’enfance, avec une structure spécialisée.',
       ],
-      'p. 8',
-    ),
-    domain(
-      'Technologies de l’information et de la communication (TIC)',
-      'Ce domaine regroupe les actions liées au numérique, à la communication et à l’usage responsable des technologies.',
-      [
+      skills: [
+        'Animer des activités adaptées à l’âge des enfants.',
+        'Transmettre un savoir avec patience.',
+        'Appliquer les règles de protection de l’enfance.',
+        'Travailler avec des familles et des structures éducatives.',
+      ],
+      distinguish: [
+        'Développement social : si l’action vise d’abord la précarité d’une famille, c’est le développement social ; si elle vise d’abord l’éducation ou la protection de l’enfant, c’est ce domaine.',
+        'Éducation sexuelle : la prévention des abus envers les enfants relève de ce domaine ; l’éducation à l’affectivité de jeunes adultes relève de l’éducation sexuelle.',
+        'TIC : un atelier numérique pour des élèves peut relever des deux ; le domaine principal dépend de l’objectif.',
+      ],
+      precautions: [
+        'Jamais seul avec un enfant ; toujours en binôme et dans un lieu visible.',
+        'Accord de la structure d’accueil et des parents ; respect de ses règles.',
+        'Aucune photographie d’enfant sans autorisation, aucune diffusion de données le concernant.',
+        'Toute inquiétude sur la sécurité d’un enfant est signalée au responsable, selon les règles de protection de l’association.',
+      ],
+      programmes: [
+        'Safe from Harm : politique mondiale de protection de l’enfance.',
+        'Messengers of Peace.',
+      ],
+      reflection: [
+        'Quelles règles ton équipe doit-elle connaître et appliquer avant toute activité avec des enfants ? Qui les fixe ?',
+      ],
+      sapfPages: 'p. 8',
+    }),
+    domain({
+      title: 'Technologies de l’information et de la communication',
+      definition:
+        'Ce domaine (TIC) regroupe les actions liées au numérique, à la communication et à l’usage responsable des technologies.',
+      guidePistes: 'inclusion numérique, compétences digitales et usage responsable des TIC.',
+      objective: [
+        'Selon le manuel, le routier développe des compétences numériques utiles et apprend à utiliser la technologie au service du bien commun.',
+        'Il apprend à transmettre ses compétences et à adopter lui-même un usage responsable des outils numériques.',
+      ],
+      society:
+        'L’inclusion numérique ouvre l’accès à l’information, aux démarches et à la formation ; l’éducation aux usages responsables protège contre les arnaques, le harcèlement et les fausses informations.',
+      examples: [
+        'Initiation à l’informatique pour des personnes âgées ou des élèves.',
+        'Atelier de sensibilisation à la sécurité en ligne et aux fausses informations.',
+        'Aide à une association locale pour présenter ses activités en ligne, avec son accord.',
+      ],
+      skills: [
+        'Expliquer un outil numérique à un débutant.',
+        'Protéger des données personnelles et des comptes.',
+        'Vérifier une information avant de la partager.',
+        'Concevoir un support de communication clair.',
+      ],
+      distinguish: [
+        'Éducation et protection de l’enfance : un atelier numérique pour des enfants peut relever des deux ; le domaine principal dépend de l’objectif (compétence numérique ou soutien éducatif).',
+        'Art et culture : un film ou un site qui valorise un patrimoine relève d’abord de l’art et de la culture si le patrimoine est l’objectif ; le numérique est alors l’outil.',
+      ],
+      precautions: [
+        'Protection des données personnelles : ne collecter que le nécessaire, avec l’accord des personnes.',
+        'Aucune photographie ni vidéo diffusée sans autorisation, en particulier d’enfants.',
+        'Un don de matériel n’a de sens qu’avec la formation et l’entretien qui l’accompagnent.',
+        'Respect des licences des logiciels utilisés.',
+      ],
+      programmes: [
         'Scouts for SDGs (ODD 4 – Éducation de qualité).',
         'Initiatives numériques du Better World Framework.',
         'Programmes éducatifs type Scouts Go Digital (selon contextes nationaux).',
       ],
-      'Le routier développe des compétences numériques utiles et apprend à utiliser la technologie au service du bien commun.',
-      [
-        'Initiation à l’informatique pour des personnes âgées ou des élèves.',
-        'Atelier de sensibilisation à la sécurité en ligne et aux fausses informations.',
+      reflection: [
+        'Quelle compétence numérique maîtrises-tu et pourrais-tu transmettre ? À qui serait-elle la plus utile ?',
       ],
-      'p. 8',
-      conclude(
-        'Dix domaines inscrivent l’Entreprise dans une dynamique locale et mondiale.',
+      sapfPages: 'p. 8',
+      extra: conclude(
+        'Le référentiel compte exactement dix domaines d’action ; les anciennes listes à cinq ou sept domaines sont historiques.',
         'Le domaine se choisit à partir d’un besoin réel, pas l’inverse.',
+        'Un projet a un domaine principal ; les domaines complémentaires se justifient.',
+        'Un projet pertinent ne donne pas automatiquement droit à un label ou à un brevet : les conditions de reconnaissance sont fixées par les instances de la branche Route.',
       ),
-    ),
+    }),
   ],
   notes: [
     ...commonNotes('Compagnonnage'),
     note(
-      'A_VERIFIER',
+      'INFORMATION',
       null,
-      'Exemples de projets : propositions éditoriales absentes du manuel, signalées comme telles dans chaque leçon. À valider ou remplacer par des exemples de la communauté.',
+      `Dix domaines confirmés par deux sources concordantes : manuel SAPF-Route p. 6 à 8 et ${GUIDE_DOCUMENT} p. 8 (SHA-256 ${GUIDE_SHA256}). Les listes de la fiche technique n° 7 (cinq domaines p. 2, sept labels p. 7) sont historiques ; rapprochements présentés dans les leçons : « Santé » et « Sport » → « Santé et sport » ; « Engagement chrétien » → « Vie et foi ». Aucun domaine supplémentaire.`,
     ),
     note(
       'A_VERIFIER',
       null,
-      'Noms et périmètres des programmes OMMS repris du manuel : à confronter aux pages officielles de l’OMMS avant publication.',
+      'Exemples d’Entreprise : propositions pédagogiques (certaines inspirées des exemples de la fiche n° 7), signalées dans chaque leçon. À valider ou remplacer par des exemples de la communauté.',
     ),
     note(
-      'A_COMPLETER',
+      'A_VERIFIER',
       null,
-      'Conclusion et choix d’un domaine : le manuel ne donne pas de critère de choix ni de modalité d’attribution du « label de domaine d’action ».',
+      'Programmes OMMS repris du manuel : disponibilité et conditions à confirmer auprès de l’association et des pages officielles de l’OMMS avant de les présenter comme actifs.',
+    ),
+    note(
+      'A_VERIFIER',
+      null,
+      'Rubriques « Intérêt pour la société », « Compétences développées », « À distinguer des domaines proches » et « Précautions particulières » : recommandations pédagogiques, non tirées d’un règlement. Les règles officielles de protection (enfance, santé, image) de l’association prévalent.',
+    ),
+    note(
+      'A_VERIFIER',
+      9,
+      'Label de domaine d’action : le manuel l’associe à l’Entreprise (tableau synoptique) ; le Guide (p. 8) précise que noms des labels et conditions de reconnaissance sont à confirmer auprès des instances de la branche Route. Aucune attribution automatique.',
     ),
   ],
 };
+
 // ─── DÉPART ROUTIER ────────────────────────────────────────────────────────
 
 const M11: SourceModule = {

@@ -15,6 +15,8 @@
  * Les règles de questionnaire servent aussi aux tests des définitions (`auditQuizQuestions`).
  */
 import {
+  ACTION_DOMAINS,
+  ACTION_DOMAINS_MODULE_KEY,
   createQuestionInputSchema,
   type LessonDocument,
   pendingEditorialNotes,
@@ -310,6 +312,48 @@ async function linkIssue(url: string, label: string): Promise<AuditIssue | null>
   }
 }
 
+const normalizedTitle = (title: string) => title.trim().toLocaleLowerCase('fr');
+const DOMAIN_TITLES = new Set(ACTION_DOMAINS.map(normalizedTitle));
+
+/**
+ * Domaines d'action : le module de référence contient exactement les dix domaines, une leçon chacun,
+ * dans l'ordre du référentiel ; un autre module rédigé qui porte le nom d'un domaine est signalé
+ * (les domaines ne sont ni des modules, ni des étapes).
+ */
+export function auditActionDomains(
+  key: string | null,
+  title: string,
+  lessonTitles: readonly string[],
+  empty: boolean,
+): AuditIssue[] {
+  if (key === ACTION_DOMAINS_MODULE_KEY) {
+    const exact =
+      lessonTitles.length === ACTION_DOMAINS.length &&
+      lessonTitles.every((lesson, index) => lesson === ACTION_DOMAINS[index]);
+    return exact
+      ? []
+      : [
+          {
+            code: 'DOMAINES_ACTION',
+            family: 'CONTENU',
+            blocking: true,
+            message: `le module des domaines d’action doit contenir exactement les ${ACTION_DOMAINS.length} domaines du référentiel, une leçon chacun (${lessonTitles.length} leçon(s))`,
+          },
+        ];
+  }
+  if (!empty && DOMAIN_TITLES.has(normalizedTitle(title))) {
+    return [
+      {
+        code: 'DOMAINE_EN_DOUBLE',
+        family: 'PARAMETRAGE',
+        blocking: false,
+        message: `porte le nom d’un domaine d’action : les domaines sont traités dans ${ACTION_DOMAINS_MODULE_KEY}`,
+      },
+    ];
+  }
+  return [];
+}
+
 export async function auditCatalog(
   prisma: PrismaClient,
   options: { checkLinks?: boolean } = {},
@@ -378,6 +422,9 @@ export async function auditCatalog(
         message: 'aucun objectif',
       });
     }
+
+    // Domaines d'action (D158) : exactement dix, dans le seul module de référence.
+    issues.push(...auditActionDomains(key, target.title, lessonTitles, allEmpty));
 
     // Paramétrage.
     if (target.category === null) {

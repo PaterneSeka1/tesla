@@ -1,5 +1,11 @@
-import { isLessonDocumentEmpty, lessonDocumentSchema, PROGRESSION_STAGES } from '@tesla/shared';
-import { auditLesson } from './pedagogy-audit.js';
+import {
+  ACTION_DOMAINS,
+  ACTION_DOMAINS_MODULE_KEY,
+  isLessonDocumentEmpty,
+  lessonDocumentSchema,
+  PROGRESSION_STAGES,
+} from '@tesla/shared';
+import { auditActionDomains, auditLesson } from './pedagogy-audit.js';
 import {
   FUNDAMENTAL_TEXTS,
   PRIERE_ROUTE_KEY,
@@ -43,7 +49,7 @@ describe('Seed « Bibliothèque de la Route »', () => {
   });
 
   it('respecte le découpage demandé et les étapes recommandées', () => {
-    expect(ROUTE_MODULES.map((m) => m.lessons.length)).toEqual([6, 8, 6, 7, 7, 7, 8, 10, 6, 6]);
+    expect(ROUTE_MODULES.map((m) => m.lessons.length)).toEqual([6, 8, 6, 7, 7, 7, 13, 10, 6, 6]);
     expect(ROUTE_MODULES.map((m) => m.stageCode)).toEqual([
       'NOVICIAT',
       'NOVICIAT',
@@ -110,11 +116,70 @@ describe('Seed « Bibliothèque de la Route »', () => {
     }
   });
 
-  it('signale les exemples de projets comme propositions éditoriales', () => {
-    const m10 = ROUTE_MODULES.find((m) => m.key === 'NT-ROUTE-M10')!;
-    for (const lesson of m10.lessons) {
-      expect(textOf(lesson.content)).toContain('Exemples de projets (proposition éditoriale)');
+  it('traite exactement les dix domaines d’action dans un seul module, une leçon par domaine', () => {
+    const m10 = ROUTE_MODULES.find((m) => m.key === ACTION_DOMAINS_MODULE_KEY)!;
+    expect(m10.lessons.map((lesson) => lesson.title)).toEqual([...ACTION_DOMAINS]);
+    // Aucun autre module (ni leçon d'un autre module) ne porte le nom d'un domaine.
+    const others = [...SCOUTISME_BASE_MODULES, ...ALL].filter((m) => m.key !== m10.key);
+    for (const module of others) {
+      expect(ACTION_DOMAINS as readonly string[]).not.toContain(module.title);
+      for (const lesson of module.lessons) {
+        expect(ACTION_DOMAINS as readonly string[]).not.toContain(lesson.title);
+      }
     }
+    expect(m10.stageCode).toBe('COMPAGNONNAGE');
+    for (const lesson of m10.lessons) {
+      const content = textOf(lesson.content);
+      for (const heading of [
+        'Définition',
+        'Objectif éducatif',
+        'Intérêt pour la société',
+        'Exemples d’Entreprise (proposition pédagogique)',
+        'Compétences développées',
+        'À distinguer des domaines proches',
+        'Précautions particulières',
+        'Pour réfléchir',
+      ]) {
+        expect(content, `${lesson.title} — ${heading}`).toContain(heading);
+      }
+      expect(content).toContain('Aucune n’est un projet déjà réalisé par la communauté.');
+    }
+    // Les anciennes listes à cinq ou sept domaines restent historiques.
+    expect(textOf(m10.lessons.at(-1)!.content)).toContain('exactement dix domaines');
+  });
+
+  it('fait de l’Entreprise un guide complet, de la découverte au bilan', () => {
+    const m09 = ROUTE_MODULES.find((m) => m.key === 'NT-ROUTE-M09')!;
+    const all = m09.lessons.map((lesson) => textOf(lesson.content)).join('\n');
+    // Sections A à G et les quinze parties du dossier.
+    for (const expected of [
+      'Les sept dimensions éducatives',
+      'La grille de sélection',
+      'Le procès-verbal de décision',
+      'Analyser la faisabilité',
+      'Risques et sécurité',
+      '1. Page de garde',
+      '8. Bénéficiaires',
+      '15. Conclusion',
+      'Coûts d’investissement',
+      'Les contributions en nature',
+      'Le seuil historique d’un tiers',
+      'Suivre les dépenses',
+      'imprévus',
+      'Pérennité',
+      'Transmission',
+    ]) {
+      expect(all, expected).toContain(expected);
+    }
+    // Le tiers d'apport personnel n'est jamais présenté comme une obligation actuelle.
+    expect(all).toContain('La plateforme ne l’impose pas.');
+    // Exemples illustratifs signalés ; montants fictifs annoncés comme tels.
+    expect(all).toContain('Exemple (illustratif)');
+    expect(all).toContain('montants fictifs');
+    // Le CAFDR est un exemple externe, sans coordonnées, tarif ni calendrier.
+    const study = textOf(m09.lessons.find((l) => l.title.startsWith('Étude de cas'))!.content);
+    expect(study).toContain('n’est pas une Entreprise de la communauté Nikola Tesla');
+    expect(canonicalJson(m09)).not.toMatch(/07\d{8}|F CFA \(frais|1 000 F|01 Mars 2025/);
   });
 
   it('passe le vérificateur pédagogique : aucune leçon vide, provisoire, mince ou sans référence', () => {
@@ -145,5 +210,35 @@ describe('Seed « Bibliothèque de la Route »', () => {
     for (const module of SCOUTISME_BASE_MODULES) {
       expect(canonicalJson(snapshotOf(module))).not.toContain('textLinks');
     }
+  });
+});
+
+describe('Contrôle des domaines d’action (pedagogy:audit)', () => {
+  it('accepte le module de référence exact et refuse un domaine manquant ou ajouté', () => {
+    expect(auditActionDomains('NT-ROUTE-M10', 'Domaines', [...ACTION_DOMAINS], false)).toEqual([]);
+    const missing = auditActionDomains(
+      'NT-ROUTE-M10',
+      'Domaines',
+      ACTION_DOMAINS.slice(0, 9),
+      false,
+    );
+    expect(missing.map((issue) => [issue.code, issue.blocking])).toEqual([
+      ['DOMAINES_ACTION', true],
+    ]);
+    const extra = auditActionDomains(
+      'NT-ROUTE-M10',
+      'Domaines',
+      [...ACTION_DOMAINS, 'Sport'],
+      false,
+    );
+    expect(extra.map((issue) => issue.code)).toEqual(['DOMAINES_ACTION']);
+  });
+
+  it('signale un autre module rédigé qui porterait le nom d’un domaine', () => {
+    expect(auditActionDomains(null, 'Environnement', ['Leçon'], false)[0]!.code).toBe(
+      'DOMAINE_EN_DOUBLE',
+    );
+    expect(auditActionDomains(null, 'Environnement', ['Leçon'], true)).toEqual([]);
+    expect(auditActionDomains('NT-ROUTE-M09', 'L’Entreprise routière', ['A'], false)).toEqual([]);
   });
 });

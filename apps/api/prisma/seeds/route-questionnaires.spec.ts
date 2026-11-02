@@ -1,4 +1,4 @@
-import { createQuestionInputSchema } from '@tesla/shared';
+import { createQuestionInputSchema, gradeObjectiveAnswer, gradeShortAnswer } from '@tesla/shared';
 import { auditQuizQuestions, definitionQuestions } from './pedagogy-audit.js';
 import { ROUTE_CATALOG, ROUTE_MODULES } from './route-bibliotheque.seed.js';
 import { quizQuestionInput, ROUTE_QUIZZES } from './route-questionnaires.js';
@@ -51,6 +51,51 @@ describe('Questionnaires du catalogue', () => {
       const result = definitionQuestions(quiz.moduleKey, titlesOf(quiz.moduleKey))!;
       expect(result.issues, quiz.moduleKey).toEqual([]);
     }
+  });
+
+  it('corrige automatiquement chaque question : bonne réponse au maximum, mauvaise à zéro', () => {
+    let count = 0;
+    for (const quiz of ROUTE_QUIZZES) {
+      for (const [index, item] of quiz.questions.entries()) {
+        const question = item.question;
+        const label = `${quiz.moduleKey} q${index + 1}`;
+        count += 1;
+        if (question.type === 'REPONSE_COURTE') {
+          const accepted = question.acceptedAnswers!;
+          expect(
+            gradeShortAnswer({ points: question.points, acceptedAnswers: accepted }, accepted[0]!),
+            label,
+          ).toBe(question.points);
+          continue;
+        }
+        const options = question.options!.map((option, position) => ({
+          id: `o${position}`,
+          isCorrect: option.isCorrect,
+        }));
+        const gradable = {
+          type: question.type,
+          points: question.points,
+          scoringPolicy: 'TOUT_OU_RIEN' as const,
+          options,
+        };
+        const right = options.filter((o) => o.isCorrect).map((o) => o.id);
+        const wrong = options.filter((o) => !o.isCorrect).map((o) => o.id);
+        expect(right.length, label).toBeGreaterThan(0);
+        expect(wrong.length, label).toBeGreaterThan(0);
+        expect(gradeObjectiveAnswer(gradable, right), label).toBe(question.points);
+        expect(gradeObjectiveAnswer(gradable, [wrong[0]!]), label).toBe(0);
+      }
+    }
+    // Total réel des questions préparées (recompté à chaque exécution).
+    expect(count).toBe(143);
+  });
+
+  it('évalue les dix domaines d’action par un seul questionnaire transversal et court', () => {
+    const m10 = ROUTE_QUIZZES.filter((quiz) => quiz.moduleKey === 'NT-ROUTE-M10');
+    expect(m10).toHaveLength(1);
+    expect(m10[0]!.questions.length).toBeLessThanOrEqual(12);
+    // Questions d'association et de distinction réparties sur plusieurs domaines.
+    expect(new Set(m10[0]!.questions.map((item) => item.lesson)).size).toBeGreaterThanOrEqual(7);
   });
 
   it('détecte un corrigé ambigu, une question répétée et un renvoi invalide', () => {
