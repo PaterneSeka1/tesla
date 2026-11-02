@@ -64,6 +64,8 @@ Le script liste les valeurs `<…>` restantes de `/etc/tesla/production.env` :
 | `ALERT_URL` | URL recevant un POST texte en cas d'échec (ex. sujet ntfy privé, passerelle e-mail) |
 | `BACKUP_HEARTBEAT_URL` (facultatif) | Sonde « dead man's switch » appelée après chaque sauvegarde réussie |
 | `BACKUP_RESTORE_CHECK_URL` (recommandé) | Rôle de maintenance `CREATEDB` pour la restauration d'essai à chaque sauvegarde |
+| `PUBLIC_APP_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (facultatif, D166) | Envoi des liens et codes d'activation et de récupération. Tout ou rien ; STARTTLS exigé sur 587 (`SMTP_SECURE=false`) ou TLS implicite sur 465 (`true`). Sans SMTP : récupération administrée (« Comptes » → nouveau lien, remis après vérification d'identité), et l'interface ne prétend jamais qu'un e-mail est parti |
+| `PASSWORD_RESET_TTL_MINUTES` | Validité d'une demande « mot de passe oublié » (60 par défaut) ; `ACCOUNT_LINK_TTL_HOURS` reste la validité des liens émis par une personne habilitée |
 
 Puis, en `tesla` : `gpg --import cle-publique.asc` et `rclone config` (remotes `r2-backup`, `r2-backup-crypt`, `r2-files-ro`, voir [STORAGE_R2.md](STORAGE_R2.md) § 7). Ne jamais définir `DEMO_ACCOUNT_PASSWORD`. `NEXT_PUBLIC_API_URL` est intégrée au build : la modifier impose un redéploiement.
 
@@ -92,6 +94,12 @@ deploy/scripts/healthcheck.sh https://<domaine>
 curl -sI https://<domaine>/ | grep -Ei 'strict-transport|content-security|x-frame|referrer'
 curl -s -o /dev/null -w '%{http_code}\n' https://<domaine>/api/docs      # 404 attendu
 ss -ltnp | grep -E ':(5432|3000|4000)'                                    # 127.0.0.1 uniquement
+curl -sI https://<domaine>/inscription | grep -Ei 'referrer-policy: no-referrer|cache-control: no-store'
+# IP usurpée : un X-Forwarded-For fourni par le client est écrasé par Nginx ($remote_addr) ;
+# 4 demandes « mot de passe oublié » pour la même adresse → la 4e répond 429 avec Retry-After.
+for i in 1 2 3 4; do curl -s -o /dev/null -w '%{http_code} ' -H 'X-Forwarded-For: 203.0.113.9' \
+  -H 'x-tesla-csrf: 1' -H 'Content-Type: application/json' \
+  -d '{"email":"essai-inexistant@example.org"}' https://<domaine>/api/v1/auth/password-reset/request; done
 ufw status verbose ; systemctl --failed ; certbot renew --dry-run
 ```
 Depuis une autre machine : `nc -zv <ip> 5432` doit échouer.
@@ -142,4 +150,6 @@ sudo -iu tesla
 | Journaux | `journalctl -u tesla-api@production -u tesla-web@production --since today` ; Nginx : `/var/log/nginx/tesla-production.*.log` |
 | Certificat | `certbot certificates` ; renouvellement automatique |
 | Disque | Contrôle avant chaque déploiement (2 Gio) et chaque sauvegarde ; journald plafonné |
+| Comptes et limitation (D165, D166) | `journalctl -u tesla-api@production | grep -E 'Échec d’envoi|429'` ; journal d'audit (`account.code_locked`, `account.password_reset_requested`, `account.password_reset`, `account.activated`) ; table `auth_throttles` (empreintes seulement, purgée chaque jour) : `SELECT count(*) FROM auth_throttles WHERE blocked_until > now();` — un nombre élevé et durable signale une attaque |
+| Évaluations papier (D163) | Journal d'audit `evaluation_attempt.paper_batch_prepared`, `.transmitted`, `.switched_to_paper` ; erreurs PDF : `journalctl … | grep paper-batches` (5xx journalisés sans chaîne de requête) |
 | Stockage objet | Journal de `tesla-daily@` (envois abandonnés purgés, fichiers par statut, fichiers sans référence) ; métriques R2 |

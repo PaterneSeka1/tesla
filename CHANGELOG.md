@@ -4,6 +4,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — évaluations collectives, inscription sur invitation et sécurité des comptes, 2026-11-02
+- Distribution collective depuis un module : cours en PDF commun, copies d'évaluation pour plusieurs routiers (filtres compte, équipe, étape, sélection manuelle), préparation idempotente, PDF collectif et ZIP (D163).
+- Saisie des copies papier par tout l'encadrement (provisoire, reprise, progression, récapitulatif, transmission) ; « Saisir les réponses » sur la fiche routier ; bascule au papier d'une tentative en ligne (D164).
+- Inscription privée : page `/inscription` (lien ou e-mail + code de secours), `/mot-de-passe-oublie`, `/reinitialiser-mot-de-passe` ; formulaire commun de choix du mot de passe ; liens « Mot de passe oublié ? » et « Activer mon compte » sur la connexion (D162, D166).
+- Envoi SMTP facultatif des liens (dépendance `nodemailer` 10.1.7) ; récupération administrée sans SMTP.
+- Migration additive `20261112090000_paper_transmission_activation_codes`.
+
+### Modifié
+- **Correction, corrigé, barèmes et notes non publiées réservés au responsable plein** (D161), y compris corrigé et grille PDF et résultats agrégés d'un questionnaire ; l'encadrement voit les copies expurgées.
+- Limitation persistante : politique centralisée, comptage atomique des requêtes, `Retry-After`, nouvelles portées (récupération, codes, renvoi, lots, documents) (D165). Mots de passe trop courants refusés.
+- Pages de compte jamais conservées par le service worker (`v5`), `Referrer-Policy: no-referrer`.
+
 ### Ajouté — Entreprise routière et domaines d'action, 2026-11-02
 - `NT-ROUTE-M09` « L'Entreprise routière » réécrit en guide complet (13 leçons) d'après le Guide de l'Entreprise Nikola Tesla, la fiche technique n° 7, l'ossature de rédaction et le manuel SAPF-Route : comprendre, choisir (grille sur 30, procès-verbal), préparer, rédiger les 15 parties du dossier, budget et financement, réaliser, évaluer et transmettre, étude de cas externe (TDR du CAFDR), boîte à outils.
 - `NT-ROUTE-M10` : exactement dix leçons, une par domaine (définition, objectif éducatif, intérêt pour la société, exemples signalés, compétences, domaines proches, précautions, réflexion).

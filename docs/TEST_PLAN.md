@@ -9,7 +9,8 @@
 | Intégration | `npm run test:int -w @tesla/api` (`TEST_DATABASE_URL` vers une base `*_test`) | PostgreSQL réel : contraintes, triggers, concurrence, permissions HTTP, comptes, mandats, offline | `integration` |
 | Migrations | `prisma migrate deploy` sur base vide + `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` | Toutes les migrations s'appliquent ; aucune dérive | `integration` |
 | Recette offline-first | `apps/web/test/offline-first.browser.mjs` | 28 contrôles, Chromium réel, profil persistant, coupure réseau complète | `browser` (390 px) |
-| Recette comptes | `apps/web/test/accounts.browser.mjs` | Installation, activation, gestion, compte personnel (9 contrôles) | `browser` |
+| Recette comptes | `apps/web/test/accounts.browser.mjs` | Inscription (lien, code inconnu refusé), mot de passe oublié sans SMTP, activation, gestion, compte personnel (11 contrôles) | `browser` |
+| Recette papier collective | `apps/web/test/paper-distribution.browser.mjs` (fixture `apps/api/test/paper-browser-fixture.mts`) | Distribution, PDF/ZIP, réimpression sans doublon, saisie et transmission sans corrigé, correction et publication par le plein, fiche routier (7 contrôles) | `browser` |
 | Dépendances | `npm run audit:prod` | Vulnérabilités connues (gravité ≥ high bloquante) | `quality` |
 
 La CI échoue si l'une de ces étapes échoue. **Le workflow n'a pas encore été exécuté sur GitHub** (branche non poussée).
@@ -38,7 +39,8 @@ La CI échoue si l'une de ces étapes échoue. **Le workflow n'a pas encore ét�
 | Contrôle | Commande | Résultat | Job CI |
 | --- | --- | --- | --- |
 | Offline-first (28 contrôles) | `node apps/web/test/offline-first.browser.mjs` (`VIEWPORT_WIDTH`) | 28/28 à 320, 390 et 1280 px | `browser` |
-| Comptes (9 contrôles) | `node apps/web/test/accounts.browser.mjs` | 9/9 à 320, 390 et 1280 px | `browser` |
+| Comptes (11 contrôles) | `node apps/web/test/accounts.browser.mjs` | 11/11 à 320, 390 et 1440 px (2026-11-02) | `browser` |
+| Circuit papier collectif (7 contrôles) | `node apps/web/test/paper-distribution.browser.mjs` | 7/7 à 320, 375, 390, 768, 1024 et 1440 px (2026-11-02) | `browser` |
 | Balayage de l'interface | `node apps/web/test/ui-sweep.browser.mjs` : 4 profils, toutes les entrées du menu et un niveau de liens internes, 320/375/390/430/768/1024/1440 px ; titre, débordement horizontal, erreurs JavaScript, libellés techniques | 434 affichages, 46 pages, aucun défaut (après correction de 3 débordements) | `browser` |
 | Scripts d'exploitation | `shellcheck -S warning deploy/scripts/*.sh` | Aucun avertissement | `ops` |
 | Sauvegarde et restauration | `deploy/scripts/tests/backup-scripts.test.sh` (conteneur PostgreSQL 18) | 9/9 | `ops` |
