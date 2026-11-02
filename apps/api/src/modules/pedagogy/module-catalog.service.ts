@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { offlineModulePackageSchema, printableModuleSchema } from '@tesla/shared';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   type CatalogLesson,
   type CatalogModule,
@@ -8,6 +8,9 @@ import {
   type CatalogPage,
   type CatalogQuery,
   catalogQuerySchema,
+  PRACTICAL_SHEETS,
+  type PracticalSheet,
+  practicalSheetsFor,
   type PrintableModule,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
@@ -144,8 +147,26 @@ export class ModuleCatalogService {
         slug: textModule.slug,
         title: textModule.publishedVersion!.title,
       })),
+      practicalSheets: practicalSheetsFor(await this.sourceKeyOf(module.id)),
       myStageId: await this.myStageId(actor),
     };
+  }
+
+  /** Fiche pratique d'un module publié (modèle vierge, sans donnée) ; 404 si elle n'y est pas rattachée. */
+  async practicalSheet(actor: Actor, slug: string, key: string): Promise<PracticalSheet> {
+    assertCan(actor, 'module.read');
+    const { module } = await this.published(slug, {});
+    const attached = practicalSheetsFor(await this.sourceKeyOf(module.id));
+    const sheet = attached.some((item) => item.key === key)
+      ? PRACTICAL_SHEETS.find((item) => item.key === key)
+      : undefined;
+    if (!sheet) {
+      throw new NotFoundException({
+        code: 'PRACTICAL_SHEET_NOT_FOUND',
+        message: 'Fiche pratique introuvable.',
+      });
+    }
+    return sheet;
   }
 
   async lesson(actor: Actor, slug: string, lessonId: string): Promise<CatalogLesson> {
@@ -238,6 +259,15 @@ export class ModuleCatalogService {
         include: typeof publishedInclude & I;
       }>,
     };
+  }
+
+  /** Code source d'un module importé (null pour un module créé dans la plateforme). */
+  private async sourceKeyOf(moduleId: string): Promise<string | null> {
+    const source = await this.prisma.moduleSourceImport.findUnique({
+      where: { moduleId },
+      select: { sourceKey: true },
+    });
+    return source?.sourceKey ?? null;
   }
 
   /** Étape actuelle du routier connecté (profil rattaché au compte), sinon null. */

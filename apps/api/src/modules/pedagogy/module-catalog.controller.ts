@@ -26,6 +26,7 @@ import { parseId } from '../../common/validation.js';
 import { CurrentActor } from '../auth/auth.decorators.js';
 import { ModuleCatalogService } from './module-catalog.service.js';
 import { renderModulePdf } from './module-pdf.js';
+import { renderPracticalSheetPdf } from './practical-sheet-pdf.js';
 
 @ApiTags('Bibliothèque')
 @ApiCookieAuth()
@@ -87,6 +88,25 @@ export class ModuleCatalogController {
     response.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${module.code}-${module.slug}.pdf"`,
+      'Cache-Control': 'no-store',
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Get(':slug/sheets/:key/pdf')
+  @ApiOperation({ summary: 'Télécharger une fiche pratique vierge du module (PDF A4)' })
+  @ApiProduces('application/pdf')
+  async practicalSheetPdf(
+    @CurrentActor() actor: Actor,
+    @Param('slug') slug: string,
+    @Param('key') key: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const sheet = await this.catalog.practicalSheet(actor, slug, key);
+    const buffer = await renderPracticalSheetPdf(sheet);
+    response.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="fiche-${sheet.key}.pdf"`,
       'Cache-Control': 'no-store',
     });
     return new StreamableFile(buffer);

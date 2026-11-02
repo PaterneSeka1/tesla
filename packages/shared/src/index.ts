@@ -21,3 +21,4 @@ export * from './leadership.js';
 export * from './pathway.js';
 export * from './medical.js';
 export * from './evaluation-results.js';
+export * from './entreprise.js';

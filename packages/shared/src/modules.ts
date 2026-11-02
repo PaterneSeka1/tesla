@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { paginationQuerySchema, searchQuerySchema, userSummarySchema } from './api.js';
 import { resourceFileSchema, STORED_FILE_TYPES, type StoredFileMimeType } from './files.js';
+import { practicalSheetSummarySchema } from './entreprise.js';
 import { lessonDocumentSchema } from './lesson-content.js';
 import { stageSummarySchema } from './scouts.js';
 
@@ -739,6 +740,8 @@ export const catalogModuleDetailSchema = catalogModuleSchema.extend({
   resources: z.array(publicResourceSchema),
   /** Textes fondamentaux cités dont une version est publiée (absent des copies hors ligne antérieures). */
   texts: z.array(z.object({ slug: z.string(), title: z.string() })).default([]),
+  /** Fiches pratiques imprimables rattachées au module (absent des copies hors ligne antérieures). */
+  practicalSheets: z.array(practicalSheetSummarySchema).default([]),
   myStageId: z.uuid().nullable(),
 });
 
