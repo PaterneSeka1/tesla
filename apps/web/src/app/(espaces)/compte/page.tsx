@@ -4,7 +4,7 @@ import { PageHeading } from '@/components/page-heading';
 export default function Page() {
   return (
     <>
-      <PageHeading title="Mon compte" />
+      <PageHeading title="Mon profil" />
       <AccountSettings />
     </>
   );

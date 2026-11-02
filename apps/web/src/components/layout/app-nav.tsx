@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog as DialogPrimitive } from 'radix-ui';
@@ -10,6 +10,7 @@ import { BrandLogo } from '@/components/brand-logo';
 import { UserMenu } from '@/components/auth/user-menu';
 import { meQueryOptions } from '@/lib/api/auth';
 import {
+  findActiveGroup,
   findActiveHref,
   findActiveItem,
   navigationFor,
@@ -40,10 +41,16 @@ function useNavUser(offline: boolean): NavUser | undefined {
 function NavLink({
   item,
   active,
+  highlighted = false,
+  compact = false,
   onNavigate,
 }: {
   item: NavItem;
   active: boolean;
+  /** Rubrique de la page affichée, sans être la page elle-même. */
+  highlighted?: boolean;
+  /** Sous-page d'une rubrique. */
+  compact?: boolean;
   onNavigate?: () => void;
 }) {
   const Icon = item.icon;
@@ -53,11 +60,14 @@ function NavLink({
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all active:scale-[0.98]',
+        'flex items-center gap-3 rounded-md px-3 text-sm font-medium transition-all active:scale-[0.98]',
+        compact ? 'min-h-9 py-1.5' : 'min-h-11 py-2',
         'focus-visible:ring-[3px] focus-visible:ring-tesla-or/60 focus-visible:outline-none',
         active
           ? 'bg-tesla-or text-tesla-bordeaux'
-          : 'text-tesla-sable hover:translate-x-0.5 hover:bg-white/10 hover:text-white',
+          : highlighted
+            ? 'bg-white/10 text-white'
+            : 'text-tesla-sable hover:translate-x-0.5 hover:bg-white/10 hover:text-white',
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden />
@@ -66,7 +76,10 @@ function NavLink({
   );
 }
 
-/** Navigation groupée selon les permissions (sidebar desktop et tiroir mobile). */
+/**
+ * Navigation par rubriques selon les permissions (sidebar desktop et tiroir mobile) : une entrée par
+ * rubrique ; les pages de la rubrique active s'affichent en dessous.
+ */
 export function AppNav({
   offline = false,
   onNavigate,
@@ -74,7 +87,7 @@ export function AppNav({
 }: {
   offline?: boolean;
   onNavigate?: () => void;
-  /** Groupes en cascade à l'ouverture (menu latéral mobile). */
+  /** Rubriques en cascade à l'ouverture (menu latéral mobile). */
   animated?: boolean;
 }) {
   const pathname = usePathname();
@@ -82,60 +95,51 @@ export function AppNav({
   if (!user) return <div className="flex-1" aria-hidden />;
 
   const groups = navigationFor(user);
+  const activeGroup = findActiveGroup(groups, pathname);
   const activeHref = findActiveHref(
     groups.flatMap((group) => group.items.map((item) => item.href)),
     pathname,
   );
 
   return (
-    <nav aria-label="Navigation principale" className="flex-1 space-y-5 overflow-y-auto pr-1">
-      {groups.map((group, index) => {
-        const motion = animated
-          ? { className: 'animate-rise', style: { '--stagger': index + 1 } as React.CSSProperties }
-          : { className: '' };
-        // Dans un groupe repliable, les liens remontent à chaque dépliage (affichage relancé).
-        const links = (
-          <ul className={cn('space-y-0.5', group.collapsible && 'animate-rise')}>
-            {group.items.map((item) => (
-              <li key={item.href}>
-                <NavLink item={item} active={item.href === activeHref} onNavigate={onNavigate} />
-              </li>
-            ))}
-          </ul>
-        );
-        const labelClass = 'px-3 text-xs font-semibold tracking-wider text-tesla-or/90 uppercase';
-        if (group.collapsible) {
-          // Repli natif (clavier et lecteurs d'écran) ; ouvert d'office sur la page active.
-          const containsActive = group.items.some((item) => item.href === activeHref);
+    <nav aria-label="Navigation principale" className="flex-1 overflow-y-auto pr-1">
+      <ul className="space-y-1">
+        {groups.map((group, index) => {
+          const [first] = group.items;
+          if (!first) return null;
+          const open = group === activeGroup;
+          const motion = animated
+            ? {
+                className: 'animate-rise',
+                style: { '--stagger': index + 1 } as React.CSSProperties,
+              }
+            : { className: '' };
           return (
-            <details
-              key={group.label}
-              open={containsActive || undefined}
-              className="group space-y-1"
-            >
-              <summary
-                className={cn(
-                  labelClass,
-                  'flex min-h-8 cursor-pointer list-none items-center justify-between rounded-md hover:text-tesla-or focus-visible:ring-[3px] focus-visible:ring-tesla-or/60 focus-visible:outline-none [&::-webkit-details-marker]:hidden',
-                )}
-              >
-                {group.label}
-                <ChevronDown
-                  className="size-4 transition-transform group-open:rotate-180"
-                  aria-hidden
-                />
-              </summary>
-              {links}
-            </details>
+            <li key={group.label} className={motion.className} style={motion.style}>
+              <NavLink
+                item={{ href: first.href, label: group.label, icon: group.icon }}
+                active={open && (group.items.length === 1 || first.href === activeHref)}
+                highlighted={open}
+                onNavigate={onNavigate}
+              />
+              {open && group.items.length > 1 && (
+                <ul className="mt-1 ml-4 animate-rise space-y-0.5 border-l border-white/15 pl-2">
+                  {group.items.slice(1).map((item) => (
+                    <li key={item.href}>
+                      <NavLink
+                        item={item}
+                        active={item.href === activeHref}
+                        onNavigate={onNavigate}
+                        compact
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
           );
-        }
-        return (
-          <div key={group.label} className={cn('space-y-1', motion.className)} style={motion.style}>
-            <p className={labelClass}>{group.label}</p>
-            {links}
-          </div>
-        );
-      })}
+        })}
+      </ul>
     </nav>
   );
 }
@@ -215,7 +219,7 @@ export function RoutierBottomNav({ offline = false }: { offline?: boolean }) {
       aria-label="Accès rapides"
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
     >
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {PATHWAY_BOTTOM_NAV.map(({ href, label, icon: Icon }) => {
           const active = href === activeHref;
           return (
@@ -232,7 +236,7 @@ export function RoutierBottomNav({ offline = false }: { offline?: boolean }) {
                 {/* Pastille de l'onglet actif ; l'icône rebondit quand l'onglet devient actif. */}
                 <span
                   className={cn(
-                    'flex h-7 w-14 items-center justify-center rounded-full transition-colors duration-300',
+                    'flex h-7 w-12 items-center justify-center rounded-full transition-colors duration-300',
                     active && 'bg-tesla-sable',
                   )}
                 >

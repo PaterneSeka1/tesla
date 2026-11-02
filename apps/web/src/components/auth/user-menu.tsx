@@ -58,7 +58,7 @@ export function UserMenu() {
         className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-tesla-sable hover:bg-white/10 hover:text-white"
       >
         <UserRound className="size-4 shrink-0" aria-hidden />
-        Mon compte
+        Mon profil
       </Link>
       <div className="flex items-center justify-between gap-3">
         <p className="min-w-0 truncate text-sm font-medium">

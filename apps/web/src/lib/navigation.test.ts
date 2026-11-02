@@ -4,6 +4,7 @@ import { effectivePermissions, type LeaderFunction, type Role } from '@tesla/sha
 import { describe, expect, it } from 'vitest';
 import {
   canAccessPath,
+  findActiveGroup,
   findActiveItem,
   hasPathwayNav,
   HOME_ROUTE,
@@ -183,39 +184,80 @@ describe('navigation', () => {
     },
   );
 
-  it('aucune entrée en double dans le menu unique', () => {
-    const all = NAVIGATION.flatMap((group) => group.items.map((item) => item.href));
-    expect(new Set(all).size).toBe(all.length);
+  it.each(Object.entries(ALL))('%s : aucune entrée en double dans le menu', (_, user) => {
+    expect(new Set(hrefs(user)).size).toBe(hrefs(user).length);
   });
 
-  it.each(Object.entries(ALL))(
-    '%s : l’accueil est la première entrée, toujours visible',
-    (_, user) => {
-      const [first] = navigationFor(user);
-      expect(first?.items[0]?.href).toBe(HOME_ROUTE);
-      expect(first?.collapsible).toBeFalsy();
-    },
-  );
+  it('administrateur : comptes et encadrement dans « Administration », rien d’autre (D142)', () => {
+    const groups = navigationFor(admin);
+    expect(groups.map((group) => [group.label, group.items.map((item) => item.href)])).toEqual([
+      ['Accueil', [HOME_ROUTE]],
+      ['Mon profil', ['/compte']],
+      ['Administration', ['/administration/comptes', '/communaute']],
+    ]);
+  });
+
+  it.each(Object.entries(ALL))('%s : l’accueil est la première rubrique', (_, user) => {
+    const [first] = navigationFor(user);
+    expect(first?.items[0]?.href).toBe(HOME_ROUTE);
+  });
+
+  it('cinq rubriques pour le routier et l’encadrement, trois pour l’administrateur', () => {
+    const rubriques = (user: NavUser) => navigationFor(user).map((group) => group.label);
+    expect(rubriques(routier)).toEqual([
+      'Accueil',
+      'Cours',
+      'Évaluations',
+      'Mon parcours',
+      'Mon profil',
+    ]);
+    for (const user of [encadrant, adjoint, assistant]) {
+      expect(rubriques(user)).toEqual([
+        'Accueil',
+        'Routiers',
+        'Cours',
+        'Évaluations',
+        'Mon profil',
+      ]);
+    }
+    // Le plein gère aussi les comptes routiers : rubrique « Administration » discrète en plus.
+    expect(rubriques(plein)).toEqual([
+      'Accueil',
+      'Routiers',
+      'Cours',
+      'Évaluations',
+      'Mon profil',
+      'Administration',
+    ]);
+    expect(rubriques(admin)).toEqual(['Accueil', 'Mon profil', 'Administration']);
+  });
+
+  it('la rubrique active est celle de la page affichée', () => {
+    const groups = navigationFor(plein);
+    expect(findActiveGroup(groups, '/administration/modules/abc/revision')?.label).toBe('Cours');
+    expect(findActiveGroup(groups, '/encadrement/evaluations/papier/x')?.label).toBe('Évaluations');
+    expect(findActiveGroup(groups, '/administration/equipes')?.label).toBe('Routiers');
+    expect(findActiveGroup(navigationFor(routier), '/mes-rattrapages')?.label).toBe('Mon parcours');
+  });
 
   it('affiche seulement les fonctionnalités autorisées', () => {
     expect(hrefs(routier)).toContain('/progression');
     expect(hrefs(routier)).not.toContain('/administration/routiers');
     expect(hrefs(encadrant)).toContain('/administration/routiers');
     expect(hrefs(encadrant)).not.toContain('/progression');
-    expect(hrefs(admin)).toEqual([HOME_ROUTE, '/communaute', '/administration/comptes']);
+    expect(hrefs(admin)).toEqual([HOME_ROUTE, '/compte', '/administration/comptes', '/communaute']);
   });
 
   it('un même menu pour l’encadrement, enrichi des seules décisions du plein', () => {
-    const labels = (user: NavUser) => navigationFor(user).map((group) => group.label);
-    expect(labels(plein)).toContain('Contenus à approuver');
-    expect(labels(adjoint)).not.toContain('Contenus à approuver');
+    expect(hrefs(plein)).toContain('/administration/modules-a-valider');
+    expect(hrefs(adjoint)).not.toContain('/administration/modules-a-valider');
     expect(hrefs(adjoint)).toEqual(hrefs(encadrant));
     expect(hrefs(assistant)).toEqual(hrefs(encadrant));
     expect(hrefs(encadrant).every((href) => hrefs(plein).includes(href))).toBe(true);
   });
 
-  it('barre mobile : quatre entrées du parcours personnel, pour qui en suit un', () => {
-    expect(PATHWAY_BOTTOM_NAV).toHaveLength(4);
+  it('barre mobile : cinq entrées du parcours personnel, pour qui en suit un', () => {
+    expect(PATHWAY_BOTTOM_NAV).toHaveLength(5);
     for (const item of PATHWAY_BOTTOM_NAV) expect(hrefs(routier)).toContain(item.href);
     expect(hasPathwayNav(routier)).toBe(true);
     expect(hasPathwayNav(plein)).toBe(false);
@@ -236,7 +278,7 @@ describe('navigation', () => {
 });
 
 describe('comptes (D119)', () => {
-  it('« Mon compte » est accessible à tout utilisateur connecté', () => {
+  it('« Mon profil » est accessible à tout utilisateur connecté', () => {
     for (const user of Object.values(ALL)) expect(canAccessPath(user, '/compte')).toBe(true);
   });
 

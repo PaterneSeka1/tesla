@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   Trophy,
   Unlock,
+  UserRound,
   Users,
   UsersRound,
 } from 'lucide-react';
@@ -128,112 +129,35 @@ export interface NavItem {
   icon: LucideIcon;
   /** Entrée affichée seulement si la permission effective est détenue. */
   permission?: Permission;
+  /** Entrée masquée si cette permission est détenue (page rangée dans une autre rubrique). */
+  hiddenWith?: Permission;
 }
 
 export interface NavGroup {
+  /** Rubrique : une seule entrée du menu, vers sa première page autorisée. */
   label: string;
+  icon: LucideIcon;
+  /** Pages de la rubrique, affichées sous l'entrée lorsque la rubrique est active. */
   items: readonly NavItem[];
-  /** Groupe secondaire replié par défaut (déplié s'il contient la page affichée). */
-  collapsible?: boolean;
 }
 
 /**
- * Menu unique, groupé par rubrique. Chaque entrée n'apparaît qu'avec sa permission (`navigationFor`) :
- * un routier voit son parcours et ses formations, l'encadrement le suivi, la communauté et les
- * contenus, le responsable plein en plus les décisions, l'administrateur l'administration.
+ * Menu unique en rubriques (au plus cinq pour un routier ou un membre de l'encadrement). Chaque page
+ * n'apparaît qu'avec sa permission (`navigationFor`) ; une rubrique sans page autorisée disparaît.
+ * Routier : Accueil, Cours, Évaluations, Mon parcours, Mon profil. Encadrement : Accueil, Routiers,
+ * Cours, Évaluations, Mon profil. Administrateur : Accueil, Mon profil, Administration.
  * Règle : aucune entrée vers un écran inexistant ou inaccessible (vérifié par `navigation.test.ts`).
  */
 export const NAVIGATION: readonly NavGroup[] = [
   {
     label: 'Accueil',
+    icon: LayoutDashboard,
     items: [{ href: HOME_ROUTE, label: 'Accueil', icon: LayoutDashboard }],
   },
   {
-    label: 'Mon parcours',
+    label: 'Routiers',
+    icon: Users,
     items: [
-      {
-        href: '/progression',
-        label: 'Progression',
-        icon: GraduationCap,
-        permission: 'progression.readOwn',
-      },
-      {
-        href: '/mes-rattrapages',
-        label: 'Rattrapages',
-        icon: Undo2,
-        permission: 'progression.readOwn',
-      },
-      {
-        href: '/mes-competences',
-        label: 'Compétences',
-        icon: Medal,
-        permission: 'progression.readOwn',
-      },
-      {
-        href: '/mes-activites',
-        label: 'Activités',
-        icon: CalendarDays,
-        permission: 'progression.readOwn',
-      },
-      {
-        href: '/mes-resultats',
-        label: 'Résultats',
-        icon: Trophy,
-        permission: 'progression.readOwn',
-      },
-    ],
-  },
-  {
-    label: 'Formations',
-    items: [
-      { href: '/modules', label: 'Bibliothèque', icon: Library, permission: 'module.read' },
-      {
-        href: '/evaluations',
-        label: 'Évaluations',
-        icon: ClipboardCheck,
-        permission: 'evaluation.take',
-      },
-    ],
-  },
-  {
-    label: 'Suivi pédagogique',
-    items: [
-      {
-        href: '/administration/statistiques',
-        label: 'Statistiques',
-        icon: BarChart3,
-        permission: 'statistics.read',
-      },
-      {
-        href: '/administration/programme-annuel',
-        label: 'Programme annuel',
-        icon: CalendarDays,
-        permission: 'scout.read',
-      },
-      {
-        href: '/administration/evaluations-a-valider',
-        label: 'Résultats à examiner',
-        icon: ShieldCheck,
-        permission: 'attempt.decide',
-      },
-      {
-        href: '/administration/validations',
-        label: 'Acquis et propositions',
-        icon: Medal,
-        permission: 'competency.read',
-      },
-      {
-        href: '/administration/deblocages',
-        label: 'Déblocages',
-        icon: Unlock,
-        permission: 'waiver.manage',
-      },
-    ],
-  },
-  {
-    label: 'Communauté',
-    items: [
-      { href: '/communaute', label: 'Encadrement', icon: Network },
       {
         href: '/administration/routiers',
         label: 'Routiers',
@@ -258,75 +182,27 @@ export const NAVIGATION: readonly NavGroup[] = [
         icon: CalendarCheck,
         permission: 'attendance.record',
       },
-    ],
-  },
-  {
-    // Validation des contenus : distincte de la validation des personnes.
-    label: 'Contenus à approuver',
-    items: [
       {
-        href: '/administration/modules-a-valider',
-        label: 'Modules à approuver',
-        icon: FileCheck2,
-        permission: 'module.review',
+        href: '/administration/validations',
+        label: 'Acquis et propositions',
+        icon: Medal,
+        permission: 'competency.read',
       },
       {
-        href: '/administration/evaluations',
-        label: 'Questionnaires à approuver',
-        icon: ClipboardCheck,
-        permission: 'evaluation.review',
-      },
-    ],
-  },
-  {
-    label: 'Rédaction et correction',
-    collapsible: true,
-    items: [
-      {
-        href: '/encadrement/modules',
-        label: 'Modules',
-        icon: FilePenLine,
-        permission: 'module.write',
+        href: '/administration/statistiques',
+        label: 'Statistiques',
+        icon: BarChart3,
+        permission: 'statistics.read',
       },
       {
-        href: '/encadrement/evaluations',
-        label: 'Questionnaires',
-        icon: ClipboardList,
-        permission: 'evaluation.write',
-      },
-      {
-        href: '/encadrement/evaluations/papier',
-        label: 'Évaluations papier',
-        icon: Printer,
-        permission: 'attempt.preparePaper',
-      },
-      {
-        href: '/encadrement/corrections',
-        label: 'Corrections',
-        icon: PenLine,
-        permission: 'attempt.record',
-      },
-      {
-        href: '/encadrement/soumissions',
-        label: 'Soumissions',
-        icon: Send,
-        permission: 'module.write',
-      },
-    ],
-  },
-  {
-    label: 'Référentiels',
-    collapsible: true,
-    items: [
-      {
-        href: '/administration/modules',
-        label: 'Tous les modules',
-        icon: BookOpen,
-        permission: 'module.review',
+        href: '/administration/programme-annuel',
+        label: 'Programme annuel',
+        icon: CalendarDays,
+        permission: 'scout.read',
       },
       {
         href: '/administration/competences',
-        label: 'Compétences',
+        label: 'Référentiel de compétences',
         icon: GraduationCap,
         permission: 'competency.read',
       },
@@ -335,6 +211,37 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Référentiel d’âge',
         icon: Route,
         permission: 'ageRules.read',
+      },
+    ],
+  },
+  {
+    label: 'Cours',
+    icon: BookOpen,
+    items: [
+      { href: '/modules', label: 'Bibliothèque', icon: Library, permission: 'module.read' },
+      {
+        href: '/encadrement/modules',
+        label: 'Rédaction',
+        icon: FilePenLine,
+        permission: 'module.write',
+      },
+      {
+        href: '/encadrement/soumissions',
+        label: 'Mes soumissions',
+        icon: Send,
+        permission: 'module.write',
+      },
+      {
+        href: '/administration/modules-a-valider',
+        label: 'Cours à approuver',
+        icon: FileCheck2,
+        permission: 'module.review',
+      },
+      {
+        href: '/administration/modules',
+        label: 'Tous les cours',
+        icon: BookOpen,
+        permission: 'module.review',
       },
       {
         href: '/administration/historique-publications',
@@ -345,13 +252,114 @@ export const NAVIGATION: readonly NavGroup[] = [
     ],
   },
   {
+    label: 'Évaluations',
+    icon: ClipboardCheck,
+    items: [
+      {
+        href: '/evaluations',
+        label: 'Évaluations',
+        icon: ClipboardCheck,
+        permission: 'evaluation.take',
+      },
+      {
+        href: '/encadrement/evaluations',
+        label: 'Questionnaires',
+        icon: ClipboardList,
+        permission: 'evaluation.write',
+      },
+      {
+        href: '/encadrement/corrections',
+        label: 'Corrections',
+        icon: PenLine,
+        permission: 'attempt.record',
+      },
+      {
+        href: '/encadrement/evaluations/papier',
+        label: 'Évaluations papier',
+        icon: Printer,
+        permission: 'attempt.preparePaper',
+      },
+      {
+        href: '/administration/evaluations-a-valider',
+        label: 'Résultats à examiner',
+        icon: ShieldCheck,
+        permission: 'attempt.decide',
+      },
+      {
+        href: '/administration/evaluations',
+        label: 'Questionnaires à approuver',
+        icon: FileCheck2,
+        permission: 'evaluation.review',
+      },
+      {
+        href: '/administration/deblocages',
+        label: 'Déblocages',
+        icon: Unlock,
+        permission: 'waiver.manage',
+      },
+    ],
+  },
+  {
+    label: 'Mon parcours',
+    icon: GraduationCap,
+    items: [
+      {
+        href: '/progression',
+        label: 'Progression',
+        icon: GraduationCap,
+        permission: 'progression.readOwn',
+      },
+      {
+        href: '/mes-rattrapages',
+        label: 'Rattrapages',
+        icon: Undo2,
+        permission: 'progression.readOwn',
+      },
+      {
+        href: '/mes-resultats',
+        label: 'Résultats',
+        icon: Trophy,
+        permission: 'progression.readOwn',
+      },
+      {
+        href: '/mes-competences',
+        label: 'Compétences',
+        icon: Medal,
+        permission: 'progression.readOwn',
+      },
+      {
+        href: '/mes-activites',
+        label: 'Activités',
+        icon: CalendarDays,
+        permission: 'progression.readOwn',
+      },
+    ],
+  },
+  {
+    label: 'Mon profil',
+    icon: UserRound,
+    items: [
+      { href: '/compte', label: 'Mon profil', icon: UserRound },
+      // Pour l'administrateur, la page est rangée dans « Administration ».
+      { href: '/communaute', label: 'Encadrement', icon: Network, hiddenWith: 'leadership.manage' },
+    ],
+  },
+  {
+    // Rubrique discrète : gestion des comptes et désignation de l'encadrement (D142).
     label: 'Administration',
+    icon: KeyRound,
     items: [
       {
         href: '/administration/comptes',
         label: 'Comptes',
         icon: KeyRound,
         permission: 'account.read',
+      },
+      {
+        href: '/communaute',
+        label: 'Encadrement',
+        icon: Network,
+        permission: 'leadership.manage',
       },
     ],
   },
@@ -361,16 +369,21 @@ export const NAVIGATION: readonly NavGroup[] = [
 export function navigationFor(user: NavUser): NavGroup[] {
   return NAVIGATION.map((group) => ({
     ...group,
-    items: group.items.filter((item) => !item.permission || userCan(user, item.permission)),
+    items: group.items.filter(
+      (item) =>
+        (!item.permission || userCan(user, item.permission)) &&
+        !(item.hiddenWith && userCan(user, item.hiddenWith)),
+    ),
   })).filter((group) => group.items.length > 0);
 }
 
 /** Accès rapides de la barre inférieure mobile, pour qui suit un parcours personnel. */
 export const PATHWAY_BOTTOM_NAV: readonly NavItem[] = [
   { href: HOME_ROUTE, label: 'Accueil', icon: LayoutDashboard },
-  { href: '/modules', label: 'Modules', icon: BookOpen },
+  { href: '/modules', label: 'Cours', icon: BookOpen },
   { href: '/evaluations', label: 'Évaluations', icon: ClipboardCheck },
-  { href: '/progression', label: 'Progression', icon: GraduationCap },
+  { href: '/progression', label: 'Parcours', icon: GraduationCap },
+  { href: '/compte', label: 'Profil', icon: UserRound },
 ];
 
 /** La barre inférieure mobile est réservée aux personnes qui suivent un parcours personnel. */
@@ -383,6 +396,18 @@ export function findActiveHref(hrefs: readonly string[], pathname: string): stri
   return hrefs
     .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
     .sort((a, b) => b.length - a.length)[0];
+}
+
+/** Rubrique contenant la page affichée (entrée mise en évidence, sous-pages dépliées). */
+export function findActiveGroup(
+  groups: readonly NavGroup[],
+  pathname: string,
+): NavGroup | undefined {
+  const href = findActiveHref(
+    groups.flatMap((group) => group.items.map((item) => item.href)),
+    pathname,
+  );
+  return href ? groups.find((group) => group.items.some((item) => item.href === href)) : undefined;
 }
 
 /** Entrée de menu correspondant à la page affichée (titre de l'en-tête mobile). */
