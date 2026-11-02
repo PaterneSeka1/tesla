@@ -129,7 +129,7 @@ try {
 
   await page.goto(`${origin}/`);
   await page.waitForURL('**/accueil');
-  await page.getByRole('heading', { name: 'Tableau de bord' }).waitFor();
+  await page.getByRole('heading', { name: 'Accueil', exact: true }).waitFor();
   check('5. réouverture directe sur le tableau de bord, sans réseau');
   await visibleText('Hors connexion').waitFor();
   check('indicateur discret « Hors connexion »');
@@ -217,8 +217,8 @@ try {
   await restart();
   await context.setOffline(true);
   await page.goto(`${origin}/`);
-  await page.waitForURL('**/encadrement');
-  await page.getByRole('heading', { name: 'Tableau de bord' }).waitFor();
+  await page.waitForURL('**/accueil');
+  await page.getByRole('heading', { name: 'Accueil', exact: true }).waitFor();
   await go('/administration/routiers');
   await page.getByText('Alpha').first().waitFor();
   await go(`/administration/routiers/${fixture.scouts[0]}`);

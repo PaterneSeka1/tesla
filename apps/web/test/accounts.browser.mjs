@@ -65,7 +65,7 @@ try {
   await page.getByLabel('Adresse e-mail').fill(staffEmail);
   await page.getByLabel('Prénom').fill('Fictif');
   await page.getByLabel(/^Nom/).fill('Encadrant');
-  await page.getByLabel('Accès').selectOption('ENCADREMENT');
+  await page.getByLabel('Type de compte').selectOption('ENCADREMENT');
   await page.getByRole('button', { name: 'Créer le compte' }).click();
   const shown = page.getByLabel('Lien à transmettre');
   await shown.waitFor();
@@ -91,14 +91,14 @@ try {
   check('désactivation motivée');
 
   await page.goto(`${origin}/compte`);
-  await page.getByRole('heading', { name: 'Mon compte' }).waitFor();
+  await page.getByRole('heading', { name: 'Mon profil' }).waitFor();
   await page.getByRole('main').getByText('Cet appareil', { exact: true }).waitFor();
   await noScroll('compte');
   await page.getByLabel('Mot de passe actuel').fill('mauvais-mot-de-passe');
   await page.getByLabel('Nouveau mot de passe').fill('phrase-recette-admin-02');
   await page.getByRole('button', { name: 'Modifier le mot de passe' }).click();
   await page.getByText('Le mot de passe actuel est incorrect.').first().waitFor();
-  check('« Mon compte » : sessions affichées, mot de passe actuel vérifié');
+  check('« Mon profil » : sessions affichées, mot de passe actuel vérifié');
   assert.deepEqual(errors, []);
   console.log(`\n${n} contrôles réussis.`);
 } catch (error) {
