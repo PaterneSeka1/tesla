@@ -35,8 +35,14 @@ query() { psql --dbname="$check_url" -qAtc "$1"; }
 migrations="$(query "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL")"
 last="$(query "SELECT migration_name FROM _prisma_migrations ORDER BY finished_at DESC NULLS LAST LIMIT 1")"
 echo "Migrations appliquées : ${migrations} (dernière : ${last})"
-for table in users scout_profiles teams evaluation_attempts leadership_mandates audit_logs; do
-  printf '%-22s %s lignes\n' "$table" "$(query "SELECT count(*) FROM ${table}")"
+# Tables principales ; une table absente d'une sauvegarde antérieure à sa migration est signalée.
+for table in users scout_profiles teams evaluation_attempts leadership_assignments medical_records \
+  stored_files audit_logs; do
+  if [[ -n "$(query "SELECT to_regclass('public.${table}')")" ]]; then
+    printf '%-22s %s lignes\n' "$table" "$(query "SELECT count(*) FROM ${table}")"
+  else
+    printf '%-22s absente\n' "$table"
+  fi
 done
 [[ "$migrations" -gt 0 ]] || { echo "ÉCHEC : aucune migration dans la sauvegarde" >&2; exit 1; }
 echo "Restauration d'essai réussie."
