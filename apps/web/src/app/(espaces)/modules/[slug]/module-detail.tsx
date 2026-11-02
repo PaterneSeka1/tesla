@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { BookOpenText, Clock, FileDown, Printer, ScrollText, Sparkles, Target } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { readingPosition } from '@/components/offline/use-offline-images';
 import { DownloadModuleButton } from '@/components/download-module-button';
 import { BackLink } from '@/components/back-link';
 import { ResourceList } from '@/components/modules/resource-list';
@@ -17,12 +19,26 @@ import { formatDate, formatDuration } from '@/lib/format';
 export function ModuleDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { data: module, error, isPending, refetch } = useQuery(catalogModuleQueryOptions(slug));
+  // Dernière leçon lue sur cet appareil (coffre local ; absente si verrouillé).
+  const [lastLessonId, setLastLessonId] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void readingPosition(slug)
+      .then((position) => {
+        if (active) setLastLessonId(position?.lessonId ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [slug]);
 
   if (isPending) return <TableSkeleton rows={5} />;
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
 
   const recommended = module.myStageId !== null && module.stage?.id === module.myStageId;
-  const first = module.lessons[0];
+  const resumed = module.lessons.find((lesson) => lesson.id === lastLessonId);
+  const first = resumed ?? module.lessons[0];
 
   return (
     <>
@@ -61,7 +77,7 @@ export function ModuleDetail() {
             <Button asChild variant="secondary">
               <Link href={`/modules/${module.slug}/lecons/${first.id}`}>
                 <BookOpenText aria-hidden />
-                Commencer la lecture
+                {resumed ? 'Reprendre la lecture' : 'Commencer la lecture'}
               </Link>
             </Button>
           )}

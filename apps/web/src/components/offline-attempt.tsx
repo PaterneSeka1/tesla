@@ -4,6 +4,7 @@ import { AnswerFields } from '@/components/evaluations/answer-fields';
 import { Button } from '@/components/ui/button';
 import {
   type LocalAttempt,
+  reservationExpired,
   saveLocalAnswers,
   submitLocal,
   SYNC_STATE_LABELS,
@@ -87,6 +88,7 @@ export function OfflineAttempt({ id }: { id: string }) {
   const question = item.package.session.questions[index];
   if (!question) return <p>Questionnaire vide ou incompatible.</p>;
   const answer = item.answers.find((a) => a.questionId === question.id);
+  const expired = item.status === 'LOCAL' && reservationExpired(item);
   return (
     <section className="space-y-4 rounded-lg border p-4">
       <h2 className="text-xl font-semibold">{item.package.session.evaluation.title}</h2>
@@ -94,9 +96,17 @@ export function OfflineAttempt({ id }: { id: string }) {
         {item.package.session.code} · version {item.package.session.version} ·{' '}
         {SYNC_STATE_LABELS[item.status]}
       </p>
-      <p className="text-sm">
-        À synchroniser avant le {new Date(item.package.expiresAt).toLocaleString('fr-FR')}.
-      </p>
+      {expired ? (
+        <p role="alert" className="text-sm text-destructive">
+          Réservation expirée le {new Date(item.package.expiresAt).toLocaleString('fr-FR')} : cette
+          copie ne peut plus être remise. Préparez une nouvelle tentative en ligne si l’évaluation
+          reste ouverte.
+        </p>
+      ) : (
+        <p className="text-sm">
+          À synchroniser avant le {new Date(item.package.expiresAt).toLocaleString('fr-FR')}.
+        </p>
+      )}
       <p className="whitespace-pre-line">{item.package.session.evaluation.instructions}</p>
       <p>
         Question {index + 1}/{item.package.session.questions.length}
@@ -104,7 +114,7 @@ export function OfflineAttempt({ id }: { id: string }) {
       <AnswerFields
         question={question}
         answer={{ optionIds: answer?.optionIds ?? [], text: answer?.text ?? '' }}
-        disabled={item.status !== 'LOCAL' || busy}
+        disabled={item.status !== 'LOCAL' || expired || busy}
         onChange={(value) =>
           save(
             item.answers.map((a) =>
@@ -124,7 +134,7 @@ export function OfflineAttempt({ id }: { id: string }) {
         >
           Suivante
         </Button>
-        {item.status === 'LOCAL' && (
+        {item.status === 'LOCAL' && !expired && (
           <Button disabled={busy} onClick={() => void submit()}>
             Remettre localement
           </Button>
@@ -133,12 +143,11 @@ export function OfflineAttempt({ id }: { id: string }) {
       <p role="status" aria-live="polite">
         {message}
       </p>
-      {item.server && (
-        <p>
-          {item.server.code} — {item.server.message}
-        </p>
+      {item.lastError ? (
+        <p role="alert">{item.lastError}</p>
+      ) : (
+        item.server && <p>{item.server.message}</p>
       )}
-      {item.lastError && <p role="alert">{item.lastError}</p>}
       <p className="text-sm text-muted-foreground">
         Un résultat ne valide jamais automatiquement une étape ou une compétence.
       </p>

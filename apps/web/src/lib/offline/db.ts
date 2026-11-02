@@ -8,6 +8,9 @@ export function openOfflineDb(): Promise<IDBDatabase> {
       return;
     }
     const request = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
+    let settled = false;
+    // Montée de version : les magasins existants sont conservés tels quels, jamais recréés ni
+    // vidés ; une future version ajoute ses magasins ou transforme les données ici (AUD-021).
     request.onupgradeneeded = () => {
       for (const store of ['records', 'settings']) {
         if (!request.result.objectStoreNames.contains(store))
@@ -16,11 +19,25 @@ export function openOfflineDb(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => {
       request.result.onversionchange = () => request.result.close();
-      resolve(request.result);
+      // Ouverture aboutie après un refus « bloqué » : connexion orpheline, refermée.
+      if (settled) request.result.close();
+      else resolve(request.result);
+      settled = true;
     };
-    request.onerror = () => reject(request.error ?? new Error('Stockage local inaccessible.'));
-    request.onblocked = () =>
+    request.onerror = () => {
+      settled = true;
+      reject(
+        request.error?.name === 'VersionError'
+          ? new Error(
+              'Les données de cet appareil proviennent d’une version plus récente de Tesla. Rechargez la page.',
+            )
+          : (request.error ?? new Error('Stockage local inaccessible.')),
+      );
+    };
+    request.onblocked = () => {
+      settled = true;
       reject(new Error('Fermez les autres onglets pour mettre à jour le stockage local.'));
+    };
   });
 }
 export async function dbRead<T>(store: string, id?: string): Promise<T> {
@@ -106,4 +123,16 @@ export async function dbKeys(store: string, prefix: string): Promise<string[]> {
       reject(tx.error);
     };
   });
+}
+
+/**
+ * Une seule synchronisation à la fois pour tous les onglets de l'appareil (AUD-020) : un onglet
+ * qui trouve le verrou pris n'envoie rien (l'autre s'en charge). Le serveur reste idempotent.
+ */
+export function withSyncLock<T>(name: string, fallback: T, run: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  if (!locks) return run();
+  return locks.request(`tesla-sync:${name}`, { ifAvailable: true }, (lock) =>
+    lock ? run() : fallback,
+  );
 }

@@ -7,6 +7,7 @@ import {
   offlineStatusSchema,
 } from '@tesla/shared';
 import { ApiError, apiSend } from '@/lib/api/client';
+import { withSyncLock } from './db';
 import { assertOnlineOwner, ownerId, readRecord, recordIds, writeRecord } from './vault';
 
 export type SyncState = 'LOCAL' | 'EN_ATTENTE' | 'EN_COURS' | 'SYNCHRONISE' | 'REJETE' | 'CONFLIT';
@@ -76,9 +77,17 @@ export async function saveLocalAnswers(
     throw new Error('Cette copie n’est plus modifiable. Rechargez-la.');
   await writeRecord(`attempt:${id}`, { ...row.value, answers }, revision);
 }
+/** Réservation échue : le serveur refuserait la copie (réception exigée avant l'échéance, D78). */
+export function reservationExpired(item: LocalAttempt, now = Date.now()) {
+  return new Date(item.package.expiresAt).getTime() <= now;
+}
 export async function submitLocal(id: string) {
   const row = await readRecord<LocalAttempt>(`attempt:${id}`);
   if (!row || row.value.status !== 'LOCAL') throw new Error('Tentative déjà remise.');
+  if (reservationExpired(row.value))
+    throw new Error(
+      'La réservation de cette évaluation a expiré : la copie ne peut plus être remise. Préparez une nouvelle tentative en ligne si elle reste ouverte.',
+    );
   await writeRecord(
     `attempt:${id}`,
     { ...row.value, status: 'EN_ATTENTE', deviceSubmittedAt: new Date().toISOString() },
@@ -88,9 +97,13 @@ export async function submitLocal(id: string) {
 export function retryDelay(retries: number) {
   return Math.min(30 * 60_000, 5_000 * 2 ** Math.min(retries, 9));
 }
+const MAX_AUTOMATIC_RETRIES = 6;
 let syncing = false;
 /** Reprises bornées ; EN_COURS récupérable après fermeture/crash. Le serveur déduplique. */
-export async function syncAttempts(manual = false) {
+export function syncAttempts(manual = false): Promise<void> {
+  return withSyncLock('attempts', undefined, () => sendDueAttempts(manual));
+}
+async function sendDueAttempts(manual: boolean) {
   if (syncing || !ownerId()) return;
   syncing = true;
   try {
@@ -100,7 +113,7 @@ export async function syncAttempts(manual = false) {
       !candidates.some(
         (a) =>
           ['EN_ATTENTE', 'EN_COURS'].includes(a.status) &&
-          (manual || (a.retries < 6 && a.nextRetryAt <= Date.now())),
+          (manual || (a.retries < MAX_AUTOMATIC_RETRIES && a.nextRetryAt <= Date.now())),
       )
     )
       return;
@@ -112,12 +125,18 @@ export async function syncAttempts(manual = false) {
         const row = await readRecord<LocalAttempt>(id);
         if (!row || !['EN_ATTENTE', 'EN_COURS'].includes(row.value.status)) continue;
         const auth = error instanceof ApiError && error.status === 401;
+        // Réseau absent : réessai au retour de la connexion, sans consommer d'essai (AUD-024).
+        const offline = !(error instanceof ApiError) || error.status === 0;
         await writeRecord(
           id,
           {
             ...row.value,
             status: 'EN_ATTENTE',
-            retries: auth ? 6 : row.value.retries + 1,
+            retries: auth
+              ? MAX_AUTOMATIC_RETRIES
+              : offline
+                ? row.value.retries
+                : row.value.retries + 1,
             nextRetryAt: Date.now() + retryDelay(row.value.retries),
             lastError: auth
               ? 'Session expirée. Reconnectez-vous avec le même compte puis synchronisez manuellement.'
@@ -133,7 +152,11 @@ export async function syncAttempts(manual = false) {
     for (const id of ids) {
       let row = await readRecord<LocalAttempt>(id);
       if (!row || !['EN_ATTENTE', 'EN_COURS'].includes(row.value.status)) continue;
-      if (!manual && (row.value.retries >= 6 || row.value.nextRetryAt > Date.now())) continue;
+      if (
+        !manual &&
+        (row.value.retries >= MAX_AUTOMATIC_RETRIES || row.value.nextRetryAt > Date.now())
+      )
+        continue;
       const item = row.value;
       if (item.package.ownerId !== ownerId()) throw new Error('Identité locale incompatible.');
       await writeRecord(id, { ...item, status: 'EN_COURS' }, row.revision);
@@ -161,14 +184,14 @@ export async function syncAttempts(manual = false) {
             ...item,
             status: server.syncStatus,
             server,
-            lastError: server.syncStatus === 'REJETE' ? `${server.code} — ${server.message}` : null,
+            lastError: server.syncStatus === 'REJETE' ? server.message : null,
           },
           row.revision,
         );
       } catch (error) {
         const api = error instanceof ApiError ? error : null;
-        const transient =
-          !api || api.status === 0 || api.status >= 500 || api.status === 429 || api.status === 401;
+        const offline = !api || api.status === 0;
+        const transient = offline || api.status >= 500 || api.status === 429 || api.status === 401;
         const status: SyncState = transient
           ? 'EN_ATTENTE'
           : api.status === 409
@@ -179,7 +202,7 @@ export async function syncAttempts(manual = false) {
           {
             ...item,
             status,
-            retries: item.retries + 1,
+            retries: offline ? item.retries : item.retries + 1,
             nextRetryAt: Date.now() + retryDelay(item.retries),
             lastError:
               api?.status === 401

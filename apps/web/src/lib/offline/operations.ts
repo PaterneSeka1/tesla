@@ -6,6 +6,7 @@ import {
 } from '@tesla/shared';
 import { z } from 'zod';
 import { ApiError, apiFetch } from '@/lib/api/client';
+import { withSyncLock } from './db';
 import { patchStoredResponse } from './repository';
 import {
   assertOnlineOwner,
@@ -292,9 +293,11 @@ export function classifyFailure(error: unknown): {
   status: OfflineOperationState;
   transient: boolean;
   stop: boolean;
+  offline?: boolean;
 } {
   const api = error instanceof ApiError ? error : null;
-  if (!api || api.status === 0) return { status: 'EN_ATTENTE', transient: true, stop: true };
+  if (!api || api.status === 0)
+    return { status: 'EN_ATTENTE', transient: true, stop: true, offline: true };
   if (api.status === 401) return { status: 'EN_ATTENTE', transient: true, stop: true };
   if (api.status >= 500 || api.status === 429 || api.code === OPERATION_ERROR_CODES.inProgress)
     return { status: 'EN_ATTENTE', transient: true, stop: false };
@@ -308,7 +311,10 @@ let syncing = false;
  * `EN_COURS` laissé par une fermeture brutale est repris : le serveur déduplique.
  * Retourne le nombre d'opérations dont l'état a changé.
  */
-export async function syncOperations(manual = false): Promise<number> {
+export function syncOperations(manual = false): Promise<number> {
+  return withSyncLock('operations', 0, () => sendDueOperations(manual));
+}
+async function sendDueOperations(manual: boolean): Promise<number> {
   if (syncing || !ownerId()) return 0;
   syncing = true;
   let changed = 0;
@@ -391,7 +397,8 @@ export async function syncOperations(manual = false): Promise<number> {
           {
             ...op,
             status: outcome.status,
-            retries: op.retries + 1,
+            // Réseau absent : aucun essai consommé, reprise au retour de la connexion (AUD-024).
+            retries: outcome.offline ? op.retries : op.retries + 1,
             nextRetryAt: Date.now() + retryDelay(op.retries),
             serverCode: error instanceof ApiError ? error.code : null,
             lastError: error instanceof Error ? error.message : 'Synchronisation interrompue.',

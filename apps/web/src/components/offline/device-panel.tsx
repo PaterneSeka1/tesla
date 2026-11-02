@@ -35,7 +35,16 @@ import {
   type PreparationReport,
   verifyPreparedPages,
 } from '@/lib/offline/preparation';
-import { ensureVaultRestored, hasVaultFor, lockVault, ownerId } from '@/lib/offline/vault';
+import {
+  acknowledgeEviction,
+  ensureVaultRestored,
+  hasVaultFor,
+  localRecordCount,
+  lockVault,
+  ownerId,
+  resetVault,
+  vaultEvicted,
+} from '@/lib/offline/vault';
 import { DeviceUnlock } from './device-unlock';
 import { useDeviceState } from './use-device-state';
 
@@ -58,6 +67,8 @@ export function DevicePanel() {
   const [downloads, setDownloads] = useState<DownloadedModule[]>([]);
   const [updates, setUpdates] = useState<string[]>([]);
   const [storage, setStorage] = useState('');
+  const [persisted, setPersisted] = useState<boolean | null>(null);
+  const [evicted, setEvicted] = useState(false);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const unlocked = device.unlocked && ownerId() === user.id;
@@ -65,6 +76,8 @@ export function DevicePanel() {
   const refresh = useCallback(async () => {
     await ensureVaultRestored();
     setExists(await hasVaultFor(user.id));
+    setEvicted(await vaultEvicted(user.id));
+    setPersisted((await navigator.storage?.persisted?.()) ?? null);
     const estimate = await navigator.storage?.estimate?.();
     if (estimate?.usage !== undefined)
       setStorage(
@@ -150,13 +163,36 @@ export function DevicePanel() {
     <>
       <PageHeading title="Cet appareil" />
 
+      {evicted && (
+        <div role="alert" className="rounded-lg border border-destructive p-4 text-sm">
+          <p className="font-medium">Les données hors ligne de cet appareil ont été effacées.</p>
+          <p className="mt-1">
+            Le navigateur a supprimé le stockage local (manque d’espace ou nettoyage). Les
+            modifications qui n’avaient pas été synchronisées sont perdues : vérifiez-les dans
+            l’application, puis préparez à nouveau cet appareil.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-2"
+            onClick={() => {
+              acknowledgeEviction(user.id);
+              setEvicted(false);
+            }}
+          >
+            J’ai compris
+          </Button>
+        </div>
+      )}
+
       {!unlocked ? (
         <Card>
           <CardHeader>
             <CardTitle>{exists ? 'Déverrouiller' : 'Utiliser Tesla sans connexion'}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <DeviceUnlock user={local ? undefined : user} create={!exists && !local} />
+            {exists && !local && <ForgottenPhrase onReset={() => void refresh()} />}
           </CardContent>
         </Card>
       ) : (
@@ -374,6 +410,13 @@ export function DevicePanel() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           {storage && <p>{storage}.</p>}
+          {persisted !== null && (
+            <p>
+              {persisted
+                ? 'Conservation durable accordée : le navigateur ne supprimera pas ces données de lui-même.'
+                : 'Conservation durable non accordée : le navigateur peut effacer ces données s’il manque d’espace.'}
+            </p>
+          )}
           <p>
             Les données sont chiffrées sur cet appareil avec votre phrase locale, jamais transmise.
             Le déverrouillage dure 12 heures au plus ; verrouillez avant de prêter l’appareil.
@@ -389,6 +432,7 @@ export function DevicePanel() {
             onClick={() =>
               void run(async () => {
                 const granted = await navigator.storage?.persist?.();
+                setPersisted(granted ?? null);
                 setMessage(
                   granted
                     ? 'Conservation durable accordée par le navigateur.'
@@ -402,5 +446,71 @@ export function DevicePanel() {
         </CardContent>
       </Card>
     </>
+  );
+}
+
+/**
+ * Phrase locale oubliée : seule issue, effacer les données de ce compte sur l'appareil (elles sont
+ * illisibles sans la phrase). Confirmation explicite, le nombre de données perdues est annoncé.
+ */
+function ForgottenPhrase({ onReset }: { onReset: () => void }) {
+  const user = useSessionUser();
+  const [count, setCount] = useState<number | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState('');
+  if (count === null)
+    return (
+      <Button
+        variant="link"
+        className="h-auto p-0"
+        onClick={() =>
+          void localRecordCount(user.id)
+            .then(setCount)
+            .catch(() => setError('Lecture du stockage local impossible.'))
+        }
+      >
+        Phrase oubliée ?
+      </Button>
+    );
+  return (
+    <div className="space-y-2 rounded-md border border-destructive p-3 text-sm">
+      <p>
+        La phrase locale ne peut pas être récupérée. Pour réutiliser cet appareil sans connexion, il
+        faut effacer vos données locales ({count} élément{count > 1 ? 's' : ''} chiffré
+        {count > 1 ? 's' : ''}), y compris les modifications et copies d’évaluation qui n’auraient
+        pas été synchronisées. Les données déjà enregistrées sur le serveur ne sont pas touchées.
+      </p>
+      <label className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={confirmed}
+          onChange={(e) => setConfirmed(e.target.checked)}
+        />
+        J’accepte la perte définitive des données non synchronisées de cet appareil.
+      </label>
+      {error && (
+        <p role="alert" className="text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="destructive"
+          size="sm"
+          disabled={!confirmed}
+          onClick={() =>
+            void resetVault(user)
+              .then(onReset)
+              .catch(() => setError('Effacement impossible. Rechargez la page puis réessayez.'))
+          }
+        >
+          Effacer les données de cet appareil
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setCount(null)}>
+          Annuler
+        </Button>
+      </div>
+    </div>
   );
 }

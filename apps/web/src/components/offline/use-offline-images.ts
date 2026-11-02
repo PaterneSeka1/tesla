@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { type DownloadedModule } from '@/lib/offline/downloads';
-import { ownerId, putRecord, readRecord } from '@/lib/offline/vault';
+import { ensureVaultRestored, ownerId, putRecord, readRecord } from '@/lib/offline/vault';
 
 /**
  * Hors connexion, images d'un module téléchargé (URL locales temporaires) ; `undefined` en ligne
@@ -75,6 +75,7 @@ export async function lastReading(): Promise<LastReading | null> {
 }
 
 export async function readingPosition(slug: string) {
+  await ensureVaultRestored();
   if (!ownerId()) return null;
   return (
     (await readRecord<{ lessonId: string; readAt: string }>(`reading:${slug}`).catch(() => null))

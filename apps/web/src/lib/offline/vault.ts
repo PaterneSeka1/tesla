@@ -38,6 +38,27 @@ export interface LocalIdentity {
 export const UNLOCK_TTL_MS = 12 * 3_600_000;
 const LEGACY_HEADER = 'vault';
 const headerId = (owner: string) => `vault:${owner}`;
+/**
+ * Témoin hors IndexedDB qu'un coffre a existé pour ce compte : s'il subsiste alors que le coffre a
+ * disparu, le navigateur a effacé les données locales (AUD-023). Détection au mieux : un effacement
+ * complet des données du site emporte aussi ce témoin.
+ */
+const presenceKey = (owner: string) => `tesla-offline-vault:${owner}`;
+function markPresence(owner: string, present: boolean) {
+  try {
+    if (present) localStorage.setItem(presenceKey(owner), '1');
+    else localStorage.removeItem(presenceKey(owner));
+  } catch {
+    /* Stockage indisponible (navigation privée) : pas de détection. */
+  }
+}
+function hadVault(owner: string) {
+  try {
+    return localStorage.getItem(presenceKey(owner)) === '1';
+  } catch {
+    return false;
+  }
+}
 
 let unlocked: { ownerId: string; key: CryptoKey } | null = null;
 let generation = 0;
@@ -216,8 +237,35 @@ export async function unlockVault(phrase: string, user?: SessionUser) {
     expiresAt: Date.now() + UNLOCK_TTL_MS,
   } as UnlockedSession & { revision?: number });
   if (user) await rememberIdentity(user);
+  markPresence(opened.owner, true);
   channel?.postMessage('unlock');
   notify();
+}
+/** Le coffre de ce compte a été effacé par le navigateur (éviction, nettoyage) depuis son activation. */
+export async function vaultEvicted(userId: string) {
+  return hadVault(userId) && !(await hasVaultFor(userId));
+}
+/** L'alerte d'effacement a été lue : le témoin est retiré. */
+export function acknowledgeEviction(userId: string) {
+  markPresence(userId, false);
+}
+/**
+ * Phrase oubliée (AUD-019) : efface le coffre de ce compte et toutes ses données locales, y compris
+ * les modifications non synchronisées, illisibles sans la phrase. Exige le compte confirmé par le
+ * serveur ; les coffres des autres comptes de l'appareil ne sont pas touchés.
+ */
+export async function resetVault(user: SessionUser) {
+  if (ownerId() === user.id) lockVault();
+  for (const id of await dbKeys('records', `${user.id}:`)) await dbDelete('records', id);
+  await dbDelete('settings', headerId(user.id));
+  // En-tête historique (un seul compte) : effacé seulement s'il ne protège plus aucune donnée.
+  if ((await dbKeys('records', '')).length === 0) await dbDelete('settings', LEGACY_HEADER);
+  markPresence(user.id, false);
+  notify();
+}
+/** Nombre de données locales chiffrées de ce compte (sans les déchiffrer). */
+export async function localRecordCount(userId: string) {
+  return (await dbKeys('records', `${userId}:`)).length;
 }
 export async function readRecord<T>(id: string): Promise<{ value: T; revision: number } | null> {
   const current = unlocked;

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
+  ACTIVITY_ACTION_LABELS,
   ACTIVITY_STATUSES,
   ACTIVITY_STATUS_LABELS,
   ATTENDANCE_STATUSES,
@@ -395,10 +396,14 @@ export function ActivityDetail({ id }: { id: string }) {
           {activity.events.map((e) => (
             <li key={e.id} className="rounded border p-3">
               {new Date(e.createdAt).toLocaleString('fr-FR')} · {e.actor.firstName}{' '}
-              {e.actor.lastName} · {e.action}
-              <p>
-                {e.comment} {e.fields.join(', ')}
-              </p>
+              {e.actor.lastName} · {ACTIVITY_ACTION_LABELS[e.action]}
+              {(e.comment || e.fields.length > 0) && (
+                <p>
+                  {e.comment}
+                  {e.fields.length > 0 &&
+                    `${e.comment ? ' · ' : ''}${e.fields.length} information${e.fields.length > 1 ? 's' : ''} modifiée${e.fields.length > 1 ? 's' : ''}`}
+                </p>
+              )}
             </li>
           ))}
         </ul>

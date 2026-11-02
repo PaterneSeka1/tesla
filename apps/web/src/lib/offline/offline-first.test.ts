@@ -87,7 +87,9 @@ describe('file de synchronisation (D110)', () => {
     expect(classifyFailure(new ApiError(0, 'NETWORK_ERROR', ''))).toMatchObject({
       status: 'EN_ATTENTE',
       stop: true,
+      offline: true,
     });
+    expect(classifyFailure(new ApiError(503, 'X', '')).offline).toBeUndefined();
     expect(classifyFailure(new ApiError(503, 'X', '')).status).toBe('EN_ATTENTE');
     expect(classifyFailure(new ApiError(409, 'OPERATION_IN_PROGRESS', '')).status).toBe(
       'EN_ATTENTE',
