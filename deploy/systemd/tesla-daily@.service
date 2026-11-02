@@ -1,6 +1,7 @@
 # Traitement quotidien idempotent : sorties de branche échues, plans de rattrapage, purge des
 # compteurs de connexion (npm run jobs:daily). Déclenché par tesla-daily@%i.timer.
 [Unit]
+OnFailure=tesla-alert@%p-%i.service
 Description=TESLA — traitement quotidien (%i)
 After=postgresql.service
 Requires=postgresql.service

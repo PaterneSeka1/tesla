@@ -1,0 +1,16 @@
+# Alerte d'exploitation déclenchée par OnFailure= des unités TESLA. Instance : <unité>-<instance>,
+# ex. tesla-alert@tesla-healthcheck-production.service. Script installé par bootstrap.sh depuis
+# deploy/scripts/alert.sh vers /usr/local/bin/tesla-alert (indépendant des releases).
+[Unit]
+Description=TESLA — alerte d'échec (%i)
+
+[Service]
+Type=oneshot
+User=tesla
+Group=tesla
+ExecStart=/usr/local/bin/tesla-alert %i
+SyslogIdentifier=tesla-alert
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

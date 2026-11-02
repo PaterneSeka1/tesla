@@ -39,6 +39,7 @@ log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*"; }
 # Alerte sur toute erreur (jamais de secret ni d'URL de base dans le message).
 alert() {
   local status=$?
+  # Préférer ALERT_URL avec l'unité tesla-alert@ (OnFailure) ; BACKUP_ALERT_URL reste accepté.
   if [[ -n "${BACKUP_ALERT_URL:-}" ]]; then
     curl -fsS --max-time 10 --retry 2 -o /dev/null \
       --data "TESLA : échec de la sauvegarde $(hostname) (code ${status}, $(date -u +%FT%TZ))" \
@@ -107,6 +108,11 @@ if [[ -n "${FILES_BACKUP_SOURCE:-}" && -n "${FILES_BACKUP_REMOTE:-}" ]]; then
   log "Copie des fichiers applicatifs vers ${FILES_BACKUP_REMOTE}"
   rclone copy --immutable --checksum "$FILES_BACKUP_SOURCE" "$FILES_BACKUP_REMOTE"
   rclone cryptcheck --one-way "$FILES_BACKUP_SOURCE" "$FILES_BACKUP_REMOTE"
+elif [[ -n "${R2_BUCKET_NAME:-}" ]]; then
+  # Stockage objet actif sans copie des fichiers : la base est sauvegardée, mais une suppression
+  # dans le compartiment serait irrécupérable. Échec signalé (alerte) après la copie de la base.
+  log "ERREUR : R2_BUCKET_NAME est défini mais FILES_BACKUP_SOURCE/FILES_BACKUP_REMOTE ne le sont pas ; fichiers applicatifs NON sauvegardés." >&2
+  false
 fi
 
 log "Terminé : ${name}.gpg (${size})"

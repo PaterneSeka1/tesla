@@ -12,16 +12,21 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 current="$(readlink -f "$root/current")"
 target="${2:-}"
 if [[ -z "$target" ]]; then
-  target="$(ls -1dt "$root"/releases/*/ | sed 's#/$##' | grep -vxF "$current" | head -1)"
+  # Release saine la plus récente (contrôle de santé réussi lors de sa mise en service).
+  target=""
+  for dir in $(ls -1dt "$root"/releases/*/ | sed 's#/$##'); do
+    [[ "$dir" != "$current" && -f "$dir/HEALTHY" && ! -f "$dir/FAILED" ]] && { target="$dir"; break; }
+  done
 fi
-[[ -d "$target" && "$target" == "$root/releases/"* ]] || { echo "Release introuvable : ${target}" >&2; exit 1; }
+[[ -n "$target" && -d "$target" && "$target" == "$root/releases/"* ]] || { echo "Release saine introuvable : ${target:-aucune}" >&2; exit 1; }
+[[ -f "$target/FAILED" ]] && { echo "Release marquée en échec : ${target}" >&2; exit 1; }
 
 echo "Retour de $(cat "$current/REVISION") vers $(cat "$target/REVISION")"
 ln -sfn "$target" "$root/current.next" && mv -Tf "$root/current.next" "$root/current"
 sudo /usr/bin/systemctl restart "tesla-api@${instance}" "tesla-web@${instance}"
 set -a; # shellcheck disable=SC1090
 source "/etc/tesla/${instance}.env"; set +a
-for attempt in $(seq 1 30); do
+for _ in $(seq 1 30); do
   "$here/healthcheck.sh" "$PUBLIC_URL" && exit 0
   sleep 2
 done

@@ -4,6 +4,9 @@
 #   1. contrôles préalables  2. release immuable (git archive)  3. npm ci + build
 #   4. sauvegarde vérifiée   5. migrations (deploy)              6. bascule du lien « current »
 #   7. redémarrage           8. contrôle de santé ; échec → retour automatique au code précédent
+# Une release n'est marquée saine (fichier HEALTHY) qu'après un contrôle de santé réussi : seules
+# ces releases servent au retour arrière. Build en échec → release supprimée ; santé en échec →
+# release marquée FAILED (conservée pour diagnostic, jamais choisie par rollback.sh).
 # Usage : deploy.sh <production|preproduction> <commit|étiquette>
 set -euo pipefail
 umask 027
@@ -31,6 +34,8 @@ git -C "$root/repo" fetch --quiet --tags origin
 sha="$(git -C "$root/repo" rev-parse --verify "${ref}^{commit}")"
 release="$root/releases/$(date -u +%Y%m%d%H%M%S)-${sha:0:12}"
 mkdir -p "$release"
+# Toute erreur avant la bascule supprime la release incomplète (le service n'est pas touché).
+trap 'rm -rf "$release"; log "ÉCHEC avant la bascule : release supprimée, version en service inchangée." >&2' ERR
 git -C "$root/repo" archive "$sha" | tar -x -C "$release"
 echo "$sha" > "$release/REVISION"
 
@@ -43,22 +48,36 @@ log "Sauvegarde avant migration"
 log "Migrations"
 (cd "$release/apps/api" && npx prisma migrate deploy)
 
+trap - ERR
 previous="$(readlink -f "$root/current" 2>/dev/null || true)"
 ln -sfn "$release" "$root/current.next" && mv -Tf "$root/current.next" "$root/current"
 log "Redémarrage"
 sudo /usr/bin/systemctl restart "tesla-api@${instance}" "tesla-web@${instance}"
 
-for attempt in $(seq 1 30); do
+for _ in $(seq 1 30); do
   if "$here/healthcheck.sh" "$PUBLIC_URL" > /dev/null 2>&1; then
+    date -u +%FT%TZ > "$release/HEALTHY"
     log "Version ${sha:0:12} en service."
-    # Conservation des cinq dernières versions (retour arrière rapide).
-    ls -1dt "$root"/releases/*/ | tail -n +6 | xargs -r rm -rf
+    # Conservation des cinq dernières versions saines (retour arrière rapide) ; les releases en
+    # échec sont supprimées au-delà des cinq plus récentes. La version en service n'est jamais
+    # supprimée.
+    current_dir="$(readlink -f "$root/current")"
+    healthy=0; other=0
+    for dir in $(ls -1dt "$root"/releases/*/ | sed 's#/$##'); do
+      [[ "$dir" == "$current_dir" ]] && continue
+      if [[ -f "$dir/HEALTHY" ]]; then
+        healthy=$((healthy + 1)); (( healthy > 5 )) && rm -rf "$dir"
+      else
+        other=$((other + 1)); (( other > 5 )) && rm -rf "$dir"
+      fi
+    done
     exit 0
   fi
   sleep 2
 done
 
 log "ÉCHEC du contrôle de santé : retour au code précédent" >&2
+date -u +%FT%TZ > "$release/FAILED"
 if [[ -n "$previous" && -d "$previous" ]]; then
   ln -sfn "$previous" "$root/current.next" && mv -Tf "$root/current.next" "$root/current"
   sudo /usr/bin/systemctl restart "tesla-api@${instance}" "tesla-web@${instance}"

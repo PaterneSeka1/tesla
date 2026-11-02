@@ -1,6 +1,7 @@
 # Sauvegarde chiffrée de la base (deploy/scripts/backup.sh), copie hors VPS. Échec → unité « failed »,
 # visible par systemctl --failed et la surveillance.
 [Unit]
+OnFailure=tesla-alert@%p-%i.service
 Description=TESLA — sauvegarde PostgreSQL (%i)
 After=postgresql.service
 Requires=postgresql.service

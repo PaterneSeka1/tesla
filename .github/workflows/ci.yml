@@ -126,6 +126,8 @@ jobs:
         run: OFFLINE_FIXTURE="$RUNNER_TEMP/fixture.json" npx tsx test/offline-browser-fixture.mts
       - name: Démarrage de l'API et du web de production
         run: |
+          # Clé éphémère du job (exigée en production) : jamais une clé réelle.
+          export MEDICAL_DATA_KEY="$(openssl rand -base64 32)"
           NODE_ENV=production SWAGGER_ENABLED=false node apps/api/dist/main.js > "$RUNNER_TEMP/api.log" 2>&1 &
           npm run start -w @tesla/web > "$RUNNER_TEMP/web.log" 2>&1 &
           for i in $(seq 1 60); do
@@ -146,3 +148,51 @@ jobs:
       - name: Journaux des serveurs (en cas d'échec)
         if: failure()
         run: tail -n 200 "$RUNNER_TEMP/api.log" "$RUNNER_TEMP/web.log"
+
+  ops:
+    name: Scripts d'exploitation (shellcheck, sauvegardes, Nginx)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: tesla
+          POSTGRES_PASSWORD: tesla_ci
+          POSTGRES_DB: tesla_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tesla -d tesla_test" --health-interval 5s
+          --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Shellcheck des scripts de déploiement
+        run: shellcheck -S warning deploy/scripts/*.sh deploy/scripts/tests/*.sh
+      - run: npm ci
+      - name: Migrations (base sauvegardée par le test)
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+      - name: Sauvegarde, restauration et garde-fous (outils PostgreSQL 18 du conteneur)
+        run: |
+          docker run --rm --network host -e TEST_DATABASE_URL="$TEST_DATABASE_URL" \
+            -v "$PWD:/repo:ro" postgres:18-alpine sh -c \
+            'apk add --no-cache bash gnupg coreutils findutils curl > /dev/null && bash /repo/deploy/scripts/tests/backup-scripts.test.sh'
+      - name: Configuration Nginx (nginx 1.24 d'Ubuntu 24.04, deux instances)
+        run: |
+          t="$RUNNER_TEMP/nginx"; mkdir -p "$t/conf.d"
+          for pair in production:tesla.example.test:4000:3000 preproduction:pre.example.test:4100:3100; do
+            IFS=: read -r instance domain api web <<< "$pair"
+            mkdir -p "$t/le/live/$domain"
+            openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=$domain" \
+              -keyout "$t/le/live/$domain/privkey.pem" -out "$t/le/live/$domain/fullchain.pem" 2> /dev/null
+            sed -e "s/DOMAINE/$domain/g" -e "s/INSTANCE/$instance/g" -e "s/API_PORT/$api/" -e "s/WEB_PORT/$web/" \
+              deploy/nginx/tesla.conf > "$t/conf.d/$instance.conf"
+          done
+          sed 's/DOMAINE/acme.example.test/g' deploy/nginx/tesla-acme.conf > "$t/conf.d/acme.conf"
+          docker run --rm -v "$t/conf.d:/etc/nginx/conf.d:ro" -v "$t/le:/etc/letsencrypt:ro" nginx:1.24 nginx -t

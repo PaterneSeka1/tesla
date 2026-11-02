@@ -111,6 +111,18 @@ if env "${common[@]}" BACKUP_REMOTE= BACKUP_RETENTION_DAYS=0 "$scripts/backup.sh
 fi
 ok "rétention locale nulle refusée sans copie distante"
 
+# 3 bis. Stockage objet actif sans copie des fichiers applicatifs : base copiée, puis échec et alerte.
+: > "$FAKE_CURL_LOG"
+sleep 1
+before="$(find "$root/remote/tesla-backups/test" -name 'tesla-*.dump.gpg' | wc -l)"
+if env "${common[@]}" BACKUP_RETENTION_DAYS=0 R2_BUCKET_NAME=tesla-files-test \
+  "$scripts/backup.sh" > "$root/run3.log" 2>&1; then fail "fichiers non sauvegardés acceptés"; fi
+after="$(find "$root/remote/tesla-backups/test" -name 'tesla-*.dump.gpg' | wc -l)"
+(( after == before + 1 )) || fail "base non copiée avant l'échec"
+grep -q 'https://alert.example.test/echec' "$FAKE_CURL_LOG" || fail "alerte absente (fichiers)"
+grep -q 'fichiers applicatifs NON sauvegardés' "$root/run3.log" || fail "message absent"
+ok "stockage objet sans copie des fichiers : base copiée, échec signalé et alerté"
+
 # 4. Restauration complète depuis la copie distante, dans une base isolée, puis intégrité.
 mkdir -p "$root/restore"
 cp "$remote_file" "$remote_file.sha256" "$root/restore/"
