@@ -208,7 +208,7 @@ try {
   // ─── Changement de compte : responsable ───────────────────────────
   const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
   if (await menu.isVisible()) await menu.click();
-  await page.getByRole('button', { name: 'Déconnexion' }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Se déconnecter' }).filter({ visible: true }).click();
   await page.waitForURL('**/connexion');
   await login('responsable-offline@recette.test');
   await prepareDevice();

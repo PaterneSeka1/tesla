@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Smartphone, UserRound } from 'lucide-react';
+import { LogOut, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -44,8 +44,11 @@ export function UserMenu() {
     }
   };
 
+  const { firstName, lastName } = data.user;
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-1">
       <Link
         href="/appareil"
         className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-tesla-sable hover:bg-white/10 hover:text-white"
@@ -53,28 +56,27 @@ export function UserMenu() {
         <Smartphone className="size-4 shrink-0" aria-hidden />
         Cet appareil
       </Link>
-      <Link
-        href="/compte"
-        className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-tesla-sable hover:bg-white/10 hover:text-white"
-      >
-        <UserRound className="size-4 shrink-0" aria-hidden />
-        Mon profil
-      </Link>
-      <div className="flex items-center justify-between gap-3">
-        <p className="min-w-0 truncate text-sm font-medium">
-          {data.user.firstName} {data.user.lastName}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0 border-white/40 bg-transparent text-inherit hover:bg-white/10 hover:text-white"
-          onClick={() => void onLogout()}
-          disabled={pending}
+      {/* Identité de la personne connectée : nom complet, jamais tronqué ni collé à un bouton. */}
+      <div className="flex items-center gap-3 px-3 py-2">
+        <span
+          aria-hidden
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-tesla-sable text-sm font-semibold text-tesla-bordeaux"
         >
-          <LogOut aria-hidden />
-          Déconnexion
-        </Button>
+          {initials}
+        </span>
+        <p className="min-w-0 text-sm leading-tight font-medium break-words text-white">
+          {firstName} {lastName}
+        </p>
       </div>
+      <Button
+        variant="ghost"
+        className="h-10 w-full justify-start gap-3 px-3 text-tesla-sable hover:bg-white/10 hover:text-white"
+        onClick={() => void onLogout()}
+        disabled={pending}
+      >
+        <LogOut aria-hidden />
+        {pending ? 'Déconnexion…' : 'Se déconnecter'}
+      </Button>
     </div>
   );
 }
