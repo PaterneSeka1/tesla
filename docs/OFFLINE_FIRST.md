@@ -192,6 +192,16 @@ Limites connues :
 
 Restent ouverts : phrase oubliée, verrou entre onglets, version de format IndexedDB, échéance locale des réservations, détection d'éviction ([PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md) AUD-019 à AUD-024).
 
+## 12 ter. Corrections du 2026-11-02 (consolidation)
+
+- **Phrase oubliée** (AUD-019, D147) : « Cet appareil » → « Phrase oubliée ? » : nombre d'éléments chiffrés annoncé, consentement explicite, effacement des seules données de ce compte ; les autres coffres et les données du serveur ne sont pas touchés.
+- **Plusieurs onglets** (AUD-020, D148) : une seule synchronisation à la fois par appareil (`navigator.locks`, verrous `tesla-sync:operations` et `tesla-sync:attempts`).
+- **Mise à niveau IndexedDB** (AUD-021) : magasins jamais recréés ; connexion orpheline refermée après un blocage ; données d'une version plus récente signalées.
+- **Échéance** (AUD-022) : copie non remise après la fin de réservation affichée comme expirée, remise locale refusée.
+- **Effacement par le navigateur** (AUD-023) : témoin hors IndexedDB et alerte ; état de conservation durable affiché. Limite : un effacement complet des données du site emporte aussi le témoin.
+- **Coupures réseau** (AUD-024) : elles ne consomment plus d'essai automatique (copies et opérations).
+- **Reprise de lecture** (AUD-033) : « Reprendre la lecture » sur la page du module.
+
 ## 13. Recette navigateur
 
 ```bash

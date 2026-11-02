@@ -4,6 +4,25 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — préparation au déploiement OVH, 2026-11-02
+- Installation serveur reproductible `deploy/scripts/bootstrap.sh` (Ubuntu 24.04) et guide unique [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+- Alertes d'exploitation (contrôle de santé, traitement quotidien, sauvegarde) vers `ALERT_URL` ; page de maintenance pendant les redémarrages.
+- « Phrase oubliée ? » dans « Cet appareil » ; alerte si le navigateur a effacé les données locales ; « Reprendre la lecture » sur la page d'un module.
+- CI : job `ops` (shellcheck, sauvegardes, `nginx -t`) et balayage de l'interface à sept largeurs.
+
+### Modifié — 2026-11-02
+- L'approbation d'un module importé portant des points « à vérifier » exige leur acquittement ; `pedagogy:release` exige `--notes-verifiees`.
+- Le retour arrière ne vise que des versions saines ; une version en échec n'est plus conservée sans limite.
+- Nouvelle variable recommandée `ALERT_URL` ; `FILES_BACKUP_*` obligatoires dès que le stockage R2 est actif.
+
+### Corrigé — 2026-11-02
+- Une obligation de rattrapage sur un module qui n'est plus obligatoire ouvrait encore l'évaluation.
+- Remise hors ligne possible après l'échéance de la réservation ; coupures réseau consommant les essais de synchronisation ; synchronisations simultanées depuis plusieurs onglets.
+- Configuration Nginx refusée par nginx 1.24 (Ubuntu 24.04) ; premier certificat impossible à obtenir.
+- Purge R2 pouvant valider un fichier supprimé ; sauvegarde des fichiers ignorée sans alerte.
+- Débordements horizontaux sur mobile (activité, évaluation, accueil de l'encadrement).
+- Recettes navigateur et job CI `browser` cassés depuis l'application unique.
+
 ### Ajouté — stockage objet Cloudflare R2 et sauvegardes externes, 2026-11-02
 - Images (PNG, JPEG, WebP, GIF) et PDF joints aux modules, envoyés directement au stockage objet (Cloudflare R2) et vérifiés par le serveur (taille, type réel, empreinte) avant de pouvoir être utilisés ; consultables par tous une fois le module publié, par les seuls rédacteurs avant.
 - Nouvelles variables facultatives `R2_*` (sans elles, les fichiers sont indisponibles, le reste fonctionne) ; migration additive `20261110090000_stored_files`.

@@ -1,115 +1,145 @@
-# Déploiement sur VPS (Ubuntu 24.04 LTS)
+# Déploiement sur VPS OVH (Ubuntu 24.04 LTS)
 
-Procédures préparées et **non exécutées** sur un serveur : aucun accès SSH ni déploiement n'a eu lieu. Fichiers de référence : [`deploy/`](../deploy). Sauvegardes : [BACKUP_RESTORE.md](BACKUP_RESTORE.md). Liste de contrôle : [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+Guide opérationnel unique. Fichiers de référence : [`deploy/`](../deploy). Sauvegardes : [BACKUP_RESTORE.md](BACKUP_RESTORE.md). Stockage objet : [STORAGE_R2.md](STORAGE_R2.md). Liste de contrôle : [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+
+**État au 2026-11-02** : aucun VPS OVH, aucun compte Cloudflare ni aucun téléphone réel n'a été utilisé. Les scripts ont été vérifiés localement (shellcheck, `nginx -t` sur nginx 1.24, sauvegarde/restauration sur PostgreSQL 18, recettes navigateur sur l'application de production) ; leur première exécution réelle doit se faire en **préproduction**.
 
 ## 1. Architecture
 
 ```
 Internet ── 443 ── Nginx ──┬── /api/*  → 127.0.0.1:4000  tesla-api@<instance>  (NestJS)
-                           └── /*      → 127.0.0.1:3000  tesla-web@<instance>  (Next.js)
-                                  PostgreSQL 18 : 127.0.0.1:5432 (jamais exposé)
+           (80 : ACME       └── /*      → 127.0.0.1:3000  tesla-web@<instance>  (Next.js)
+            et redirection)        PostgreSQL 18 : localhost:5432 (jamais exposé)
+                                   Fichiers : Cloudflare R2 (privé, URL signées)
+                                   Sauvegardes : R2 (compartiment verrouillé, jeton distinct)
 ```
 
-- Un domaine par instance ; même origine pour le web et l'API (cookie de session, CSRF, CORS simplifiés).
-- Deux instances isolées sur le même serveur ou sur deux serveurs : `production` (ports 3000/4000) et `preproduction` (3100/4100), chacune avec son domaine, sa base, son fichier `/etc/tesla/<instance>.env` et sa clé de sauvegarde. Les données réelles n'entrent jamais en préproduction.
-- **systemd plutôt que PM2** : aucune dépendance npm globale, redémarrage et journaux natifs (journald), timers pour le traitement quotidien et les sauvegardes, durcissement (`ProtectSystem=strict`, `NoNewPrivileges`). Unités paramétrées par instance : `tesla-api@`, `tesla-web@`, `tesla-daily@` (+ timer), `tesla-backup@` (+ timer), `tesla-healthcheck@` (+ timer).
-- Releases immuables : `/opt/tesla/<instance>/releases/<date>-<commit>/`, lien `current`, cinq versions conservées.
+- Deux instances isolées possibles : `production` (3000/4000) et `preproduction` (3100/4100), chacune avec domaine, base `tesla_<instance>`, `/etc/tesla/<instance>.env`, compartiments et clés propres. Aucune donnée réelle en préproduction.
+- systemd (pas de PM2) : `tesla-api@`, `tesla-web@`, `tesla-daily@.timer`, `tesla-backup@.timer`, `tesla-healthcheck@.timer`, et `tesla-alert@` déclenchée par `OnFailure=` des trois dernières.
+- Releases immuables : `/opt/tesla/<instance>/releases/<date>-<commit>/`, lien `current`. Une release n'est marquée saine (`HEALTHY`) qu'après un contrôle de santé réussi ; seules les releases saines servent au retour arrière.
 
-## 2. Prérequis
+## 2. Ressources
 
-| Élément | Valeur |
+Mesures locales du 2026-11-02 (build de production, base de recette, une seule personne connectée) : web Next.js ≈ 150 Mo de mémoire résidente, API NestJS ≈ 350 Mo après une série de tests, PostgreSQL ≈ 60 Mo, build web ≈ 460 Mo de pointe ; une release ≈ 1,4 Go (dépendances comprises, cache de build supprimé). **Aucune mesure de charge** : 25 routiers et l'encadrement sont une charge faible, mais à confirmer en préproduction.
+
+| Élément | Recommandation | Justification |
+| --- | --- | --- |
+| VPS | 2 vCPU, **4 Go** de RAM, 40 Go SSD (ex. gamme VPS OVH d'entrée de milieu de gamme) | Services ≈ 0,6 Go + build ≈ 0,5 Go + système ; marge pour PostgreSQL. 2 Go est possible avec un swap de 2 Go, au prix de builds lents. |
+| Disque | 40 Go | 5 releases saines + 2 en échec ≈ 10 Go, base et sauvegardes locales de 2 jours < 1 Go, journaux plafonnés à 1 Go ; aucun fichier téléversé sur le VPS |
+| Cloudflare R2 | Offre gratuite probablement suffisante (10 Go) | Images et PDF des modules, sauvegardes chiffrées |
+| Domaine | Un sous-domaine par instance | Ex. `academie.<domaine>` et `preprod-academie.<domaine>` |
+
+## 3. Première installation
+
+### Étape 1 — OVH
+1. Commander le VPS Ubuntu 24.04 LTS ; ajouter votre clé SSH publique ; noter l'adresse IPv4 (et IPv6).
+2. Se connecter (`ssh ubuntu@<ip>`), puis `sudo -i`. **Ne pas changer le port SSH ni désactiver l'accès par mot de passe avant d'avoir vérifié la connexion par clé dans une seconde session.**
+3. `apt update && apt full-upgrade -y && reboot`.
+
+### Étape 2 — DNS
+Créer l'enregistrement `A` (et `AAAA`) du domaine vers le VPS. Attendre la propagation (`dig +short <domaine>`) : le certificat ne peut pas être obtenu avant.
+
+### Étape 3 — Cloudflare R2 (console Cloudflare, hors VPS)
+Suivre [STORAGE_R2.md](STORAGE_R2.md) § 6 : compartiments privés `tesla-files-production` (et `-preproduction`), compartiment `tesla-backups` avec verrou et cycle de vie, CORS du compartiment applicatif limité au domaine, **trois jetons distincts** (application en lecture/écriture sur son seul compartiment ; sauvegarde en écriture sur `tesla-backups` ; lecture seule pour la restauration, conservé hors VPS).
+
+### Étape 4 — Installation du serveur (root)
+
+```bash
+git clone https://github.com/PaterneSeka1/tesla.git /root/tesla-install
+cd /root/tesla-install && git checkout <étiquette_validée>
+deploy/scripts/bootstrap.sh production <domaine> <e-mail_pour_lets_encrypt>
+```
+
+`bootstrap.sh` est idempotent (relançable sans risque) et ne remplace jamais une configuration existante. Il installe Node.js 22 (NodeSource), PostgreSQL 18 (PGDG, écoute locale vérifiée), Nginx, Certbot, rclone et UFW ; crée l'utilisateur `tesla`, les répertoires, la base `tesla_production` et son rôle non superutilisateur (mot de passe aléatoire), l'extension `btree_gist` ; génère `/etc/tesla/production.env` (`root:tesla`, 0640) avec `DATABASE_URL` et `MEDICAL_DATA_KEY` ; clone le dépôt pour `tesla` ; installe unités systemd, alerte, journald, logrotate, sudoers ; obtient le certificat (vhost HTTP provisoire puis `certbot certonly --webroot`, renouvellement par `certbot.timer` avec rechargement de Nginx) ; active le pare-feu en conservant le port SSH réellement utilisé (`--no-firewall` pour s'en abstenir). Options : `--repo <url>` (dépôt privé : ajouter d'abord une clé de déploiement à l'utilisateur `tesla`), `--no-tls` (DNS pas encore prêt).
+
+**Immédiatement** : copier `MEDICAL_DATA_KEY` dans le coffre de l'association (deux personnes, hors VPS). Sans elle, les fiches médicales restaurées sont illisibles.
+
+### Étape 5 — Compléter la configuration
+Le script liste les valeurs `<…>` restantes de `/etc/tesla/production.env` :
+
+| Variable | Valeur |
 | --- | --- |
-| Système | Ubuntu 24.04 LTS, 2 vCPU, 4 Go de RAM, 40 Go de disque (indicatif, à confirmer en préproduction) |
-| Node.js | 22 LTS (≥ 22.12, `.nvmrc`), paquet NodeSource |
-| PostgreSQL | 18 (dépôt PGDG), écoute `localhost` uniquement |
-| Paquets | `nginx`, `certbot`, `python3-certbot-nginx`, `git`, `gnupg`, `rclone`, `curl` |
-| Réseau | DNS du domaine vers le VPS ; pare-feu : 22, 80, 443 |
-| Hors VPS | Cloudflare R2 : compartiment privé des fichiers applicatifs et compartiment verrouillé des sauvegardes, jetons distincts ([STORAGE_R2.md](STORAGE_R2.md) § 6) ; clé privée GnuPG, `MEDICAL_DATA_KEY` et mots de passe rclone crypt conservés hors ligne par deux personnes |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Jeton **applicatif** (étape 3) |
+| `BACKUP_GPG_RECIPIENT` | Empreinte de la clé **publique** de sauvegarde (la clé privée reste hors VPS) |
+| `ALERT_URL` | URL recevant un POST texte en cas d'échec (ex. sujet ntfy privé, passerelle e-mail) |
+| `BACKUP_HEARTBEAT_URL` (facultatif) | Sonde « dead man's switch » appelée après chaque sauvegarde réussie |
+| `BACKUP_RESTORE_CHECK_URL` (recommandé) | Rôle de maintenance `CREATEDB` pour la restauration d'essai à chaque sauvegarde |
 
-## 3. Première installation (production)
+Puis, en `tesla` : `gpg --import cle-publique.asc` et `rclone config` (remotes `r2-backup`, `r2-backup-crypt`, `r2-files-ro`, voir [STORAGE_R2.md](STORAGE_R2.md) § 7). Ne jamais définir `DEMO_ACCOUNT_PASSWORD`. `NEXT_PUBLIC_API_URL` est intégrée au build : la modifier impose un redéploiement.
 
-Exécuter en `root` sauf mention contraire. Remplacer `<domaine>`.
+### Étape 6 — Premier déploiement (utilisateur `tesla`)
 
-1. **Système et pare-feu**
-   ```bash
-   apt update && apt full-upgrade -y
-   ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable
-   ```
-2. **Utilisateur de service** : `adduser --system --group --home /home/tesla --shell /bin/bash tesla`
-3. **PostgreSQL** : installer la version 18, vérifier `listen_addresses = 'localhost'` dans `postgresql.conf`, puis
-   ```bash
-   sudo -u postgres createuser --pwprompt tesla        # rôle de l'application, non superutilisateur
-   sudo -u postgres createdb --owner=tesla tesla
-   sudo -u postgres psql -d tesla -c 'CREATE EXTENSION IF NOT EXISTS btree_gist;'
-   ```
-   L'extension `btree_gist` est créée par la migration de l'application si le rôle en a le droit ; la créer en amont évite de donner ce droit.
-4. **Code** (en `tesla`) :
-   ```bash
-   mkdir -p /opt/tesla/production/releases && cd /opt/tesla/production
-   git clone https://github.com/PaterneSeka1/tesla.git repo
-   ```
-5. **Configuration** : copier `deploy/env/production.env.example` en `/etc/tesla/production.env`, compléter, `chown root:tesla`, `chmod 0640`. Ne jamais définir `DEMO_ACCOUNT_PASSWORD`.
-6. **Clé de sauvegarde** : importer la **clé publique** dans le trousseau de `tesla` (`sudo -u tesla gpg --import cle-publique.asc`) et reporter son empreinte dans `BACKUP_GPG_RECIPIENT`. Configurer le distant rclone (`sudo -u tesla rclone config`). Créer `/var/backups/tesla/production` (propriétaire `tesla`, mode 0700).
-7. **Unités et outils** :
-   ```bash
-   cp deploy/systemd/* /etc/systemd/system/ && systemctl daemon-reload
-   cp deploy/logrotate/tesla /etc/logrotate.d/tesla
-   mkdir -p /etc/systemd/journald.conf.d && cp deploy/journald/tesla.conf /etc/systemd/journald.conf.d/
-   systemctl restart systemd-journald
-   cp deploy/sudoers/tesla /etc/sudoers.d/tesla && visudo -cf /etc/sudoers.d/tesla
-   ```
-8. **Premier déploiement** (en `tesla`) : `repo/deploy/scripts/deploy.sh production main` (le premier contrôle de santé échoue tant que Nginx n'est pas configuré : terminer les étapes 9–10 puis relancer `systemctl restart tesla-api@production tesla-web@production`).
-9. **Nginx** : copier `deploy/nginx/tesla.conf` dans `/etc/nginx/sites-available/tesla`, remplacer `DOMAINE`, lier dans `sites-enabled`, `nginx -t && systemctl reload nginx`.
-10. **TLS** : `certbot --nginx -d <domaine>` ; vérifier `systemctl list-timers certbot.timer` et `certbot renew --dry-run`.
-11. **Services et timers** :
-    ```bash
-    systemctl enable --now tesla-api@production tesla-web@production
-    systemctl enable --now tesla-daily@production.timer tesla-backup@production.timer tesla-healthcheck@production.timer
-    ```
-12. **Premier administrateur** (en `tesla`, aucun mot de passe sur la ligne de commande) :
-    ```bash
-    cd /opt/tesla/production/current/apps/api
-    set -a; . /etc/tesla/production.env; set +a
-    node dist/jobs/create-admin.js --email <adresse> --first-name <prénom> --last-name <nom>
-    ```
-    Le lien affiché est à usage unique (72 h) : le transmettre au titulaire par un canal personnel. Une seconde exécution est refusée ; `--recover` émet un lien de réinitialisation pour un administrateur existant.
-13. **Mise en service métier** : déclarer l'année scoute et consigner le responsable plein (`/mandats`) ; tant que ce n'est pas fait, aucune décision officielle n'est possible (D107). Le plein crée ensuite les comptes routiers depuis les fiches.
-14. **Vérifications** : `deploy/scripts/healthcheck.sh https://<domaine>`, première sauvegarde (`systemctl start tesla-backup@production`, puis restauration d'essai hors VPS : [BACKUP_RESTORE.md](BACKUP_RESTORE.md) § 4), en-têtes (`curl -I`), `systemctl --failed`.
+```bash
+sudo -iu tesla /opt/tesla/production/repo/deploy/scripts/deploy.sh production <étiquette_validée>
+```
+
+Contrôles (utilisateur, configuration, 2 Gio libres) → release `git archive` → `npm ci` et build → **sauvegarde** → `prisma migrate deploy` → bascule atomique du lien `current` → redémarrage → contrôle de santé (60 s) → `HEALTHY`, ou retour automatique au code précédent et release marquée `FAILED`. Un échec avant la bascule supprime la release sans toucher au service.
+
+### Étape 7 — Timers et supervision (root)
+
+```bash
+systemctl start tesla-daily@production.timer tesla-backup@production.timer tesla-healthcheck@production.timer
+systemctl start tesla-backup@production && journalctl -u tesla-backup@production -n 30
+systemctl start tesla-alert@tesla-healthcheck-production   # essai d'alerte : message reçu ?
+```
+
+Ajouter une **sonde externe** HTTPS sur `https://<domaine>/api/v1/health` (le VPS ne peut pas signaler sa propre panne totale).
+
+### Étape 8 — Vérifications de sécurité
+
+```bash
+deploy/scripts/healthcheck.sh https://<domaine>
+curl -sI https://<domaine>/ | grep -Ei 'strict-transport|content-security|x-frame|referrer'
+curl -s -o /dev/null -w '%{http_code}\n' https://<domaine>/api/docs      # 404 attendu
+ss -ltnp | grep -E ':(5432|3000|4000)'                                    # 127.0.0.1 uniquement
+ufw status verbose ; systemctl --failed ; certbot renew --dry-run
+```
+Depuis une autre machine : `nc -zv <ip> 5432` doit échouer.
+
+### Étape 9 — Premier administrateur (utilisateur `tesla`)
+
+```bash
+cd /opt/tesla/production/current/apps/api
+set -a; . /etc/tesla/production.env; set +a
+node dist/jobs/create-admin.js --email <adresse> --first-name <prénom> --last-name <nom>
+```
+Le lien affiché est à usage unique (72 h) : le transmettre au titulaire par un canal personnel. Une seconde exécution est refusée ; `--recover` émet un lien de réinitialisation pour un administrateur existant (procédure de récupération sans e-mail). Aucun mot de passe ne passe par la ligne de commande.
+
+### Étape 10 — Mise en service métier
+L'administrateur crée les comptes de l'encadrement, puis désigne le **responsable plein**, l'adjoint et les assistants dans « Administration → Encadrement » (`/communaute`). Tant qu'aucun plein n'est en fonction, aucune décision officielle n'est possible. Le plein crée ensuite les fiches routiers (avec ou sans compte), puis approuve et publie les modules.
 
 ## 4. Mise à jour
 
 ```bash
 sudo -iu tesla
-git -C /opt/tesla/production/repo pull --ff-only
-/opt/tesla/production/repo/deploy/scripts/deploy.sh production <étiquette|commit>
+/opt/tesla/production/repo/deploy/scripts/deploy.sh production <étiquette>
 ```
-
-Le script : contrôles préalables (utilisateur, configuration, 2 Gio libres) → release immuable (`git archive`) → `npm ci --include=dev` et build → **sauvegarde** → `prisma migrate deploy` → bascule du lien `current` → redémarrage → contrôle de santé (60 s) → retour automatique au code précédent en cas d'échec.
-
-Règles :
-- Toujours déployer d'abord en préproduction la même étiquette.
-- Migrations : `migrate deploy` uniquement ; jamais `migrate reset` ni `db push`. Relire le SQL de chaque nouvelle migration ; une migration non additive exige un plan validé ([database.md](../.claude/rules/database.md)).
-- `NEXT_PUBLIC_API_URL` est intégrée au build : la modifier impose un nouveau déploiement.
-- Compatibilité hors ligne : une mise à jour ne supprime jamais les opérations en attente des appareils (IndexedDB) ; l'API doit continuer d'accepter les écritures rejouables de la version précédente (contrats additifs, `x-tesla-operation-id`).
+- Toujours déployer d'abord la **même étiquette** en préproduction.
+- `migrate deploy` uniquement ; jamais `migrate reset` ni `db push`. Relire le SQL des nouvelles migrations ; une migration non additive exige un plan validé et une fenêtre de maintenance ([database.md](../.claude/rules/database.md)).
+- Si les unités systemd, Nginx ou l'alerte ont changé dans la version, relancer `bootstrap.sh` (idempotent) depuis un clone à jour, en root.
+- Appareils hors ligne : une mise à jour ne supprime jamais les opérations en attente (IndexedDB) ; l'API doit continuer d'accepter les écritures rejouables de la version précédente (contrats additifs, `x-tesla-operation-id`). Pendant le redémarrage, Nginx affiche une page de maintenance et les appareils conservent leurs saisies.
 
 ## 5. Retour arrière
 
-- **Code** : `deploy/scripts/rollback.sh production` (version précédente) ou `rollback.sh production /opt/tesla/production/releases/<dossier>`. Sans rebuild ni migration ; les migrations de Tesla étant additives, l'ancien code fonctionne sur le schéma plus récent.
-- **Données** (migration défectueuse, corruption) : restauration dans une nouvelle base puis bascule, [BACKUP_RESTORE.md](BACKUP_RESTORE.md) § 5.
+- **Code** : `deploy/scripts/rollback.sh production` (release saine la plus récente) ou `rollback.sh production /opt/tesla/production/releases/<dossier>`. Sans rebuild ni migration.
+- **Ce n'est pas un retour arrière de la base.** Les migrations de Tesla sont additives, l'ancien code fonctionne sur le schéma plus récent. Si une migration non additive a été appliquée, ou en cas de corruption : restauration ([BACKUP_RESTORE.md](BACKUP_RESTORE.md) § 5).
+- Les releases installées avant l'introduction du marqueur `HEALTHY` ne sont pas proposées automatiquement : les désigner explicitement.
 
-## 6. Supervision
+## 6. Restauration après perte du VPS
+
+1. Nouveau VPS, DNS, étapes 1, 2, 4 (le jeton applicatif R2 existe déjà).
+2. Remplacer `MEDICAL_DATA_KEY` générée par **la clé d'origine** (coffre) et compléter `/etc/tesla/production.env` comme à l'étape 5.
+3. Restaurer la dernière sauvegarde depuis R2 avec le jeton de restauration ([BACKUP_RESTORE.md](BACKUP_RESTORE.md) § 5), dans `tesla_production` vide ou une nouvelle base pointée par `DATABASE_URL`.
+4. Étape 6 avec l'étiquette en service avant l'incident, puis étapes 7 et 8.
+5. Fichiers : ils restent dans leur compartiment R2 ; s'il est perdu, les recopier depuis la copie chiffrée ([BACKUP_RESTORE.md](BACKUP_RESTORE.md) § 2, « Perte complète du VPS »).
+
+## 7. Supervision
 
 | Contrôle | Moyen |
 | --- | --- |
-| Disponibilité | `tesla-healthcheck@.timer` (5 min) : `/api/v1/health` (base comprise) et `/connexion` ; à doubler par une sonde externe (HTTPS) |
-| Échecs | `systemctl --failed` (sauvegarde, traitement quotidien, contrôle de santé) |
-| Journaux | `journalctl -u tesla-api@production -u tesla-web@production --since today` ; Nginx : `/var/log/nginx/tesla.*.log` |
-| Certificat | `certbot certificates` ; renouvellement automatique par `certbot.timer`, Nginx rechargé par le plugin |
-| Disque | Sauvegardes locales (`BACKUP_RETENTION_DAYS`, 2 jours proposés avec R2), contrôle d'espace avant chaque dump, journaux (journald plafonné à 1 Go) ; aucun fichier téléversé sur le VPS (envoi direct à R2) |
-| Stockage objet | Journal de `tesla-daily@<instance>` (envois abandonnés, fichiers par statut, sans référence) ; métriques R2 du tableau de bord Cloudflare |
-
-Alerte e-mail ou messagerie : non configurée (aucun service externe choisi) ; à brancher sur `systemctl --failed` ou sur la sonde externe.
-
-## 7. Non vérifié
-
-Aucune de ces procédures n'a été exécutée sur un VPS ; `nginx -t` n'a pas été exécuté (Nginx absent de l'environnement) ; les unités systemd n'ont pas été chargées par systemd. Seuls les scripts de sauvegarde, de restauration d'essai et de restauration ont été exécutés (base `tesla_test`, outils PostgreSQL 18 du conteneur, clé GnuPG jetable). À valider en préproduction avec [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+| Disponibilité | `tesla-healthcheck@.timer` (5 min) ; échec → `tesla-alert@` → `ALERT_URL` ; sonde externe en complément |
+| Sauvegarde, traitement quotidien | Échec → alerte ; réussite de sauvegarde → `BACKUP_HEARTBEAT_URL` ; stockage R2 actif sans copie des fichiers → échec signalé |
+| Journaux | `journalctl -u tesla-api@production -u tesla-web@production --since today` ; Nginx : `/var/log/nginx/tesla-production.*.log` |
+| Certificat | `certbot certificates` ; renouvellement automatique |
+| Disque | Contrôle avant chaque déploiement (2 Gio) et chaque sauvegarde ; journald plafonné |
+| Stockage objet | Journal de `tesla-daily@` (envois abandonnés purgés, fichiers par statut, fichiers sans référence) ; métriques R2 |

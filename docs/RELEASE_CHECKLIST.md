@@ -4,7 +4,7 @@
 
 ## Avant la livraison
 
-- [ ] CI verte sur la branche (jobs `quality`, `integration`, `browser`).
+- [ ] CI verte sur la branche (jobs `quality`, `integration`, `browser`, `ops`).
 - [ ] `CHANGELOG.md` et `docs/IMPLEMENTATION_STATUS.md` à jour ; décisions nouvelles dans `docs/DECISIONS.md`.
 - [ ] Nouvelles migrations relues (SQL), additives ; sinon plan validé par écrit.
 - [ ] Aucune règle pédagogique nouvelle sans décision du responsable.
@@ -33,6 +33,9 @@
 - [ ] Décisions bloquantes tranchées ou explicitement reportées ([PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md) § 4).
 - [ ] RPO/RTO validés ([BACKUP_RESTORE.md](BACKUP_RESTORE.md)) ; exercice de restauration réalisé, durée mesurée.
 - [ ] Clé privée de sauvegarde conservée hors ligne par deux personnes.
-- [ ] Premier administrateur créé par `create-admin.js` ; année scoute et responsable plein consignés.
+- [ ] Serveur installé par `deploy/scripts/bootstrap.sh` ([DEPLOYMENT.md](DEPLOYMENT.md) § 3) ; `MEDICAL_DATA_KEY` copiée hors VPS.
+- [ ] Premier administrateur créé par `create-admin.js` ; responsable plein désigné dans `/communaute`.
+- [ ] Alerte d'essai reçue (`systemctl start tesla-alert@tesla-healthcheck-production`).
+- [ ] Catalogue : points « à vérifier » relus avant `pedagogy:release -- --notes-verifiees` (D146).
 - [ ] `nginx -t`, `certbot renew --dry-run`, pare-feu (`ufw status`), PostgreSQL non joignable depuis l'extérieur (`nmap` depuis un autre hôte).
 - [ ] Sonde de disponibilité externe et destinataires d'alerte configurés.

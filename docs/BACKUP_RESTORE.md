@@ -8,7 +8,7 @@ Scripts : [`deploy/scripts/`](../deploy/scripts). Déploiement : [DEPLOYMENT.md]
 | --- | --- | --- |
 | Perte de données maximale (RPO) | 12 heures | Deux sauvegardes par jour (02:15 et 14:15 UTC). Les saisies hors ligne non synchronisées restent sur les appareils et ne sont pas concernées. |
 | Délai de rétablissement (RTO) | 4 heures | Restauration de la dernière sauvegarde hors site sur un VPS réinstallé avec [DEPLOYMENT.md](DEPLOYMENT.md) |
-| Rétention | 14 jours en local ; 90 jours hors site (proposition) | Politique du stockage distant |
+| Rétention | 2 jours en local (`BACKUP_RETENTION_DAYS=2`, copie distante vérifiée) ; 90 jours hors site (proposition) | Cycle de vie du compartiment `tesla-backups` |
 
 **À valider** par le responsable et l'hébergeur ; à mesurer lors d'un exercice de restauration en préproduction.
 
@@ -35,7 +35,7 @@ systemctl start tesla-backup@production && journalctl -u tesla-backup@production
 ## 4. Vérification d'intégrité (poste d'administration, clé privée disponible)
 
 ```bash
-rclone copy offsite:tesla/production/tesla-<horodatage>.dump.gpg ./ && rclone copy offsite:tesla/production/tesla-<horodatage>.dump.gpg.sha256 ./
+rclone copy r2-restore:tesla-backups/production/tesla-<horodatage>.dump.gpg ./ && rclone copy r2-restore:tesla-backups/production/tesla-<horodatage>.dump.gpg.sha256 ./
 BACKUP_RESTORE_CHECK_URL=postgresql://<rôle_maintenance>@<serveur_de_test>/postgres \
   deploy/scripts/verify-backup.sh tesla-<horodatage>.dump.gpg
 ```
@@ -49,8 +49,9 @@ La restauration ne s'écrit **jamais** par-dessus une base existante : elle cré
 1. Annoncer l'interruption ; arrêter les écritures : `systemctl stop tesla-api@production tesla-web@production`.
 2. Sauvegarder l'état courant, même dégradé : `deploy/scripts/backup.sh` (avec l'environnement de l'instance).
 3. Restaurer (clé privée importée temporairement chez l'opérateur, jamais laissée sur le VPS) :
+   L'URL ci-dessous suppose l'authentification locale `peer` : exécuter la commande en tant qu'utilisateur système `postgres`, avec la clé privée importée dans son trousseau le temps de l'opération ; sinon utiliser le rôle de maintenance `CREATEDB` et son mot de passe. `RESTORE_OWNER` vaut `tesla_production` pour une installation faite par `bootstrap.sh`.
    ```bash
-   BACKUP_RESTORE_CHECK_URL=postgresql://postgres@/postgres RESTORE_OWNER=tesla \
+   BACKUP_RESTORE_CHECK_URL=postgresql://postgres@/postgres RESTORE_OWNER=tesla_production \
      deploy/scripts/restore.sh tesla-<horodatage>.dump.gpg tesla_restaure_<date>
    ```
 4. **Bascule** : dans `/etc/tesla/production.env`, pointer `DATABASE_URL` vers `tesla_restaure_<date>` ; vérifier les migrations (`cd current/apps/api && npx prisma migrate status`) ; redémarrer les services ; `healthcheck.sh`.
@@ -69,3 +70,7 @@ Non exécuté : copie rclone vers un distant réel, timers systemd, restauration
 `deploy/scripts/tests/backup-scripts.test.sh` (rclone et curl simulés, aucun réseau ; PostgreSQL 18 du conteneur, clé GnuPG jetable, base `tesla_test`) : **8 contrôles réussis** — sauvegarde avec restauration d'essai, copie distante vérifiée, copie locale supprimée et signal de réussite ; fichier envoyé chiffré ; échec réseau → alerte et copie locale conservée ; rétention 0 refusée sans distant ; restauration depuis la copie distante dans une base isolée (comptages identiques, triggers présents) ; écrasement refusé ; fichier corrompu détecté ; mauvaise clé refusée sans base résiduelle.
 
 Non exécuté : rclone et R2 réels (verrou, cycle de vie, `--download`), `rclone cryptcheck`, alerte vers un vrai service, timers systemd. La base `tesla_test` était vide de données métier : l'intégrité a porté sur la structure, les migrations et les comptages.
+
+## 8. Tests exécutés (2026-11-02, consolidation production)
+
+`backup-scripts.test.sh` rejoué dans un conteneur PostgreSQL 18 (outils 18.6) sur `tesla_test` : **9 contrôles réussis**, dont le nouveau : stockage objet actif (`R2_BUCKET_NAME`) sans copie des fichiers applicatifs → la base est copiée puis la sauvegarde échoue et alerte. Ce test, shellcheck et `nginx -t` sont désormais exécutés par le job CI `ops`. Non exécuté : copie réelle vers Cloudflare R2, `rclone cryptcheck` réel, exercice chronométré de restauration (RTO).

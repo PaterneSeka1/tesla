@@ -33,6 +33,17 @@ La CI échoue si l'une de ces étapes échoue. **Le workflow n'a pas encore ét�
 | Synchronisation après coupure, rejeu sans doublon | `offline-sync.int-spec.ts` ; recette offline-first |
 | Détection et résolution de conflit | `offline-sync.int-spec.ts` ; recette offline-first (contrôles 22–23) |
 
+## 2 bis. Recettes et contrôles navigateur et exploitation (2026-11-02)
+
+| Contrôle | Commande | Résultat | Job CI |
+| --- | --- | --- | --- |
+| Offline-first (28 contrôles) | `node apps/web/test/offline-first.browser.mjs` (`VIEWPORT_WIDTH`) | 28/28 à 320, 390 et 1280 px | `browser` |
+| Comptes (9 contrôles) | `node apps/web/test/accounts.browser.mjs` | 9/9 à 320, 390 et 1280 px | `browser` |
+| Balayage de l'interface | `node apps/web/test/ui-sweep.browser.mjs` : 4 profils, toutes les entrées du menu et un niveau de liens internes, 320/375/390/430/768/1024/1440 px ; titre, débordement horizontal, erreurs JavaScript, libellés techniques | 434 affichages, 46 pages, aucun défaut (après correction de 3 débordements) | `browser` |
+| Scripts d'exploitation | `shellcheck -S warning deploy/scripts/*.sh` | Aucun avertissement | `ops` |
+| Sauvegarde et restauration | `deploy/scripts/tests/backup-scripts.test.sh` (conteneur PostgreSQL 18) | 9/9 | `ops` |
+| Nginx | `nginx -t` (image nginx 1.24), production + préproduction + vhost ACME | Réussi | `ops` |
+
 ## 3. Lacunes connues (tests à écrire)
 
 - Expiration de session puis connexion d'un autre compte sur le même appareil (AUD-002) : recette dédiée.
@@ -40,8 +51,8 @@ La CI échoue si l'une de ces étapes échoue. **Le workflow n'a pas encore ét�
 - Refus d'une date de référence future par `jobs:daily` (AUD-015).
 - `POST /age-rules` et `/activate` en HTTP : rétroactivité, chevauchements, délégataire (AUD-014).
 - Refus `SORTI_BRANCHE` de bout en bout (en ligne et papier).
-- Fin anticipée de mandat le jour même (AUD-013).
-- Quota de stockage dépassé, éviction du stockage, phrase oubliée, plusieurs onglets synchronisant ensemble.
+- Quota de stockage dépassé, éviction du stockage, phrase oubliée, plusieurs onglets synchronisant ensemble : corrigés le 2026-11-02 (AUD-019 à AUD-024), **sans test automatisé dédié** (IndexedDB et `navigator.locks` non simulés) ; recette offline-first non régressée.
+- `bootstrap.sh` de bout en bout sur une machine Ubuntu 24.04 vierge (seuls shellcheck et la génération de configuration sont testés).
 
 ## 4. Recette manuelle sur appareils réels (non exécutée)
 

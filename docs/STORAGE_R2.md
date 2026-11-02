@@ -71,7 +71,7 @@ Un objet présent dans R2 n'est donc jamais lisible du seul fait de son existenc
 | CORS | compartiment : `PUT` depuis l'origine de l'application seulement (§ 6.3) |
 | Journaux | ni URL signée, ni clé d'objet, ni clé d'accès : identifiant du fichier et code d'erreur du fournisseur seulement (testé) |
 | Erreurs R2 | 503 `FILE_STORAGE_ERROR` sans détail ; non configuré : 503 `FILE_STORAGE_UNAVAILABLE` |
-| Objets abandonnés | `jobs:daily` supprime les envois non confirmés 1 h après expiration (`ABANDONNE`) et réessaie la suppression des rejets |
+| Objets abandonnés | `jobs:daily` passe d'abord la fiche en `ABANDONNE` (une confirmation concurrente échoue alors), puis supprime l'objet 1 h après l'expiration ; suppression retentée tant que `objectDeletedAt` est nul (rejets et abandons) |
 | Suppression accidentelle | les fiches `stored_files` ne sont jamais supprimées (trigger) ; l'application n'efface que des objets jamais validés ; les fichiers validés sans référence depuis 7 jours sont **signalés** (journal du traitement quotidien), leur effacement reste une décision humaine |
 | Cache | URL de lecture `private, max-age=<durée de l'URL>` ; redirection API `no-store` ; service worker : `/api` exclu, R2 hors origine (non intercepté) |
 
