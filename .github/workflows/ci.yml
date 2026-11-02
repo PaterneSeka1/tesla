@@ -145,6 +145,12 @@ jobs:
           node apps/api/dist/jobs/create-admin.js --email admin-recette@recette.test \
             --web-url http://localhost:3000 > "$RUNNER_TEMP/link.txt"
           LINK_FILE="$RUNNER_TEMP/link.txt" node apps/web/test/accounts.browser.mjs
+      - name: Balayage de l'interface (4 profils, 7 largeurs)
+        run: |
+          node apps/api/dist/jobs/create-admin.js --recover --email admin-recette@recette.test \
+            --web-url http://localhost:3000 > "$RUNNER_TEMP/sweep-link.txt"
+          ADMIN_EMAIL=admin-recette@recette.test LINK_FILE="$RUNNER_TEMP/sweep-link.txt" \
+          OFFLINE_FIXTURE="$RUNNER_TEMP/fixture.json" node apps/web/test/ui-sweep.browser.mjs
       - name: Journaux des serveurs (en cas d'échec)
         if: failure()
         run: tail -n 200 "$RUNNER_TEMP/api.log" "$RUNNER_TEMP/web.log"
