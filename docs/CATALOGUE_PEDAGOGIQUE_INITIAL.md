@@ -113,7 +113,8 @@ Soumettre (rédacteur) → approuver puis publier (responsable plein ou déléga
 ```bash
 npm run pedagogy:release -- --dry-run              # prévisualisation, aucune écriture
 npm run pedagogy:release                           # au nom du responsable plein en exercice
-npm run pedagogy:release -- --acteur <e-mail>      # au nom d'un autre compte habilité (délégation)
+npm run pedagogy:release -- --acteur <e-mail>      # au nom d'un autre compte habilité
+npm run pedagogy:release -- --notes-verifiees      # après relecture des points « à vérifier » (D146)
 ```
 
 | Situation d'un module importé | Effet |

@@ -41,6 +41,8 @@ echo "$sha" > "$release/REVISION"
 
 log "Installation et build"
 (cd "$release" && npm ci --include=dev --no-audit --no-fund && npm run build)
+# Cache de compilation Next (~600 Mo) inutile à l'exécution : jamais conservé dans une release.
+rm -rf "$release/apps/web/.next/cache"
 
 log "Sauvegarde avant migration"
 "$here/backup.sh"
@@ -59,7 +61,7 @@ for _ in $(seq 1 30); do
     date -u +%FT%TZ > "$release/HEALTHY"
     log "Version ${sha:0:12} en service."
     # Conservation des cinq dernières versions saines (retour arrière rapide) ; les releases en
-    # échec sont supprimées au-delà des cinq plus récentes. La version en service n'est jamais
+    # échec, conservées pour diagnostic, sont supprimées au-delà des deux plus récentes. La version en service n'est jamais
     # supprimée.
     current_dir="$(readlink -f "$root/current")"
     healthy=0; other=0
@@ -68,7 +70,7 @@ for _ in $(seq 1 30); do
       if [[ -f "$dir/HEALTHY" ]]; then
         healthy=$((healthy + 1)); (( healthy > 5 )) && rm -rf "$dir"
       else
-        other=$((other + 1)); (( other > 5 )) && rm -rf "$dir"
+        other=$((other + 1)); (( other > 2 )) && rm -rf "$dir"
       fi
     done
     exit 0

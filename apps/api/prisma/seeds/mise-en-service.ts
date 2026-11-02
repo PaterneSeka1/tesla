@@ -1,5 +1,6 @@
 /**
- * Mise en service du catalogue : `npm run pedagogy:release -w @tesla/api [-- --dry-run] [-- --acteur <e-mail>]`.
+ * Mise en service du catalogue : `npm run pedagogy:release -w @tesla/api [-- --dry-run] [-- --acteur <e-mail>]
+ *   [-- --notes-verifiees]` (le responsable déclare avoir traité les points à vérifier de l'import, D146).
  * Décision prise au nom du responsable plein en exercice (ou du compte indiqué, s'il est habilité).
  * Voir `release-catalog.ts`.
  */
@@ -15,13 +16,16 @@ if (existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL est requis.');
 const dryRun = process.argv.includes('--dry-run');
+const acknowledgeNotes = process.argv.includes('--notes-verifiees');
 const actorIndex = process.argv.indexOf('--acteur');
 const email = actorIndex >= 0 ? process.argv[actorIndex + 1] : undefined;
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 try {
   const actor = await releaseActor(prisma, email);
-  console.log(formatReleaseReport(await releaseCatalog(prisma, actor, { dryRun }), dryRun));
+  console.log(
+    formatReleaseReport(await releaseCatalog(prisma, actor, { dryRun, acknowledgeNotes }), dryRun),
+  );
 } finally {
   await prisma.$disconnect();
 }

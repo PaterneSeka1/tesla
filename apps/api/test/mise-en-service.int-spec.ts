@@ -193,11 +193,19 @@ describe('Mise en service du catalogue (intégration PostgreSQL)', () => {
 
     // Prévisualisation : aucune écriture.
     const before = await snapshot();
-    const preview = await releaseCatalog(prisma, actor, { dryRun: true });
+    // Sans acquittement des points à vérifier de l'import, aucun module annoté n'est publié (D146).
+    const unacknowledged = await releaseCatalog(prisma, actor, { dryRun: true });
+    expect(unacknowledged.filter((line) => line.outcome === 'A_VERIFIER').length).toBeGreaterThan(
+      0,
+    );
+    expect(unacknowledged.filter((line) => line.outcome === 'PUBLIE')).toHaveLength(
+      15 - unacknowledged.filter((line) => line.outcome === 'A_VERIFIER').length,
+    );
+    const preview = await releaseCatalog(prisma, actor, { dryRun: true, acknowledgeNotes: true });
     expect(await snapshot()).toEqual(before);
     expect(preview.filter((line) => line.outcome === 'SUPPRIME')).toHaveLength(3);
 
-    const lines = await releaseCatalog(prisma, actor);
+    const lines = await releaseCatalog(prisma, actor, { acknowledgeNotes: true });
     expect(lines.map(({ key, outcome }) => ({ key, outcome }))).toEqual(
       preview.map(({ key, outcome }) => ({ key, outcome })),
     );
@@ -247,7 +255,7 @@ describe('Mise en service du catalogue (intégration PostgreSQL)', () => {
 
     // Réexécution : rien n'est réécrit.
     const after = await snapshot();
-    const again = await releaseCatalog(prisma, actor);
+    const again = await releaseCatalog(prisma, actor, { acknowledgeNotes: true });
     expect(new Set(again.map((line) => line.outcome))).toEqual(
       new Set(['DEJA_PUBLIE', 'QUESTIONNAIRE_EXISTANT']),
     );
@@ -265,7 +273,7 @@ describe('Mise en service du catalogue (intégration PostgreSQL)', () => {
     const routier = await loginAs('ROUTIER');
     await routier.get(`/modules/${ROUTE_MODULES[0]!.slug}/pdf`).expect(404);
 
-    await releaseCatalog(prisma, await releaseActor(prisma));
+    await releaseCatalog(prisma, await releaseActor(prisma), { acknowledgeNotes: true });
     const response = await routier
       .get(`/modules/${ROUTE_MODULES[0]!.slug}/pdf`)
       .buffer(true)

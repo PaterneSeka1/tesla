@@ -25,7 +25,11 @@ import {
 import { ModuleEditorService } from '../../src/modules/pedagogy/module-editor.service.js';
 import { ModuleReviewService } from '../../src/modules/pedagogy/module-review.service.js';
 import { type PrismaService } from '../../src/prisma/prisma.service.js';
-import { isLessonDocumentEmpty } from '@tesla/shared';
+import {
+  isLessonDocumentEmpty,
+  pendingEditorialNotes,
+  type SourceEditorialNote,
+} from '@tesla/shared';
 import { QUIZ_INSTRUCTIONS, ROUTE_QUIZZES } from './route-questionnaires.js';
 
 const DECISION = 'Mise en service du catalogue initial (décision du responsable, 2026-10-30).';
@@ -47,6 +51,7 @@ export interface ReleaseLine {
     | 'DEJA_PUBLIE'
     | 'QUESTIONNAIRE_PUBLIE'
     | 'QUESTIONNAIRE_EXISTANT'
+    | 'A_VERIFIER'
     | 'IGNORE';
   detail: string;
 }
@@ -89,7 +94,12 @@ export async function releaseActor(prisma: PrismaClient, email?: string): Promis
 export async function releaseCatalog(
   client: PrismaClient,
   actor: Actor,
-  options: { dryRun?: boolean } = {},
+  /**
+   * `acknowledgeNotes` : le responsable déclare avoir traité les points « à vérifier » et « à
+   * compléter » de l'import (D146, option `--notes-verifiees`). Sans elle, ces modules sont signalés
+   * et laissés en l'état.
+   */
+  options: { dryRun?: boolean; acknowledgeNotes?: boolean } = {},
 ): Promise<ReleaseLine[]> {
   const prisma = client as unknown as PrismaService;
   const dryRun = !!options.dryRun;
@@ -103,7 +113,7 @@ export async function releaseCatalog(
   const modules = await prisma.pedagogicalModule.findMany({
     where: { sourceImport: { isNot: null } },
     include: {
-      sourceImport: { select: { sourceKey: true } },
+      sourceImport: { select: { sourceKey: true, editorialNotes: true } },
       versions: {
         orderBy: { version: 'desc' },
         include: { lessons: { orderBy: { position: 'asc' } } },
@@ -145,6 +155,17 @@ export async function releaseCatalog(
       lines.push({ key, outcome: 'IGNORE', detail: 'corrections demandées : à reprendre' });
       continue;
     }
+    const pendingNotes = pendingEditorialNotes(
+      module.sourceImport!.editorialNotes as unknown as SourceEditorialNote[],
+    ).length;
+    if (pendingNotes > 0 && working.status !== 'APPROUVE' && !options.acknowledgeNotes) {
+      lines.push({
+        key,
+        outcome: 'A_VERIFIER',
+        detail: `${pendingNotes} point(s) à vérifier ou à compléter : relire le module, puis relancer avec --notes-verifiees`,
+      });
+      continue;
+    }
     const emptyLessons = working.lessons.filter((lesson) =>
       isLessonDocumentEmpty(toLessonDocument(lesson.content)),
     );
@@ -168,7 +189,11 @@ export async function releaseCatalog(
         });
       }
       if (working.status === 'BROUILLON' || working.status === 'SOUMIS') {
-        await moduleReview.approve(actor, module.id, { versionId: working.id, comment: DECISION });
+        await moduleReview.approve(actor, module.id, {
+          versionId: working.id,
+          comment: DECISION,
+          editorialNotesAcknowledged: options.acknowledgeNotes === true,
+        });
       }
       await moduleReview.publish(actor, module.id, { versionId: working.id });
     }
@@ -264,6 +289,7 @@ const LABELS: Record<ReleaseLine['outcome'], [string, string]> = {
   DEJA_PUBLIE: ['déjà publié', 'déjà publié'],
   QUESTIONNAIRE_PUBLIE: ['questionnaire publié', 'questionnaire serait publié'],
   QUESTIONNAIRE_EXISTANT: ['questionnaire déjà présent', 'questionnaire déjà présent'],
+  A_VERIFIER: ['non publié, points à vérifier', 'non publié, points à vérifier'],
   IGNORE: ['ignoré', 'serait ignoré'],
 };
 
