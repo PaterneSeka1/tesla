@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { ATTEMPT_STATUS_LABELS, ELIGIBILITY_LABELS } from '@tesla/shared';
-import { CircleAlert, Play } from 'lucide-react';
+import { CircleAlert, Mountain, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -134,12 +134,20 @@ export function EvaluationIntro() {
             </Button>
           )}
           {canStart && !localCopy && (
-            <Button asChild size="lg">
-              <Link href={`/evaluations/${data.id}/passer`}>
-                <Play aria-hidden />
-                {open ? 'Reprendre l’évaluation' : 'Commencer l’évaluation'}
-              </Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="lg">
+                <Link href={`/evaluations/${data.id}/passer`}>
+                  <Play aria-hidden />
+                  {open ? 'Reprendre l’évaluation' : 'Commencer l’évaluation'}
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link href={`/evaluations/${data.id}/jeu`}>
+                  <Mountain aria-hidden />
+                  {open ? 'Reprendre en mode jeu' : 'Mode jeu à paliers'}
+                </Link>
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

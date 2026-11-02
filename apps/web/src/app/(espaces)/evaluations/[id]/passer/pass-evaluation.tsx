@@ -16,7 +16,7 @@ import { TakeEvaluation } from './take-evaluation';
  * avec ou sans réseau ; sinon passation en ligne. Sans réseau ni copie préparée, aucune
  * tentative ne peut être ouverte (la réservation exige le serveur).
  */
-export function PassEvaluation() {
+export function PassEvaluation({ variant = 'classique' }: { variant?: 'classique' | 'paliers' }) {
   const { id } = useParams<{ id: string }>();
   const [local, setLocal] = useState<string | null | undefined>(undefined);
   useEffect(() => {
@@ -52,5 +52,5 @@ export function PassEvaluation() {
         </Alert>
       </>
     );
-  return <TakeEvaluation />;
+  return <TakeEvaluation variant={variant} />;
 }

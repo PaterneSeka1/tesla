@@ -12,6 +12,12 @@ import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AnswerFields } from '@/components/evaluations/answer-fields';
+import {
+  nextUnanswered,
+  PALIER_SKIPS,
+  PalierFinish,
+  PalierGame,
+} from '@/components/evaluations/palier-game';
 import { useToast } from '@/components/ui/toaster';
 import { saveAnswers, startAttempt, submitAttempt } from '@/lib/api/evaluations';
 
@@ -34,7 +40,7 @@ const isAnswered = (answer: Answers[string] | undefined) =>
  * l'ouverture reprend la tentative en cours. Sauvegarde à chaque changement de question ; remise
  * définitive après confirmation, protégée côté serveur contre les doubles envois.
  */
-export function TakeEvaluation() {
+export function TakeEvaluation({ variant = 'classique' }: { variant?: 'classique' | 'paliers' }) {
   const { id } = useParams<{ id: string }>();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -57,6 +63,7 @@ export function TakeEvaluation() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [finished, setFinished] = useState<AttemptSession | null>(null);
+  const [skipsLeft, setSkipsLeft] = useState(PALIER_SKIPS);
   const loaded = useRef<string | null>(null);
 
   useEffect(() => {
@@ -78,6 +85,9 @@ export function TakeEvaluation() {
 
   const current = finished ?? session;
   if (current.status !== 'EN_COURS') {
+    if (variant === 'paliers' && finished) {
+      return <PalierFinish answered={session.questions.map((q) => isAnswered(answers[q.id]))} />;
+    }
     return (
       <Alert variant="info">
         <CircleCheck aria-hidden />
@@ -146,6 +156,32 @@ export function TakeEvaluation() {
       return false;
     }
   };
+
+  if (variant === 'paliers') {
+    const answered = questions.map((q) => isAnswered(answers[q.id]));
+    return (
+      <>
+        <BackLink href={`/evaluations/${id}`}>Retour à l’évaluation</BackLink>
+        <PalierGame
+          session={session}
+          index={index}
+          answers={answers}
+          skipsLeft={skipsLeft}
+          saving={saving}
+          onAnswer={update}
+          onValidate={() => void goTo(nextUnanswered(answered, index) ?? index)}
+          onSkip={() => {
+            const next = nextUnanswered(answered, index);
+            if (next === null) return;
+            setSkipsLeft(skipsLeft - 1);
+            void goTo(next);
+          }}
+          onGoTo={(position) => void goTo(position)}
+          onSubmit={submit}
+        />
+      </>
+    );
+  }
 
   return (
     <>
