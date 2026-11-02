@@ -4,6 +4,17 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — finalisation du catalogue pédagogique, 2026-11-02
+- Les 8 leçons vides du catalogue sont rédigées (« Loi, principes et vertus », « La méthode scoute », « Initiation au Morse ») ; nouvelle leçon « La cérémonie d'accueil » ; leçons trop minces étoffées d'après le manuel SAPF-Route.
+- Questionnaires d'entraînement enrichis : 139 questions (8 à 11 par module) avec leçon de référence, niveau et explication dans le corrigé.
+- Vérificateur pédagogique `npm run pedagogy:audit` (rapport lisible ou `--json`, classes A à F, code de sortie bloquant) ; la mise en service refuse un module portant une anomalie bloquante.
+- Révision tracée des brouillons importés intacts : `npm run db:seed:pedagogy -- --mettre-a-jour` ; migration additive `20261111090000_module_source_revisions`.
+- Lecture : encadrés « À retenir », « Pour réfléchir », « Application pratique » et références en pied de leçon.
+- Recette navigateur du catalogue publié (`apps/web/test/catalogue-lecture.browser.mjs`).
+
+### Modifié — 2026-11-02
+- « Base du scoutisme » : coquilles et faits vérifiés corrigés (original conservé en note), codes Morse des abréviations recomposés depuis l'alphabet ; « La méthode scoute » recommandée au Noviciat, « Initiation au Morse » classé Complémentaire.
+
 ### Ajouté — préparation au déploiement OVH, 2026-11-02
 - Installation serveur reproductible `deploy/scripts/bootstrap.sh` (Ubuntu 24.04) et guide unique [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 - Alertes d'exploitation (contrôle de santé, traitement quotidien, sauvegarde) vers `ALERT_URL` ; page de maintenance pendant les redémarrages.

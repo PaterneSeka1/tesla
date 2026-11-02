@@ -214,6 +214,8 @@ PROFILE_DIR=/chemin/profil SW_FILE=$PWD/apps/web/public/sw.js [VIEWPORT_WIDTH=12
 node apps/web/test/offline-first.browser.mjs
 ```
 
+Recette du catalogue publié (lecture, encadrés, questionnaire sans corrigé, lecture sans réseau) : après la fixture ci-dessus, `cd apps/api && TEST_DATABASE_URL=… npx tsx test/catalogue-browser-fixture.mts`, puis `PLAYWRIGHT_MODULE=… CHROMIUM_PATH=… PROFILE_DIR=… node apps/web/test/catalogue-lecture.browser.mjs`.
+
 `SW_FILE` active le contrôle de mise à jour (le fichier est modifié puis restauré pendant le test). La recette est exécutée par la CI (job `browser`) avec Playwright installé à la volée ; la recette des comptes (`apps/web/test/accounts.browser.mjs`) suit la même procédure.
 
 ## 14. Textes fondamentaux (2026-10-30)

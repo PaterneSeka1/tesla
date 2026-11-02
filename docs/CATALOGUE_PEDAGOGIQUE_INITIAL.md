@@ -20,11 +20,13 @@ Importés en `BROUILLON` (version 1, auteur « Import système »), catégorie �
 | N° | Module | Code source | Étape recommandée | Leçons | Origine |
 | --- | --- | --- | --- | --- | --- |
 | 01 | Découvrir le scoutisme | `NT-SCOUT-M01` | Noviciat | 5 | **Réutilisé** (import du 2026-10-29) |
-| 02 | Loi, principes et vertus | `NT-SCOUT-M02` | Noviciat | 4 (1 vide) | **Réutilisé** |
+| 02 | Loi, principes et vertus | `NT-SCOUT-M02` | Noviciat | 4 | **Réutilisé** (leçon 4 rédigée le 2026-11-02) |
+| — | La méthode scoute | `NT-SCOUT-M03` | Noviciat | 7 | Réutilisé (6 leçons rédigées le 2026-11-02) |
+| — | Initiation au Morse (complémentaire) | `NT-SCOUT-M04` | Apprentissage | 5 | Réutilisé (exercice rédigé le 2026-11-02) |
 | 03 | Découverte de la branche Route | `NT-ROUTE-M03` | Noviciat | 6 | Nouveau ; cite la Prière de la Route |
 | 04 | Comprendre sa progression à la Route | `NT-ROUTE-M04` | Noviciat | 8 | Nouveau |
 | 05 | Vie en équipe et responsabilités | `NT-ROUTE-M05` | Apprentissage | 6 | Nouveau |
-| 06 | Engagement routier et cérémonies | `NT-ROUTE-M06` | Apprentissage | 6 | Nouveau |
+| 06 | Engagement routier et cérémonies | `NT-ROUTE-M06` | Apprentissage | 7 | Nouveau (leçon « Cérémonie d’accueil » ajoutée le 2026-11-02) |
 | 07 | Mini-Camp et vie communautaire | `NT-ROUTE-M07` | Apprentissage | 7 | Nouveau |
 | 08 | Le Raid routier | `NT-ROUTE-M08` | Compagnonnage | 7 | Nouveau |
 | 09 | L'Entreprise routière | `NT-ROUTE-M09` | Compagnonnage | 8 | Nouveau |
@@ -47,6 +49,8 @@ Titre, code, description, étape recommandée, 3 ou 4 objectifs, leçons ordonn�
 - **Doublons potentiels** : les brouillons **vides** du catalogue « Découvrir la Route » (`NT-DEC-B06`, `B08`, `B10`, `B11`, `C15`, `D16` à `D22`, `D24`) couvrent des sujets désormais rédigés dans 03 à 12. Ils ont été **supprimés** à la mise en service (§ 7) et retirés du seed ; les notes « rapprochement » des nouveaux modules sont donc caduques.
 
 ## 3. Contenus à produire ou à valider
+
+**Mise à jour du 2026-11-02 (finalisation, D152–D157)** : plus aucune leçon vide dans le catalogue ; questionnaires préparés pour les 14 modules d'apprentissage (139 questions) ; « Base du scoutisme » corrigée avec trace en note. Les points encore ouverts et l'action attendue du responsable sont tenus à jour dans [QUALITY/AUDIT_PEDAGOGIQUE_2026-11-02.md](QUALITY/AUDIT_PEDAGOGIQUE_2026-11-02.md) § 3 et par `npm run pedagogy:audit`. Le tableau ci-dessous est l'état du 2026-10-30.
 
 | Module | À compléter (absent des sources) | À vérifier |
 | --- | --- | --- |
@@ -104,7 +108,7 @@ Soumettre (rédacteur) → approuver puis publier (responsable plein ou déléga
 « Nouvelle version » : la version publiée reste en ligne jusqu'à la publication de la suivante. Les études déclarées, résultats et tentatives restent attachés à la version utilisée ; un routier ayant téléchargé le module se voit proposer la mise à jour.
 
 ## 6. Réimporter le catalogue
-`npm run db:seed:pedagogy -- --dry-run` (prévisualisation), puis `npm run db:seed:pedagogy`. Réexécution sans écriture ; écarts entre la source et l'import signalés, jamais appliqués (voir [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md)).
+`npm run db:seed:pedagogy -- --dry-run` (prévisualisation), puis `npm run db:seed:pedagogy`. Réexécution sans écriture ; écarts entre la source et l'import signalés, jamais appliqués (voir [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md)). Exception (D152) : `-- --mettre-a-jour` applique la source révisée aux seuls brouillons restés intacts, avec une révision tracée. Contrôle : `npm run pedagogy:audit`.
 
 ## 7. Mise en service (2026-10-30, D129–D131)
 
@@ -124,7 +128,7 @@ npm run pedagogy:release -- --notes-verifiees      # après relecture des points
 | Déjà publié | Inchangé |
 | Nouvelle version en cours de rédaction, ou corrections demandées | Ignoré (laissé à l'encadrement) |
 
-Questionnaires : un par module publié (14 ; aucun pour la Prière, texte sans étape), 4 à 7 questions objectives tirées du module, correction automatique, rattachés à l'étape recommandée du module ; créés, approuvés et publiés au nom du responsable. Ce sont des **entraînements** : aucun résultat ne change l'étape officielle ni ne valide un acquis. Définitions : `apps/api/prisma/seeds/route-questionnaires.ts`.
+Questionnaires : un par module publié (14 ; aucun pour la Prière, texte sans étape), 8 à 11 questions tirées du module depuis le 2026-11-02 (leçon de référence, niveau et explication dans le corrigé, D154), correction automatique, rattachés à l'étape recommandée du module ; créés, approuvés et publiés au nom du responsable. Ce sont des **entraînements** : aucun résultat ne change l'étape officielle ni ne valide un acquis. Définitions : `apps/api/prisma/seeds/route-questionnaires.ts`.
 
 Conséquence : les points « À vérifier » et « À compléter » du § 3 (coquilles de « Base du scoutisme », version rédactionnelle de la Prière, exemples de projets…) sont désormais **publiés en l'état** ; ils se corrigent par « Nouvelle version » dans l'éditeur.
 

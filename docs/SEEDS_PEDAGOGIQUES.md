@@ -34,7 +34,9 @@ L'étape portée par chaque module est une **recommandation de lecture** reprise
 
 ## Contenus à compléter
 
-- **Leçons vides** (soumission refusée tant qu'elles ne sont pas rédigées) : M02 « Comprendre et appliquer la loi dans la vie quotidienne » ; M03 « Loi et promesse », « Vie en petit groupe », « Vie dans la nature », « Soutien adulte et cadre symbolique », « Éducation par l'action », « Progression personnelle et engagement communautaire » ; M04 « Exercice de transmission en équipe ».
+**État au 2026-11-02** : toutes les leçons ci-dessous sont rédigées (révision 2, D152–D153) ; la liste est conservée pour l'historique. Points encore ouverts : [QUALITY/AUDIT_PEDAGOGIQUE_2026-11-02.md](QUALITY/AUDIT_PEDAGOGIQUE_2026-11-02.md).
+
+- **Leçons vides (état du 2026-10-29)** (soumission refusée tant qu'elles ne sont pas rédigées) : M02 « Comprendre et appliquer la loi dans la vie quotidienne » ; M03 « Loi et promesse », « Vie en petit groupe », « Vie dans la nature », « Soutien adulte et cadre symbolique », « Éducation par l'action », « Progression personnelle et engagement communautaire » ; M04 « Exercice de transmission en équipe ».
 - **Développements absents** : origines du scoutisme (M01), signification de la fleur de lys et rôle de l'OMMS (M01), promesse scoute (M03), durées du point, du trait et des silences (M04).
 - **Évaluations** : la source ne contient aucune question. Aucun questionnaire n'est créé ; chaque module porte la note « Évaluation à préparer ». Les chefs les construiront selon le workflow d'approbation des évaluations.
 
@@ -52,11 +54,15 @@ Ces points figurent dans les **notes éditoriales** de chaque module (table `mod
 npm run db:seed                          # seed principal : étapes, programme, puis modules pédagogiques
 npm run db:seed:pedagogy                 # modules pédagogiques seuls (étapes déjà présentes)
 npm run db:seed:pedagogy -- --dry-run    # prévisualisation : rapport sans aucune écriture
+npm run db:seed:pedagogy -- --mettre-a-jour   # applique la source révisée aux brouillons intacts (D152)
+npm run pedagogy:audit [-- --json] [-- --liens]   # vérificateur pédagogique (lecture seule, D155)
 ```
 
 Fichiers : `apps/api/prisma/seeds/scoutisme-base.seed.ts` (contenu), `source-modules.ts` (import), `pedagogy.ts` (commande dédiée).
 
 ## Réexécution sans écrasement
+
+**Révision d'une source (D152)** : avec `--mettre-a-jour`, un module dont la source a changé est mis à jour par le système **seulement** si personne n'y est intervenu (version 1 en brouillon jamais soumise, aucune écriture humaine sur la version ou les leçons, aucune ressource, aucun collaborateur, aucun questionnaire). Les leçons système sont remplacées dans une transaction, la révision (`module_source_revisions`, ajout seul) conserve instantané, empreinte, notes et écarts, et le journal reçoit `module.source_revised` (acteur nul). Sinon, l'écart reste seulement signalé.
 
 - Module absent : création en **une transaction** — module et version 1 `BROUILLON` sans auteur humain (`created_by_id` nul = système), leçons, événement « créée » sans acteur, provenance, entrée d'audit `module.imported` (acteur nul).
 - Module déjà importé (même code) : **aucune écriture**, quel que soit son état. Le rapport indique les écarts entre la source actuelle et l'instantané importé (empreinte SHA-256 canonique) et les évolutions depuis l'import (leçons modifiées, état, version publiée). Les écarts se reportent à la main dans une version de travail.
