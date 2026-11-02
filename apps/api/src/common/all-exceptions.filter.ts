@@ -48,6 +48,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         code = String(payload.code);
         message = String(payload.message);
       }
+      // Limitation (429) : délai d'attente en secondes, en en-tête seulement.
+      if (typeof payload === 'object' && 'retryAfter' in payload) {
+        const retryAfter = Number(payload.retryAfter);
+        if (Number.isFinite(retryAfter) && retryAfter > 0) {
+          response.setHeader('Retry-After', String(Math.ceil(retryAfter)));
+        }
+      }
     }
 
     if (statusCode >= 500) {
