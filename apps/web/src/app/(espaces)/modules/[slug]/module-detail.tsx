@@ -1,7 +1,16 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { BookOpenText, Clock, FileDown, Printer, ScrollText, Sparkles, Target } from 'lucide-react';
+import {
+  BookOpenText,
+  ClipboardList,
+  Clock,
+  FileDown,
+  Printer,
+  ScrollText,
+  Sparkles,
+  Target,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -13,7 +22,7 @@ import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { catalogModuleQueryOptions, modulePdfUrl } from '@/lib/api/modules';
+import { catalogModuleQueryOptions, modulePdfUrl, practicalSheetPdfUrl } from '@/lib/api/modules';
 import { formatDate, formatDuration } from '@/lib/format';
 
 export function ModuleDetail() {
@@ -169,6 +178,43 @@ export function ModuleDetail() {
                       >
                         {text.title}
                       </Link>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+          {module.practicalSheets.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="size-4 text-tesla-rouge" aria-hidden />
+                  Fiches pratiques
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Modèles vierges à imprimer (PDF A4).
+                </p>
+                <ul className="space-y-2 text-sm">
+                  {module.practicalSheets.map((sheet) => (
+                    <li key={sheet.key}>
+                      <a
+                        href={practicalSheetPdfUrl(module.slug, sheet.key)}
+                        download
+                        className="group flex items-start gap-2 rounded-md p-1 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                      >
+                        <FileDown
+                          className="mt-0.5 size-4 shrink-0 text-tesla-bordeaux"
+                          aria-hidden
+                        />
+                        <span className="min-w-0">
+                          <span className="font-medium text-tesla-bordeaux underline-offset-4 group-hover:underline">
+                            {sheet.title}
+                          </span>
+                          <span className="block text-muted-foreground">{sheet.purpose}</span>
+                        </span>
+                      </a>
                     </li>
                   ))}
                 </ul>

@@ -39,4 +39,19 @@ describe('structureLesson', () => {
       blocks.map((block) => ({ kind: 'block', block })),
     );
   });
+  it('met en évidence les exemples signalés et les précautions', () => {
+    const { segments } = structureLesson([
+      h('Exemple (illustratif)'),
+      p('Cas fictif.'),
+      h('Exemples d’Entreprise (proposition pédagogique)'),
+      p('Piste.'),
+      h('Précautions particulières'),
+      p('Jamais seul avec un enfant.'),
+    ]);
+    expect(segments.map((s) => s.kind === 'callout' && s.variant)).toEqual([
+      'exemple',
+      'exemple',
+      'vigilance',
+    ]);
+  });
 });

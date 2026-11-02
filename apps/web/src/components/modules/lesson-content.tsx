@@ -57,6 +57,8 @@ const CALLOUT_STYLES: Record<CalloutVariant, string> = {
   retenir: 'border-tesla-or bg-tesla-sable/40',
   reflexion: 'border-tesla-rouge/60 bg-tesla-sable/20',
   pratique: 'border-muted-foreground/40 bg-muted/30',
+  exemple: 'border-tesla-or/70 bg-muted/20',
+  vigilance: 'border-tesla-rouge bg-muted/30',
 };
 
 function renderBlocks(blocks: LessonBlock[], offlineImages?: Record<string, string>) {

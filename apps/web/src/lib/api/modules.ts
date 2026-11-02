@@ -62,6 +62,9 @@ export const catalogLessonQueryOptions = (slug: string, lessonId: string) =>
 export const modulePdfUrl = (slug: string) =>
   `${env.NEXT_PUBLIC_API_URL}/modules/${encodeURIComponent(slug)}/pdf`;
 
+export const practicalSheetPdfUrl = (slug: string, key: string) =>
+  `${env.NEXT_PUBLIC_API_URL}/modules/${encodeURIComponent(slug)}/sheets/${encodeURIComponent(key)}/pdf`;
+
 export const printableModuleQueryOptions = (slug: string) =>
   queryOptions({
     queryKey: ['modules', 'catalog', 'print', slug],

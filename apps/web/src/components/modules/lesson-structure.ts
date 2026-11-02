@@ -11,8 +11,12 @@ const CALLOUTS: Record<string, CalloutVariant> = {
   'application pratique': 'pratique',
   'exemple de répartition (à adapter)': 'pratique',
   'liste de préparation': 'pratique',
+  'exemple (illustratif)': 'exemple',
+  'exemples d’entreprise (proposition pédagogique)': 'exemple',
+  'précautions particulières': 'vigilance',
 };
-export type CalloutVariant = 'objectifs' | 'retenir' | 'reflexion' | 'pratique';
+export type CalloutVariant =
+  'objectifs' | 'retenir' | 'reflexion' | 'pratique' | 'exemple' | 'vigilance';
 /** Ligne de référence documentaire en fin de leçon (« Source : … », « Référence : … »). */
 const REFERENCE = /^(Source|Référence)\s?:/;
 
