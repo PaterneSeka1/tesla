@@ -6,13 +6,15 @@ import { MembershipService } from '../modules/progression/membership.service.js'
 import { PathwayService } from '../modules/progression/pathway.service.js';
 import { todayCivil } from '../modules/progression/age-rules.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StoredFilesService } from '../storage/stored-files.service.js';
 
 /**
  * Traitement quotidien idempotent (à planifier une fois par jour, ex. cron du serveur) :
  * sorties de branche échues, puis recalcul des plans de rattrapage. Les statuts restent calculés
  * à la lecture : ce traitement ne fait qu'enregistrer les événements et les obligations.
  * Une date de référence future est refusée : une sortie enregistrée est définitive.
- * Purge aussi les compteurs de limitation des tentatives de connexion expirés.
+ * Purge aussi les compteurs de limitation des tentatives de connexion expirés, efface du stockage
+ * objet les envois jamais confirmés et journalise les indicateurs de stockage (sans contenu, D143).
  * Usage : `npm run jobs:daily -w @tesla/api [-- AAAA-MM-JJ]`.
  */
 async function main(): Promise<void> {
@@ -40,6 +42,14 @@ async function main(): Promise<void> {
     for (const anomaly of membership.anomalies) logger.warn(anomaly);
     const purged = await app.get(LoginRateLimiter).purge();
     logger.log(`${purged} compteur(s) de connexion expiré(s) purgé(s).`);
+    const files = app.get(StoredFilesService);
+    const cleanup = await files.cleanupAbandoned();
+    const stats = await files.stats();
+    logger.log(
+      `Stockage : ${cleanup.abandoned} envoi(s) abandonné(s) nettoyé(s), ${cleanup.failed} report(s) ; ` +
+        `fichiers ${JSON.stringify(stats.byStatus)} ; ${stats.orphans} fichier(s) validé(s) sans référence.`,
+    );
+    if (cleanup.failed > 0) process.exitCode = 1;
   } finally {
     await app.close();
   }

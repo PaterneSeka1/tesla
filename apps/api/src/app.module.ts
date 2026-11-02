@@ -15,11 +15,13 @@ import { ProgressionModule } from './modules/progression/progression.module.js';
 import { ScoutsModule } from './modules/scouts/scouts.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { StorageModule } from './storage/storage.module.js';
 
 @Module({
   imports: [
     ConfigModule,
     PrismaModule,
+    StorageModule,
     HealthModule,
     AuthModule,
     UsersModule,

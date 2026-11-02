@@ -70,6 +70,7 @@ model User {
   moduleLessonsCreated       ModuleLesson[]       @relation("ModuleLessonCreatedBy")
   moduleLessonsUpdated       ModuleLesson[]       @relation("ModuleLessonUpdatedBy")
   moduleResourcesCreated     ModuleResource[]
+  storedFilesCreated         StoredFile[]
   moduleTextLinksCreated     ModuleTextLink[]     @relation("ModuleTextLinkCreatedBy")
   clientOperations           ClientOperation[]
   moduleCollaborations       ModuleCollaborator[] @relation("ModuleCollaboratorUser")
@@ -785,6 +786,7 @@ model PedagogicalModule {
   sourceImport     ModuleSourceImport?
   catchUps         CatchUpObligation[]
   citedBy          ModuleTextLink[]
+  files            StoredFile[]
 
   @@index([createdById])
   @@map("pedagogical_modules")
@@ -897,7 +899,10 @@ model ModuleResource {
   lessonId    String?            @map("lesson_id") @db.Uuid
   kind        ModuleResourceKind
   title       String
-  url         String
+  /// Adresse externe ; null lorsque la ressource est un fichier téléversé (CHECK : l'un ou l'autre, D143).
+  url         String?
+  /// Fichier validé du même module (images et documents uniquement, CHECK). Partagé par les versions.
+  fileId      String?            @map("file_id") @db.Uuid
   description String?
   createdById String             @map("created_by_id") @db.Uuid
   createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -905,11 +910,65 @@ model ModuleResource {
   version   ModuleVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
   lesson    ModuleLesson? @relation(fields: [lessonId], references: [id], onDelete: Restrict)
   createdBy User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  file      StoredFile?   @relation(fields: [fileId], references: [id], onDelete: Restrict)
 
   @@index([versionId])
   @@index([lessonId])
   @@index([createdById])
+  @@index([fileId])
   @@map("module_resources")
+}
+
+/// Catégorie métier d'un fichier stocké (synchronisée avec @tesla/shared STORED_FILE_CATEGORIES).
+enum StoredFileCategory {
+  MODULE_RESOURCE
+}
+
+/// Cycle de vie d'un fichier stocké (synchronisé avec @tesla/shared STORED_FILE_STATUSES).
+enum StoredFileStatus {
+  EN_ATTENTE
+  VALIDE
+  REJETE
+  ABANDONNE
+}
+
+/// Métadonnées d'un objet du stockage objet (Cloudflare R2, D143). Le contenu n'est jamais en base ;
+/// aucun lien signé n'y est conservé. Clé d'objet générée par le serveur, sans nom d'utilisateur,
+/// immuable comme l'empreinte et la taille déclarées (trigger `stored_files_guard`). Jamais supprimée.
+model StoredFile {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  category         StoredFileCategory
+  status           StoredFileStatus   @default(EN_ATTENTE)
+  /// Compartiment (bucket) et clé d'objet : jamais exposés par l'API.
+  bucket           String
+  storageKey       String             @unique @map("storage_key")
+  /// Nom d'origine normalisé (affichage et nom de téléchargement uniquement).
+  originalName     String             @map("original_name")
+  /// Type déclaré et vérifié par la signature du contenu (identiques une fois VALIDE).
+  mimeType         String             @map("mime_type")
+  sizeBytes        Int                @map("size_bytes")
+  /// Empreinte SHA-256 déclarée, recalculée par le serveur à la confirmation.
+  sha256           String             @db.Char(64)
+  /// Module propriétaire (catégorie MODULE_RESOURCE).
+  moduleId         String?            @map("module_id") @db.Uuid
+  createdById      String             @map("created_by_id") @db.Uuid
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Fin de validité de l'autorisation d'envoi ; au-delà, un fichier EN_ATTENTE est abandonné.
+  uploadExpiresAt  DateTime           @map("upload_expires_at") @db.Timestamptz(3)
+  validatedAt      DateTime?          @map("validated_at") @db.Timestamptz(3)
+  /// Motif technique d'un rejet ou d'un abandon (jamais de contenu).
+  rejectionReason  String?            @map("rejection_reason")
+  /// Objet effacé du stockage (rejet, abandon) ; la ligne est conservée pour l'historique.
+  objectDeletedAt  DateTime?          @map("object_deleted_at") @db.Timestamptz(3)
+
+  module    PedagogicalModule? @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  createdBy User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  resources ModuleResource[]
+
+  @@index([moduleId])
+  @@index([createdById])
+  @@index([status, uploadExpiresAt])
+  @@map("stored_files")
 }
 
 /// Texte fondamental cité par une version (référence, jamais une copie du texte). Modifiable uniquement à

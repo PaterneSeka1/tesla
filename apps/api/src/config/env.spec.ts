@@ -36,4 +36,57 @@ describe('validateEnv', () => {
   it('refuse une URL non PostgreSQL', () => {
     expect(() => validateEnv({ DATABASE_URL: 'mysql://localhost/tesla' })).toThrow();
   });
+
+  describe('stockage objet R2', () => {
+    const r2 = {
+      R2_ACCOUNT_ID: '0123456789abcdef0123456789abcdef',
+      R2_ACCESS_KEY_ID: 'id',
+      R2_SECRET_ACCESS_KEY: 'secret',
+      R2_BUCKET_NAME: 'tesla-files-dev',
+    };
+
+    it('reste facultatif (fichiers indisponibles sans configuration)', () => {
+      const env = validateEnv(baseEnv);
+      expect(env.R2_BUCKET_NAME).toBeUndefined();
+      expect(env.R2_ENDPOINT).toBeUndefined();
+    });
+
+    it('déduit le point d’accès du compte et applique les valeurs par défaut', () => {
+      const env = validateEnv({ ...baseEnv, ...r2 });
+      expect(env.R2_ENDPOINT).toBe(
+        'https://0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com',
+      );
+      expect(env.R2_REGION).toBe('auto');
+      expect(env.R2_KEY_PREFIX).toBe('development');
+      expect(env.R2_SIGNED_URL_EXPIRATION).toBe(300);
+      expect(env.R2_UPLOAD_MAX_BYTES).toBe(20 * 1024 * 1024);
+    });
+
+    it('refuse une configuration partielle avec un message explicite', () => {
+      expect(() => validateEnv({ ...baseEnv, R2_BUCKET_NAME: 'tesla-files-dev' })).toThrow(
+        /R2_ACCESS_KEY_ID manquant/,
+      );
+      expect(() => validateEnv({ ...baseEnv, ...r2, R2_ACCOUNT_ID: undefined })).toThrow(
+        /R2_ACCOUNT_ID ou R2_ENDPOINT/,
+      );
+    });
+
+    it('refuse un nom de compartiment, un préfixe ou une durée invalides', () => {
+      expect(() => validateEnv({ ...baseEnv, ...r2, R2_BUCKET_NAME: 'Tesla_Files' })).toThrow();
+      expect(() => validateEnv({ ...baseEnv, ...r2, R2_KEY_PREFIX: '../prod' })).toThrow();
+      expect(() => validateEnv({ ...baseEnv, ...r2, R2_SIGNED_URL_EXPIRATION: '86400' })).toThrow();
+    });
+
+    it('exige https en production', () => {
+      expect(() =>
+        validateEnv({
+          ...baseEnv,
+          ...r2,
+          NODE_ENV: 'production',
+          MEDICAL_DATA_KEY: Buffer.alloc(32).toString('base64'),
+          R2_ENDPOINT: 'http://minio.local:9000',
+        }),
+      ).toThrow(/https/);
+    });
+  });
 });

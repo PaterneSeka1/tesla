@@ -29,7 +29,9 @@ import {
   type SetTextLinksInput,
   setTextLinksInputSchema,
   reorderLessonsInputSchema,
+  resourceKindForMime,
   slugify,
+  type StoredFileMimeType,
   type SubmitModuleInput,
   submitModuleInputSchema,
   type UpdateLessonInput,
@@ -594,13 +596,15 @@ export class ModuleEditorService {
         });
         if (!lesson) throw lessonNotFound();
       }
+      if (data.fileId) await assertResourceFile(tx, moduleId, data.fileId, data.kind);
       await tx.moduleResource.create({
         data: {
           versionId: data.versionId,
           lessonId: data.lessonId ?? null,
           kind: data.kind,
           title: data.title,
-          url: data.url,
+          url: data.fileId ? null : (data.url ?? null),
+          fileId: data.fileId ?? null,
           description: data.description ?? null,
           createdById: actor.userId,
         },
@@ -954,6 +958,7 @@ async function copyContent(
         kind: resource.kind,
         title: resource.title,
         url: resource.url,
+        fileId: resource.fileId,
         description: resource.description,
         createdById: actorId,
       },
@@ -977,6 +982,35 @@ function isTextModule(module: {
   versions: { category: string | null }[];
 }): boolean {
   return (module.publishedVersion ?? module.versions[0])?.category === 'TEXTE_FONDAMENTAL';
+}
+
+/**
+ * Fichier joint à une nouvelle ressource : validé par le serveur, téléversé pour ce module et de la
+ * nature annoncée (image ou document). Nouvelle version et duplication recopient la référence : un
+ * objet validé est immuable et partagé, jamais recopié dans le stockage.
+ */
+async function assertResourceFile(
+  tx: Prisma.TransactionClient,
+  moduleId: string,
+  fileId: string,
+  kind: string,
+): Promise<void> {
+  const file = await tx.storedFile.findFirst({
+    where: { id: fileId, moduleId, category: 'MODULE_RESOURCE', status: 'VALIDE' },
+    select: { mimeType: true },
+  });
+  if (!file) {
+    throw new UnprocessableEntityException({
+      code: 'FILE_NOT_AVAILABLE',
+      message: 'Fichier introuvable ou non vérifié pour ce module. Envoyez-le de nouveau.',
+    });
+  }
+  if (resourceKindForMime(file.mimeType as StoredFileMimeType) !== kind) {
+    throw new UnprocessableEntityException({
+      code: 'FILE_KIND_MISMATCH',
+      message: 'Le type du fichier ne correspond pas au type de ressource choisi.',
+    });
+  }
 }
 
 /** Date de dernière activité du module (tri des listes). */

@@ -20,7 +20,9 @@ import {
   formatModuleCode,
   lessonNotFound,
   moduleNotFound,
+  publicResourceSelect,
   toLessonDocument,
+  toPublicResource,
 } from './module-common.js';
 
 const publishedInclude = {
@@ -36,15 +38,6 @@ const lessonSummarySelect = {
   title: true,
   durationMinutes: true,
 } as const satisfies Prisma.ModuleLessonSelect;
-
-const publicResourceSelect = {
-  id: true,
-  lessonId: true,
-  kind: true,
-  title: true,
-  url: true,
-  description: true,
-} as const satisfies Prisma.ModuleResourceSelect;
 
 function toCatalogModule(
   module: { slug: string; number: number },
@@ -146,7 +139,7 @@ export class ModuleCatalogService {
       objectives: version.objectives,
       prerequisites: version.prerequisites,
       lessons: version.lessons,
-      resources: version.resources,
+      resources: version.resources.map(toPublicResource),
       texts: version.textLinks.map(({ textModule }) => ({
         slug: textModule.slug,
         title: textModule.publishedVersion!.title,
@@ -177,7 +170,11 @@ export class ModuleCatalogService {
         version: version.version,
         code: formatModuleCode(module.number),
       },
-      lesson: { ...lesson, content: toLessonDocument(lesson.content) },
+      lesson: {
+        ...lesson,
+        content: toLessonDocument(lesson.content),
+        resources: lesson.resources.map(toPublicResource),
+      },
       lessonCount: version.lessons.length,
       previous: version.lessons[index - 1] ?? null,
       next: version.lessons[index + 1] ?? null,
@@ -209,8 +206,9 @@ export class ModuleCatalogService {
       lessons: version.lessons.map((lesson) => ({
         ...lesson,
         content: toLessonDocument(lesson.content),
+        resources: lesson.resources.map(toPublicResource),
       })),
-      resources: version.resources,
+      resources: version.resources.map(toPublicResource),
     };
   }
 

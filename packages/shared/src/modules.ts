@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { paginationQuerySchema, searchQuerySchema, userSummarySchema } from './api.js';
+import { resourceFileSchema, STORED_FILE_TYPES, type StoredFileMimeType } from './files.js';
 import { lessonDocumentSchema } from './lesson-content.js';
 import { stageSummarySchema } from './scouts.js';
 
@@ -325,13 +326,43 @@ export const createResourceInputSchema = z
     lessonId: z.uuid().nullable().optional(),
     kind: z.enum(MODULE_RESOURCE_KINDS, { error: 'Type de ressource invalide.' }),
     title: z.string().trim().min(1, { error: 'Le titre est requis.' }).max(150),
-    url: z.string().trim().max(2000, { error: 'Adresse trop longue.' }),
+    /** Adresse externe ; absente lorsque la ressource est un fichier téléversé (`fileId`). */
+    url: z.string().trim().max(2000, { error: 'Adresse trop longue.' }).optional(),
+    /** Fichier validé de ce module (images et documents uniquement, D143). */
+    fileId: z.uuid().nullable().optional(),
     description: optionalText(500).nullable().optional(),
   })
-  .refine((value) => isAllowedResourceUrl(value.kind, value.url), {
-    path: ['url'],
-    message: 'Adresse non autorisée : https:// requis (vidéos : YouTube ou Vimeo uniquement).',
+  .superRefine((value, ctx) => {
+    if (value.fileId) {
+      if (value.url) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['url'],
+          message: 'Une ressource est soit un fichier, soit une adresse, pas les deux.',
+        });
+      }
+      if (value.kind !== 'IMAGE' && value.kind !== 'DOCUMENT') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['kind'],
+          message: 'Seules les images et les documents peuvent être des fichiers.',
+        });
+      }
+      return;
+    }
+    if (!isAllowedResourceUrl(value.kind, value.url ?? '')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['url'],
+        message: 'Adresse non autorisée : https:// requis (vidéos : YouTube ou Vimeo uniquement).',
+      });
+    }
   });
+
+/** Nature de ressource attendue pour un type de fichier (une image n'est pas un document). */
+export function resourceKindForMime(mimeType: StoredFileMimeType): 'IMAGE' | 'DOCUMENT' {
+  return STORED_FILE_TYPES[mimeType].kind;
+}
 
 export type CreateResourceInput = z.input<typeof createResourceInputSchema>;
 
@@ -473,7 +504,10 @@ export const moduleResourceSchema = z.object({
   lessonId: z.uuid().nullable(),
   kind: z.enum(MODULE_RESOURCE_KINDS),
   title: z.string(),
+  /** Adresse externe ; chaîne vide pour un fichier (contenu via `moduleFilePath(file.id)`). */
   url: z.string(),
+  /** Fichier téléversé (absent des copies hors ligne antérieures : `null`). */
+  file: resourceFileSchema.nullable().default(null),
   description: z.string().nullable(),
   createdAt: z.iso.datetime(),
 });

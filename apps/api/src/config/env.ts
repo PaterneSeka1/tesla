@@ -37,6 +37,79 @@ const envSchema = z
         error: '32 octets encodés en base64 attendus (openssl rand -base64 32).',
       })
       .optional(),
+    /**
+     * Stockage objet compatible S3 (Cloudflare R2, D143). Tout ou rien : absent, les fichiers joints
+     * sont indisponibles (503) ; partiel, le démarrage échoue. Clés propres à l'application, limitées
+     * à son compartiment (jamais celles des sauvegardes).
+     */
+    R2_ACCOUNT_ID: z
+      .string()
+      .trim()
+      .regex(/^[0-9a-f]{32}$/, {
+        error: 'Identifiant de compte Cloudflare (32 caractères hexadécimaux) attendu.',
+      })
+      .optional(),
+    R2_ACCESS_KEY_ID: z.string().trim().min(1).optional(),
+    R2_SECRET_ACCESS_KEY: z.string().trim().min(1).optional(),
+    /** Facultatif : déduit de R2_ACCOUNT_ID ; à renseigner pour un autre fournisseur compatible S3. */
+    R2_ENDPOINT: z
+      .url({ protocol: /^https?$/, error: 'URL http(s) du point d’accès S3 attendue' })
+      .optional(),
+    R2_BUCKET_NAME: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, {
+        error: 'Nom de compartiment invalide (a-z, 0-9, -).',
+      })
+      .optional(),
+    R2_REGION: z.string().trim().min(1).default('auto'),
+    /** Préfixe des clés d'objet (séparation logique : production, preproduction, development…). */
+    R2_KEY_PREFIX: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9-]{1,40}$/, {
+        error: 'Préfixe attendu : a-z, 0-9, - (40 caractères au plus).',
+      })
+      .optional(),
+    /** Plafond global d'un fichier (octets) ; les plafonds par type (5 Mo images, 20 Mo PDF) s'appliquent aussi. */
+    R2_UPLOAD_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(100 * 1024 * 1024)
+      .default(20 * 1024 * 1024),
+    /** Durée de validité des URL signées d'envoi et de lecture (secondes). */
+    R2_SIGNED_URL_EXPIRATION: z.coerce.number().int().min(60).max(3600).default(300),
+  })
+  .superRefine((env, ctx) => {
+    const keys = ['R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET_NAME'] as const;
+    const present = keys.filter((key) => env[key] !== undefined);
+    const anySet =
+      present.length > 0 || env.R2_ACCOUNT_ID !== undefined || env.R2_ENDPOINT !== undefined;
+    if (!anySet) return;
+    for (const key of keys) {
+      if (env[key] === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: `${key} manquant : configuration R2 incomplète.`,
+        });
+      }
+    }
+    if (env.R2_ACCOUNT_ID === undefined && env.R2_ENDPOINT === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['R2_ACCOUNT_ID'],
+        message: 'R2_ACCOUNT_ID ou R2_ENDPOINT requis : configuration R2 incomplète.',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.R2_ENDPOINT?.startsWith('http:')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['R2_ENDPOINT'],
+        message: 'https:// obligatoire en production.',
+      });
+    }
   })
   .refine((env) => env.NODE_ENV !== 'production' || env.MEDICAL_DATA_KEY !== undefined, {
     error: 'MEDICAL_DATA_KEY est obligatoire en production.',
@@ -45,6 +118,10 @@ const envSchema = z
   .transform((env) => ({
     ...env,
     SWAGGER_ENABLED: env.SWAGGER_ENABLED ?? env.NODE_ENV !== 'production',
+    R2_ENDPOINT:
+      env.R2_ENDPOINT ??
+      (env.R2_ACCOUNT_ID ? `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : undefined),
+    R2_KEY_PREFIX: env.R2_KEY_PREFIX ?? env.NODE_ENV,
   }));
 
 export type Env = z.infer<typeof envSchema>;

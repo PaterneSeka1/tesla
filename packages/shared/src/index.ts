@@ -4,6 +4,7 @@ export * from './auth.js';
 export * from './dashboards.js';
 export * from './evaluation-authoring.js';
 export * from './evaluations.js';
+export * from './files.js';
 export * from './grading.js';
 export * from './lesson-content.js';
 export * from './modules.js';

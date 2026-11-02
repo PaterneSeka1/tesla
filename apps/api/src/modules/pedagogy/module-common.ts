@@ -11,6 +11,7 @@ import {
   type ModuleVersionStatus,
   type ModuleVersionSummary,
   type SourceEditorialNote,
+  type StoredFileMimeType,
   WORKING_MODULE_STATUSES,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
@@ -245,6 +246,14 @@ export const versionSummaryInclude = {
   _count: { select: { lessons: true } },
 } as const satisfies Prisma.ModuleVersionInclude;
 
+/** Métadonnées publiques du fichier d'une ressource (jamais la clé d'objet ni le compartiment). */
+export const resourceFileSelect = {
+  id: true,
+  originalName: true,
+  mimeType: true,
+  sizeBytes: true,
+} as const satisfies Prisma.StoredFileSelect;
+
 export const versionDetailInclude = {
   stage: true,
   basedOn: { select: { version: true } },
@@ -254,7 +263,7 @@ export const versionDetailInclude = {
   approvedBy: userSummarySelect,
   publishedBy: userSummarySelect,
   lessons: { orderBy: { position: 'asc' }, include: { updatedBy: userSummarySelect } },
-  resources: { orderBy: { createdAt: 'asc' } },
+  resources: { orderBy: { createdAt: 'asc' }, include: { file: { select: resourceFileSelect } } },
   textLinks: {
     orderBy: { position: 'asc' },
     include: {
@@ -314,16 +323,34 @@ export function toVersionSummary(row: SummaryRow): ModuleVersionSummary {
   };
 }
 
-export function toResource(row: ResourceRow) {
+/** Ressource telle que lue par la bibliothèque (sans date de création). */
+export const publicResourceSelect = {
+  id: true,
+  lessonId: true,
+  kind: true,
+  title: true,
+  url: true,
+  description: true,
+  file: { select: resourceFileSelect },
+} as const satisfies Prisma.ModuleResourceSelect;
+
+type PublicResourceRow = Prisma.ModuleResourceGetPayload<{ select: typeof publicResourceSelect }>;
+
+/** Adresse vide pour un fichier : son contenu passe par `moduleFilePath` (D143). */
+export function toPublicResource(row: PublicResourceRow) {
   return {
     id: row.id,
     lessonId: row.lessonId,
     kind: row.kind,
     title: row.title,
-    url: row.url,
+    url: row.url ?? '',
+    file: row.file ? { ...row.file, mimeType: row.file.mimeType as StoredFileMimeType } : null,
     description: row.description,
-    createdAt: row.createdAt.toISOString(),
   };
+}
+
+export function toResource(row: ResourceRow) {
+  return { ...toPublicResource(row), createdAt: row.createdAt.toISOString() };
 }
 
 /** Le contenu a été validé par `lessonDocumentSchema` à l'écriture. */
