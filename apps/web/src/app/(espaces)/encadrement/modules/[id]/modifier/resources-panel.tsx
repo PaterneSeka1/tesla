@@ -7,6 +7,8 @@ import {
   MODULE_RESOURCE_KIND_LABELS,
   MODULE_RESOURCE_KINDS,
   type ModuleResourceKind,
+  STORED_FILE_MIME_TYPES,
+  STORED_FILE_TYPES,
 } from '@tesla/shared';
 import { Link2, Trash2 } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -17,9 +19,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
+import { uploadModuleFile } from '@/lib/api/files';
 import { addResource, deleteResource } from '@/lib/api/modules';
 
-/** Ressources externes (aucun fichier téléversé : liens https, vidéos YouTube ou Vimeo). */
+/** Types acceptés par nature de ressource (attribut `accept` du sélecteur de fichier). */
+const ACCEPT = {
+  IMAGE: STORED_FILE_MIME_TYPES.filter((mime) => STORED_FILE_TYPES[mime].kind === 'IMAGE').join(
+    ',',
+  ),
+  DOCUMENT: 'application/pdf',
+} as const;
+
+/**
+ * Ressources : liens https, vidéos YouTube ou Vimeo, ou fichiers (images, PDF) envoyés directement
+ * au stockage objet et vérifiés par le serveur avant de pouvoir être joints (D143).
+ */
 export function ResourcesPanel({
   module,
   editable,
@@ -36,19 +50,53 @@ export function ResourcesPanel({
   const [lessonId, setLessonId] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<'url' | 'file'>('url');
+  const [file, setFile] = useState<File | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const [progress, setProgress] = useState<string | null>(null);
+  const fileKind = kind === 'IMAGE' || kind === 'DOCUMENT' ? kind : null;
+  const useFile = fileKind !== null && source === 'file';
 
   const lessonTitle = (lessonIdValue: string | null) =>
     lessonIdValue ? lessons.find((lesson) => lesson.id === lessonIdValue)?.title : null;
 
   const create = async () => {
-    const input: CreateResourceInput = {
+    const base = {
       versionId: module.current.id,
       kind,
       title,
-      url,
       lessonId: lessonId || null,
       description,
     };
+    if (useFile) {
+      if (!file) return;
+      if (STORED_FILE_TYPES[file.type as keyof typeof STORED_FILE_TYPES]?.kind !== fileKind) {
+        setError(
+          fileKind === 'IMAGE' ? 'Image PNG, JPEG, WebP ou GIF attendue.' : 'Document PDF attendu.',
+        );
+        return;
+      }
+      setError(null);
+      const ok = await run(
+        async () => {
+          try {
+            const stored = await uploadModuleFile(module.id, file, setProgress);
+            return await addResource(module.id, { ...base, fileId: stored.id });
+          } finally {
+            setProgress(null);
+          }
+        },
+        { success: 'Fichier ajouté', error: 'Envoi impossible' },
+      );
+      if (ok) {
+        setTitle('');
+        setDescription('');
+        setFile(null);
+        setFileInputKey((value) => value + 1);
+      }
+      return;
+    }
+    const input: CreateResourceInput = { ...base, url };
     const parsed = createResourceInputSchema.safeParse(input);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Ressource invalide.');
@@ -146,21 +194,55 @@ export function ResourcesPanel({
               onChange={(event) => setTitle(event.target.value)}
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor={`${id}-url`}>Adresse</Label>
-            <Input
-              id={`${id}-url`}
-              type="url"
-              placeholder="https://…"
-              value={url}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? `${id}-error` : `${id}-hint`}
-              onChange={(event) => setUrl(event.target.value)}
-            />
-            <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-              Vidéos : YouTube ou Vimeo uniquement.
-            </p>
-          </div>
+          {fileKind && (
+            <div className="space-y-1">
+              <Label htmlFor={`${id}-source`}>Source</Label>
+              <NativeSelect
+                id={`${id}-source`}
+                value={source}
+                onChange={(event) => setSource(event.target.value as 'url' | 'file')}
+              >
+                <option value="url">Adresse https</option>
+                <option value="file">Fichier de l’appareil</option>
+              </NativeSelect>
+            </div>
+          )}
+          {useFile ? (
+            <div className="space-y-1">
+              <Label htmlFor={`${id}-file`}>Fichier</Label>
+              <Input
+                key={fileInputKey}
+                id={`${id}-file`}
+                type="file"
+                accept={ACCEPT[fileKind]}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? `${id}-error` : `${id}-file-hint`}
+                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              />
+              <p id={`${id}-file-hint`} className="text-xs text-muted-foreground">
+                {fileKind === 'IMAGE'
+                  ? 'PNG, JPEG, WebP ou GIF, 5 Mo maximum.'
+                  : 'PDF, 20 Mo maximum.'}{' '}
+                Connexion requise ; consultable en ligne uniquement.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor={`${id}-url`}>Adresse</Label>
+              <Input
+                id={`${id}-url`}
+                type="url"
+                placeholder="https://…"
+                value={url}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? `${id}-error` : `${id}-hint`}
+                onChange={(event) => setUrl(event.target.value)}
+              />
+              <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+                Vidéos : YouTube ou Vimeo uniquement.
+              </p>
+            </div>
+          )}
           <div className="space-y-1 md:col-span-2">
             <Label htmlFor={`${id}-description`}>Description (facultative)</Label>
             <Input
@@ -175,14 +257,19 @@ export function ResourcesPanel({
               {error}
             </p>
           )}
-          <div className="md:col-span-2">
+          <div className="flex flex-wrap items-center gap-3 md:col-span-2">
             <Button
               type="button"
               onClick={() => void create()}
-              disabled={!title.trim() || !url.trim()}
+              disabled={!title.trim() || (useFile ? !file : !url.trim()) || progress !== null}
             >
               Ajouter la ressource
             </Button>
+            {progress && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {progress}
+              </p>
+            )}
           </div>
         </fieldset>
       )}

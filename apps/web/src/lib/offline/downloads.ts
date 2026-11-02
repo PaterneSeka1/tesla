@@ -125,7 +125,12 @@ async function download(slug: string, progress: (message: string) => void) {
       package: pkg,
       assets,
       estimatedBytes,
-      unavailable: resources.map((r) => `${r.title} : ressource externe indisponible hors ligne`),
+      // Fichiers joints et ressources externes : consultables en ligne uniquement (aucune URL signée
+      // n'est conservée sur l'appareil ; l'accès est revérifié à chaque ouverture, D143).
+      unavailable: resources.map(
+        (r) =>
+          `${r.title} : ${r.file ? 'fichier joint' : 'ressource externe'} indisponible hors ligne`,
+      ),
       downloadedAt: new Date().toISOString(),
       lastReadAt: null,
       lessonIndex: 0,
