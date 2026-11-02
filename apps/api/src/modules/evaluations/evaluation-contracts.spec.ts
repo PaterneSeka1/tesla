@@ -8,6 +8,8 @@ import {
   formatAttemptCode,
   formatEvaluationCode,
   gradeObjectiveAnswer,
+  gradeShortAnswer,
+  normalizeShortAnswer,
   publicQuestionSchema,
   QUESTION_TYPES,
   saveCorrectionInputSchema,
@@ -184,5 +186,52 @@ describe('Moteur de correction déterministe', () => {
         { points: 0.5, awardedPoints: 0.5 },
       ]),
     ).toEqual({ score: 1.25, maxScore: 2, complete: true });
+  });
+});
+
+describe('Réponses courtes à variantes acceptées (D138)', () => {
+  const question = { points: 2, acceptedAnswers: ['Baden-Powell', 'BP', 'Robert Baden-Powell'] };
+
+  it('accorde les points pour une variante, espaces et casse normalisés', () => {
+    for (const text of ['baden-powell', '  BADEN-POWELL ', 'bp', 'Robert   Baden-Powell'])
+      expect(gradeShortAnswer(question, text), text).toBe(2);
+  });
+
+  it('laisse à un humain (null, jamais zéro) une réponse non reconnue, vide ou sans variante', () => {
+    expect(gradeShortAnswer(question, 'Le fondateur')).toBeNull();
+    expect(gradeShortAnswer(question, '   ')).toBeNull();
+    expect(gradeShortAnswer(question, null)).toBeNull();
+    expect(gradeShortAnswer({ points: 2, acceptedAnswers: [] }, 'BP')).toBeNull();
+  });
+
+  it('conserve accents et ponctuation (variante à déclarer explicitement)', () => {
+    expect(normalizeShortAnswer('  Écosse\tet  Irlande ')).toBe('écosse et irlande');
+    expect(gradeShortAnswer({ points: 1, acceptedAnswers: ['Écosse'] }, 'ecosse')).toBeNull();
+    expect(gradeShortAnswer({ points: 1, acceptedAnswers: ['Écosse'] }, 'ÉCOSSE')).toBe(1);
+  });
+
+  it('variantes réservées aux réponses courtes, bornées', () => {
+    const base = { versionId: '0190f0c4-0000-7000-8000-000000000001', prompt: 'Q', points: 1 };
+    expect(
+      createQuestionInputSchema.safeParse({
+        ...base,
+        type: 'REPONSE_COURTE',
+        acceptedAnswers: ['BP'],
+      }).success,
+    ).toBe(true);
+    expect(
+      createQuestionInputSchema.safeParse({
+        ...base,
+        type: 'REPONSE_DEVELOPPEE',
+        acceptedAnswers: ['BP'],
+      }).success,
+    ).toBe(false);
+    expect(
+      createQuestionInputSchema.safeParse({
+        ...base,
+        type: 'REPONSE_COURTE',
+        acceptedAnswers: Array.from({ length: 11 }, (_, i) => `v${i}`),
+      }).success,
+    ).toBe(false);
   });
 });

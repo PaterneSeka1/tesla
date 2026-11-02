@@ -478,6 +478,7 @@ export class EvaluationEditorService {
               scoringPolicy: question.scoringPolicy,
               guidance: question.guidance,
               expectedAnswer: question.expectedAnswer,
+              acceptedAnswers: question.acceptedAnswers,
               createdById: actor.userId,
               options: {
                 create: question.options

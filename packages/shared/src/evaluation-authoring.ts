@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { paginationQuerySchema, searchQuerySchema, userSummarySchema } from './api.js';
-import { QUESTION_TYPES, SCORING_POLICIES, type QuestionType } from './grading.js';
+import {
+  MAX_ACCEPTED_ANSWERS,
+  QUESTION_TYPES,
+  SCORING_POLICIES,
+  type QuestionType,
+} from './grading.js';
 import {
   MODULE_VERSION_ACTIONS,
   MODULE_VERSION_STATUSES,
@@ -115,7 +120,7 @@ const optionInputSchema = z.object({
 
 /** Règles de cohérence d'une question selon son type (partagées par le formulaire et l'API). */
 function checkQuestionShape(
-  value: { type: QuestionType; options: { isCorrect: boolean }[] },
+  value: { type: QuestionType; options: { isCorrect: boolean }[]; acceptedAnswers?: string[] },
   ctx: z.RefinementCtx,
 ): void {
   const correct = value.options.filter((option) => option.isCorrect).length;
@@ -136,6 +141,13 @@ function checkQuestionShape(
     default:
       if (value.options.length > 0) issue('Une question ouverte n’a pas de propositions.');
   }
+  if (value.type !== 'REPONSE_COURTE' && (value.acceptedAnswers?.length ?? 0) > 0) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Seule une réponse courte accepte des variantes.',
+      path: ['acceptedAnswers'],
+    });
+  }
 }
 
 const questionShape = {
@@ -153,6 +165,17 @@ const questionShape = {
     .default([]),
   guidance: optionalText(2000).nullable().optional(),
   expectedAnswer: optionalText(2000).nullable().optional(),
+  /** Réponse courte : variantes acceptées pour la correction automatique (D138). */
+  acceptedAnswers: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, { error: 'Variante vide.' })
+        .max(200, { error: '200 caractères au maximum par variante.' }),
+    )
+    .max(MAX_ACCEPTED_ANSWERS, { error: `${MAX_ACCEPTED_ANSWERS} variantes au maximum.` })
+    .default([]),
 };
 
 export const createQuestionInputSchema = z
@@ -223,6 +246,7 @@ export const editorQuestionSchema = z.object({
   scoringPolicy: z.enum(SCORING_POLICIES),
   guidance: z.string().nullable(),
   expectedAnswer: z.string().nullable(),
+  acceptedAnswers: z.array(z.string()),
   revision: z.number().int(),
   options: z.array(answerOptionSchema),
 });

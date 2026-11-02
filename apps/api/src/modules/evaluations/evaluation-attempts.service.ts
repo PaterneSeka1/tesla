@@ -125,6 +125,7 @@ export interface PaperQuestion {
   scoringPolicy: VersionQuestion['scoringPolicy'];
   guidance: string | null;
   expectedAnswer: string | null;
+  acceptedAnswers: string[];
   options: { label: string; isCorrect: boolean | null }[];
 }
 
@@ -337,6 +338,15 @@ export class EvaluationAttemptsService {
           await upsertAnswers(tx, attempt.id, normalizeAnswers(questions, data.answers));
         }
         await gradeObjectiveQuestions(tx, attempt.id, questions);
+        // Réponses courtes reconnues automatiquement : une note vide ne les efface pas (D138).
+        const autoScored = new Set(
+          (
+            await tx.attemptAnswer.findMany({
+              where: { attemptId: attempt.id, autoScored: true },
+              select: { questionId: true },
+            })
+          ).map((answer) => answer.questionId),
+        );
         const now = new Date();
         const byId = new Map(questions.map((question) => [question.id, question]));
         for (const grade of data.grades) {
@@ -347,7 +357,9 @@ export class EvaluationAttemptsService {
               message: 'Une note ne correspond à aucune question de cette version.',
             });
           }
-          const manual = !isObjectiveQuestion(question.type);
+          const manual =
+            !isObjectiveQuestion(question.type) &&
+            !(grade.awardedPoints === null && autoScored.has(question.id));
           if (
             manual &&
             grade.awardedPoints !== null &&
@@ -600,6 +612,7 @@ export class EvaluationAttemptsService {
                 scoringPolicy: question.scoringPolicy,
                 guidance: null,
                 expectedAnswer: null,
+                acceptedAnswers: [],
                 options: question.options.map((option) => ({
                   label: option.label,
                   isCorrect: null,
@@ -613,6 +626,7 @@ export class EvaluationAttemptsService {
                 scoringPolicy: question.scoringPolicy,
                 guidance: question.guidance,
                 expectedAnswer: question.expectedAnswer,
+                acceptedAnswers: question.acceptedAnswers,
                 options: question.options.map((option) => ({
                   label: option.label,
                   isCorrect: option.isCorrect,

@@ -73,24 +73,37 @@ export function QuestionList({
                 : 'Réponse développée rédigée'}
             </p>
           )}
-          {showKey && (question.expectedAnswer || question.guidance) && (
-            <dl className="space-y-2 rounded-md bg-muted/50 p-3 text-sm">
-              {question.expectedAnswer && (
-                <div>
-                  <dt className="font-medium">Réponse attendue</dt>
-                  <dd className="whitespace-pre-line text-muted-foreground">
-                    {question.expectedAnswer}
-                  </dd>
-                </div>
-              )}
-              {question.guidance && (
-                <div>
-                  <dt className="font-medium">Critères de correction</dt>
-                  <dd className="whitespace-pre-line text-muted-foreground">{question.guidance}</dd>
-                </div>
-              )}
-            </dl>
-          )}
+          {showKey &&
+            (question.expectedAnswer ||
+              question.guidance ||
+              question.acceptedAnswers.length > 0) && (
+              <dl className="space-y-2 rounded-md bg-muted/50 p-3 text-sm">
+                {question.acceptedAnswers.length > 0 && (
+                  <div>
+                    <dt className="font-medium">Variantes acceptées (correction automatique)</dt>
+                    <dd className="text-muted-foreground">
+                      {question.acceptedAnswers.join(' · ')}
+                    </dd>
+                  </div>
+                )}
+                {question.expectedAnswer && (
+                  <div>
+                    <dt className="font-medium">Réponse attendue</dt>
+                    <dd className="whitespace-pre-line text-muted-foreground">
+                      {question.expectedAnswer}
+                    </dd>
+                  </div>
+                )}
+                {question.guidance && (
+                  <div>
+                    <dt className="font-medium">Critères de correction</dt>
+                    <dd className="whitespace-pre-line text-muted-foreground">
+                      {question.guidance}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            )}
         </li>
       ))}
     </ol>

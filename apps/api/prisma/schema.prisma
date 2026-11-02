@@ -353,7 +353,8 @@ enum EvaluationVersionAction {
   ARCHIVEE
 }
 
-/// Types de questions. Les deux derniers exigent une correction humaine (aucune correction automatique du texte).
+/// Types de questions. La réponse développée exige une correction humaine ; la réponse courte aussi, sauf
+/// correspondance exacte avec une variante acceptée déclarée par l'auteur (D138).
 enum QuestionType {
   CHOIX_UNIQUE
   CHOIX_MULTIPLE
@@ -448,6 +449,9 @@ model EvaluationQuestion {
   guidance       String?
   /// Réponse ou éléments de réponse attendus pour une question ouverte (corrigé).
   expectedAnswer String?       @map("expected_answer")
+  /// Réponse courte : variantes acceptées (corrigé), comparées après normalisation des espaces et de
+  /// la casse ; vide = correction humaine (D138).
+  acceptedAnswers String[]     @default([]) @map("accepted_answers")
   revision       Int           @default(1)
   createdById    String        @map("created_by_id") @db.Uuid
   updatedById    String?       @map("updated_by_id") @db.Uuid

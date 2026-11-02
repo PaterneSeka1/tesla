@@ -322,6 +322,19 @@ function answerKey(doc: Doc, data: PaperDocumentData): void {
         doc.moveDown(0.3);
       }
     }
+    if (question.acceptedAnswers.length > 0) {
+      doc.x = MARGIN;
+      doc
+        .fillColor(COLORS.bordeaux)
+        .font('Helvetica-Bold')
+        .fontSize(9.5)
+        .text('Variantes acceptées (correction automatique)');
+      doc
+        .fillColor(COLORS.texte)
+        .font('Helvetica')
+        .fontSize(10)
+        .text(clean(question.acceptedAnswers.join(' · ')));
+    }
     if (question.expectedAnswer) {
       doc.x = MARGIN;
       doc.fillColor(COLORS.bordeaux).font('Helvetica-Bold').fontSize(9.5).text('Réponse attendue');

@@ -396,6 +396,55 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     ).toBe('MODULE_NOT_PUBLISHED');
   });
 
+  it('réponse courte (D138) : variante reconnue corrigée automatiquement, sinon laissée au correcteur, variantes jamais transmises', async () => {
+    const chef = await loginAs('CHEF');
+    const responsable = await loginAs('RESPONSABLE');
+    let detail = await json(
+      chef.post('/editor/evaluations', { title: 'Fondateur (fictif)', stageId: stages.NOVICIAT }),
+      201,
+      editorEvaluationDetailSchema,
+    );
+    detail = await json(
+      chef.post(`/editor/evaluations/${detail.id}/questions`, {
+        versionId: detail.current.id,
+        type: 'REPONSE_COURTE',
+        prompt: 'Qui a fondé le scoutisme ?',
+        points: 3,
+        acceptedAnswers: ['Baden-Powell', 'Variante-Secrete-BP'],
+      }),
+      201,
+      editorEvaluationDetailSchema,
+    );
+    expect(detail.current.questions[0]!.acceptedAnswers).toEqual([
+      'Baden-Powell',
+      'Variante-Secrete-BP',
+    ]);
+    const evaluation = await publish(chef, responsable, detail);
+
+    const take = async (text: string) => {
+      const routier = await loginAs('ROUTIER');
+      const started = await routier.post(`/evaluations/${evaluation.id}/attempts`).expect(200);
+      expect(JSON.stringify(started.body)).not.toContain('Variante-Secrete-BP');
+      const session = attemptSessionSchema.parse(started.body);
+      await routier
+        .post(`/attempts/${session.id}/answers`, {
+          answers: [{ questionId: session.questions[0]!.id, text }],
+        })
+        .expect(200);
+      const submitted = await routier.post(`/attempts/${session.id}/submit`).expect(200);
+      expect(JSON.stringify(submitted.body)).not.toContain('Variante-Secrete-BP');
+      return prisma.attemptAnswer.findFirstOrThrow({ where: { attemptId: session.id } });
+    };
+
+    const recognized = await take('  variante-secrete-bp ');
+    expect(Number(recognized.awardedPoints)).toBe(3);
+    expect(recognized.autoScored).toBe(true);
+
+    const unknown = await take('Le fondateur des scouts');
+    expect(unknown.awardedPoints).toBeNull();
+    expect(unknown.autoScored).toBe(false);
+  });
+
   it('parcours numérique complet, 5–8 éligibilité et dérogations, 14 double remise, 17–18 examen sans changement d’étape', async () => {
     const chef = await loginAs('CHEF');
     const responsable = await loginAs('RESPONSABLE');

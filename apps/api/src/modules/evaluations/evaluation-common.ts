@@ -235,6 +235,7 @@ export function toEditorQuestion(row: QuestionRow): EditorQuestion {
     scoringPolicy: row.scoringPolicy,
     guidance: row.guidance,
     expectedAnswer: row.expectedAnswer,
+    acceptedAnswers: row.acceptedAnswers,
     revision: row.revision,
     options: row.options.map((option) => ({
       id: option.id,

@@ -1,5 +1,6 @@
 /**
- * Moteur de correction déterministe des questions objectives (aucune IA, aucune correction du texte libre).
+ * Moteur de correction déterministe des questions objectives et des réponses courtes à variantes
+ * déclarées (aucune IA, aucune correction du texte libre).
  * Utilisé par l'API à la remise ou à la saisie d'une copie ; partagé pour que l'aperçu et les tests
  * appliquent exactement la même règle.
  */
@@ -80,6 +81,36 @@ export function gradeObjectiveAnswer(
   }
   const ratio = Math.max(0, (correctSelected - wrongSelected) / correct.size);
   return roundPoints(ratio * question.points);
+}
+
+/** Nombre maximal de variantes acceptées pour une réponse courte. */
+export const MAX_ACCEPTED_ANSWERS = 10;
+
+/**
+ * Forme comparée d'une réponse courte : Unicode NFC, espaces de début et de fin retirés, espaces
+ * intérieurs réduits à un seul, minuscules. Les accents et la ponctuation sont conservés : une
+ * variante sans accent doit être déclarée explicitement par l'auteur (D138).
+ */
+export function normalizeShortAnswer(text: string): string {
+  return text.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr');
+}
+
+/**
+ * Correction d'une réponse courte à partir des variantes acceptées validées avec le questionnaire :
+ * tous les points si la réponse normalisée est égale à l'une d'elles ; sinon `null` — jamais zéro :
+ * une réponse non reconnue peut être juste autrement formulée et reste à noter par un humain.
+ * Aucune variante déclarée : correction humaine (`null`).
+ */
+export function gradeShortAnswer(
+  question: { points: number; acceptedAnswers: readonly string[] },
+  text: string | null,
+): number | null {
+  if (text === null || question.acceptedAnswers.length === 0) return null;
+  const answer = normalizeShortAnswer(text);
+  if (answer === '') return null;
+  return question.acceptedAnswers.some((accepted) => normalizeShortAnswer(accepted) === answer)
+    ? question.points
+    : null;
 }
 
 /** Somme des barèmes et des points attribués ; `complete` = toutes les questions ont une note. */

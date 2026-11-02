@@ -4,6 +4,7 @@ import {
   type attemptAnswerInputSchema,
   type Eligibility,
   gradeObjectiveAnswer,
+  gradeShortAnswer,
   isObjectiveQuestion,
   totalScore,
 } from '@tesla/shared';
@@ -101,7 +102,8 @@ export async function upsertAnswers(
 
 /**
  * Correction déterministe des questions objectives : une ligne de réponse par question (vide si
- * le routier n'a pas répondu), points calculés par `gradeObjectiveAnswer`. Les questions ouvertes
+ * le routier n'a pas répondu), points calculés par `gradeObjectiveAnswer`, et réponses courtes
+ * reconnues parmi les variantes acceptées (`gradeShortAnswer`). Les autres questions ouvertes
  * gardent la note saisie par un correcteur (ou null). Renvoie le total.
  */
 export async function gradeObjectiveQuestions(
@@ -142,6 +144,23 @@ export async function gradeObjectiveQuestions(
         await tx.attemptAnswer.create({
           data: { attemptId, questionId: question.id, selectedOptionIds: [] },
         });
+      }
+      // Réponse courte : variante acceptée reconnue → points automatiques ; sinon note humaine.
+      // Une note saisie par un correcteur n'est jamais remplacée (D138).
+      const humanGrade = answer?.awardedPoints != null && !answer.autoScored;
+      if (question.type === 'REPONSE_COURTE' && !humanGrade) {
+        const awarded = gradeShortAnswer(
+          { points, acceptedAnswers: question.acceptedAnswers },
+          answer?.textAnswer ?? null,
+        );
+        if (awarded !== null || answer?.autoScored) {
+          await tx.attemptAnswer.update({
+            where: { attemptId_questionId: { attemptId, questionId: question.id } },
+            data: { awardedPoints: awarded, autoScored: awarded !== null },
+          });
+        }
+        items.push({ points, awardedPoints: awarded });
+        continue;
       }
       items.push({
         points,

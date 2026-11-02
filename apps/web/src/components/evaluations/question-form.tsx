@@ -13,8 +13,8 @@ import {
   SCORING_POLICY_LABELS,
 } from '@tesla/shared';
 import { Plus, Trash2 } from 'lucide-react';
-import { useId } from 'react';
-import { useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { useId, useState } from 'react';
+import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { type z } from 'zod';
 import { FormField, fieldA11y } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
@@ -65,6 +65,7 @@ export function QuestionForm({
         options: question.options.map(({ label, isCorrect }) => ({ label, isCorrect })),
         guidance: question.guidance ?? '',
         expectedAnswer: question.expectedAnswer ?? '',
+        acceptedAnswers: question.acceptedAnswers,
       }
     : {
         type: 'CHOIX_UNIQUE',
@@ -74,6 +75,7 @@ export function QuestionForm({
         options: emptyOptions('CHOIX_UNIQUE'),
         guidance: '',
         expectedAnswer: '',
+        acceptedAnswers: [],
       };
   const {
     register,
@@ -113,8 +115,10 @@ export function QuestionForm({
             id={`${id}-type`}
             {...register('type', {
               // Les propositions dépendent du type : on repart d'une base cohérente.
-              onChange: (event: React.ChangeEvent<HTMLSelectElement>) =>
-                setValue('options', emptyOptions(event.target.value as QuestionType)),
+              onChange: (event: React.ChangeEvent<HTMLSelectElement>) => {
+                setValue('options', emptyOptions(event.target.value as QuestionType));
+                if (event.target.value !== 'REPONSE_COURTE') setValue('acceptedAnswers', []);
+              },
             })}
           >
             {QUESTION_TYPES.map((value) => (
@@ -237,6 +241,31 @@ export function QuestionForm({
         </fieldset>
       )}
 
+      {type === 'REPONSE_COURTE' && (
+        <Controller
+          control={control}
+          name="acceptedAnswers"
+          render={({ field }) => {
+            const message = errors.acceptedAnswers?.message ?? errors.acceptedAnswers?.[0]?.message;
+            return (
+              <FormField
+                id={`${id}-accepted`}
+                label="Variantes acceptées (une par ligne)"
+                hint="Correction automatique si la réponse correspond à une variante (majuscules et espaces ignorés, accents conservés). Sinon, un chef note la réponse. Vide : correction humaine."
+                error={message}
+              >
+                <LinesTextarea
+                  {...fieldA11y(`${id}-accepted`, message, 'hint')}
+                  value={field.value ?? []}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              </FormField>
+            );
+          }}
+        />
+      )}
+
       {!objective && (
         <FormField
           id={`${id}-expected`}
@@ -278,5 +307,40 @@ export function QuestionForm({
         )}
       </div>
     </form>
+  );
+}
+
+const toLines = (text: string) =>
+  text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+/** Liste saisie ligne par ligne : le texte brut est conservé pendant la frappe (lignes vides comprises). */
+function LinesTextarea({
+  value,
+  onChange,
+  ...props
+}: Omit<React.ComponentProps<typeof Textarea>, 'value' | 'onChange'> & {
+  value: readonly string[];
+  onChange: (lines: string[]) => void;
+}) {
+  const [raw, setRaw] = useState(() => value.join('\n'));
+  const [synced, setSynced] = useState(value);
+  // Valeur remplacée de l'extérieur (réinitialisation, changement de type) : le texte la reprend.
+  if (value !== synced) {
+    setSynced(value);
+    if (toLines(raw).join('\n') !== value.join('\n')) setRaw(value.join('\n'));
+  }
+  return (
+    <Textarea
+      {...props}
+      rows={3}
+      value={raw}
+      onChange={(event) => {
+        setRaw(event.target.value);
+        onChange(toLines(event.target.value));
+      }}
+    />
   );
 }
