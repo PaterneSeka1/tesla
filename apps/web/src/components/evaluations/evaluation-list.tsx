@@ -170,6 +170,14 @@ export function EvaluationList({ review = false }: { review?: boolean }) {
                         {shown.questionCount > 1 ? 's' : ''} · {formatPoints(shown.totalPoints)}
                         {item.module && ` · ${item.module.code}`}
                       </p>
+                      {(item.published || item.attemptCount > 0) && (
+                        <Link
+                          href={`/encadrement/evaluations/${item.id}/resultats`}
+                          className="text-xs font-medium text-tesla-rouge underline-offset-4 hover:underline"
+                        >
+                          Résultats
+                        </Link>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-2">

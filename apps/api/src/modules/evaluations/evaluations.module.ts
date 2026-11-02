@@ -6,6 +6,8 @@ import { EvaluationAttemptsController } from './evaluation-attempts.controller.j
 import { EvaluationAttemptsService } from './evaluation-attempts.service.js';
 import { EvaluationEditorController } from './evaluation-editor.controller.js';
 import { EvaluationEditorService } from './evaluation-editor.service.js';
+import { EvaluationResultsController } from './evaluation-results.controller.js';
+import { EvaluationResultsService } from './evaluation-results.service.js';
 import { EvaluationReviewController } from './evaluation-review.controller.js';
 import { EvaluationReviewService } from './evaluation-review.service.js';
 import { EvaluationSessionsController } from './evaluation-sessions.controller.js';
@@ -23,6 +25,7 @@ import { EvaluationWaiversService } from './evaluation-waivers.service.js';
   controllers: [
     OfflineController,
     EvaluationEditorController,
+    EvaluationResultsController,
     EvaluationReviewController,
     EvaluationSessionsController,
     EvaluationAttemptsController,
@@ -31,6 +34,7 @@ import { EvaluationWaiversService } from './evaluation-waivers.service.js';
   providers: [
     OfflineService,
     EvaluationEditorService,
+    EvaluationResultsService,
     EvaluationReviewService,
     EvaluationSessionsService,
     EvaluationAttemptsService,

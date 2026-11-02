@@ -12,6 +12,7 @@ import {
   CSRF_HEADER,
   type EditorEvaluationDetail,
   editorEvaluationDetailSchema,
+  evaluationResultsSchema,
   evaluationReviewSchema,
   evaluationSubmissionListSchema,
   myAttemptSchema,
@@ -443,6 +444,68 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     const unknown = await take('Le fondateur des scouts');
     expect(unknown.awardedPoints).toBeNull();
     expect(unknown.autoScored).toBe(false);
+  });
+
+  it('résultats d’un questionnaire (D139) : participation, répartition par question, réservés à l’encadrement', async () => {
+    const chef = await loginAs('CHEF');
+    const responsable = await loginAs('RESPONSABLE');
+    const evaluation = await publish(chef, responsable, await draftEvaluation(chef));
+    const [first, second] = [await loginAs('ROUTIER'), await loginAs('ROUTIER')];
+    await loginAs('ROUTIER'); // concerné, sans participation
+    await loginAs('ROUTIER', 'APPRENTISSAGE'); // autre étape : non concerné
+    const pass = async (routier: Client, good: boolean) => {
+      const session = attemptSessionSchema.parse(
+        (await routier.post(`/evaluations/${evaluation.id}/attempts`).expect(200)).body,
+      );
+      const q = session.questions;
+      await routier
+        .post(`/attempts/${session.id}/answers`, {
+          answers: [
+            {
+              questionId: q[0]!.id,
+              optionIds: [optionId(evaluation, 0, good ? SECRET_ANSWER : 'Jules Verne')],
+            },
+            { questionId: q[1]!.id, optionIds: [optionId(evaluation, 1, 'Noviciat')] },
+          ],
+        })
+        .expect(200);
+      await routier.post(`/attempts/${session.id}/submit`).expect(200);
+    };
+    await pass(first, true);
+    await pass(second, false);
+
+    const results = await json(
+      chef.get(`/editor/evaluations/${evaluation.id}/results`),
+      200,
+      evaluationResultsSchema,
+    );
+    expect(results).toMatchObject({
+      concerned: 3,
+      participants: 2,
+      notParticipated: 1,
+      finishedAttempts: 2,
+      openAttempts: 0,
+      averagePercent: null, // copies non entièrement notées (réponses ouvertes)
+    });
+    expect(results.attempts.map((attempt) => attempt.complete)).toEqual([false, false]);
+    const [q0, q1] = results.questions;
+    expect(q0).toMatchObject({
+      copies: 2,
+      answered: 2,
+      fullPoints: 1,
+      noPoints: 1,
+      successRate: 0.5,
+    });
+    expect(q0!.options.find((option) => option.isCorrect)?.chosen).toBe(1);
+    expect(q1).toMatchObject({ partialPoints: 2, fullPoints: 0, successRate: 0 });
+    expect(results.questions[3]).toMatchObject({ answered: 0, pendingGrade: 2 });
+
+    // Réservé à l'encadrement : un routier ne voit ni les résultats ni le corrigé.
+    expect(await errorCode(first.get(`/editor/evaluations/${evaluation.id}/results`), 403)).toBe(
+      'FORBIDDEN',
+    );
+    // Lecture seule : aucune note ni statut modifié.
+    expect(await prisma.evaluationAttempt.count({ where: { status: 'A_CORRIGER' } })).toBe(2);
   });
 
   it('parcours numérique complet, 5–8 éligibilité et dérogations, 14 double remise, 17–18 examen sans changement d’étape', async () => {

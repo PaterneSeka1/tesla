@@ -12,6 +12,7 @@ import {
   type CreateEvaluationInput,
   type CreateQuestionInput,
   editorEvaluationDetailSchema,
+  evaluationResultsSchema,
   editorEvaluationListItemSchema,
   type EditorEvaluationListQuery,
   evaluationReviewSchema,
@@ -56,6 +57,13 @@ export const editorEvaluationQueryOptions = (id: string) =>
   queryOptions({
     queryKey: ['evaluations', 'editor', 'detail', id],
     queryFn: () => apiFetch(`/editor/evaluations/${id}`, editorEvaluationDetailSchema),
+  });
+
+/** Résultats d'un questionnaire (encadrement ; corrigé compris, jamais conservé sur l'appareil). */
+export const evaluationResultsQueryOptions = (id: string) =>
+  queryOptions({
+    queryKey: ['evaluations', 'editor', 'results', id],
+    queryFn: () => apiFetch(`/editor/evaluations/${id}/results`, evaluationResultsSchema),
   });
 
 export const moduleOptionsQueryOptions = queryOptions({
