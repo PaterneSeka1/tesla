@@ -22,7 +22,11 @@ const SHOT_WIDTHS = new Set([390, 1440]);
 const TECHNICAL =
   /\b(ROUTIER|ENCADREMENT|ADMINISTRATEUR|undefined|NaN|\[object Object\]|statut API|serveur disponible|requête réussie|Internal Server Error)\b/;
 
-const link = (await readFile(process.env.LINK_FILE, 'utf8')).trim().split('\n').pop();
+// Sortie de create-admin : la ligne du lien (la suivante porte le code de secours, D162).
+const link = (await readFile(process.env.LINK_FILE, 'utf8'))
+  .split('\n')
+  .find((line) => /^https?:\/\//.test(line.trim()))
+  .trim();
 const token = link.split('#')[1];
 const activated = await fetch(`${api}/auth/account-link/complete`, {
   method: 'POST',

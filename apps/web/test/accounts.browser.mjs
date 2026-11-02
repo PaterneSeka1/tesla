@@ -1,6 +1,6 @@
 /**
- * Recette navigateur des comptes (D118–D121) : activation par lien à usage unique, connexion,
- * gestion des comptes, compte personnel. API et web de production sur une base « _test » ; lien
+ * Recette navigateur des comptes (D118–D121, D162, D166) : inscription par lien à usage unique,
+ * code de secours, mot de passe oublié sans SMTP, connexion, gestion des comptes, compte personnel. API et web de production sur une base « _test » ; lien
  * produit par la commande d'installation (comptes fictifs) :
  *   DATABASE_URL=…/tesla_test node apps/api/dist/jobs/create-admin.js --email admin-recette@recette.test \
  *     --web-url http://localhost:3000 > /chemin/lien.txt
@@ -12,7 +12,12 @@ import { readFile } from 'node:fs/promises';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? 'playwright');
 const origin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
 const width = Number(process.env.VIEWPORT_WIDTH ?? 390);
-const link = (await readFile(process.env.LINK_FILE, 'utf8')).trim().split('\n').pop();
+// Sortie de create-admin : ligne du lien puis ligne du code de secours.
+const output = await readFile(process.env.LINK_FILE, 'utf8');
+const link = output
+  .split('\n')
+  .find((line) => /^https?:\/\//.test(line.trim()))
+  .trim();
 const PASSWORD = process.env.NEW_PASSWORD ?? 'phrase-fictive-recette-comptes';
 const staffEmail = `encadrant-${Date.now()}@recette.test`;
 const browser = await chromium.launch({
@@ -30,23 +35,50 @@ const noScroll = async (label) => {
   assert(w <= width, `${label} : défilement horizontal ${w}`);
 };
 try {
+  // Pages publiques : aucune inscription libre, liens d'aide sur la connexion.
+  await page.goto(`${origin}/connexion`);
+  await page.getByRole('link', { name: 'Mot de passe oublié ?' }).waitFor();
+  await page.getByRole('link', { name: 'Activer mon compte' }).click();
+  await page.getByRole('heading', { name: 'Activer mon compte' }).waitFor();
+  await page.getByText(/réservé aux membres préalablement enregistrés/).waitFor();
+  await noScroll('inscription');
+  await page.getByLabel('Adresse e-mail').fill('inconnu@recette.test');
+  await page.getByLabel('Code d’activation').fill('abcde-12345');
+  await page.getByRole('button', { name: 'Vérifier le code' }).click();
+  await page.getByText(/Adresse e-mail ou code incorrect/).waitFor();
+  assert.equal(await page.getByLabel('Nouveau mot de passe').count(), 0);
+  check('inscription : code inconnu refusé, aucun formulaire de mot de passe sans invitation');
+
+  await page.goto(`${origin}/mot-de-passe-oublie`);
+  await page.getByRole('heading', { name: 'Mot de passe oublié ?' }).waitFor();
+  await noScroll('mot de passe oublié');
+  await page.getByLabel('Adresse e-mail').fill('personne@recette.test');
+  await page.getByRole('button', { name: 'Continuer' }).click();
+  await page.getByText(/Aucun e-mail n’est envoyé par l’application/).waitFor();
+  check('mot de passe oublié sans SMTP : réponse neutre, aucun « e-mail envoyé »');
+
   await page.goto(link);
-  await page.getByRole('heading', { name: /Activer votre compte|Nouveau mot de passe/ }).waitFor();
+  await page.getByRole('heading', { name: /Activer mon compte|Nouveau mot de passe/ }).waitFor();
+  await page.getByLabel('Nouveau mot de passe').waitFor();
   await noScroll('activation');
-  await page.getByLabel('Mot de passe', { exact: true }).fill('court');
-  await page.getByLabel('Confirmation').fill('autre');
-  await page.getByRole('button', { name: 'Enregistrer le mot de passe' }).click();
+  await page.getByLabel('Nouveau mot de passe').fill('court');
+  await page.getByLabel('Confirmer le mot de passe').fill('autre');
+  await page
+    .getByRole('button', { name: /Activer mon compte|Enregistrer le mot de passe/ })
+    .click();
   await page
     .getByText(/au moins 12 caractères/)
     .first()
     .waitFor();
   check('mot de passe trop court refusé côté formulaire');
-  await page.getByLabel('Mot de passe', { exact: true }).fill(PASSWORD);
-  await page.getByLabel('Confirmation').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Enregistrer le mot de passe' }).click();
-  await page.getByText('Mot de passe enregistré').waitFor();
+  await page.getByLabel('Nouveau mot de passe').fill(PASSWORD);
+  await page.getByLabel('Confirmer le mot de passe').fill(PASSWORD);
+  await page
+    .getByRole('button', { name: /Activer mon compte|Enregistrer le mot de passe/ })
+    .click();
+  await page.getByText(/Compte activé|Mot de passe modifié/).waitFor();
   assert.equal(new URL(page.url()).hash, '', 'jeton encore dans l’adresse');
-  check('activation réussie, jeton retiré de l’adresse');
+  check('activation réussie par le mot de passe choisi, jeton retiré de l’adresse');
   await page.goto('about:blank');
   await page.goto(link);
   await page.getByText('Lien inutilisable').waitFor();
@@ -70,8 +102,10 @@ try {
   const shown = page.getByLabel('Lien à transmettre');
   await shown.waitFor();
   const newLink = await shown.inputValue();
-  assert.match(newLink, /\/activation#[A-Za-z0-9_-]{43}$/);
-  check('compte créé, lien d’activation affiché une fois');
+  assert.match(newLink, /\/inscription#[A-Za-z0-9_-]{43}$/);
+  const code = await page.getByLabel('Code de secours').innerText();
+  assert.match(code, /^[0-9A-Z]{5}-[0-9A-Z]{5}$/);
+  check('compte créé, lien d’inscription et code de secours affichés une fois');
   await page.getByRole('button', { name: 'Fermer' }).first().click();
   const row = page.getByRole('row', { name: new RegExp(staffEmail.replace('.', '\\.')) });
   await row.getByText('À activer').waitFor();

@@ -151,6 +151,10 @@ jobs:
             --web-url http://localhost:3000 > "$RUNNER_TEMP/sweep-link.txt"
           ADMIN_EMAIL=admin-recette@recette.test LINK_FILE="$RUNNER_TEMP/sweep-link.txt" \
           OFFLINE_FIXTURE="$RUNNER_TEMP/fixture.json" node apps/web/test/ui-sweep.browser.mjs
+      - name: Recette du circuit papier collectif (distribution, saisie, correction par le plein)
+        run: |
+          (cd apps/api && npx tsx test/paper-browser-fixture.mts)
+          node apps/web/test/paper-distribution.browser.mjs
       - name: Journaux des serveurs (en cas d'échec)
         if: failure()
         run: tail -n 200 "$RUNNER_TEMP/api.log" "$RUNNER_TEMP/web.log"
