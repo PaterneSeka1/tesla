@@ -60,13 +60,22 @@ Règle la plus précise (exacte, puis préfixe le plus long). Un chemin sans rè
 
 Les préfixes d'URL `/encadrement` et `/administration` sont techniques et ne sont présentés nulle part comme des espaces (D134).
 
-## Menu unique (`NAVIGATION`)
-Rubriques, dans l'ordre ; `navigationFor(user)` retire les entrées non autorisées et les rubriques vides :
-*Accueil* · *Mon parcours* (progression, rattrapages, compétences, activités, résultats) · *Formations* (bibliothèque, évaluations) · *Suivi pédagogique* (statistiques, programme annuel, résultats à examiner, acquis et propositions, déblocages) · *Communauté* (encadrement, routiers, équipes, activités, présences) · *Contenus à approuver* · *Rédaction et correction* (repliable) · *Référentiels* (repliable) · *Administration* (comptes). « Mon compte » est dans le menu utilisateur.
+## Menu unique (`NAVIGATION`, D141)
+Rubriques, dans l'ordre ; `navigationFor(user)` retire les pages non autorisées et les rubriques vides. Chaque rubrique est **une seule entrée** du menu, vers sa première page autorisée ; ses autres pages s'affichent en dessous lorsque la page affichée lui appartient (`findActiveGroup`).
 
-Exemples : un routier voit Accueil, Mon parcours, Formations, Communauté (encadrement) ; un adjoint ou un assistant le même menu que tout l'encadrement ; le plein, en plus, les contenus à approuver et les décisions ; l'administrateur Accueil, Encadrement et Comptes.
+| Rubrique | Pages (selon permissions) |
+| --- | --- |
+| Accueil | accueil commun |
+| Routiers | routiers, équipes, activités, présences, acquis et propositions, statistiques, programme annuel, référentiel de compétences, référentiel d'âge |
+| Cours | bibliothèque, rédaction, mes soumissions, cours à approuver, tous les cours, publications |
+| Évaluations | évaluations (routier), questionnaires (dont « Résultats »), corrections, évaluations papier, résultats à examiner, questionnaires à approuver, déblocages |
+| Mon parcours | progression, rattrapages, résultats, compétences, activités |
+| Mon profil | mon profil (compte, mot de passe, **fiche médicale** sauf administrateur, sessions), encadrement (sauf administrateur) |
+| Administration | comptes, encadrement (administrateur : désignation, D142) |
 
-Règles vérifiées par `navigation.test.ts` : aucune entrée vers une page inexistante ou inaccessible, aucune entrée en double, accueil toujours en tête et jamais replié, aucun libellé contenant un rôle technique, « mandat », « délégation », « espace », « rôle » ou « chef » ; anciennes pages absentes et redirigées. Barre inférieure mobile (4 accès) pour qui suit un parcours personnel. Groupes repliables : `<details>` natif (D92).
+Résultat : routier — Accueil, Cours, Évaluations, Mon parcours, Mon profil ; encadrement (adjoint, assistants compris) — Accueil, Routiers, Cours, Évaluations, Mon profil ; plein — idem + Administration (comptes routiers) ; administrateur — Accueil, Mon profil (compte seul), Administration (comptes, encadrement). Une entrée peut être masquée pour qui détient une permission (`hiddenWith`) afin de ranger une page dans une autre rubrique.
+
+Règles vérifiées par `navigation.test.ts` : rubriques exactes par profil, aucune entrée vers une page inexistante ou inaccessible, aucune entrée en double par personne, accueil toujours en tête, rubrique active, aucun libellé contenant un rôle technique, « mandat », « délégation », « espace », « rôle » ou « chef » ; anciennes pages absentes et redirigées. Barre inférieure mobile du routier : 5 accès (Accueil, Cours, Évaluations, Parcours, Profil).
 
 ## Cadre
 Un seul `DashboardShell`, monté par `(espaces)/layout.tsx` : il n'est plus remonté à chaque changement de section. Desktop : sidebar groupée, nom de l'utilisateur et déconnexion en pied (aucun état technique, D108). Mobile et tablette (< 1024 px) : en-tête compact (menu, logo, titre de la page), menu latéral (Radix Dialog : focus piégé, Échap, cibles de 44 px).

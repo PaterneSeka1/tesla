@@ -54,6 +54,15 @@ Légende : **IV** implémentée et vérifiée · **INV** implémentée, non vér
 | Phrase oubliée, éviction du stockage, plusieurs onglets | NI | AUD-019, AUD-023, AUD-020 |
 | Chrome Android, Safari iOS, Firefox | NI (non exécuté) | Procédure : [TEST_PLAN.md](TEST_PLAN.md) § 4 |
 
+### Fiches médicales (2026-10-30, D135–D137)
+
+| Exigence | État | Preuve |
+| --- | --- | --- |
+| Fiche par compte, titulaire seul, chiffrée, audit sans contenu, PDF `no-store`, hors cache | IV | `medical-records.int-spec.ts` (12), `medical.spec.ts` (7) |
+| Clé `MEDICAL_DATA_KEY` générée, déployée et **sauvegardée hors des sauvegardes de base** | INV | À faire au déploiement ; l'API refuse de démarrer en production sans clé |
+| Durée de conservation, organisation des secours, base légale | BD | À valider par la communauté (MEDICAL_RECORDS.md) |
+| Rendu visuel du PDF et impression réelle | INV | Texte et format A4 contrôlés automatiquement seulement |
+
 ### Sécurité, qualité, exploitation
 
 | Exigence | État | Preuve |

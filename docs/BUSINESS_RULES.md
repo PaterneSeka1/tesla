@@ -129,6 +129,13 @@ Toutes les permissions sont vérifiées côté serveur.
 ### Cycle de vie d'une tentative
 En ligne : `EN_COURS → A_CORRIGER` (remise, correction objective). Papier : `PREPAREE → A_CORRIGER` (première saisie). Puis `A_CORRIGER → SOUMISE` (chef, toutes les réponses libres notées) → `VALIDEE` (« résultat accepté » = examinée) ou retour `A_CORRIGER` (nouvelle correction demandée, motif). `REFUSEE` (« résultat non retenu ») reste disponible dans le modèle, sans écran. `ANNULEE` possible avant examen. Réouverture `VALIDEE | REFUSEE → A_CORRIGER` par le responsable (motif). Aucune transition ne déclenche de changement d'étape.
 
+### Règles du 2026-10-30 (académie : quiz, fiches médicales)
+- **Réponse courte** : correction automatique uniquement par égalité avec une variante acceptée déclarée par l'auteur, après normalisation des espaces et de la casse ; sinon note humaine, jamais zéro automatique (D138).
+- **Mode jeu à paliers** : même tentative, même notation, aucun corrigé sur l'appareil, score communiqué selon la règle habituelle (D140).
+- **Résultats d'un questionnaire** : consultables par tout l'encadrement, sans classement ni valeur estimée (D139).
+- **Fiche médicale** : une par compte de routier ou d'encadrement (le compte administrateur, technique, n'en a pas) ; titulaire seul (lecture, modification illimitée, impression, suppression) ; aucune permission pédagogique ou administrative n'y donne accès ; chiffrée ; jamais hors ligne ni dans les statistiques (D135–D137).
+- **Arbitrage du responsable** : le seul travail de l'administrateur est la gestion des comptes, désignation de l'encadrement comprise (D142) ; le plein seul approuve et publie, et crée les fiches routiers.
+
 ## Référentiel de progression (SAPF-Route)
 
 | Étape | Libellé du programme | Signe de fin d'étape |

@@ -4,6 +4,16 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — académie : fiches médicales, quiz, navigation, 2026-10-30
+- Fiche médicale personnelle dans « Mon profil » pour les routiers et l'encadrement (pas pour le compte administrateur, technique) : création, modifications illimitées, aperçu, impression et téléchargement PDF A4 aux couleurs de la communauté, suppression ; visible du seul titulaire, chiffrée en base, jamais conservée hors ligne. Nouvelle variable obligatoire en production : `MEDICAL_DATA_KEY`.
+- Réponses courtes corrigées automatiquement lorsqu'elles correspondent à une variante acceptée déclarée par l'auteur ; sinon correction humaine.
+- Résultats d'un questionnaire pour l'encadrement : participation, copies, moyenne, répartition des réponses, questions souvent manquées.
+- Mode jeu à paliers pour passer une évaluation (même correction que le mode classique).
+- « Reprendre la lecture » sur l'accueil du routier (dernière leçon ouverte sur l'appareil).
+
+### Modifié — navigation, 2026-10-30
+- Menu en cinq rubriques (routier : Accueil, Cours, Évaluations, Mon parcours, Mon profil ; encadrement : Accueil, Routiers, Cours, Évaluations, Mon profil) et rubrique « Administration » discrète (comptes ; encadrement pour l'administrateur, dont c'est le seul travail) ; barre mobile du routier à cinq accès ; « Mon compte » devient « Mon profil ».
+
 ### Modifié — gouvernance simplifiée et application unique, 2026-10-30
 - Une seule application : accueil commun (`/accueil`) et menu unique affichant les seules fonctionnalités autorisées ; plus aucun espace, rôle technique ni libellé de permission affiché.
 - Le responsable plein, l'adjoint et les assistants sont désignés directement par l'administrateur depuis la page « Encadrement » (`/communaute`), visible de tous ; remplacement du plein confirmé et immédiat, historique conservé.
