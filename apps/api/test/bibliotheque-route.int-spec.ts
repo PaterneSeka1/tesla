@@ -116,7 +116,9 @@ describe('Bibliothèque de la Route (intégration PostgreSQL)', () => {
     await responsable
       .post(`/editor/modules/${moduleId}/submit`, { versionId, revision: detail.current.revision })
       .expect(201);
-    await responsable.post(`/admin/modules/${moduleId}/approve`, { versionId }).expect(204);
+    await responsable
+      .post(`/admin/modules/${moduleId}/approve`, { versionId, editorialNotesAcknowledged: true })
+      .expect(204);
     await responsable.post(`/admin/modules/${moduleId}/publish`, { versionId }).expect(204);
   }
 

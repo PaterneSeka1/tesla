@@ -8,9 +8,11 @@ import {
   motivatedDecisionInputSchema,
   type Paginated,
   type PaginationQuery,
+  pendingEditorialNotes,
   type PublicationHistoryItem,
   publicationHistoryQuerySchema,
   type SubmissionItem,
+  type SourceEditorialNote,
   type SubmissionListQuery,
   submissionListQuerySchema,
   type VersionActionInput,
@@ -97,10 +99,27 @@ export class ModuleReviewService {
 
   async approve(actor: Actor, moduleId: string, input: ApproveModuleInput): Promise<void> {
     assertCan(actor, 'module.review');
-    const { versionId, comment } = parseInput(approveModuleInputSchema, input);
+    const { versionId, comment, editorialNotesAcknowledged } = parseInput(
+      approveModuleInputSchema,
+      input,
+    );
     await this.prisma.$transaction(async (tx) => {
       const locked = await lockVersion(tx, moduleId, versionId);
       if (locked.status !== 'SOUMIS') throw invalidTransition(locked.status);
+      const source = await tx.moduleSourceImport.findUnique({
+        where: { moduleId },
+        select: { editorialNotes: true },
+      });
+      const pending = source
+        ? pendingEditorialNotes(source.editorialNotes as unknown as SourceEditorialNote[]).length
+        : 0;
+      if (pending > 0 && editorialNotesAcknowledged !== true) {
+        throw new UnprocessableEntityException({
+          code: 'EDITORIAL_NOTES_NOT_ACKNOWLEDGED',
+          message:
+            'Ce module importé comporte des points à vérifier ou à compléter : confirmez les avoir traités avant d’approuver.',
+        });
+      }
       await tx.moduleVersion.update({
         where: { id: versionId },
         data: { status: 'APPROUVE', approvedAt: new Date(), approvedById: actor.userId },
@@ -113,6 +132,7 @@ export class ModuleReviewService {
         toStatus: 'APPROUVE',
         comment: comment ?? null,
         audit: 'module.approved',
+        ...(pending > 0 && { metadata: { editorialNotesAcknowledged: pending } }),
       });
     });
   }

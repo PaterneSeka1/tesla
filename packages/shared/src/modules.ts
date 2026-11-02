@@ -410,10 +410,14 @@ export const versionActionInputSchema = z.object({ versionId: z.uuid() });
 
 export type VersionActionInput = z.input<typeof versionActionInputSchema>;
 
-/** Approbation : commentaire facultatif. */
+/**
+ * Approbation : commentaire facultatif. Un module importé portant des points « à vérifier » ou
+ * « à compléter » exige l'acquittement explicite du responsable (AUD-027).
+ */
 export const approveModuleInputSchema = z.object({
   versionId: z.uuid(),
   comment: optionalText(2000).optional(),
+  editorialNotesAcknowledged: z.boolean().optional(),
 });
 
 export type ApproveModuleInput = z.input<typeof approveModuleInputSchema>;
@@ -602,6 +606,11 @@ export const sourceEditorialNoteSchema = z.object({
 });
 
 export type SourceEditorialNote = z.infer<typeof sourceEditorialNoteSchema>;
+
+/** Notes qui appellent une action du responsable avant l'approbation (hors simple information). */
+export function pendingEditorialNotes(notes: readonly SourceEditorialNote[]) {
+  return notes.filter((note) => note.kind !== 'INFORMATION');
+}
 
 /** Provenance d'un module importé : réservée aux rédacteurs, jamais transmise aux routiers. */
 export const moduleSourceImportSchema = z.object({

@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Archive, Check, CircleX, Pencil, Rocket, Undo2 } from 'lucide-react';
+import { pendingEditorialNotes } from '@tesla/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
@@ -50,6 +51,9 @@ function RevisionContent() {
   const version = module.current;
   const versionId = version.id;
   const status = version.status;
+  const pendingNotes = module.sourceImport
+    ? pendingEditorialNotes(module.sourceImport.editorialNotes).length
+    : 0;
   const onlineId = module.publishedVersionId;
 
   return (
@@ -98,18 +102,35 @@ function RevisionContent() {
                 }
                 title="Approuver cette version ?"
                 description={
-                  <p>
-                    La version sera figée jusqu’à sa publication. Elle ne sera visible des routiers
-                    qu’après l’action « Publier ».
-                  </p>
+                  <>
+                    <p>
+                      La version sera figée jusqu’à sa publication. Elle ne sera visible des
+                      routiers qu’après l’action « Publier ».
+                    </p>
+                    {pendingNotes > 0 && (
+                      <p className="mt-2 font-medium">
+                        {pendingNotes} point{pendingNotes > 1 ? 's' : ''} à vérifier ou à compléter
+                        {pendingNotes > 1 ? ' ont été signalés' : ' a été signalé'} à l’import de ce
+                        module. En approuvant, vous confirmez les avoir traités.
+                      </p>
+                    )}
+                  </>
                 }
                 label="Commentaire (facultatif)"
                 confirmLabel="Approuver"
                 onConfirm={(comment) =>
-                  run(() => approveModule(module.id, { versionId, comment }), {
-                    success: 'Version approuvée',
-                    error: 'Approbation impossible',
-                  })
+                  run(
+                    () =>
+                      approveModule(module.id, {
+                        versionId,
+                        comment,
+                        ...(pendingNotes > 0 && { editorialNotesAcknowledged: true }),
+                      }),
+                    {
+                      success: 'Version approuvée',
+                      error: 'Approbation impossible',
+                    },
+                  )
                 }
               />
             )}

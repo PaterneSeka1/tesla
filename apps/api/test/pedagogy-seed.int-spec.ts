@@ -254,8 +254,21 @@ describe('Seed pédagogique (intégration PostgreSQL)', () => {
         revision: detail.current.revision,
       })
       .expect(201);
-    await responsable.post(`/admin/modules/${moduleId}/approve`, { versionId }).expect(204);
+    // Points « à vérifier » de l'import : acquittement explicite exigé (AUD-027).
+    const unacknowledged = await responsable
+      .post(`/admin/modules/${moduleId}/approve`, { versionId })
+      .expect(422);
+    expect(apiErrorSchema.parse(unacknowledged.body).code).toBe('EDITORIAL_NOTES_NOT_ACKNOWLEDGED');
+    await responsable
+      .post(`/admin/modules/${moduleId}/approve`, { versionId, editorialNotesAcknowledged: true })
+      .expect(204);
     await responsable.post(`/admin/modules/${moduleId}/publish`, { versionId }).expect(204);
+    const approval = await prisma.auditLog.findFirstOrThrow({
+      where: { action: 'module.approved', entityId: versionId },
+    });
+    expect(
+      (approval.metadata as { editorialNotesAcknowledged?: number }).editorialNotesAcknowledged,
+    ).toBeGreaterThan(0);
 
     const events = await prisma.moduleVersionEvent.findMany({
       where: { moduleId },
