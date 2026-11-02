@@ -9,6 +9,7 @@ import {
 import { ClipboardList, Plus, Printer, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useDeferredValue, useState } from 'react';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { EmptyState } from '@/components/empty-state';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
 import { PageHeading } from '@/components/page-heading';
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/table';
 import { editorEvaluationsQueryOptions } from '@/lib/api/evaluations';
 import { formatDateTime, formatPoints, fullName } from '@/lib/format';
+import { userCan } from '@/lib/navigation';
 
 const PAGE_SIZE = 20;
 type StatusFilter = NonNullable<EditorEvaluationListQuery['status']>;
@@ -38,6 +40,8 @@ type StatusFilter = NonNullable<EditorEvaluationListQuery['status']>;
  * `review` : liens vers la page d'examen (responsable) pour les versions soumises ou approuvées.
  */
 export function EvaluationList({ review = false }: { review?: boolean }) {
+  // Résultats agrégés (notes et bonnes réponses) : responsable plein seulement (D161).
+  const answerKey = userCan(useSessionUser(), 'attempt.answerKey');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [page, setPage] = useState(1);
@@ -170,7 +174,7 @@ export function EvaluationList({ review = false }: { review?: boolean }) {
                         {shown.questionCount > 1 ? 's' : ''} · {formatPoints(shown.totalPoints)}
                         {item.module && ` · ${item.module.code}`}
                       </p>
-                      {(item.published || item.attemptCount > 0) && (
+                      {answerKey && (item.published || item.attemptCount > 0) && (
                         <Link
                           href={`/encadrement/evaluations/${item.id}/resultats`}
                           className="text-xs font-medium text-tesla-rouge underline-offset-4 hover:underline"

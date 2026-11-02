@@ -10,6 +10,7 @@ import {
 } from '@tesla/shared';
 import { PenLine, Search } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { EmptyState } from '@/components/empty-state';
 import { AttemptTable } from '@/components/evaluations/attempt-table';
 import { PageHeading } from '@/components/page-heading';
@@ -19,13 +20,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { correctionsQueryOptions } from '@/lib/api/evaluations';
+import { userCan } from '@/lib/navigation';
 
 const PAGE_SIZE = 20;
-type StatusFilter = NonNullable<CorrectionListQuery['status']>;
+type Queue = NonNullable<CorrectionListQuery['queue']>;
+type StatusFilter = NonNullable<CorrectionListQuery['status']> | `file:${Queue}`;
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: 'A_CORRIGER', label: 'À corriger' },
-  { value: 'SOUMISE', label: 'Soumises au responsable' },
+  { value: 'file:correction', label: 'À corriger' },
+  { value: 'file:saisie', label: 'À saisir (papier)' },
+  { value: 'SOUMISE', label: 'Note validée, à publier' },
   { value: 'PREPAREE', label: 'Feuilles préparées' },
   { value: 'EN_COURS', label: 'En cours (en ligne)' },
   { value: 'VALIDEE', label: ATTEMPT_STATUS_LABELS.VALIDEE },
@@ -33,17 +37,23 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'Toutes' },
 ];
 
-/** File de correction des chefs : copies en ligne remises et copies papier, recherche par code ou nom. */
+/**
+ * Copies (D161) : « Copies à corriger » pour le responsable plein (papier transmises et copies en
+ * ligne remises), copies à saisir pour le reste de l'encadrement. Recherche par code ou nom.
+ */
 export function CorrectionQueue() {
+  const grader = userCan(useSessionUser(), 'attempt.grade');
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<StatusFilter>('A_CORRIGER');
+  const [status, setStatus] = useState<StatusFilter>(grader ? 'file:correction' : 'file:saisie');
   const [mode, setMode] = useState<EvaluationMode | ''>('');
   const [page, setPage] = useState(1);
   const deferredSearch = useDeferredValue(search.trim());
   const { data, error, isPending, refetch } = useQuery({
     ...correctionsQueryOptions({
       search: deferredSearch,
-      status,
+      ...(status.startsWith('file:')
+        ? { queue: status.slice(5) as Queue }
+        : { status: status as Exclude<StatusFilter, `file:${Queue}`> }),
       ...(mode && { mode }),
       page,
       pageSize: PAGE_SIZE,
@@ -54,8 +64,12 @@ export function CorrectionQueue() {
   return (
     <>
       <PageHeading
-        title="Corrections"
-        description="Une note n’est jamais une validation officielle."
+        title={grader ? 'Copies à corriger' : 'Copies'}
+        description={
+          grader
+            ? 'Une note n’est jamais une validation officielle.'
+            : 'Saisie des réponses papier ; la correction est réservée au responsable plein.'
+        }
       />
       <form
         role="search"

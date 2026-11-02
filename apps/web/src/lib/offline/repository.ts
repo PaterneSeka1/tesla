@@ -30,7 +30,12 @@ const EXCLUDED_PREFIXES = [
   '/paper',
 ];
 export function isCacheablePath(path: string) {
-  return !EXCLUDED_PREFIXES.some((prefix) => path.startsWith(prefix)) && !path.includes('/pdf');
+  // Distribution collective : éligibilité et tentatives ouvertes toujours lues sur le serveur (D163).
+  return (
+    !EXCLUDED_PREFIXES.some((prefix) => path.startsWith(prefix)) &&
+    !path.includes('/pdf') &&
+    !path.endsWith('/distribution')
+  );
 }
 /** Clé stable : paramètres triés (l'ordre de construction d'une requête ne compte pas). */
 export function cacheKey(path: string) {

@@ -7,7 +7,7 @@ import {
   type ScoutProgression,
   TIMELINE_KIND_LABELS,
 } from '@tesla/shared';
-import { CalendarCheck, ClipboardCheck, History } from 'lucide-react';
+import { CalendarCheck, ClipboardCheck, History, PenLine } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
@@ -15,6 +15,7 @@ import { AttendanceBadge } from '@/components/progression/status-badges';
 import { Tabs } from '@/components/progression/tabs';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { scoutProgressionQueryOptions, scoutTimelineQueryOptions } from '@/lib/api/progression';
 import { formatDate, formatDateTime, formatScore, fullName } from '@/lib/format';
@@ -52,9 +53,11 @@ function EvaluationsSection({ progression }: { progression: ScoutProgression }) 
                   <span className="font-medium">{attempt.evaluationTitle}</span>
                   <Badge variant="outline">{EVALUATION_MODE_LABELS[attempt.mode]}</Badge>
                   <Badge variant="secondary">{ATTEMPT_STATUS_LABELS[attempt.status]}</Badge>
-                  <span className="text-muted-foreground">
-                    {formatScore(attempt.score, attempt.maxScore)}
-                  </span>
+                  {attempt.score !== null && (
+                    <span className="text-muted-foreground">
+                      {formatScore(attempt.score, attempt.maxScore)}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   <Link
@@ -68,6 +71,15 @@ function EvaluationsSection({ progression }: { progression: ScoutProgression }) 
                     ? `réalisée le ${formatDate(attempt.completedAt)}`
                     : `préparée le ${formatDate(attempt.createdAt)}`}
                 </p>
+                {attempt.mode === 'PAPIER' &&
+                  (attempt.status === 'PREPAREE' || attempt.status === 'A_CORRIGER') && (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/encadrement/corrections/${attempt.code}`}>
+                        <PenLine aria-hidden />
+                        Saisir les réponses
+                      </Link>
+                    </Button>
+                  )}
               </li>
             ))}
           </ul>

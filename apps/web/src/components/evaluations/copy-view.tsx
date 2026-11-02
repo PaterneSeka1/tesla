@@ -31,7 +31,9 @@ export function CopyHeader({ copy }: { copy: CorrectionDetail }) {
         </div>
         <div className="flex flex-col items-end gap-1">
           <AttemptStatusBadge status={copy.status} />
-          <p className="text-lg font-semibold">{formatScore(copy.score, copy.maxScore)}</p>
+          {copy.score !== null && (
+            <p className="text-lg font-semibold">{formatScore(copy.score, copy.maxScore)}</p>
+          )}
         </div>
       </div>
       <dl className="grid gap-3 rounded-lg border bg-tesla-sable/20 p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -97,9 +99,11 @@ export function CopyAnswers({ copy }: { copy: CorrectionDetail }) {
                 Question {index + 1} · {QUESTION_TYPE_LABELS[question.type]}
               </span>
               <span className="font-medium">
-                {answer?.awardedPoints == null
-                  ? `— / ${formatPoints(question.points)}`
-                  : formatScore(answer.awardedPoints, question.points)}
+                {question.points === null
+                  ? null
+                  : answer?.awardedPoints == null
+                    ? `— / ${formatPoints(question.points)}`
+                    : formatScore(answer.awardedPoints, question.points)}
                 {answer?.autoScored && (
                   <span className="ml-1 text-xs text-muted-foreground">(automatique)</span>
                 )}

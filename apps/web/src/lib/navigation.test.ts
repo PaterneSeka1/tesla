@@ -85,6 +85,8 @@ describe('accès par chemin', () => {
       '/encadrement/evaluations/nouvelle',
       '/encadrement/evaluations/papier',
       '/encadrement/corrections',
+      '/encadrement/corrections/NT-2027-000001',
+      '/encadrement/distribution/bases-du-scoutisme',
       '/administration/routiers',
       '/administration/validations',
     ]) {

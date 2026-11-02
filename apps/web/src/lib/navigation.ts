@@ -67,6 +67,7 @@ const ACCESS_RULES: readonly AccessRule[] = [
   { path: '/encadrement/evaluations', anyOf: ['evaluation.write'] },
   { path: '/encadrement/evaluations/papier', anyOf: ['attempt.preparePaper'] },
   { path: '/encadrement/corrections', anyOf: ['attempt.record'] },
+  { path: '/encadrement/distribution', anyOf: ['attempt.preparePaper'] },
   { path: '/administration', anyOf: ['scout.read'] },
   { path: '/administration/statistiques', anyOf: ['statistics.read'] },
   { path: '/administration/activites', anyOf: ['activity.read'] },
@@ -269,7 +270,7 @@ export const NAVIGATION: readonly NavGroup[] = [
       },
       {
         href: '/encadrement/corrections',
-        label: 'Corrections',
+        label: 'Copies',
         icon: PenLine,
         permission: 'attempt.record',
       },

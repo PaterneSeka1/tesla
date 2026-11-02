@@ -11,6 +11,7 @@ import {
   type CorrectionListQuery,
   type CreateEvaluationInput,
   type CreateQuestionInput,
+  distributionCandidatesSchema,
   editorEvaluationDetailSchema,
   evaluationResultsSchema,
   editorEvaluationListItemSchema,
@@ -25,10 +26,13 @@ import {
   type MyAttemptQuery,
   paginatedSchema,
   type PaperDocument,
+  paperBatchResultSchema,
   type PreparePaperAttemptInput,
+  type PreparePaperBatchInput,
   type SaveAnswersInput,
   type SaveCorrectionInput,
   type SubmitEvaluationInput,
+  type SwitchToPaperInput,
   type UpdateEvaluationInput,
   type UpdateQuestionInput,
   type WaiverListQuery,
@@ -218,6 +222,37 @@ export const preparePaperAttempt = (input: PreparePaperAttemptInput) =>
 /** URL du PDF (session par cookie) : ouverture dans un nouvel onglet, sans nouvelle tentative. */
 export const paperPdfUrl = (code: string, document: PaperDocument) =>
   `${env.NEXT_PUBLIC_API_URL}/paper-attempts/${encodeURIComponent(code)}/pdf?document=${document}`;
+
+// ─── Distribution collective (D163) ────────────────────────────────────────
+
+/** Routiers candidats : éligibilité calculée par le serveur (jamais conservée sur l'appareil). */
+export const distributionQueryOptions = (evaluationId: string) =>
+  queryOptions({
+    queryKey: ['evaluations', 'distribution', evaluationId],
+    queryFn: () =>
+      apiFetch(`/evaluations/${evaluationId}/distribution`, distributionCandidatesSchema),
+  });
+
+export const preparePaperBatch = (input: PreparePaperBatchInput) =>
+  apiSend('POST', '/paper-batches', paperBatchResultSchema, input);
+
+/** Questionnaires de plusieurs copies : un PDF commun ou un ZIP (un PDF par routier). */
+export const paperBatchUrl = (codes: readonly string[], format: 'pdf' | 'zip') =>
+  `${env.NEXT_PUBLIC_API_URL}/paper-batches/documents${toQueryString({ codes: codes.join(','), format })}`;
+
+export const switchToPaper = (code: string, input: SwitchToPaperInput) =>
+  apiSend(
+    'POST',
+    `/corrections/${encodeURIComponent(code)}/switch-to-paper`,
+    correctionDetailSchema,
+    input,
+  );
+
+/** Fin de la saisie d'une copie papier : transmise au responsable plein pour correction. */
+export const transmitCopy = (code: string, correctionRevision: number) =>
+  apiSend('POST', `/corrections/${encodeURIComponent(code)}/transmit`, correctionDetailSchema, {
+    correctionRevision,
+  });
 
 export const saveCorrection = (code: string, input: SaveCorrectionInput) =>
   apiSend(

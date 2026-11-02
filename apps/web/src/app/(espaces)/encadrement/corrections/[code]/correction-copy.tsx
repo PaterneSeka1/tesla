@@ -9,7 +9,7 @@ export function CorrectionCopy() {
     <CorrectionWorkspace
       code={decodeURIComponent(code)}
       backHref="/encadrement/corrections"
-      backLabel="Corrections"
+      backLabel="Copies"
     />
   );
 }

@@ -35,6 +35,10 @@ describe('dépôt local', () => {
       '/corrections/NT-2026-000001',
       '/auth/sessions',
       '/users?page=1',
+      '/auth/activation/verify',
+      '/auth/password-reset/verify',
+      '/evaluations/x/distribution',
+      '/paper-batches/documents?codes=NT-2027-000001',
     ])
       expect(isCacheablePath(path)).toBe(false);
     expect(isCacheablePath('/scouts/x')).toBe(true);

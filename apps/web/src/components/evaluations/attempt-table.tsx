@@ -22,6 +22,8 @@ export function AttemptTable({
   caption: string;
   hrefFor: (item: CorrectionListItem) => string;
 }) {
+  // Notes : visibles du responsable plein, ou une fois le résultat publié (masquées par l'API sinon).
+  const scores = items.some((item) => item.score !== null);
   return (
     <Table>
       <TableCaption>{caption}</TableCaption>
@@ -30,8 +32,9 @@ export function AttemptTable({
           <TableHead>Routier</TableHead>
           <TableHead>Évaluation</TableHead>
           <TableHead>État</TableHead>
-          <TableHead className="hidden md:table-cell">Score</TableHead>
+          {scores && <TableHead className="hidden md:table-cell">Score</TableHead>}
           <TableHead className="hidden lg:table-cell">Équipe · étape</TableHead>
+          <TableHead className="hidden md:table-cell">Saisie</TableHead>
           <TableHead className="hidden sm:table-cell">Mise à jour</TableHead>
         </TableRow>
       </TableHeader>
@@ -45,7 +48,10 @@ export function AttemptTable({
               >
                 {fullName(item.scout)}
               </Link>
-              <p className="font-mono text-xs text-muted-foreground">{item.code}</p>
+              <p className="font-mono text-xs text-muted-foreground">
+                {item.code}
+                {item.scout.matricule && ` · ${item.scout.matricule}`}
+              </p>
             </TableCell>
             <TableCell>
               {item.evaluation.title}
@@ -56,11 +62,23 @@ export function AttemptTable({
             <TableCell>
               <AttemptStatusBadge status={item.status} />
             </TableCell>
-            <TableCell className="hidden md:table-cell">
-              {formatScore(item.score, item.maxScore)}
-            </TableCell>
+            {scores && (
+              <TableCell className="hidden md:table-cell">
+                {formatScore(item.score, item.maxScore)}
+              </TableCell>
+            )}
             <TableCell className="hidden lg:table-cell">
               {item.scout.team?.name ?? '—'} · {item.scout.stage?.name ?? '—'}
+            </TableCell>
+            <TableCell className="hidden md:table-cell">
+              {(item.transmittedBy ?? item.recordedBy)
+                ? fullName((item.transmittedBy ?? item.recordedBy)!)
+                : '—'}
+              {item.transmittedAt && (
+                <p className="text-xs text-muted-foreground">
+                  transmise le {formatDateTime(item.transmittedAt)}
+                </p>
+              )}
             </TableCell>
             <TableCell className="hidden sm:table-cell">{formatDateTime(item.updatedAt)}</TableCell>
           </TableRow>

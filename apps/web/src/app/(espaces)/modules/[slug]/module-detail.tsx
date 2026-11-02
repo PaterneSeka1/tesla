@@ -10,10 +10,12 @@ import {
   ScrollText,
   Sparkles,
   Target,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { readingPosition } from '@/components/offline/use-offline-images';
 import { DownloadModuleButton } from '@/components/download-module-button';
 import { BackLink } from '@/components/back-link';
@@ -24,10 +26,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { catalogModuleQueryOptions, modulePdfUrl, practicalSheetPdfUrl } from '@/lib/api/modules';
 import { formatDate, formatDuration } from '@/lib/format';
+import { userCan } from '@/lib/navigation';
 
 export function ModuleDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { data: module, error, isPending, refetch } = useQuery(catalogModuleQueryOptions(slug));
+  const distribute = userCan(useSessionUser(), 'attempt.preparePaper');
   // Dernière leçon lue sur cet appareil (coffre local ; absente si verrouillé).
   const [lastLessonId, setLastLessonId] = useState<string | null>(null);
   useEffect(() => {
@@ -110,6 +114,18 @@ export function ModuleDetail() {
               Version imprimable
             </Link>
           </Button>
+          {distribute && (
+            <Button
+              asChild
+              variant="outline"
+              className="border-tesla-sable bg-transparent text-white hover:bg-white/10"
+            >
+              <Link href={`/encadrement/distribution/${module.slug}`}>
+                <Users aria-hidden />
+                Préparer une distribution
+              </Link>
+            </Button>
+          )}
         </div>
       </header>
 
