@@ -343,6 +343,8 @@ export class ScoutProgressionService {
   // ─── Dossier complet ──────────────────────────────────────────────────────
 
   async progression(actor: Actor, scoutProfileId: string): Promise<ScoutProgression> {
+    const scoresVisible = (status: string) =>
+      status === 'VALIDEE' || can(actor, 'attempt.answerKey');
     assertCan(actor, 'progression.read');
     const profile = await this.prisma.scoutProfile.findUnique({
       where: { id: scoutProfileId },
@@ -423,8 +425,9 @@ export class ScoutProgressionService {
         evaluationTitle: attempt.evaluation.title,
         mode: attempt.mode,
         status: attempt.status,
-        score: toNumber(attempt.score),
-        maxScore: toNumber(attempt.maxScore),
+        // Note non publiée : responsable plein seulement (D161).
+        score: scoresVisible(attempt.status) ? toNumber(attempt.score) : null,
+        maxScore: scoresVisible(attempt.status) ? toNumber(attempt.maxScore) : null,
         completedAt: attempt.completedAt?.toISOString() ?? null,
         createdAt: attempt.createdAt.toISOString(),
       })),

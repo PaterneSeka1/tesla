@@ -474,8 +474,10 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     await pass(first, true);
     await pass(second, false);
 
+    // Notes et bonnes réponses agrégées : responsable plein seulement (D161).
+    await chef.get(`/editor/evaluations/${evaluation.id}/results`).expect(403);
     const results = await json(
-      chef.get(`/editor/evaluations/${evaluation.id}/results`),
+      responsable.get(`/editor/evaluations/${evaluation.id}/results`),
       200,
       evaluationResultsSchema,
     );
@@ -616,12 +618,38 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     expect(attempt.status).toBe('A_CORRIGER');
     expect(Number(attempt.score)).toBe(4);
 
-    // Correction humaine des réponses libres par un chef.
-    const queue = await json(chef.get('/corrections?status=A_CORRIGER'), 200, correctionList);
+    // Correction humaine des réponses libres : responsable plein seulement (D161). Un chef voit la
+    // copie et son statut, sans corrigé ni note ; il ne peut ni noter ni modifier une copie en ligne.
+    const queue = await json(chef.get('/corrections?queue=correction'), 200, correctionList);
     expect(queue.items.map((item) => item.code)).toContain(attempt.code);
-    const copy = await json(chef.get(`/corrections/${attempt.code}`), 200, correctionDetailSchema);
-    expect(copy.questions[4]!.answer?.text).toBe('Rendre service à la communauté.');
-    await chef
+    expect(queue.items.find((item) => item.code === attempt.code)?.score).toBeNull();
+    const chefCopy = await json(
+      chef.get(`/corrections/${attempt.code}`),
+      200,
+      correctionDetailSchema,
+    );
+    expect(chefCopy.questions[4]!.answer?.text).toBe('Rendre service à la communauté.');
+    expect(chefCopy).toMatchObject({ answerKey: false, score: null });
+    expect(JSON.stringify(chefCopy)).not.toContain('Engagement personnel');
+    expect(
+      chefCopy.questions.flatMap((question) => question.options).some((o) => o.isCorrect),
+    ).toBe(false);
+    expect(
+      await errorCode(
+        chef.post(`/corrections/${attempt.code}/answers`, {
+          correctionRevision: chefCopy.correctionRevision,
+          grades: [{ questionId: q[3]!.id, awardedPoints: 1 }],
+        }),
+        403,
+      ),
+    ).toBe('GRADING_RESERVED');
+    const copy = await json(
+      responsable.get(`/corrections/${attempt.code}`),
+      200,
+      correctionDetailSchema,
+    );
+    expect(copy.answerKey).toBe(true);
+    await responsable
       .post(`/corrections/${attempt.code}/answers`, {
         correctionRevision: copy.correctionRevision,
         answers: [{ questionId: q[3]!.id, text: 'Réécrite' }],
@@ -629,20 +657,20 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
       .expect(422);
     expect(
       await errorCode(
-        chef.post(`/corrections/${attempt.code}/submit-review`, {
+        responsable.post(`/corrections/${attempt.code}/submit-review`, {
           correctionRevision: copy.correctionRevision,
         }),
         422,
       ),
     ).toBe('CORRECTION_INCOMPLETE');
-    await chef
+    await responsable
       .post(`/corrections/${attempt.code}/answers`, {
         correctionRevision: copy.correctionRevision,
         grades: [{ questionId: q[3]!.id, awardedPoints: 5 }],
       })
       .expect(422);
     const graded = await json(
-      chef.post(`/corrections/${attempt.code}/answers`, {
+      responsable.post(`/corrections/${attempt.code}/answers`, {
         correctionRevision: copy.correctionRevision,
         grades: [
           { questionId: q[3]!.id, awardedPoints: 1, appreciation: 'Exact' },
@@ -657,7 +685,7 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     // Correction concurrente sur une révision périmée : refusée.
     expect(
       await errorCode(
-        chef.post(`/corrections/${attempt.code}/answers`, {
+        responsable.post(`/corrections/${attempt.code}/answers`, {
           correctionRevision: copy.correctionRevision,
           grades: [],
         }),
@@ -665,7 +693,7 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
       ),
     ).toBe('ATTEMPT_STATE_CHANGED');
     await json(
-      chef.post(`/corrections/${attempt.code}/submit-review`, {
+      responsable.post(`/corrections/${attempt.code}/submit-review`, {
         correctionRevision: graded.correctionRevision,
       }),
       200,
@@ -694,6 +722,11 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     );
     expect(back.status).toBe('A_CORRIGER');
     await chef
+      .post(`/corrections/${attempt.code}/submit-review`, {
+        correctionRevision: back.correctionRevision,
+      })
+      .expect(403);
+    await responsable
       .post(`/corrections/${attempt.code}/submit-review`, {
         correctionRevision: back.correctionRevision,
       })
@@ -792,7 +825,10 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     expect(sheetText).not.toContain('Servir');
     expect(pdfText(reprint.body as Buffer)).toContain(prepared.code);
 
-    const key = await chef
+    // Corrigé et grille : responsable plein seulement (D161), même par appel direct.
+    await chef.get(`/paper-attempts/${prepared.code}/pdf?document=corrige`).expect(403);
+    await chef.get(`/paper-attempts/${prepared.code}/pdf?document=grille`).expect(403);
+    const key = await responsable
       .get(`/paper-attempts/${prepared.code}/pdf?document=corrige`)
       .buffer(true)
       .parse(binary)
@@ -800,7 +836,7 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     const keyText = pdfText(key.body as Buffer);
     expect(keyText).toContain('bonne réponse');
     expect(keyText).toContain('Engagement personnel');
-    const grid = await chef
+    const grid = await responsable
       .get(`/paper-attempts/${prepared.code}/pdf?document=grille`)
       .buffer(true)
       .parse(binary)
@@ -814,11 +850,44 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     await routier.get(`/corrections/${prepared.code}`).expect(403);
     await routier.get('/editor/evaluations').expect(403);
 
-    // 16. Saisie et correction papier par un chef (transcription, notes, observations).
+    // 16. Saisie par un chef (transcription sans note), transmission, puis correction par le plein.
     const q = evaluation.current.questions;
-    const saved = await json(
+    const transcription = {
+      completedAt: '2027-01-09T10:00:00.000Z',
+      answers: [
+        { questionId: q[0]!.id, optionIds: [optionId(evaluation, 0, SECRET_ANSWER)] },
+        {
+          questionId: q[1]!.id,
+          optionIds: [
+            optionId(evaluation, 1, 'Noviciat'),
+            optionId(evaluation, 1, 'Compagnonnage'),
+          ],
+        },
+        { questionId: q[2]!.id, optionIds: [optionId(evaluation, 2, 'Faux')] },
+        { questionId: q[3]!.id, text: 'Servir' },
+        { questionId: q[4]!.id, text: 'Aider les autres.' },
+      ],
+    };
+    const entered = await json(
       chef.post(`/corrections/${prepared.code}/answers`, {
+        ...transcription,
         correctionRevision: prepared.correctionRevision,
+      }),
+      200,
+      correctionDetailSchema,
+    );
+    expect(entered).toMatchObject({ status: 'A_CORRIGER', score: null, transmittedAt: null });
+    const sent = await json(
+      chef.post(`/corrections/${prepared.code}/transmit`, {
+        correctionRevision: entered.correctionRevision,
+      }),
+      200,
+      correctionDetailSchema,
+    );
+    expect(sent.transmittedAt).not.toBeNull();
+    const saved = await json(
+      responsable.post(`/corrections/${prepared.code}/answers`, {
+        correctionRevision: sent.correctionRevision,
         completedAt: '2027-01-09T10:00:00.000Z',
         answers: [
           { questionId: q[0]!.id, optionIds: [optionId(evaluation, 0, SECRET_ANSWER)] },
@@ -847,7 +916,7 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     // Une fois saisie, la feuille n'est plus réimprimable comme questionnaire vierge.
     await chef.get(`/paper-attempts/${prepared.code}/pdf`).expect(409);
     await json(
-      chef.post(`/corrections/${prepared.code}/submit-review`, {
+      responsable.post(`/corrections/${prepared.code}/submit-review`, {
         correctionRevision: saved.correctionRevision,
       }),
       200,

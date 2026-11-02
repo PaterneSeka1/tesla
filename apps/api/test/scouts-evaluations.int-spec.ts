@@ -11,6 +11,7 @@ import { EvaluationAttemptsService } from '../src/modules/evaluations/evaluation
 import { EvaluationWaiversService } from '../src/modules/evaluations/evaluation-waivers.service.js';
 import { ScoutProfilesService } from '../src/modules/scouts/scout-profiles.service.js';
 import { TeamsService } from '../src/modules/scouts/teams.service.js';
+import { LoginRateLimiter } from '../src/modules/auth/login-rate-limiter.js';
 import { type PrismaService } from '../src/prisma/prisma.service.js';
 import { createTestPrisma, grantPersona, resetDatabase } from './int-database.js';
 
@@ -34,7 +35,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     prisma = createTestPrisma();
     profiles = new ScoutProfilesService(prisma);
     teams = new TeamsService(prisma);
-    attempts = new EvaluationAttemptsService(prisma, teams);
+    attempts = new EvaluationAttemptsService(prisma, teams, new LoginRateLimiter(prisma));
     waivers = new EvaluationWaiversService(prisma);
   });
 
@@ -120,12 +121,15 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
   const prepare = (scoutProfileId: string, actor: Actor = chef) =>
     attempts.preparePaper(actor, { scoutProfileId, evaluationId, evaluationVersionId: versionV1 });
 
-  /** Saisie d'une copie papier (révision lue en base, comme le ferait l'écran de correction). */
+  /**
+   * Saisie et correction d'une copie papier par le responsable plein (révision lue en base, comme
+   * le ferait l'écran de correction) : la notation lui est réservée (D161).
+   */
   const record = async (code: string, text = 'Réponse manuscrite', extra: object = {}) => {
     const { correctionRevision } = await prisma.evaluationAttempt.findUniqueOrThrow({
       where: { code },
     });
-    return attempts.saveCorrection(chef, code, {
+    return attempts.saveCorrection(responsable, code, {
       correctionRevision,
       completedAt: '2027-01-09T10:00:00.000Z',
       answers: [{ questionId: questionV1, text }],
@@ -286,8 +290,11 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     expect(first.scout.matricule).toBe('0000123A');
     expect(JSON.stringify(first)).not.toContain('Réponse attendue fictive');
     expect(first.questions[0]).toMatchObject({ points: null, expectedAnswer: null });
-    // Le corrigé, lui, contient la réponse attendue (chefs uniquement).
-    const key = await attempts.paperDocumentData(chef, attempt.code, 'corrige');
+    // Le corrigé, lui, contient la réponse attendue (responsable plein uniquement, D161).
+    await expect(attempts.paperDocumentData(chef, attempt.code, 'corrige')).rejects.toThrow(
+      ForbiddenException,
+    );
+    const key = await attempts.paperDocumentData(responsable, attempt.code, 'corrige');
     expect(JSON.stringify(key)).toContain('Réponse attendue fictive');
     expect(await prisma.evaluationAttempt.count()).toBe(1);
 
@@ -374,11 +381,16 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     const scout = await newScout(1);
     const attempt = await prepare(scout.id);
     await expect(
-      attempts.submitReview(chef, attempt.code, { correctionRevision: 1 }),
+      attempts.submitReview(responsable, attempt.code, { correctionRevision: 1 }),
     ).rejects.toThrow(ConflictException);
     const recorded = await record(attempt.code);
     expect(recorded).toMatchObject({ status: 'A_CORRIGER', score: 1.5, maxScore: 2 });
-    await attempts.submitReview(chef, attempt.code, {
+    await expect(
+      attempts.submitReview(chef, attempt.code, {
+        correctionRevision: recorded.correctionRevision,
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    await attempts.submitReview(responsable, attempt.code, {
       correctionRevision: recorded.correctionRevision,
     });
 
@@ -418,7 +430,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     const scout = await newScout(1);
     const attempt = await prepare(scout.id);
     await record(attempt.code);
-    await attempts.submitReview(chef, attempt.code, {
+    await attempts.submitReview(responsable, attempt.code, {
       correctionRevision: await revisionOf(attempt.code),
     });
     await expect(record(attempt.code, 'Corrigée')).rejects.toThrow(UnprocessableEntityException);
@@ -476,5 +488,217 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
       prisma.evaluationAttemptEvent.deleteMany({ where: { attemptId: first.id } }),
     ).rejects.toThrow();
     expect(await prisma.evaluationAttempt.count()).toBe(2);
+  });
+
+  // ─── D161 : saisie par l'encadrement, correction réservée au responsable plein ──────────────
+
+  it('D161. assistant et adjoint saisissent et transmettent ; seul le plein voit le corrigé et corrige', async () => {
+    const adjoint: Actor = { ...chef, leaderFunction: 'ADJOINT' };
+    const admin: Actor = { userId: chef.userId, role: 'ADMINISTRATEUR', leaderFunction: null };
+    const scout = await newScout(1);
+    const attempt = await prepare(scout.id);
+
+    // Copie vue par un chef non plein : ni corrigé, ni barème.
+    const seen = await attempts.detail(chef, { code: attempt.code });
+    expect(seen.answerKey).toBe(false);
+    expect(seen.questions[0]).toMatchObject({ expectedAnswer: null, points: null, guidance: null });
+    expect(JSON.stringify(seen)).not.toContain('Réponse attendue fictive');
+    expect((await attempts.detail(responsable, { code: attempt.code })).answerKey).toBe(true);
+    await expect(attempts.detail(admin, { code: attempt.code })).rejects.toThrow(
+      ForbiddenException,
+    );
+
+    // Saisie : aucune note acceptée hors plein, même par appel direct.
+    const entry = {
+      completedAt: '2027-01-09T10:00:00.000Z',
+      answers: [{ questionId: questionV1, text: 'Réponse manuscrite' }],
+    };
+    await expect(
+      attempts.saveCorrection(chef, attempt.code, {
+        ...entry,
+        correctionRevision: await revisionOf(attempt.code),
+        grades: [{ questionId: questionV1, awardedPoints: 2 }],
+      }),
+    ).rejects.toThrow(ForbiddenException);
+    const draft = await attempts.saveCorrection(chef, attempt.code, {
+      ...entry,
+      correctionRevision: await revisionOf(attempt.code),
+    });
+    expect(draft).toMatchObject({ status: 'A_CORRIGER', transmittedAt: null, score: null });
+    // Reprise de la saisie par l'adjoint.
+    await attempts.saveCorrection(adjoint, attempt.code, {
+      ...entry,
+      answers: [{ questionId: questionV1, text: 'Réponse manuscrite relue' }],
+      correctionRevision: await revisionOf(attempt.code),
+    });
+    const queue = async (name: 'saisie' | 'correction') =>
+      (await attempts.list(chef, { queue: name })).items.map((item) => item.code);
+    expect(await queue('saisie')).toContain(attempt.code);
+    expect(await queue('correction')).not.toContain(attempt.code);
+
+    const transmitted = await attempts.transmit(adjoint, attempt.code, {
+      correctionRevision: await revisionOf(attempt.code),
+    });
+    expect(transmitted.transmittedAt).not.toBeNull();
+    expect(await queue('correction')).toContain(attempt.code);
+    await expect(
+      attempts.transmit(chef, attempt.code, { correctionRevision: await revisionOf(attempt.code) }),
+    ).rejects.toThrow(ConflictException);
+    // Saisie close : plus de modification ni d'annulation hors plein.
+    await expect(
+      attempts.saveCorrection(chef, attempt.code, {
+        ...entry,
+        correctionRevision: await revisionOf(attempt.code),
+      }),
+    ).rejects.toThrow(ConflictException);
+    await expect(attempts.cancel(chef, attempt.code, { reason: 'Essai' })).rejects.toThrow(
+      ForbiddenException,
+    );
+
+    // Correction, validation et publication par le plein ; aucun changement d'étape.
+    await record(attempt.code, 'Réponse manuscrite relue');
+    for (const actor of [chef, adjoint]) {
+      await expect(
+        attempts.submitReview(actor, attempt.code, {
+          correctionRevision: await revisionOf(attempt.code),
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    }
+    await attempts.submitReview(responsable, attempt.code, {
+      correctionRevision: await revisionOf(attempt.code),
+    });
+    await attempts.acceptReview(responsable, attempt.id, {});
+    const published = await attempts.detail(chef, { code: attempt.code });
+    expect(published).toMatchObject({ status: 'VALIDEE', score: 1.5, maxScore: 2 });
+    expect(published.questions[0]?.expectedAnswer).toBeNull();
+    const after = await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } });
+    expect(after.currentStageId).toBe(stageIds.NOVICIAT);
+    expect(await prisma.evaluationAttempt.count({ where: { scoutProfileId: scout.id } })).toBe(1);
+  });
+
+  // ─── D163 : distribution collective idempotente ───────────────────────────────────────────
+
+  it('D163. distribution collective : avec ou sans compte, inéligible ignoré, double envoi sans doublon, PDF et ZIP sans corrigé', async () => {
+    const otherStage = Object.keys(stageIds).find((code) => code !== 'NOVICIAT')!;
+    const [withoutAccount, withAccount, ineligible] = [
+      await newScout(1),
+      await newScout(2),
+      await newScout(3, { stage: otherStage }),
+    ];
+    const routierUser = await prisma.user.create({
+      data: {
+        email: 'routier-fictif@example.test',
+        firstName: 'Routier',
+        lastName: 'Fictif2',
+        role: 'ROUTIER',
+      },
+    });
+    await prisma.scoutProfile.update({
+      where: { id: withAccount.id },
+      data: { userId: routierUser.id },
+    });
+
+    const { candidates } = await attempts.distributionCandidates(chef, evaluationId);
+    const byId = new Map(candidates.map((candidate) => [candidate.scout.id, candidate]));
+    expect(byId.get(withoutAccount.id)).toMatchObject({ allowed: true, openAttempt: null });
+    expect(byId.get(withAccount.id)?.scout.hasAccount).toBe(true);
+    expect(byId.get(ineligible.id)?.allowed).toBe(false);
+
+    const ids = [withoutAccount.id, withAccount.id, ineligible.id];
+    const first = await attempts.preparePaperBatch(chef, { evaluationId, scoutProfileIds: ids });
+    expect(first.items.map((item) => item.outcome)).toEqual(['CREEE', 'CREEE', 'IGNOREE']);
+    expect(first.items[2]?.reason?.code).toBe('EVALUATION_NOT_ELIGIBLE');
+
+    // Double clic et reprise : mêmes copies, aucune nouvelle tentative.
+    const [again, concurrent] = await Promise.all([
+      attempts.preparePaperBatch(chef, { evaluationId, scoutProfileIds: ids }),
+      attempts.preparePaperBatch(chef, { evaluationId, scoutProfileIds: ids }),
+    ]);
+    for (const result of [again, concurrent]) {
+      expect(result.items.slice(0, 2).map((item) => item.outcome)).toEqual([
+        'REUTILISEE',
+        'REUTILISEE',
+      ]);
+      expect(result.items.map((item) => item.code)).toEqual(first.items.map((item) => item.code));
+    }
+    expect(await prisma.evaluationAttempt.count()).toBe(2);
+    await expect(
+      attempts.preparePaperBatch(chef, { evaluationId, scoutProfileIds: [ids[0], ids[0]] }),
+    ).rejects.toThrow(BadRequestException);
+
+    const codes = first.items.flatMap((item) => (item.code ? [item.code] : []));
+    const documents = await attempts.paperBatchDocumentData(chef, {
+      codes: codes.join(','),
+      format: 'zip',
+    });
+    expect(documents.format).toBe('zip');
+    expect(documents.copies.map((copy) => copy.code)).toEqual(codes);
+    expect(JSON.stringify(documents)).not.toContain('Réponse attendue fictive');
+    await expect(
+      attempts.paperBatchDocumentData(
+        { userId: routierUser.id, role: 'ROUTIER', leaderFunction: null },
+        { codes: codes.join(',') },
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  // ─── D164 : conflits numérique / papier ───────────────────────────────────────────────────
+
+  it('D164. tentative en ligne : jamais doublée par un lot ; bascule au papier tracée, refusée pendant une réservation hors ligne', async () => {
+    const [online, offline] = [await newScout(1), await newScout(2)];
+    const base = {
+      evaluationId,
+      evaluationVersionId: versionV1,
+      status: 'EN_COURS' as const,
+      createdById: chef.userId,
+      startedAt: new Date(),
+    };
+    const onlineAttempt = await prisma.evaluationAttempt.create({
+      data: { ...base, code: 'NT-2027-900001', scoutProfileId: online.id, mode: 'EN_LIGNE' },
+    });
+    await prisma.attemptAnswer.create({
+      data: { attemptId: onlineAttempt.id, questionId: questionV1, textAnswer: 'Début en ligne' },
+    });
+    await prisma.evaluationAttempt.create({
+      data: {
+        ...base,
+        code: 'NT-2027-900002',
+        scoutProfileId: offline.id,
+        mode: 'HORS_LIGNE',
+        offlineAuthorization: crypto.randomUUID(),
+        offlineIssuedAt: new Date(),
+        offlineExpiresAt: new Date(Date.now() + 3_600_000),
+      },
+    });
+
+    const batch = await attempts.preparePaperBatch(chef, {
+      evaluationId,
+      scoutProfileIds: [online.id, offline.id],
+    });
+    expect(batch.items.map((item) => item.reason?.code)).toEqual([
+      'ATTEMPT_ALREADY_OPEN',
+      'ATTEMPT_ALREADY_OPEN',
+    ]);
+    const { candidates } = await attempts.distributionCandidates(chef, evaluationId);
+    expect(candidates.find((c) => c.scout.id === offline.id)?.openAttempt?.offlinePending).toBe(
+      true,
+    );
+
+    await expect(
+      attempts.switchToPaper(chef, 'NT-2027-900002', { reason: 'Téléphone en panne' }),
+    ).rejects.toThrow(ConflictException);
+    const paper = await attempts.switchToPaper(chef, 'NT-2027-900001', {
+      reason: 'Téléphone en panne',
+    });
+    expect(paper).toMatchObject({ mode: 'PAPIER', status: 'PREPAREE', scoutProfileId: online.id });
+    const cancelled = await prisma.evaluationAttempt.findUniqueOrThrow({
+      where: { id: onlineAttempt.id },
+      include: { attemptAnswers: true },
+    });
+    expect(cancelled.status).toBe('ANNULEE');
+    expect(cancelled.attemptAnswers[0]?.textAnswer).toBe('Début en ligne');
+    await expect(
+      attempts.switchToPaper(chef, 'NT-2027-900001', { reason: 'Encore' }),
+    ).rejects.toThrow(ConflictException);
   });
 });

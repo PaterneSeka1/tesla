@@ -35,11 +35,21 @@ export const PERMISSIONS = {
   'observation.read': ENCADREMENT,
   /** Lire les observations de niveau « responsable » rédigées par d'autres. */
   'observation.readRestricted': OFFICIEL,
+  /** Préparer, distribuer et réimprimer les copies papier (individuelles ou collectives). */
   'attempt.preparePaper': ENCADREMENT,
-  /** Copies, corrigés, grilles de correction : jamais les routiers. */
+  /** Copies et réponses saisies, sans corrigé ni note non publiée (D161) : jamais les routiers. */
   'attempt.readAny': ENCADREMENT,
+  /** Saisir (transcrire) les réponses d'une copie papier, puis la transmettre pour correction. */
   'attempt.record': ENCADREMENT,
-  'attempt.submit': ENCADREMENT,
+  'attempt.transmit': ENCADREMENT,
+  /**
+   * Corrigé confidentiel, barèmes, notes non publiées, corrigé et grille PDF (D161) : responsable
+   * plein seulement, y compris par appel direct à l'API.
+   */
+  'attempt.answerKey': OFFICIEL,
+  /** Corriger (notes, appréciations) et valider le score final : responsable plein seulement. */
+  'attempt.grade': OFFICIEL,
+  'attempt.submit': OFFICIEL,
   'attempt.cancel': ENCADREMENT,
   /** Examen d'un résultat corrigé : décision officielle. */
   'attempt.decide': OFFICIEL,

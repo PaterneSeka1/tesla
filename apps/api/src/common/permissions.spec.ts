@@ -30,6 +30,18 @@ describe('Permissions', () => {
     expect(can(chef, 'attempt.record')).toBe(true);
   });
 
+  it('seul le responsable plein voit le corrigé, corrige et valide le score (D161)', () => {
+    for (const permission of ['attempt.answerKey', 'attempt.grade', 'attempt.submit'] as const) {
+      expect(can(responsable, permission)).toBe(true);
+      expect(can(chef, permission)).toBe(false);
+      expect(can({ ...chef, leaderFunction: 'ADJOINT' }, permission)).toBe(false);
+      expect(can({ userId: 'a', role: 'ADMINISTRATEUR', leaderFunction: null }, permission)).toBe(
+        false,
+      );
+    }
+    expect(can(chef, 'attempt.transmit')).toBe(true);
+  });
+
   it('un routier ne lit pas les tentatives des autres', () => {
     expect(can(routier, 'attempt.readAny')).toBe(false);
     expect(can(routier, 'attempt.preparePaper')).toBe(false);

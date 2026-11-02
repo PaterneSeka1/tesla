@@ -186,7 +186,8 @@ export function describeEvidence(row: EvidenceRow): Pick<Evidence, 'label' | 're
   if (row.attempt) {
     const { code, evaluation, score, maxScore, status } = row.attempt;
     const result =
-      score !== null && maxScore !== null
+      // Note affichée seulement une fois le résultat publié (D161).
+      status === 'VALIDEE' && score !== null && maxScore !== null
         ? ` — ${scoreFormatter.format(Number(score))} / ${scoreFormatter.format(Number(maxScore))}`
         : '';
     return { label: `${evaluation.title} (${code}, ${status})${result}`, reference: code };

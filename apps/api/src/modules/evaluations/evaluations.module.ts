@@ -1,6 +1,7 @@
 import { OfflineController } from './offline.controller.js';
 import { OfflineService } from './offline.service.js';
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
 import { ScoutsModule } from '../scouts/scouts.module.js';
 import { EvaluationAttemptsController } from './evaluation-attempts.controller.js';
 import { EvaluationAttemptsService } from './evaluation-attempts.service.js';
@@ -17,11 +18,12 @@ import { EvaluationWaiversService } from './evaluation-waivers.service.js';
 
 /**
  * Évaluations : rédaction et approbation des questionnaires, passation en ligne, tentatives papier
- * (codes uniques, PDF), correction par les chefs, examen par le responsable, dérogations.
+ * (codes uniques, PDF, distribution collective), saisie par l'encadrement, correction et examen par
+ * le responsable plein, dérogations.
  * Aucune route ne modifie l'étape d'un routier (validation officielle exclusivement humaine).
  */
 @Module({
-  imports: [ScoutsModule],
+  imports: [AuthModule, ScoutsModule],
   controllers: [
     OfflineController,
     EvaluationEditorController,

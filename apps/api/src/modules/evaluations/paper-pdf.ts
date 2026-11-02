@@ -35,12 +35,37 @@ export function renderPaperDocument(
   data: PaperDocumentData,
   document: PaperDocument,
 ): Promise<Buffer> {
+  return render(
+    [data],
+    document,
+    `${PAPER_DOCUMENT_LABELS[document]} — ${data.evaluationTitle} — ${data.code}`,
+  );
+}
+
+/**
+ * PDF collectif (D163) : les questionnaires individuels à la suite, chacun commençant sur une
+ * nouvelle page avec sa propre pagination et son code. Jamais de corrigé.
+ */
+export function renderPaperQuestionnaires(copies: readonly PaperDocumentData[]): Promise<Buffer> {
+  const first = copies[0]!;
+  return render(
+    copies,
+    'questionnaire',
+    `Questionnaires — ${first.evaluationTitle} — ${copies.length} copie${copies.length > 1 ? 's' : ''}`,
+  );
+}
+
+function render(
+  copies: readonly PaperDocumentData[],
+  document: PaperDocument,
+  title: string,
+): Promise<Buffer> {
   const doc = new PDFDocument({
     size: 'A4',
     margins: { top: MARGIN, bottom: MARGIN + 10, left: MARGIN, right: MARGIN },
     bufferPages: true,
     info: {
-      Title: clean(`${PAPER_DOCUMENT_LABELS[document]} — ${data.evaluationTitle} — ${data.code}`),
+      Title: clean(title),
       Author: 'Communauté Nikola Tesla',
       Producer: 'Nikola Tesla Académie',
     },
@@ -52,11 +77,15 @@ export function renderPaperDocument(
     doc.on('error', reject);
   });
 
-  header(doc, data, document);
-  if (document === 'questionnaire') questionnaire(doc, data);
-  else if (document === 'corrige') answerKey(doc, data);
-  else gradingGrid(doc, data);
-  footer(doc, data, document);
+  copies.forEach((data, index) => {
+    if (index > 0) doc.addPage();
+    const start = doc.bufferedPageRange().count - 1;
+    header(doc, data, document);
+    if (document === 'questionnaire') questionnaire(doc, data);
+    else if (document === 'corrige') answerKey(doc, data);
+    else gradingGrid(doc, data);
+    footer(doc, data, document, start);
+  });
   doc.end();
   return done;
 }
@@ -431,10 +460,12 @@ function gradingGrid(doc: Doc, data: PaperDocumentData): void {
     );
 }
 
-function footer(doc: Doc, data: PaperDocumentData, document: PaperDocument): void {
+/** Pied de page des pages de la copie, à partir de la page `start` (pagination propre à la copie). */
+function footer(doc: Doc, data: PaperDocumentData, document: PaperDocument, start: number): void {
   const range = doc.bufferedPageRange();
-  for (let index = 0; index < range.count; index += 1) {
-    doc.switchToPage(range.start + index);
+  const count = range.start + range.count - start;
+  for (let index = 0; index < count; index += 1) {
+    doc.switchToPage(start + index);
     const bottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
     doc
@@ -442,9 +473,7 @@ function footer(doc: Doc, data: PaperDocumentData, document: PaperDocument): voi
       .font('Helvetica')
       .fontSize(8)
       .text(
-        clean(
-          `${data.code} · ${PAPER_DOCUMENT_LABELS[document]} · page ${index + 1} / ${range.count}`,
-        ),
+        clean(`${data.code} · ${PAPER_DOCUMENT_LABELS[document]} · page ${index + 1} / ${count}`),
         MARGIN,
         doc.page.height - MARGIN + 5,
         { width: width(doc), align: 'center', lineBreak: false },

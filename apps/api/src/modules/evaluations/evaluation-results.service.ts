@@ -24,7 +24,8 @@ export class EvaluationResultsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async results(actor: Actor, evaluationId: string): Promise<EvaluationResults> {
-    assertCan(actor, 'attempt.readAny');
+    // Notes et bonnes réponses agrégées : corrigé confidentiel, responsable plein seulement (D161).
+    assertCan(actor, 'attempt.answerKey');
     const id = parseId(evaluationId);
     const evaluation = await this.prisma.evaluation.findUnique({
       where: { id },

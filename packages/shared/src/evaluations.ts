@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { paginationQuerySchema, searchQuerySchema, userSummarySchema } from './api.js';
-import { editorQuestionSchema, evaluationModuleRefSchema } from './evaluation-authoring.js';
+import {
+  answerOptionSchema,
+  editorQuestionSchema,
+  evaluationModuleRefSchema,
+} from './evaluation-authoring.js';
 import { QUESTION_TYPES } from './grading.js';
 import { stageSummarySchema, teamRefSchema } from './scouts.js';
 import { ATTEMPT_STATUSES, EVALUATION_MODES } from './evaluation-enums.js';
@@ -249,13 +253,108 @@ export const preparePaperAttemptInputSchema = z.object({
 
 export type PreparePaperAttemptInput = z.input<typeof preparePaperAttemptInputSchema>;
 
+// ─── Distribution collective (D163) ────────────────────────────────────────
+
+/** Plafond d'un lot : une communauté de 25 routiers, avec marge ; au-delà, plusieurs lots. */
+export const PAPER_BATCH_MAX = 60;
+
+/** Routier candidat à une distribution : éligibilité calculée par le serveur, jamais par le web. */
+export const distributionCandidateSchema = z.object({
+  scout: z.object({
+    id: z.uuid(),
+    firstName: z.string(),
+    lastName: z.string(),
+    matricule: z.string().nullable(),
+    hasAccount: z.boolean(),
+    stage: stageSummarySchema.nullable(),
+    team: teamRefSchema.nullable(),
+  }),
+  eligibility: z.enum(ELIGIBILITY_STATUSES),
+  allowed: z.boolean(),
+  /** Tentative non clôturée existante (papier réutilisable, ou en ligne / hors ligne en conflit). */
+  openAttempt: z
+    .object({
+      code: z.string(),
+      mode: z.enum(EVALUATION_MODES),
+      status: z.enum(ATTEMPT_STATUSES),
+      /** Réservation hors ligne en cours, non synchronisée : aucune bascule possible avant échéance. */
+      offlinePending: z.boolean(),
+    })
+    .nullable(),
+});
+
+export type DistributionCandidate = z.infer<typeof distributionCandidateSchema>;
+
+export const distributionCandidatesSchema = z.object({
+  evaluation: z.object({
+    id: z.uuid(),
+    code: z.string(),
+    title: z.string(),
+    version: z.number().int(),
+  }),
+  candidates: z.array(distributionCandidateSchema),
+});
+
+export type DistributionCandidates = z.infer<typeof distributionCandidatesSchema>;
+
+/**
+ * Préparation collective : idempotente (une copie papier encore préparée est réutilisée, jamais
+ * dupliquée ; un double envoi ne crée rien de plus). Chaque routier est traité séparément : un échec
+ * n'annule pas les autres et un nouvel envoi reprend le lot.
+ */
+export const preparePaperBatchInputSchema = z.object({
+  evaluationId: z.uuid({ error: 'Choisissez une évaluation.' }),
+  scoutProfileIds: z
+    .array(z.uuid())
+    .min(1, { error: 'Sélectionnez au moins un routier.' })
+    .max(PAPER_BATCH_MAX, { error: `${PAPER_BATCH_MAX} routiers au plus par lot.` })
+    .refine((ids) => new Set(ids).size === ids.length, { error: 'Routier en double.' }),
+  plannedFor: z.iso.date().optional(),
+});
+
+export type PreparePaperBatchInput = z.input<typeof preparePaperBatchInputSchema>;
+
+export const PAPER_BATCH_OUTCOMES = ['CREEE', 'REUTILISEE', 'IGNOREE'] as const;
+
+export const paperBatchResultSchema = z.object({
+  items: z.array(
+    z.object({
+      scoutProfileId: z.uuid(),
+      outcome: z.enum(PAPER_BATCH_OUTCOMES),
+      code: z.string().nullable(),
+      /** Raison d'une copie ignorée (code d'erreur stable et message affichable). */
+      reason: z.object({ code: z.string(), message: z.string() }).nullable(),
+    }),
+  ),
+});
+
+export type PaperBatchResult = z.infer<typeof paperBatchResultSchema>;
+
+/** Téléchargement groupé des questionnaires préparés : un PDF commun ou une archive ZIP (un PDF par routier). */
+export const paperBatchDocumentQuerySchema = z.object({
+  codes: z
+    .string()
+    .transform((value) => [
+      ...new Set(
+        value
+          .split(',')
+          .map((code) => code.trim())
+          .filter(Boolean),
+      ),
+    ])
+    .pipe(z.array(attemptCodeSchema).min(1).max(PAPER_BATCH_MAX)),
+  format: z.enum(['pdf', 'zip']).default('pdf'),
+});
+
+export type PaperBatchDocumentQuery = z.input<typeof paperBatchDocumentQuerySchema>;
+
 export const PAPER_DOCUMENTS = ['questionnaire', 'corrige', 'grille'] as const;
 
 export type PaperDocument = (typeof PAPER_DOCUMENTS)[number];
 
 export const PAPER_DOCUMENT_LABELS: Record<PaperDocument, string> = {
   questionnaire: 'Questionnaire du routier',
-  corrige: 'Corrigé (chefs)',
+  corrige: 'Corrigé (responsable)',
   grille: 'Grille de correction',
 };
 
@@ -269,6 +368,11 @@ export const correctionListQuerySchema = paginationQuerySchema.extend({
   search: searchQuerySchema,
   /** `open` = préparée, en cours, à corriger ou soumise. */
   status: z.enum([...ATTEMPT_STATUSES, 'open', 'all']).default('A_CORRIGER'),
+  /**
+   * `saisie` : copies papier préparées ou en cours de saisie (non transmises) ;
+   * `correction` : copies à corriger (papier transmises, et copies en ligne remises).
+   */
+  queue: z.enum(['saisie', 'correction']).optional(),
   mode: z.enum(EVALUATION_MODES).optional(),
   evaluationId: z.uuid().optional(),
   scoutProfileId: z.uuid().optional(),
@@ -301,6 +405,8 @@ export const correctionListItemSchema = z.object({
   completedAt: z.iso.datetime().nullable(),
   recordedAt: z.iso.datetime().nullable(),
   recordedBy: userSummarySchema.nullable(),
+  transmittedAt: z.iso.datetime().nullable(),
+  transmittedBy: userSummarySchema.nullable(),
   updatedAt: z.iso.datetime(),
 });
 
@@ -317,7 +423,13 @@ export const attemptEventSchema = z.object({
 
 export type AttemptEvent = z.infer<typeof attemptEventSchema>;
 
+/**
+ * Question d'une copie. Sans la permission `attempt.answerKey` (D161), le corrigé est retiré par le
+ * serveur : barème, bonnes réponses, réponse attendue, variantes et critères à null ou vides.
+ */
 export const correctionQuestionSchema = editorQuestionSchema.extend({
+  points: z.number().nullable(),
+  options: z.array(answerOptionSchema.extend({ isCorrect: z.boolean().nullable() })),
   answer: z
     .object({
       optionIds: z.array(z.uuid()),
@@ -334,9 +446,11 @@ export const correctionQuestionSchema = editorQuestionSchema.extend({
 
 export type CorrectionQuestion = z.infer<typeof correctionQuestionSchema>;
 
-/** Copie complète (corrigé compris) : chefs et responsable uniquement. */
+/** Copie : corrigé et notes non publiées pour le responsable plein seulement (D161). */
 export const correctionDetailSchema = z.object({
   id: z.uuid(),
+  /** Vrai si la réponse contient le corrigé confidentiel (responsable plein). */
+  answerKey: z.boolean(),
   code: z.string(),
   mode: z.enum(EVALUATION_MODES),
   status: z.enum(ATTEMPT_STATUSES),
@@ -360,7 +474,7 @@ export const correctionDetailSchema = z.object({
     version: z.number().int(),
     title: z.string(),
     instructions: z.string(),
-    totalPoints: z.number(),
+    totalPoints: z.number().nullable(),
     /** Faux si une version plus récente a été publiée depuis (la copie reste liée à sa version). */
     isCurrent: z.boolean(),
   }),
@@ -372,6 +486,8 @@ export const correctionDetailSchema = z.object({
   completedAt: z.iso.datetime().nullable(),
   recordedAt: z.iso.datetime().nullable(),
   recordedBy: userSummarySchema.nullable(),
+  transmittedAt: z.iso.datetime().nullable(),
+  transmittedBy: userSummarySchema.nullable(),
   observations: z.string().nullable(),
   score: z.number().nullable(),
   maxScore: z.number().nullable(),
@@ -440,6 +556,18 @@ export type AcceptReviewInput = z.input<typeof acceptReviewInputSchema>;
 export const attemptReasonInputSchema = z.object({ reason: reasonSchema });
 
 export type AttemptReasonInput = z.input<typeof attemptReasonInputSchema>;
+
+/**
+ * Bascule au papier (D164) : la tentative en ligne non remise est annulée (réponses conservées dans
+ * l'historique) et une copie papier est préparée dans la même transaction. Refusée tant qu'une
+ * réservation hors ligne non synchronisée est en cours.
+ */
+export const switchToPaperInputSchema = z.object({
+  reason: reasonSchema,
+  plannedFor: z.iso.date().optional(),
+});
+
+export type SwitchToPaperInput = z.input<typeof switchToPaperInputSchema>;
 
 // ─── Dérogations (RM-EVAL-003) ─────────────────────────────────────────────
 
