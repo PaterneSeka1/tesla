@@ -227,15 +227,25 @@ describe('Seed pédagogique (intégration PostgreSQL)', () => {
     expect(stored.content).toEqual(edited);
     expect(await prisma.moduleLesson.count()).toBe(21);
 
-    // Une leçon vide (à rédiger) bloque la soumission.
+    // Une leçon vide (à rédiger) bloque la soumission : le catalogue n'en contient plus, on en ajoute une.
     const m03Id = createdId(m03);
-    const m03Detail = editorModuleDetailSchema.parse(
+    const m03Draft = editorModuleDetailSchema.parse(
       (await responsable.get(`/editor/modules/${m03Id}`).expect(200)).body,
+    );
+    const withEmpty = editorModuleDetailSchema.parse(
+      (
+        await responsable
+          .post(`/editor/modules/${m03Id}/lessons`, {
+            versionId: m03Draft.current.id,
+            title: 'Leçon à rédiger',
+          })
+          .expect(201)
+      ).body,
     );
     const refused = await responsable
       .post(`/editor/modules/${m03Id}/submit`, {
-        versionId: m03Detail.current.id,
-        revision: m03Detail.current.revision,
+        versionId: withEmpty.current.id,
+        revision: withEmpty.current.revision,
       })
       .expect(422);
     expect(apiErrorSchema.parse(refused.body).code).toBe('MODULE_INCOMPLETE');

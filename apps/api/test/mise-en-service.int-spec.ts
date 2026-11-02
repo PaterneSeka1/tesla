@@ -231,7 +231,7 @@ describe('Mise en service du catalogue (intégration PostgreSQL)', () => {
       ).toEqual(expect.arrayContaining([responsable.user.id]));
     }
     const methode = modules.find((m) => m.publishedVersion?.title === 'La méthode scoute')!;
-    expect(methode.publishedVersion!.lessons).toHaveLength(1);
+    expect(methode.publishedVersion!.lessons).toHaveLength(7);
 
     // Questionnaires : publiés, rattachés à la version publiée du module, à son étape.
     const evaluations = await prisma.evaluation.findMany({

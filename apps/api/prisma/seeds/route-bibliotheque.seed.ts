@@ -83,18 +83,18 @@ const commonNotes = (stage: string): SourceEditorialNote[] => [
     'Ajouts éditoriaux à valider : rubriques « Pour réfléchir » et « Pour conclure », titres intermédiaires et reformulations de liaison.',
   ),
   note(
-    'A_COMPLETER',
+    'INFORMATION',
     null,
-    'Évaluation à préparer : aucun questionnaire n’a été créé. Les questions « Pour réfléchir » sont des supports de relecture, pas une évaluation.',
+    'Questionnaire d’entraînement préparé (prisma/seeds/route-questionnaires.ts) : créé, approuvé et publié avec le module par la mise en service. Les questions « Pour réfléchir » restent des supports de relecture, jamais notées.',
   ),
 ];
 
-/** Rapprochement avec un brouillon vide du catalogue « Découvrir la Route » (aucune fusion automatique). */
+/** Rapprochement avec un brouillon vide du catalogue « Découvrir la Route », retiré à la mise en service (D129). */
 const overlap = (keys: string) =>
   note(
     'INFORMATION',
     null,
-    `Sujet également couvert par le(s) brouillon(s) vide(s) ${keys} (catalogue « Découvrir la Route ») : le responsable peut les archiver ou y reporter ce contenu. Aucune fusion automatique.`,
+    `Sujet du ou des brouillon(s) vide(s) ${keys} (catalogue « Découvrir la Route ») : ce module en tient lieu ; les brouillons vides sont retirés à la mise en service (D129).`,
   );
 
 // ─── Texte fondamental : Prière de la Route ────────────────────────────────
@@ -661,7 +661,7 @@ const M06: SourceModule = {
   objectives: [
     'Expliquer pourquoi l’Engagement routier est un acte volontaire et réfléchi.',
     'Identifier les étapes de la préparation à l’engagement.',
-    'Décrire la cérémonie d’engagement et la remise des flots.',
+    'Décrire les cérémonies d’accueil, d’engagement et de remise des flots.',
   ],
   stageCode: 'APPRENTISSAGE',
   theme: THEME,
@@ -710,6 +710,29 @@ const M06: SourceModule = {
           'Qu’est-ce qui te donne aujourd’hui envie de t’engager ? Qu’est-ce qui te retient ?',
         ),
         sapf('p. 3 et 9'),
+      ),
+    },
+    {
+      title: 'La cérémonie d’accueil',
+      content: doc(
+        p(
+          'L’accueil à la communauté (montée d’un jeune venu d’une autre branche, ou entrée d’un jeune pour la première fois dans le mouvement scout) marque l’entrée officielle du jeune dans la Branche Route.',
+        ),
+        p(
+          'La cérémonie doit être simple, sobre et signifiante, et mettre l’accent sur l’accueil et la confiance accordée. Le jeune y prend conscience de son entrée dans une communauté ; il se sent attendu et reconnu.',
+        ),
+        h('Repères pratiques'),
+        ul(
+          'Moment : de 1 à 15 jours après l’arrivée.',
+          'Rassemblement : en rectangle.',
+          'Acteurs : le ou les novices, les équipes, la maîtrise routier, l’aumônier.',
+          'Objet : l’étendard. L’attribut associé à l’accueil est le foulard.',
+        ),
+        p(
+          'Le jeune en retire un fort sentiment d’appartenance et une première responsabilisation : il comprend qu’il n’est plus seulement participant, mais acteur de sa communauté.',
+        ),
+        reflect('Comment ta communauté peut-elle faire sentir à un nouveau qu’il est attendu ?'),
+        sapf('p. 4, 9 et 10'),
       ),
     },
     {
@@ -767,12 +790,12 @@ const M06: SourceModule = {
     overlap('NT-DEC-D20 « Présentation des flots », NT-DEC-D21'),
     note(
       'A_COMPLETER',
-      3,
+      4,
       'Déroulement, formule d’engagement et rôle de chacun pendant la cérémonie : non décrits dans le manuel (dépendent de la Charte et des usages de la communauté).',
     ),
     note(
       'A_COMPLETER',
-      5,
+      6,
       'Signification symbolique de chaque flot et de chaque étoile : non développée dans le manuel, à rédiger d’après une source vérifiée.',
     ),
   ],
@@ -829,6 +852,15 @@ const M07: SourceModule = {
         p(
           'Le Mini-Camp est préparé et organisé par les routiers eux-mêmes. Le coordinateur accompagne la préparation et garantit la participation active de tous.',
         ),
+        h('Application pratique'),
+        p('Une préparation en équipe peut suivre ces étapes :'),
+        ol(
+          'fixer ensemble les dates, le lieu et les objectifs du Mini-Camp, avec le coordinateur ;',
+          'répartir l’intendance, l’animation, les rôles et le budget ;',
+          'bâtir un programme qui équilibre action, formation et temps spirituels ;',
+          'faire un point avant le départ : chacun sait ce qu’il porte et à qui il rend compte.',
+        ),
+        p('Personne n’est spectateur : chaque routier a une part de la préparation.'),
         reflect('Quelles décisions faut-il prendre ensemble avant de partir ?'),
         sapf('p. 6'),
       ),
@@ -839,6 +871,16 @@ const M07: SourceModule = {
         p('Les routiers se répartissent l’ensemble de l’organisation :'),
         ul('l’intendance ;', 'l’animation ;', 'la répartition des rôles ;', 'le budget.'),
         p('Le coordinateur veille à l’équilibre entre action, formation et temps spirituels.'),
+        h('Exemple de répartition (à adapter)'),
+        ul(
+          'Intendance : menus, achats, cuisine, rangement du matériel.',
+          'Animation : veillées, jeux, temps de formation.',
+          'Budget : prévisions, dépenses, reçus, bilan financier présenté à l’équipe.',
+          'Temps spirituels : préparation des prières et des temps de relecture, avec l’aumônier.',
+        ),
+        p(
+          'Chaque responsable rend compte à l’équipe : la responsabilité partagée n’est pas une responsabilité diluée.',
+        ),
         reflect('Quel rôle prendrais-tu ? Pourquoi ?'),
         sapf('p. 6'),
       ),
@@ -956,6 +998,16 @@ const M08: SourceModule = {
       content: doc(
         p(
           'Le Raid doit être soigneusement préparé : itinéraire réaliste, règles de sécurité claires, objectifs éducatifs définis et temps de relecture prévus à l’issue.',
+        ),
+        h('Liste de préparation'),
+        ul(
+          'Itinéraire : étapes et distances adaptées à chacun, points d’arrivée connus.',
+          'Sécurité : règles présentées et validées par l’encadrement avant le départ.',
+          'Objectifs : ce que chacun et l’équipe veulent vivre et apprendre.',
+          'Relecture : moment et forme prévus dès la préparation.',
+        ),
+        p(
+          'Le coordinateur veille à ce que le Raid reste une expérience de croissance, et non un défi sportif ou une mise en danger.',
         ),
         reflect('Quels objectifs personnels te fixes-tu pour ce Raid ?'),
         sapf('p. 5'),
@@ -1079,6 +1131,15 @@ const M09: SourceModule = {
           'Évaluation.',
           'Bilan.',
         ),
+        h('Ce que l’Entreprise fait grandir'),
+        p('Selon le manuel, l’Entreprise permet au routier de :'),
+        ul(
+          'apprendre à analyser une situation et identifier un besoin ;',
+          'concevoir et planifier un projet ;',
+          'travailler en équipe ;',
+          's’engager concrètement au service des autres ;',
+          'relire et évaluer son action.',
+        ),
         sapf('p. 6'),
       ),
     },
@@ -1098,7 +1159,19 @@ const M09: SourceModule = {
         p(
           'Le compagnonnage inclut l’implication dans des partenariats extérieurs. L’Entreprise mobilise l’équipe et, le cas échéant, des partenaires.',
         ),
-        sapf('p. 4'),
+        h('Application pratique'),
+        p('Avant la réalisation, l’équipe fait l’inventaire de ce dont le projet a besoin :'),
+        ul(
+          'les personnes : qui fait quoi, et avec quelles compétences ;',
+          'le matériel et les lieux ;',
+          'les autorisations nécessaires ;',
+          'les partenaires possibles (structure d’accueil, association, paroisse, commune).',
+        ),
+        p(
+          'Le coordinateur questionne la pertinence de chaque choix et sa cohérence avec l’esprit de la Route.',
+        ),
+        reflect('Quel partenaire extérieur pourrait rendre votre Entreprise plus utile ?'),
+        sapf('p. 4 et 6'),
       ),
     },
     {
@@ -1106,6 +1179,12 @@ const M09: SourceModule = {
       content: doc(
         p(
           'La réalisation met en jeu le travail en équipe et l’engagement concret au service des autres. Le coordinateur accompagne sans diriger.',
+        ),
+        h('Application pratique'),
+        ul(
+          'Chacun connaît sa tâche, son échéance et la personne à prévenir en cas de difficulté.',
+          'Des points d’étape réguliers permettent d’ajuster le plan face aux imprévus.',
+          'Les bénéficiaires sont associés : on agit avec eux, pas seulement pour eux.',
         ),
         quote('« Le scout obéit sans réplique et ne fait rien à moitié. » (loi scoute, article 7)'),
         sapf('p. 6'),
@@ -1117,6 +1196,13 @@ const M09: SourceModule = {
       content: doc(
         p(
           'L’Entreprise apprend à relire et évaluer son action. L’évaluation compare ce qui a été réalisé aux objectifs définis.',
+        ),
+        h('Grille simple d’évaluation'),
+        ul(
+          'Objectifs : lesquels sont atteints, en partie atteints, non atteints ?',
+          'Bénéficiaires : qu’en disent les personnes servies ?',
+          'Équipe : comment avons-nous travaillé ensemble ?',
+          'Moyens : le temps et les ressources prévus étaient-ils réalistes ?',
         ),
         reflect('Qu’est-ce qui a fonctionné ? Qu’est-ce qui n’a pas fonctionné, et pourquoi ?'),
         sapf('p. 6'),
@@ -1391,6 +1477,9 @@ const M11: SourceModule = {
         p(
           'Le routier apprend à servir non plus parce qu’on le lui propose, mais parce qu’il l’a choisi. Son engagement est assumé librement et inscrit dans la durée.',
         ),
+        p(
+          'Cette étape est déterminante : elle permet au jeune de donner une orientation concrète à sa vie d’adulte. Il en retire une cohérence entre ses valeurs et ses actes, une maturité humaine et spirituelle renforcée, et la capacité de s’engager dans le monde avec responsabilité et liberté.',
+        ),
         reflect('Qu’est-ce qui rend un engagement durable ?'),
         sapf('p. 4'),
       ),
@@ -1428,6 +1517,12 @@ const M11: SourceModule = {
         ),
         p(
           'Le coordinateur aide les routiers à discerner leur chemin ; il accompagne sans se substituer.',
+        ),
+        p(
+          'Il veille à la qualité de la progression collective et individuelle et maintient une exigence éducative juste : il encourage sans diriger et rappelle le cap lorsque l’essentiel se dilue.',
+        ),
+        reflect(
+          'Qui t’accompagne aujourd’hui ? Quand avez-vous fait le point pour la dernière fois ?',
         ),
         sapf('p. 2 et 4'),
       ),
@@ -1486,7 +1581,14 @@ const M12: SourceModule = {
         p(
           'Le départ routier constitue l’achèvement du parcours scout à la Route. Il ne marque pas une fin, mais un envoi dans la société. Le routier est reconnu comme un adulte éduqué, capable de porter les valeurs de la Route au-delà du cadre scout.',
         ),
-        sapf('p. 9'),
+        p(
+          'Il couronne une étape vécue sur une année scoute : un service personnel dans la durée, des temps de relecture approfondie, des échanges avec le coordinateur et la communauté, et la préparation spirituelle de l’envoi.',
+        ),
+        h('Ne pas confondre'),
+        p(
+          'Le Départ routier est une démarche d’engagement personnel, préparée et reconnue par la communauté. Il ne se confond pas avec la sortie de la branche au 21e anniversaire, qui est une règle d’âge de la communauté.',
+        ),
+        sapf('p. 4 et 9'),
       ),
     },
     {
@@ -1507,6 +1609,13 @@ const M12: SourceModule = {
       content: doc(
         p(
           'Les activités clés précédant le départ routier sont un service personnel vécu dans la durée, des temps de relecture approfondie et des échanges avec le coordinateur et la communauté.',
+        ),
+        p(
+          'Ces activités ne sont pas une liste à cocher : elles aident le routier à rassembler ce qu’il a vécu pour pouvoir le porter au-delà du cadre scout.',
+        ),
+        reflect(
+          'Quel service vis-tu aujourd’hui dans la durée ?',
+          'Avec qui, dans la communauté, aimerais-tu relire ton parcours avant ton départ ?',
         ),
         sapf('p. 9'),
       ),
@@ -1575,9 +1684,9 @@ const M12: SourceModule = {
       'Rôle du parrain, sens de la boussole et de la bougie, déroulement de la cérémonie : non développés par le manuel.',
     ),
     note(
-      'A_VERIFIER',
-      null,
-      'Le Départ routier est distinct de la sortie de la branche au 21e anniversaire (règle de la communauté) : aucune étape n’est attribuée à la sortie.',
+      'INFORMATION',
+      0,
+      'Le Départ routier est distinct de la sortie de la branche au 21e anniversaire (règle de la communauté) : la leçon 1 le précise (révision 2) ; aucune étape n’est attribuée à la sortie.',
     ),
   ],
 };

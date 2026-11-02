@@ -18,6 +18,7 @@ import { resolveAuthority } from '../../src/modules/auth/auth.service.js';
 import { EvaluationEditorService } from '../../src/modules/evaluations/evaluation-editor.service.js';
 import { EvaluationReviewService } from '../../src/modules/evaluations/evaluation-review.service.js';
 import {
+  currentEditorialNotes,
   emptyDraftOf,
   isWorkingStatus,
   toLessonDocument,
@@ -25,12 +26,9 @@ import {
 import { ModuleEditorService } from '../../src/modules/pedagogy/module-editor.service.js';
 import { ModuleReviewService } from '../../src/modules/pedagogy/module-review.service.js';
 import { type PrismaService } from '../../src/prisma/prisma.service.js';
-import {
-  isLessonDocumentEmpty,
-  pendingEditorialNotes,
-  type SourceEditorialNote,
-} from '@tesla/shared';
-import { QUIZ_INSTRUCTIONS, ROUTE_QUIZZES } from './route-questionnaires.js';
+import { isLessonDocumentEmpty, pendingEditorialNotes } from '@tesla/shared';
+import { auditCatalog } from './pedagogy-audit.js';
+import { QUIZ_INSTRUCTIONS, quizQuestionInput, ROUTE_QUIZZES } from './route-questionnaires.js';
 
 const DECISION = 'Mise en service du catalogue initial (décision du responsable, 2026-10-30).';
 const PURGE_REASON =
@@ -52,6 +50,7 @@ export interface ReleaseLine {
     | 'QUESTIONNAIRE_PUBLIE'
     | 'QUESTIONNAIRE_EXISTANT'
     | 'A_VERIFIER'
+    | 'BLOQUE'
     | 'IGNORE';
   detail: string;
 }
@@ -108,12 +107,23 @@ export async function releaseCatalog(
   const evaluationEditor = new EvaluationEditorService(prisma);
   const evaluationReview = new EvaluationReviewService(prisma, evaluationEditor);
   const lines: ReleaseLine[] = [];
+  // Contrôle préalable (`pedagogy:audit`) : aucune publication d'un module portant une anomalie
+  // bloquante. Les leçons vides ne bloquent pas : elles sont retirées avant la soumission (D129).
+  const audit = await auditCatalog(client);
+  const blockers = new Map(
+    audit.modules
+      .filter((entry) => entry.sourceKey)
+      .map((entry) => [
+        entry.sourceKey!,
+        entry.issues.filter((issue) => issue.blocking && issue.code !== 'LECON_VIDE'),
+      ]),
+  );
 
   // ─── Modules importés ───────────────────────────────────────────────────
   const modules = await prisma.pedagogicalModule.findMany({
     where: { sourceImport: { isNot: null } },
     include: {
-      sourceImport: { select: { sourceKey: true, editorialNotes: true } },
+      sourceImport: { select: { sourceKey: true } },
       versions: {
         orderBy: { version: 'desc' },
         include: { lessons: { orderBy: { position: 'asc' } } },
@@ -155,8 +165,17 @@ export async function releaseCatalog(
       lines.push({ key, outcome: 'IGNORE', detail: 'corrections demandées : à reprendre' });
       continue;
     }
+    const blocking = blockers.get(key) ?? [];
+    if (blocking.length > 0 && working.status === 'BROUILLON') {
+      lines.push({
+        key,
+        outcome: 'BLOQUE',
+        detail: `${blocking.length} anomalie(s) bloquante(s) : ${blocking[0]!.message} (voir pedagogy:audit)`,
+      });
+      continue;
+    }
     const pendingNotes = pendingEditorialNotes(
-      module.sourceImport!.editorialNotes as unknown as SourceEditorialNote[],
+      (await currentEditorialNotes(prisma, module.id)) ?? [],
     ).length;
     if (pendingNotes > 0 && working.status !== 'APPROUVE' && !options.acknowledgeNotes) {
       lines.push({
@@ -223,10 +242,15 @@ export async function releaseCatalog(
             id: true,
             publishedVersionId: true,
             evaluations: { select: { id: true }, take: 1 },
+            // Version publiée (ou, en prévisualisation, la plus récente) : titres des leçons citées.
             versions: {
-              select: { title: true, stageId: true },
+              select: {
+                id: true,
+                title: true,
+                stageId: true,
+                lessons: { select: { title: true }, orderBy: { position: 'asc' } },
+              },
               orderBy: { version: 'desc' },
-              take: 1,
             },
           },
         },
@@ -245,7 +269,9 @@ export async function releaseCatalog(
       });
       continue;
     }
-    const { title, stageId } = module.versions[0]!;
+    const { title, stageId, lessons } =
+      module.versions.find((version) => version.id === module.publishedVersionId) ??
+      module.versions[0]!;
     if (!stageId) {
       lines.push({ key, outcome: 'IGNORE', detail: 'module sans étape recommandée' });
       continue;
@@ -260,9 +286,10 @@ export async function releaseCatalog(
       const evaluationId = created.id;
       const versionId = created.current.id;
       let detail = created;
-      for (const question of quiz.questions) {
+      const lessonTitles = lessons.map((lesson) => lesson.title);
+      for (const item of quiz.questions) {
         detail = await evaluationEditor.addQuestion(actor, evaluationId, {
-          ...question,
+          ...quizQuestionInput(item, lessonTitles),
           versionId,
         });
       }
@@ -277,7 +304,11 @@ export async function releaseCatalog(
     lines.push({
       key,
       outcome: 'QUESTIONNAIRE_PUBLIE',
-      detail: `${quiz.questions.length} question(s), correction automatique`,
+      detail: `${quiz.questions.length} question(s), correction automatique${
+        quiz.questions.some((item) => item.question.type === 'REPONSE_COURTE')
+          ? ' (réponse courte non reconnue : correction humaine)'
+          : ''
+      }`,
     });
   }
   return lines;
@@ -290,6 +321,7 @@ const LABELS: Record<ReleaseLine['outcome'], [string, string]> = {
   QUESTIONNAIRE_PUBLIE: ['questionnaire publié', 'questionnaire serait publié'],
   QUESTIONNAIRE_EXISTANT: ['questionnaire déjà présent', 'questionnaire déjà présent'],
   A_VERIFIER: ['non publié, points à vérifier', 'non publié, points à vérifier'],
+  BLOQUE: ['non publié, anomalie bloquante', 'non publié, anomalie bloquante'],
   IGNORE: ['ignoré', 'serait ignoré'],
 };
 

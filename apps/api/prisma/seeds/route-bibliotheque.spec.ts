@@ -1,4 +1,5 @@
 import { isLessonDocumentEmpty, lessonDocumentSchema, PROGRESSION_STAGES } from '@tesla/shared';
+import { auditLesson } from './pedagogy-audit.js';
 import {
   FUNDAMENTAL_TEXTS,
   PRIERE_ROUTE_KEY,
@@ -42,7 +43,7 @@ describe('Seed « Bibliothèque de la Route »', () => {
   });
 
   it('respecte le découpage demandé et les étapes recommandées', () => {
-    expect(ROUTE_MODULES.map((m) => m.lessons.length)).toEqual([6, 8, 6, 6, 7, 7, 8, 10, 6, 6]);
+    expect(ROUTE_MODULES.map((m) => m.lessons.length)).toEqual([6, 8, 6, 7, 7, 7, 8, 10, 6, 6]);
     expect(ROUTE_MODULES.map((m) => m.stageCode)).toEqual([
       'NOVICIAT',
       'NOVICIAT',
@@ -77,9 +78,11 @@ describe('Seed « Bibliothèque de la Route »', () => {
       for (const lesson of module.lessons) expect(textOf(lesson.content)).toMatch(/Source : /);
       // La dernière leçon porte la conclusion du module.
       expect(textOf(module.lessons.at(-1)!.content)).toContain('Pour conclure');
-      // Étape recommandée signalée comme proposition ; évaluation à préparer.
+      // Étape recommandée signalée comme proposition ; questionnaire préparé.
       expect(module.notes.some((n) => n.note.includes('ni obligatoire'))).toBe(true);
-      expect(module.notes.some((n) => n.note.startsWith('Évaluation à préparer'))).toBe(true);
+      expect(
+        module.notes.some((n) => n.note.startsWith('Questionnaire d’entraînement préparé')),
+      ).toBe(true);
     }
   });
 
@@ -111,6 +114,30 @@ describe('Seed « Bibliothèque de la Route »', () => {
     const m10 = ROUTE_MODULES.find((m) => m.key === 'NT-ROUTE-M10')!;
     for (const lesson of m10.lessons) {
       expect(textOf(lesson.content)).toContain('Exemples de projets (proposition éditoriale)');
+    }
+  });
+
+  it('passe le vérificateur pédagogique : aucune leçon vide, provisoire, mince ou sans référence', () => {
+    for (const module of [...SCOUTISME_BASE_MODULES, ...ROUTE_MODULES]) {
+      for (const lesson of module.lessons) {
+        const issues = auditLesson(lesson.title, lesson.content, {
+          requireReference: true,
+          fundamental: false,
+        });
+        expect(issues, `${module.key} — ${lesson.title}`).toEqual([]);
+      }
+    }
+  });
+
+  it('traite les quatre cérémonies du manuel (accueil, engagement, flots, départ)', () => {
+    const titles = ROUTE_MODULES.flatMap((m) => m.lessons.map((l) => l.title));
+    for (const title of [
+      'La cérémonie d’accueil',
+      'La cérémonie d’engagement',
+      'La remise des flots',
+      'La cérémonie de départ',
+    ]) {
+      expect(titles).toContain(title);
     }
   });
 
