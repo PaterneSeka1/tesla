@@ -7,6 +7,7 @@ import {
   type LessonListItem,
 } from '@tesla/shared';
 import { Fragment } from 'react';
+import { type CalloutVariant, structureLesson } from './lesson-structure';
 
 /**
  * Rendu d'un contenu de leçon (document structuré validé par l'API) en éléments React.
@@ -23,12 +24,40 @@ export function LessonContent({
   if (document.content.length === 0) {
     return <p className="text-muted-foreground italic">Leçon sans contenu.</p>;
   }
+  const { segments, references } = structureLesson(document.content);
   return (
     <div className="lesson-content space-y-4 leading-relaxed">
-      {renderBlocks(document.content, offlineImages)}
+      {segments.map((segment, index) =>
+        segment.kind === 'block' ? (
+          <Block key={index} block={segment.block} offlineImages={offlineImages} />
+        ) : (
+          <aside
+            key={index}
+            aria-label={segment.title}
+            className={`space-y-2 rounded-md border-l-4 px-4 py-3 ${CALLOUT_STYLES[segment.variant]}`}
+          >
+            <p className="text-sm font-semibold tracking-wide text-tesla-bordeaux uppercase">
+              {segment.title}
+            </p>
+            {renderBlocks(segment.blocks, offlineImages)}
+          </aside>
+        ),
+      )}
+      {references.length > 0 && (
+        <footer className="space-y-1 border-t pt-3 text-sm text-muted-foreground">
+          {renderBlocks(references, offlineImages)}
+        </footer>
+      )}
     </div>
   );
 }
+
+const CALLOUT_STYLES: Record<CalloutVariant, string> = {
+  objectifs: 'border-tesla-bordeaux/60 bg-muted/40',
+  retenir: 'border-tesla-or bg-tesla-sable/40',
+  reflexion: 'border-tesla-rouge/60 bg-tesla-sable/20',
+  pratique: 'border-muted-foreground/40 bg-muted/30',
+};
 
 function renderBlocks(blocks: LessonBlock[], offlineImages?: Record<string, string>) {
   return blocks.map((block, index) => (
