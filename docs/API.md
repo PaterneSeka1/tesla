@@ -111,6 +111,7 @@ Seule la version publiée courante est exposée ; un module sans version publié
 | `GET /modules/:slug` | → `catalogModuleDetailSchema` (objectifs, prérequis, leçons, ressources du module, `texts` : textes fondamentaux cités **publiés**) |
 | `GET /modules/:slug/lessons/:lessonId` | → `catalogLessonSchema` (contenu, ressources, leçons précédente et suivante) |
 | `GET /modules/:slug/pdf` | → `application/pdf` en pièce jointe (`<code>-<slug>.pdf`) : support de cours A4 aux couleurs de la communauté |
+| `GET /modules/:slug/sheets/:key/pdf` | → `application/pdf` (`fiche-<key>.pdf`) : fiche pratique vierge rattachée au module publié (`practicalSheets` du détail) ; 404 si le module n'est pas publié ou si la fiche ne lui est pas rattachée (D159) |
 | `GET /modules/:slug/print` | → `printableModuleSchema` (tout le contenu publié, pour l'impression A4) |
 
 ### Espace éditorial (chefs, responsable)

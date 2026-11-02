@@ -9,6 +9,10 @@ Import, en brouillon, de modules pédagogiques issus de documents fournis par la
 | `BASE DU SCOUTISME.pdf` (6 pages, SHA-256 `cc40c92e…29b8d9`) | Source principale des textes | `docs/sources/` |
 | `Nikola_Tesla_Modules_Scoutisme.md` | Proposition de découpage, d'étapes et d'objectifs | `docs/sources/` |
 | `SAPF-Route (2).pdf` (11 pages, SHA-256 `d9b0b69d…8244f6`) | Manuel de la branche Route : source des modules `NT-ROUTE-M03` à `M12` | `docs/sources/` (versé le 2026-10-30) |
+| `Entreprise_Route_Nikola_Tesla_Edition_Officielle.pdf` (9 pages, SHA-256 `46c8bdbc…bebff2`) | Guide de l'Entreprise de la communauté (2026–2027) : `NT-ROUTE-M09`, dix domaines de `M10`, fiches pratiques | `docs/sources/` (versé le 2026-11-02) |
+| `METHODOLOGIE ENTREPRISE.pdf` (10 pages, SHA-256 `c583b2dc…e4c0a0`) | Fiche technique n° 7, ancien support : définition, étapes, plan du dossier ; listes de domaines **historiques** | `docs/sources/` (versé le 2026-11-02) |
+| `Ossature de rédaction de l'Entreprise route.docx` (SHA-256 `87089421…f67`) | Plan commenté du dossier (identique à la fiche n° 7, p. 3 à 6) | `docs/sources/` (versé le 2026-11-02) |
+| `TDR CAFDR requins des sables_103939.pdf` (7 pages, SHA-256 `569ab14b…5771`) | Exemple externe de structuration (communauté Martin Luther King) | Hors Git (coordonnées personnelles), D160 |
 | `docs/PROGRAMME_ANNUEL_2026-2027.md` | Programme de l'année | **absent du dépôt** — non utilisé |
 
 Aucun contenu n'a été inventé pour remplacer les documents absents. Le texte du PDF a été extrait mécaniquement puis repris tel quel (coquilles comprises) ; un contrôle automatique a vérifié que chaque texte de leçon figure dans le PDF, à l'exception des ajouts éditoriaux signalés ci-dessous. Les deux sources sont versionnées dans `docs/sources/` à la demande du responsable.

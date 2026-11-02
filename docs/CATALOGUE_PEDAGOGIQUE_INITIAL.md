@@ -29,8 +29,8 @@ Importés en `BROUILLON` (version 1, auteur « Import système »), catégorie �
 | 06 | Engagement routier et cérémonies | `NT-ROUTE-M06` | Apprentissage | 7 | Nouveau (leçon « Cérémonie d’accueil » ajoutée le 2026-11-02) |
 | 07 | Mini-Camp et vie communautaire | `NT-ROUTE-M07` | Apprentissage | 7 | Nouveau |
 | 08 | Le Raid routier | `NT-ROUTE-M08` | Compagnonnage | 7 | Nouveau |
-| 09 | L'Entreprise routière | `NT-ROUTE-M09` | Compagnonnage | 8 | Nouveau |
-| 10 | Domaines d'action de l'Entreprise | `NT-ROUTE-M10` | Compagnonnage | 10 | Nouveau |
+| 09 | L'Entreprise routière | `NT-ROUTE-M09` | Compagnonnage | 13 (révision du 2026-11-02, D158–D160) | Nouveau |
+| 10 | Domaines d'action de l'Entreprise | `NT-ROUTE-M10` | Compagnonnage | 10 (un par domaine, D158) | Nouveau |
 | 11 | Service et engagement personnel | `NT-ROUTE-M11` | Départ routier | 6 | Nouveau |
 | 12 | Préparation au Départ routier | `NT-ROUTE-M12` | Départ routier | 6 | Nouveau |
 | — | Prière de la Route (texte fondamental) | `NT-TXT-PRIERE-ROUTE` | — | 1 | Nouveau |

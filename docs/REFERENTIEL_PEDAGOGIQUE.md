@@ -108,6 +108,15 @@ Observations (non validées) :
 - Les totaux (26, 18, 9 mois) tiennent dans le temps restant avant 21 ans pour une **entrée** à 18, 19 ou 20 ans. **Hypothèse** : les colonnes désignent l'âge d'entrée dans la branche, les durées étant raccourcies pour un jeune arrivé tard.
 - Si l'hypothèse est confirmée, le modèle actuel (étape théorique par **tranches d'âge**) ne suffit pas : il faudrait un calendrier par **âge d'entrée** (durées successives à partir de l'accueil). C'est une évolution du moteur à décider, pas un paramétrage.
 
+Écarts précis entre le texte (p. 3–4) et le tableau (p. 4–5), relevés le 2026-11-02 (aucun n'est codé) :
+- **Noviciat** : 1 mois partout — concordant.
+- **Apprentissage** : texte 6 mois ; tableau 6 (18 ans), 6 (19 ans), **2** (20 ans).
+- **Compagnonnage** : texte 10 mois (2 Raid + 8 Entreprise) ; tableau 10, **7** (Entreprise 5), **4** (Raid 1, Entreprise 3).
+- **Départ routier** : texte « une année scoute » ; tableau **9** (Service 6 + Envoi 3), **4**, **2** mois.
+- La fiche technique n° 7 (ancien support) situe l'Entreprise en « deuxième année » : repère historique (D160).
+
+Le moteur distingue déjà, sans changement : étape théorique selon l'âge (`2026.1`), étape officielle (décision humaine), modules étudiés, rattrapages (D98, P1) et décisions des responsables ; aucun score de questionnaire ne change une étape.
+
 Questions au responsable :
 1. Les colonnes 18/19/20 ans désignent-elles l'âge d'entrée, l'âge au début de l'activité, ou autre chose ?
 2. Un routier entré à 19 ans et 6 mois suit-il la colonne 19 ou 20 ?

@@ -4,6 +4,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — Entreprise routière et domaines d'action, 2026-11-02
+- `NT-ROUTE-M09` « L'Entreprise routière » réécrit en guide complet (13 leçons) d'après le Guide de l'Entreprise Nikola Tesla, la fiche technique n° 7, l'ossature de rédaction et le manuel SAPF-Route : comprendre, choisir (grille sur 30, procès-verbal), préparer, rédiger les 15 parties du dossier, budget et financement, réaliser, évaluer et transmettre, étude de cas externe (TDR du CAFDR), boîte à outils.
+- `NT-ROUTE-M10` : exactement dix leçons, une par domaine (définition, objectif éducatif, intérêt pour la société, exemples signalés, compétences, domaines proches, précautions, réflexion).
+- Neuf fiches pratiques imprimables (PDF A4) sur la page du module de l'Entreprise.
+- Questionnaires M09 et M10 refaits (12 questions chacun, mises en situation) : 143 questions préparées.
+- `pedagogy:audit` contrôle les dix domaines ; encadrés « Exemple » et « Précautions particulières » à la lecture.
+
 ### Ajouté — finalisation du catalogue pédagogique, 2026-11-02
 - Les 8 leçons vides du catalogue sont rédigées (« Loi, principes et vertus », « La méthode scoute », « Initiation au Morse ») ; nouvelle leçon « La cérémonie d'accueil » ; leçons trop minces étoffées d'après le manuel SAPF-Route.
 - Questionnaires d'entraînement enrichis : 139 questions (8 à 11 par module) avec leçon de référence, niveau et explication dans le corrigé.

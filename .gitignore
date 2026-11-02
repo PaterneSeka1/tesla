@@ -29,3 +29,6 @@ npm-debug.log*
 Thumbs.db
 *.pem
 .idea/
+
+# Source externe contenant des coordonnées personnelles (D160) : jamais versionnée.
+docs/sources/TDR CAFDR*
