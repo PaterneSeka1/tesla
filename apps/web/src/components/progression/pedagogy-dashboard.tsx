@@ -9,6 +9,7 @@ import {
 } from '@tesla/shared';
 import {
   BookOpen,
+  BookOpenText,
   CalendarCheck,
   CalendarDays,
   ChevronRight,
@@ -32,6 +33,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { EmptyState } from '@/components/empty-state';
+import { lastReading, type LastReading } from '@/components/offline/use-offline-images';
 import { QueryError } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -538,6 +540,33 @@ function OfflineSummary() {
   );
 }
 
+/** Dernière leçon ouverte sur cet appareil (coffre local) : rien n'est affiché s'il n'y en a pas. */
+function ResumeReading() {
+  const [last, setLast] = useState<LastReading | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void lastReading().then((value) => !cancelled && setLast(value));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  if (!last) return null;
+  return (
+    <Link
+      href={`/modules/${last.slug}/lecons/${last.lessonId}`}
+      className="flex min-h-14 items-center gap-3 rounded-xl border bg-card p-4 transition-transform hover:bg-muted active:scale-[0.99] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+    >
+      <BookOpenText className="size-6 shrink-0 text-tesla-rouge" aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs text-muted-foreground">Reprendre la lecture</span>
+        <span className="block truncate font-medium">{last.moduleTitle}</span>
+        <span className="block truncate text-sm text-muted-foreground">{last.lessonTitle}</span>
+      </span>
+      <ChevronRight className="size-5 text-muted-foreground" aria-hidden />
+    </Link>
+  );
+}
+
 export function RoutierPedagogyDashboard() {
   const query = useQuery(myDashboardQueryOptions);
   if (query.isPending) return <DashboardSkeleton />;
@@ -562,6 +591,8 @@ export function RoutierPedagogyDashboard() {
           {d.team?.name ?? 'Sans équipe'}
         </p>
       </div>
+
+      <ResumeReading />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi label="Modules étudiés" value={d.studiedModules} href="/progression" icon={BookOpen} />

@@ -39,13 +39,39 @@ export function useOfflineImages(slug: string): Record<string, string> | undefin
 }
 
 /** Position de lecture conservée sur l'appareil (jamais un acquis, jamais envoyée au serveur). */
-export function useReadingPosition(slug: string, lessonId: string | undefined) {
+export interface LastReading {
+  slug: string;
+  moduleTitle: string;
+  lessonId: string;
+  lessonTitle: string;
+  readAt: string;
+}
+
+/**
+ * Position de lecture par module et dernière leçon ouverte (coffre chiffré de cet appareil, propre
+ * à la personne connectée) : sert à « Reprendre la lecture » sur l'accueil.
+ */
+export function useReadingPosition(
+  slug: string,
+  lessonId: string | undefined,
+  titles?: { module: string; lesson: string },
+) {
+  const moduleTitle = titles?.module;
+  const lessonTitle = titles?.lesson;
   useEffect(() => {
     if (!lessonId || !ownerId()) return;
-    void putRecord(`reading:${slug}`, { lessonId, readAt: new Date().toISOString() }).catch(
-      () => {},
-    );
-  }, [slug, lessonId]);
+    const readAt = new Date().toISOString();
+    void putRecord(`reading:${slug}`, { lessonId, readAt }).catch(() => {});
+    if (moduleTitle && lessonTitle) {
+      const last: LastReading = { slug, moduleTitle, lessonId, lessonTitle, readAt };
+      void putRecord('reading:last', last).catch(() => {});
+    }
+  }, [slug, lessonId, moduleTitle, lessonTitle]);
+}
+
+export async function lastReading(): Promise<LastReading | null> {
+  if (!ownerId()) return null;
+  return (await readRecord<LastReading>('reading:last').catch(() => null))?.value ?? null;
 }
 
 export async function readingPosition(slug: string) {

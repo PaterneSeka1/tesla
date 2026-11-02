@@ -18,7 +18,11 @@ export function LessonReader() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
   const { data, error, isPending, refetch } = useQuery(catalogLessonQueryOptions(slug, id));
   const offlineImages = useOfflineImages(slug);
-  useReadingPosition(slug, data?.lesson.id);
+  useReadingPosition(
+    slug,
+    data?.lesson.id,
+    data && { module: data.module.title, lesson: data.lesson.title },
+  );
 
   if (isPending) return <TableSkeleton rows={6} />;
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
