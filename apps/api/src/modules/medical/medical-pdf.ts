@@ -1,5 +1,10 @@
 import { existsSync } from 'node:fs';
-import { MEDICAL_FIELD_LABELS, type MedicalHolder, type MedicalRecordData } from '@tesla/shared';
+import {
+  MEDICAL_FIELD_LABELS,
+  MEDICAL_RECORD_SECTIONS,
+  type MedicalHolder,
+  type MedicalRecordData,
+} from '@tesla/shared';
 import PDFDocument from 'pdfkit';
 import {
   cleanPdfText as clean,
@@ -20,11 +25,13 @@ export interface PrintableMedicalRecord {
 }
 
 const NOT_PROVIDED = 'Non renseigné';
+const [PERSONAL, CONTACTS, ...DECLARED] = MEDICAL_RECORD_SECTIONS;
 
 /**
- * Fiche médicale imprimable (A4) aux couleurs de la communauté : en-tête au logo, titulaire,
- * contacts d'urgence, informations déclarées, date de mise à jour et mention de confidentialité.
- * Aucune zone de signature (non prévue par le formulaire, D137). Généré à la demande, jamais stocké.
+ * Fiche médicale imprimable (A4) aux couleurs de la communauté, dans l'ordre des quatre sections du
+ * formulaire (`MEDICAL_RECORD_SECTIONS`) : informations personnelles, contacts d'urgence (encadré),
+ * informations de santé, consignes complémentaires ; date de dernière modification en tête et en
+ * pied. Aucune zone de signature (D137). Généré à la demande, jamais stocké.
  */
 export function renderMedicalPdf(
   record: PrintableMedicalRecord,
@@ -48,37 +55,30 @@ export function renderMedicalPdf(
     doc.on('error', reject);
   });
 
-  header(doc);
   const { holder, data } = record;
-  section(doc, 'Titulaire');
-  field(doc, 'Nom et prénoms', `${holder.lastName.toUpperCase()} ${holder.firstName}`);
-  field(
-    doc,
-    'Date de naissance',
-    holder.birthDate ? formatPdfDate(new Date(`${holder.birthDate}T00:00:00Z`)) : NOT_PROVIDED,
-  );
-  if (holder.matricule) field(doc, 'Matricule', holder.matricule);
-  if (holder.team) field(doc, 'Équipe', holder.team);
-  field(doc, MEDICAL_FIELD_LABELS.phone, data.phone || NOT_PROVIDED);
+  header(doc, record.updatedAt);
 
-  section(doc, MEDICAL_FIELD_LABELS.emergencyContacts);
-  if (data.emergencyContacts.length === 0) paragraph(doc, NOT_PROVIDED);
-  data.emergencyContacts.forEach((contact, index) =>
-    field(doc, `Contact ${index + 1}`, `${contact.name} (${contact.relation}) — ${contact.phone}`),
-  );
+  section(doc, PERSONAL.title);
+  grid(doc, [
+    ['Nom et prénoms', `${holder.lastName.toUpperCase()} ${holder.firstName}`],
+    [
+      'Date de naissance',
+      holder.birthDate ? formatPdfDate(new Date(`${holder.birthDate}T00:00:00Z`)) : NOT_PROVIDED,
+    ],
+    ...(holder.matricule ? [['Matricule', holder.matricule] as const] : []),
+    ...(holder.team ? [['Équipe', holder.team] as const] : []),
+    [MEDICAL_FIELD_LABELS.phone, data.phone || NOT_PROVIDED],
+  ]);
 
-  section(doc, 'Informations de santé déclarées');
-  for (const key of [
-    'allergies',
-    'treatments',
-    'emergencyInstructions',
-    'precautions',
-    'healthContact',
-  ] as const) {
-    field(doc, MEDICAL_FIELD_LABELS[key], data[key] || NOT_PROVIDED);
+  section(doc, CONTACTS.title);
+  emergencyBox(doc, data);
+
+  for (const { title, fields } of DECLARED) {
+    section(doc, title);
+    for (const key of fields) field(doc, MEDICAL_FIELD_LABELS[key], data[key]);
   }
 
-  doc.moveDown(1);
+  doc.moveDown(1.2);
   doc
     .fillColor(COLORS.gris)
     .font('Helvetica-Oblique')
@@ -99,7 +99,7 @@ export function renderMedicalPdf(
 
 const width = (doc: Doc) => doc.page.width - 2 * MARGIN;
 
-function header(doc: Doc): void {
+function header(doc: Doc, updatedAt: Date): void {
   const top = MARGIN;
   let textX = MARGIN;
   if (existsSync(LOGO_PATH)) {
@@ -115,7 +115,8 @@ function header(doc: Doc): void {
     .fillColor(COLORS.gris)
     .font('Helvetica')
     .fontSize(9)
-    .text(clean(COMMUNITY_DETAILS), { width: textWidth });
+    .text(clean(COMMUNITY_DETAILS), { width: textWidth })
+    .text(clean(`Mise à jour le ${formatPdfDate(updatedAt)}`), { width: textWidth });
   doc.y = Math.max(doc.y, top + 60);
   doc
     .moveDown(0.6)
@@ -142,26 +143,95 @@ function section(doc: Doc, title: string): void {
   rule(doc, COLORS.or, 0.75);
 }
 
-function field(doc: Doc, label: string, value: string): void {
+const label = (doc: Doc, text: string, x: number, y: number, w: number) =>
   doc
-    .moveDown(0.35)
     .fillColor(COLORS.gris)
     .font('Helvetica-Bold')
     .fontSize(8.5)
-    .text(clean(label.toUpperCase()), MARGIN, doc.y, { width: width(doc), characterSpacing: 0.3 })
-    .fillColor(COLORS.texte)
-    .font('Helvetica')
+    .text(clean(text.toUpperCase()), x, y, { width: w, characterSpacing: 0.3 });
+
+/** Valeur déclarée ; « Non renseigné » en gris italique. */
+const value = (doc: Doc, text: string, options: { width: number; x?: number; y?: number }) => {
+  const missing = !text || text === NOT_PROVIDED;
+  return doc
+    .fillColor(missing ? COLORS.gris : COLORS.texte)
+    .font(missing ? 'Helvetica-Oblique' : 'Helvetica')
     .fontSize(11)
-    .text(clean(value), { width: width(doc) });
+    .text(clean(missing ? NOT_PROVIDED : text), options.x, options.y, { width: options.width });
+};
+
+/** Champs courts sur deux colonnes (identité). */
+function grid(doc: Doc, entries: readonly (readonly [string, string])[]): void {
+  const gap = 20;
+  const columnWidth = (width(doc) - gap) / 2;
+  for (let index = 0; index < entries.length; index += 2) {
+    const top = doc.y + 6;
+    let bottom = top;
+    entries.slice(index, index + 2).forEach(([name, text], column) => {
+      const x = MARGIN + column * (columnWidth + gap);
+      label(doc, name, x, top, columnWidth);
+      value(doc, text, { x, y: doc.y, width: columnWidth });
+      bottom = Math.max(bottom, doc.y);
+    });
+    doc.y = bottom;
+  }
+  doc.x = MARGIN;
 }
 
-function paragraph(doc: Doc, text: string): void {
-  doc
-    .moveDown(0.35)
-    .fillColor(COLORS.texte)
-    .font('Helvetica')
-    .fontSize(11)
-    .text(clean(text), MARGIN, doc.y, { width: width(doc) });
+function field(doc: Doc, name: string, text: string): void {
+  doc.moveDown(0.35);
+  label(doc, name, MARGIN, doc.y, width(doc));
+  value(doc, text, { x: MARGIN, y: doc.y, width: width(doc) });
+}
+
+/** Encadré des personnes à prévenir : numéros en gras, lisibles d'un coup d'œil. */
+function emergencyBox(doc: Doc, data: MedicalRecordData): void {
+  const padding = 10;
+  const inner = width(doc) - 2 * padding - 4;
+  const nameWidth = inner * 0.6;
+  doc.font('Helvetica-Bold').fontSize(11);
+  const rows = data.emergencyContacts.map((contact) => {
+    const who = clean(`${contact.name} (${contact.relation})`);
+    return {
+      who,
+      phone: clean(contact.phone),
+      height: doc.heightOfString(who, { width: nameWidth }) + 8,
+    };
+  });
+  doc.font('Helvetica').fontSize(11);
+  const healthHeight = doc.heightOfString(clean(data.healthContact || NOT_PROVIDED), {
+    width: inner,
+  });
+  const rowsHeight = rows.length ? rows.reduce((sum, row) => sum + row.height, 0) : 20;
+  const height = padding * 2 + rowsHeight + 16 + healthHeight;
+  if (doc.y + 8 + height > doc.page.height - MARGIN) doc.addPage();
+  const boxTop = doc.y + 8;
+  doc.rect(MARGIN, boxTop, width(doc), height).fill(COLORS.sable);
+  doc.rect(MARGIN, boxTop, 4, height).fill(COLORS.rouge);
+
+  const x = MARGIN + 4 + padding;
+  let y = boxTop + padding;
+  if (rows.length === 0) {
+    value(doc, NOT_PROVIDED, { x, y, width: inner });
+    y += 20;
+  }
+  for (const row of rows) {
+    doc
+      .fillColor(COLORS.texte)
+      .font('Helvetica-Bold')
+      .fontSize(11)
+      .text(row.who, x, y, { width: nameWidth });
+    doc
+      .fillColor(COLORS.bordeaux)
+      .font('Helvetica-Bold')
+      .fontSize(13)
+      .text(row.phone, x + nameWidth, y - 1, { width: inner - nameWidth, align: 'right' });
+    y += row.height;
+  }
+  label(doc, MEDICAL_FIELD_LABELS.healthContact, x, y + 2, inner);
+  value(doc, data.healthContact, { x, y: doc.y, width: inner });
+  doc.y = boxTop + height;
+  doc.x = MARGIN;
 }
 
 function rule(doc: Doc, color: string, lineWidth: number): void {

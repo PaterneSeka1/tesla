@@ -10,6 +10,8 @@ export const PDF_COLORS = {
   or: '#d9a45f',
   texte: '#222222',
   gris: '#666666',
+  /** Fond d'encadré (sable éclairci). */
+  sable: '#f8efe1',
 };
 
 export const PDF_MARGIN = 50;

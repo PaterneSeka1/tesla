@@ -17,6 +17,20 @@ Décisions D135–D137 (2026-10-30). Code : `apps/api/src/modules/medical/`, `pa
 
 Schéma strict (`medicalRecordDataSchema`) : un champ inconnu est refusé. Finalité affichée avant la saisie (`MEDICAL_RECORD_PURPOSE`).
 
+### Quatre sections (D170)
+Ordre commun au formulaire et au PDF (`MEDICAL_RECORD_SECTIONS`, `@tesla/shared`), aides à la saisie dans `MEDICAL_FIELD_HINTS` :
+
+| Section | Champs |
+| --- | --- |
+| 1. Informations personnelles | identité lue depuis le compte ; téléphone personnel |
+| 2. Contacts d'urgence | 2 contacts au plus ; personne ou professionnel de santé |
+| 3. Informations de santé | allergies (médicaments, aliments, matières…, réaction) ; traitements (nom, raison, posologie) |
+| 4. Consignes complémentaires | informations utiles en cas d'urgence (maladie à connaître des secours, conduite à tenir) ; précautions pour les activités (natation, effort, régime…) |
+
+Les champs des sections 3 et 4 restent repliés derrière « Ajouter » tant qu'ils sont vides (affichage seul : aucune réponse « oui / non » n'est enregistrée ; « Retirer » vide le champ).
+
+Rubriques de la fiche de liaison médicale de la région (« FICHE DE SANTÉ », mars 2024) **non reprises** : adresses (inutiles pour joindre en urgence), liste de maladies à cocher (couverte en texte libre par la section 4), questionnaire oui/non, vaccin antitétanique, sérum, paludisme, hospitalisations, signature du parent (exclue). Ajouter l'une d'elles est une décision du responsable (D137 : aucun champ nouveau sans validation) ; le contenu étant un JSON chiffré, un champ facultatif s'ajouterait sans migration.
+
 ## API
 | Méthode | Route | Effet |
 | --- | --- | --- |
@@ -35,7 +49,7 @@ Aucune route ne prend d'identifiant : pas d'URL prévisible vers la fiche d'autr
 - **Statistiques** : aucune agrégation des fiches.
 
 ## PDF
-A4, logo et nom de la communauté, branche Route, titre « Fiche médicale », mention de confidentialité, titulaire, contacts, informations déclarées (« Non renseigné » sinon), date de dernière mise à jour, pagination. Pas de zone de signature (non prévue par le formulaire). Ouverture dans un nouvel onglet pour l'aperçu et l'impression, ou téléchargement.
+A4, logo et nom de la communauté, branche Route, date de dernière mise à jour en tête et en pied, titre « Fiche médicale », mention de confidentialité, puis les quatre sections : identité sur deux colonnes, **encadré des contacts d'urgence** (numéros en gras), informations de santé et consignes (« Non renseigné » en gris sinon), pagination. Pas de zone de signature (non prévue par le formulaire). Ouverture dans un nouvel onglet pour l'aperçu et l'impression, ou téléchargement.
 
 ## Conservation, rectification, suppression
 - Rectification : à tout moment par le titulaire.
@@ -49,4 +63,4 @@ A4, logo et nom de la communauté, branche Route, titre « Fiche médicale », m
 - Pièces jointes (aucun stockage de fichiers, D51).
 
 ## Tests
-`apps/api/src/modules/medical/medical.spec.ts` (chiffrement, schéma, configuration, PDF) ; `apps/api/test/medical-records.int-spec.ts` (création et modifications illimitées pour routier, chef et plein ; administrateur refusé (403) ; identité ; isolement et routes par identifiant en 404 ; 401/403 ; conflits et concurrence ; chiffré en base et audit sans contenu ; PDF A4 `no-store` ; suppression ; 503 sans clé) ; `apps/web/src/lib/offline/offline-first.test.ts` (exclusion du cache).
+`apps/api/src/modules/medical/medical.spec.ts` (chiffrement, schéma, sections, configuration, PDF) ; `apps/api/test/medical-records.int-spec.ts` (création et modifications illimitées pour routier, chef et plein ; administrateur refusé (403) ; identité ; isolement et routes par identifiant en 404 ; 401/403 ; conflits et concurrence ; chiffré en base et audit sans contenu ; PDF A4 `no-store` ; suppression ; 503 sans clé) ; `apps/web/src/lib/offline/offline-first.test.ts` (exclusion du cache).

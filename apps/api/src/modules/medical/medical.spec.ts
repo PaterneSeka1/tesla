@@ -1,5 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { medicalRecordDataSchema, saveMedicalRecordInputSchema } from '@tesla/shared';
+import {
+  MEDICAL_RECORD_SECTIONS,
+  medicalRecordDataSchema,
+  saveMedicalRecordInputSchema,
+} from '@tesla/shared';
 import { validateEnv } from '../../config/env.js';
 import { pdfText } from '../../common/pdf-text.test-helper.js';
 import { openMedicalData, sealMedicalData } from './medical-crypto.js';
@@ -50,6 +54,18 @@ describe('formulaire de la fiche médicale', () => {
       precautions: '',
       healthContact: '',
     });
+  });
+
+  it('range chaque champ dans une seule des quatre sections', () => {
+    const fields = MEDICAL_RECORD_SECTIONS.flatMap((section) => [...section.fields]);
+    expect(fields.toSorted()).toEqual(Object.keys(medicalRecordDataSchema.shape).toSorted());
+    expect(new Set(fields).size).toBe(fields.length);
+    expect(MEDICAL_RECORD_SECTIONS.map((section) => section.title)).toEqual([
+      'Informations personnelles',
+      'Contacts d’urgence',
+      'Informations de santé',
+      'Consignes complémentaires',
+    ]);
   });
 
   it('refuse un champ inconnu, un téléphone invalide, plus de deux contacts', () => {

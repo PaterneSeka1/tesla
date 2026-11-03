@@ -79,6 +79,40 @@ export const MEDICAL_FIELD_LABELS = {
 } as const satisfies Record<keyof MedicalRecordData, string>;
 
 /**
+ * Aide à la saisie de chaque champ (exemples tirés de la fiche de liaison médicale de la région) :
+ * oriente sans ajouter de case à cocher ni de donnée supplémentaire.
+ */
+export const MEDICAL_FIELD_HINTS = {
+  phone: 'Numéro où vous joindre pendant une activité.',
+  emergencyContacts: 'Deux personnes au plus, joignables pendant les activités.',
+  allergies: 'À des médicaments, des aliments, des matières… et la réaction à surveiller.',
+  treatments: 'Pour chaque médicament : nom, raison et posologie.',
+  emergencyInstructions:
+    'Maladie à connaître des secours (asthme, diabète, épilepsie, affection cardiaque…) et conduite à tenir.',
+  precautions: 'Natation, effort prolongé, chaleur, régime alimentaire…',
+  healthContact: 'Médecin traitant ou autre personne, avec son numéro.',
+} as const satisfies Record<keyof MedicalRecordData, string>;
+
+/**
+ * Les quatre sections de la fiche, dans l'ordre du formulaire et du PDF. Les informations
+ * personnelles (nom, naissance, matricule, équipe) viennent du compte : seul le téléphone est saisi.
+ */
+export const MEDICAL_RECORD_SECTIONS = [
+  { key: 'personal', title: 'Informations personnelles', fields: ['phone'] },
+  { key: 'contacts', title: 'Contacts d’urgence', fields: ['emergencyContacts', 'healthContact'] },
+  { key: 'health', title: 'Informations de santé', fields: ['allergies', 'treatments'] },
+  {
+    key: 'instructions',
+    title: 'Consignes complémentaires',
+    fields: ['emergencyInstructions', 'precautions'],
+  },
+] as const satisfies readonly {
+  key: string;
+  title: string;
+  fields: readonly (keyof MedicalRecordData)[];
+}[];
+
+/**
  * Enregistrement : `expectedRevision` null pour une création, sinon la révision lue (conflit 409
  * `MEDICAL_RECORD_CHANGED` si la fiche a changé entre-temps, par exemple depuis un autre appareil).
  */
