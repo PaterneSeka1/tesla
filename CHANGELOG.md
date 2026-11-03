@@ -4,6 +4,26 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — fiche médicale, 2026-11-03
+- Formulaire en quatre sections numérotées (informations personnelles, contacts d'urgence, informations de santé, consignes complémentaires) avec aides à la saisie ; champs facultatifs repliés tant qu'ils sont vides ; suppression confirmée par dialogue ; alerte avant de quitter avec des modifications non enregistrées (D170).
+- PDF A4 réorganisé dans le même ordre : encadré des contacts d'urgence, identité sur deux colonnes, date de mise à jour en tête. Aucun champ ni chiffrement modifié.
+
+### Ajouté — refonte UI/UX, 2026-11-03
+- Statistiques en graphiques (Recharts 3.10.1, seule nouvelle dépendance, chargée par cette page uniquement) avec tableau des valeurs accessible (D169).
+- Programme annuel : synthèse, calendrier mensuel et chronologie des séances ; import Markdown replié en bas de page.
+- Composants partagés : `StatCard`, `ChartCard`, `ProgressBar`, `Stepper`, `Disclosure`, `SearchInput`, `ProgrammeCalendar` ; utilitaires `formatMonth`, `formatBytes`, `useDebouncedValue`, `lib/calendar.ts`.
+- Documentation : [UI_UX_AUDIT.md](docs/UI_UX_AUDIT.md), [UI_UX_DESIGN_SYSTEM.md](docs/UI_UX_DESIGN_SYSTEM.md), [UI_UX_IMPLEMENTATION_PLAN.md](docs/UI_UX_IMPLEMENTATION_PLAN.md), [UI_UX_TEST_REPORT.md](docs/UI_UX_TEST_REPORT.md).
+
+### Modifié — refonte UI/UX, 2026-11-03
+- Activités, présences, détail d'activité, progression, compétences et activités personnelles alignés sur le design system (états, dates, champs étiquetés, pagination).
+- Menu : intertitres « Organisation », « Référentiels » et « Décisions » ; « Référentiel de compétences » devient « Compétences ».
+- Files d'approbation des modules et des questionnaires : onglets accessibles au clavier.
+
+### Corrigé — refonte UI/UX, 2026-11-03
+- Confirmation avant le retrait d'une ressource ou d'un collaborateur d'un module.
+- Alerte du navigateur avant de quitter une évaluation avec une réponse non enregistrée.
+- Titre d'onglet des pages d'organisation (« Suivi et validation » auparavant).
+
 ### Ajouté — Node.js 22 isolé sur le VPS OVH, 2026-11-03
 - `TESLA_NODE_DIR` (défaut `/opt/node22/bin`, option `bootstrap.sh --node-dir`) : `npm ci`, Prisma, builds, services systemd et commandes ponctuelles sur le Node.js 22 de TESLA ; `/usr/bin/node` (Node.js 20 des autres applications) jamais utilisé ni modifié (D168).
 - `deploy/scripts/exec.sh` : commande ponctuelle (premier administrateur, `prisma migrate status`, seeds, audit) avec l'environnement de l'instance et le Node.js de TESLA.
