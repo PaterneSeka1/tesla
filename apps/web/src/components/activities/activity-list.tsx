@@ -1,64 +1,93 @@
 'use client';
 
-import { NativeSelect } from '@/components/ui/native-select';
-
-import { Textarea } from '@/components/ui/textarea';
-
-import { Input } from '@/components/ui/input';
-
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import Link from 'next/link';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
+  ACTIVITY_ORIGIN_LABELS,
   ACTIVITY_STATUSES,
   ACTIVITY_STATUS_LABELS,
+  type ActivityStatus,
   createActivityInputSchema,
 } from '@tesla/shared';
+import { CalendarCheck, CalendarDays, ChevronRight, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { type z } from 'zod';
+import { EmptyState } from '@/components/empty-state';
+import { FormField, fieldA11y } from '@/components/form-field';
 import { PageHeading } from '@/components/page-heading';
-import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/pagination';
 import { ActivityStatusBadge } from '@/components/progression/status-badges';
 import { usePedagogyAction } from '@/components/progression/use-pedagogy-action';
+import { QueryError, TableSkeleton } from '@/components/query-state';
+import { SearchInput } from '@/components/search-input';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
 import { activitiesQueryOptions, createActivity } from '@/lib/api/programmes';
+import { formatDate } from '@/lib/format';
+import { useDebouncedValue } from '@/lib/use-debounced-value';
 
+const PAGE_SIZE = 20;
+
+/** Activités (`presences` : seulement celles dont les présences restent à saisir). */
 export function ActivityList({ presences = false }: { presences?: boolean }) {
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState<ActivityStatus | ''>('');
   const [page, setPage] = useState(1);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const action = usePedagogyAction();
-  const query = useQuery(
-    activitiesQueryOptions({
-      search,
+  const debouncedSearch = useDebouncedValue(search.trim());
+  const filtered = Boolean(debouncedSearch || status);
+  const query = useQuery({
+    ...activitiesQueryOptions({
+      search: debouncedSearch,
       page,
-      pageSize: 20,
-      status: ACTIVITY_STATUSES.find((s) => s === status),
+      pageSize: PAGE_SIZE,
+      status: status || undefined,
       attendanceMissing: presences ? 'true' : undefined,
     }),
-  );
+    placeholderData: keepPreviousData,
+  });
+
   return (
     <>
-      <PageHeading title={presences ? 'Présences à renseigner' : 'Activités'} />
-      <div className="flex flex-wrap gap-3">
-        <label>
-          Rechercher
-          <Input
-            className="block rounded border p-2"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
-        </label>
-        <label>
-          Statut
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeading title={presences ? 'Présences à renseigner' : 'Activités'} />
+        {!presences && <CreateActivityDialog />}
+      </div>
+
+      <form
+        role="search"
+        className="grid gap-3 sm:grid-cols-[1fr_12rem]"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <SearchInput
+          id="activity-search"
+          placeholder="Titre ou thème"
+          value={search}
+          onChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+        />
+        <div className="space-y-1">
+          <Label htmlFor="activity-status">Statut</Label>
           <NativeSelect
-            aria-label="Statut"
-            className="block rounded border p-2"
+            id="activity-status"
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
+            onChange={(event) => {
+              setStatus(ACTIVITY_STATUSES.find((s) => s === event.target.value) ?? '');
               setPage(1);
             }}
           >
@@ -69,128 +98,160 @@ export function ActivityList({ presences = false }: { presences?: boolean }) {
               </option>
             ))}
           </NativeSelect>
-        </label>
+        </div>
+      </form>
+      <p className="text-sm">
         <Link
-          className="self-end underline"
+          className="text-tesla-rouge underline-offset-4 hover:underline"
           href={presences ? '/administration/activites' : '/administration/presences'}
         >
           {presences ? 'Toutes les activités' : 'Présences à renseigner'}
         </Link>
-      </div>
-      {query.isPending && <p role="status">Chargement…</p>}
-      {query.isError && (
-        <p role="alert">
-          Impossible de charger les activités.{' '}
-          <button onClick={() => void query.refetch()} className="underline">
-            Réessayer
-          </button>
-        </p>
-      )}
-      {query.data && (
+      </p>
+
+      {query.isPending ? (
+        <TableSkeleton />
+      ) : query.isError ? (
+        <QueryError error={query.error} onRetry={() => void query.refetch()} />
+      ) : query.data.items.length === 0 ? (
+        <EmptyState
+          icon={presences ? CalendarCheck : CalendarDays}
+          title={
+            presences && !filtered ? 'Toutes les présences sont renseignées' : 'Aucune activité'
+          }
+          description={filtered ? 'Modifiez la recherche ou les filtres.' : undefined}
+        />
+      ) : (
         <>
-          <ul className="space-y-3">
+          <ul className="divide-y rounded-xl border bg-card">
             {query.data.items.map((item) => (
-              <li key={item.id} className="rounded border p-4">
+              <li key={item.id}>
                 <Link
-                  className="font-semibold underline"
                   href={`/administration/activites/${item.id}`}
+                  className="flex min-h-16 items-center gap-3 px-4 py-3 hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
                 >
-                  {item.title}
+                  <span className="min-w-0 flex-1 space-y-0.5">
+                    <span className="block truncate font-medium">{item.title}</span>
+                    <span className="block text-sm text-muted-foreground">
+                      {formatDate(item.heldOn ?? item.plannedOn)} ·{' '}
+                      {item.leaderLabel || 'Responsable non renseigné'}
+                      <span className="hidden sm:inline">
+                        {' '}
+                        · {ACTIVITY_ORIGIN_LABELS[item.origin]}
+                      </span>
+                    </span>
+                  </span>
+                  <ActivityStatusBadge status={item.status} />
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                 </Link>
-                <p>
-                  {item.plannedOn} · {item.leaderLabel || 'Responsable non renseigné'}
-                </p>
-                <ActivityStatusBadge status={item.status} />
               </li>
             ))}
           </ul>
-          {query.data.items.length === 0 && <p>Aucune activité pour ces filtres.</p>}
-          <div className="flex gap-3">
-            <Button variant="outline" disabled={page === 1} onClick={() => setPage(page - 1)}>
-              Précédent
-            </Button>
-            <span>Page {page}</span>
-            <Button
-              variant="outline"
-              disabled={page * 20 >= query.data.total}
-              onClick={() => setPage(page + 1)}
-            >
-              Suivant
-            </Button>
-          </div>
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={query.data.total}
+            onPageChange={setPage}
+          />
         </>
       )}
-      {!presences && (
-        <details className="rounded border p-4">
-          <summary className="cursor-pointer font-semibold">
-            Créer une activité supplémentaire
-          </summary>
-          <form
-            className="mt-4 grid gap-3"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const form = event.currentTarget;
-              const data = new FormData(form);
-              const parsed = createActivityInputSchema.safeParse({
-                title: data.get('title'),
-                plannedOn: data.get('plannedOn'),
-                leaderLabel: data.get('leaderLabel'),
-                description: data.get('description'),
-              });
-              if (!parsed.success) {
-                setError(parsed.error.issues.map((i) => i.message).join(' '));
-                return;
-              }
-              setError('');
-              setBusy(true);
-              const ok = await action(
-                () =>
-                  createActivity({
-                    ...parsed.data,
-                    theme: parsed.data.theme ?? undefined,
-                    leaderLabel: parsed.data.leaderLabel ?? undefined,
-                    plannedLocation: parsed.data.plannedLocation ?? undefined,
-                  }),
-                { success: 'Activité créée', error: 'Création impossible' },
-              );
-              setBusy(false);
-              if (ok) form.reset();
-            }}
-          >
-            <label>
-              Titre
-              <Input
-                name="title"
-                required
-                maxLength={200}
-                className="block w-full rounded border p-2"
-              />
-            </label>
-            <label>
-              Date prévue
-              <Input name="plannedOn" type="date" required className="block rounded border p-2" />
-            </label>
-            <label>
-              Responsable
-              <Input
-                name="leaderLabel"
-                maxLength={150}
-                className="block w-full rounded border p-2"
-              />
-            </label>
-            <label>
-              Description
-              <Textarea
-                name="description"
-                maxLength={5000}
-                className="block w-full rounded border p-2"
-              />
-            </label>
-            {error && <p role="alert">{error}</p>}
-            <Button disabled={busy}>Créer l’activité</Button>
-          </form>
-        </details>
-      )}
     </>
+  );
+}
+
+const createFormSchema = createActivityInputSchema;
+type CreateForm = z.input<typeof createFormSchema>;
+
+/** Création d'une activité supplémentaire (les séances du programme viennent de l'import). */
+function CreateActivityDialog() {
+  const [open, setOpen] = useState(false);
+  const action = usePedagogyAction();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateForm, unknown, z.output<typeof createFormSchema>>({
+    resolver: zodResolver(createFormSchema),
+    defaultValues: { title: '', plannedOn: '', leaderLabel: '', description: '' },
+  });
+
+  const submit = handleSubmit(async (data) => {
+    const ok = await action(
+      () =>
+        createActivity({
+          ...data,
+          theme: data.theme ?? undefined,
+          leaderLabel: data.leaderLabel ?? undefined,
+          plannedLocation: data.plannedLocation ?? undefined,
+        }),
+      { success: 'Activité créée', error: 'Création impossible' },
+    );
+    if (ok) {
+      reset();
+      setOpen(false);
+    }
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus aria-hidden />
+          Activité supplémentaire
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nouvelle activité supplémentaire</DialogTitle>
+          <DialogDescription>Hors programme annuel.</DialogDescription>
+        </DialogHeader>
+        <form className="space-y-4" onSubmit={submit} noValidate>
+          <FormField id="activity-title" label="Titre" error={errors.title?.message} required>
+            <Input
+              {...fieldA11y('activity-title', errors.title?.message)}
+              maxLength={200}
+              {...register('title')}
+            />
+          </FormField>
+          <FormField
+            id="activity-date"
+            label="Date prévue"
+            error={errors.plannedOn?.message}
+            required
+          >
+            <Input
+              {...fieldA11y('activity-date', errors.plannedOn?.message)}
+              type="date"
+              {...register('plannedOn')}
+            />
+          </FormField>
+          <FormField id="activity-leader" label="Responsable" error={errors.leaderLabel?.message}>
+            <Input
+              {...fieldA11y('activity-leader', errors.leaderLabel?.message)}
+              maxLength={150}
+              {...register('leaderLabel')}
+            />
+          </FormField>
+          <FormField
+            id="activity-description"
+            label="Description"
+            error={errors.description?.message}
+          >
+            <Textarea
+              {...fieldA11y('activity-description', errors.description?.message)}
+              maxLength={5000}
+              rows={4}
+              {...register('description')}
+            />
+          </FormField>
+          <DialogFooter>
+            <Button type="submit" disabled={isSubmitting}>
+              Créer l’activité
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
