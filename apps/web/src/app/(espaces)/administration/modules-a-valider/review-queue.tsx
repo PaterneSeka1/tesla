@@ -9,6 +9,7 @@ import { useSessionUser } from '@/components/auth/session-gate';
 import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/empty-state';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
+import { Tabs } from '@/components/progression/tabs';
 import { PageHeading } from '@/components/page-heading';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
@@ -36,21 +37,12 @@ export function ReviewQueue() {
   return (
     <RequirePermission user={user} permission="module.review">
       <PageHeading title="Modules à approuver" />
-      <div role="tablist" aria-label="File de validation" className="flex gap-2">
-        {TABS.map(({ value, label }) => (
-          <Button
-            key={value}
-            role="tab"
-            aria-selected={tab === value}
-            variant={tab === value ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setTab(value)}
-          >
-            {label}
-          </Button>
-        ))}
-      </div>
-      <div role="tabpanel">
+      <Tabs
+        label="File de validation"
+        items={TABS.map(({ value, label }) => ({ key: value, label }))}
+        active={tab}
+        onChange={(key) => setTab(TABS.find((t) => t.value === key)?.value ?? tab)}
+      >
         {isPending ? (
           <TableSkeleton />
         ) : error ? (
@@ -109,7 +101,7 @@ export function ReviewQueue() {
             ))}
           </ul>
         )}
-      </div>
+      </Tabs>
     </RequirePermission>
   );
 }

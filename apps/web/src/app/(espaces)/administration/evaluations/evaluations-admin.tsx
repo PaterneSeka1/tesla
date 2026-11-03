@@ -8,6 +8,7 @@ import { useSessionUser } from '@/components/auth/session-gate';
 import { RequirePermission } from '@/components/auth/require-permission';
 import { EvaluationList } from '@/components/evaluations/evaluation-list';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
+import { Tabs } from '@/components/progression/tabs';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
 import { evaluationSubmissionsQueryOptions } from '@/lib/api/evaluations';
@@ -40,21 +41,12 @@ export function EvaluationsAdmin() {
         >
           Questionnaires à approuver
         </h2>
-        <div role="tablist" aria-label="File d’approbation" className="flex flex-wrap gap-2">
-          {TABS.map(({ value, label }) => (
-            <Button
-              key={value}
-              role="tab"
-              aria-selected={tab === value}
-              variant={tab === value ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTab(value)}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-        <div role="tabpanel">
+        <Tabs
+          label="File d’approbation"
+          items={TABS.map(({ value, label }) => ({ key: value, label }))}
+          active={tab}
+          onChange={(key) => setTab(TABS.find((t) => t.value === key)?.value ?? tab)}
+        >
           {isPending ? (
             <TableSkeleton rows={2} />
           ) : error ? (
@@ -97,7 +89,7 @@ export function EvaluationsAdmin() {
               ))}
             </ul>
           )}
-        </div>
+        </Tabs>
       </section>
       <EvaluationList review />
     </RequirePermission>
