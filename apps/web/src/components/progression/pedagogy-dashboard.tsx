@@ -38,6 +38,7 @@ import { QueryError } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatCard } from '@/components/stat-card';
 import {
   chefDashboardQueryOptions,
   myDashboardQueryOptions,
@@ -56,38 +57,6 @@ import {
 
 // Tous les indicateurs proviennent de l'API (docs/FEATURES/DASHBOARDS.md) : aucune valeur
 // d'exemple, aucun classement entre routiers.
-
-function Kpi({
-  label,
-  value,
-  href,
-  icon: Icon,
-  hint,
-}: {
-  label: string;
-  value: number | string;
-  href: string;
-  icon: LucideIcon;
-  hint?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-start gap-3 rounded-xl border bg-card p-4 shadow-xs transition-all hover:border-tesla-or active:scale-[0.98] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-    >
-      <span className="rounded-lg bg-tesla-sable/60 p-2 text-tesla-rouge">
-        <Icon className="size-5" aria-hidden />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm text-muted-foreground">{label}</span>
-        <span className="block text-2xl font-semibold tabular-nums text-tesla-bordeaux">
-          {value}
-        </span>
-        {hint && <span className="block text-xs text-muted-foreground">{hint}</span>}
-      </span>
-    </Link>
-  );
-}
 
 /** Ligne d'une file d'actions : mise en avant seulement lorsqu'il reste quelque chose à faire. */
 function ActionRow({
@@ -304,27 +273,27 @@ export function ResponsablePedagogyDashboard() {
 
       <SectionTitle>En chiffres</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi
+        <StatCard
           label="Routiers actifs"
           value={statistics.scouts.active}
           hint={`${statistics.scouts.withoutAccount} sans compte · ${statistics.scouts.withoutTeam} sans équipe`}
           href="/administration/routiers"
           icon={Users}
         />
-        <Kpi
+        <StatCard
           label="Compétences validées"
           value={statistics.competencies.acquired}
           hint={`${statistics.competencies.activeInReferential} au référentiel`}
           href="/administration/validations"
           icon={Medal}
         />
-        <Kpi
+        <StatCard
           label="Modules étudiés"
           value={statistics.moduleStudies}
           href="/administration/statistiques"
           icon={BookOpen}
         />
-        <Kpi
+        <StatCard
           label="Taux de présence"
           value={formatRate(statistics.attendance.rate)}
           hint={`${statistics.activities.realised} activités réalisées`}
@@ -484,25 +453,25 @@ export function ChefPedagogyDashboard() {
 
       <SectionTitle>En chiffres</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi
+        <StatCard
           label="Routiers suivis"
           value={d.activeScouts}
           href="/administration/routiers"
           icon={Users}
         />
-        <Kpi
+        <StatCard
           label="Modules en préparation"
           value={d.modulesInProgress}
           href="/encadrement/modules"
           icon={FilePenLine}
         />
-        <Kpi
+        <StatCard
           label="Copies à corriger"
           value={d.correctionsToDo}
           href="/encadrement/corrections"
           icon={PenLine}
         />
-        <Kpi
+        <StatCard
           label="Présences à renseigner"
           value={d.attendanceToRecord.length}
           href="/administration/presences"
@@ -530,7 +499,7 @@ function OfflineSummary() {
     };
   }, []);
   return (
-    <Kpi
+    <StatCard
       label="Modules avec images"
       value={count ?? '—'}
       hint={count === null ? 'Déverrouillez « Cet appareil » pour les voir' : 'Sur cet appareil'}
@@ -595,14 +564,19 @@ export function RoutierPedagogyDashboard() {
       <ResumeReading />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Modules étudiés" value={d.studiedModules} href="/progression" icon={BookOpen} />
-        <Kpi
+        <StatCard
+          label="Modules étudiés"
+          value={d.studiedModules}
+          href="/progression"
+          icon={BookOpen}
+        />
+        <StatCard
           label="Compétences validées"
           value={d.acquiredCompetencies.length}
           href="/mes-competences"
           icon={Medal}
         />
-        <Kpi
+        <StatCard
           label="Résultats récents"
           value={d.recentResults.length}
           href="/mes-resultats"

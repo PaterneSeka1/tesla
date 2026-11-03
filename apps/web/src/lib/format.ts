@@ -4,10 +4,27 @@ const dateTimeFormatter = new Intl.DateTimeFormat('fr-FR', {
   timeStyle: 'short',
   timeZone: 'Africa/Abidjan',
 });
+const monthFormatters = {
+  short: new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+  long: new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+};
 
 /** Date calendaire (AAAA-MM-JJ) ou ISO, affichée en français : « 1 octobre 2026 ». */
 export function formatDate(value: string): string {
   return dateFormatter.format(new Date(value.length === 10 ? `${value}T00:00:00Z` : value));
+}
+
+/** Mois (AAAA-MM) en français : « oct. 2026 » ou « octobre 2026 ». */
+export function formatMonth(value: string, style: 'short' | 'long' = 'short'): string {
+  return monthFormatters[style].format(new Date(`${value.slice(0, 7)}-01T00:00:00Z`));
+}
+
+/** Taille de stockage lisible : « 1 Mo », « 10 Go » (base 1024, comme le navigateur). */
+export function formatBytes(bytes: number): string {
+  const mb = bytes / 1024 / 1024;
+  if (mb < 1024) return `${Math.max(1, Math.ceil(mb))} Mo`;
+  const gb = mb / 1024;
+  return `${gb < 10 ? gb.toFixed(1).replace('.', ',').replace(',0', '') : Math.floor(gb)} Go`;
 }
 
 /** Horodatage affiché à l'heure d'Abidjan (UTC+0). */

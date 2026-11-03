@@ -24,7 +24,8 @@ export function QueryError({ error, onRetry }: { error: Error; onRetry?: () => v
 
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-2" aria-busy="true" aria-label="Chargement">
+    <div className="space-y-2" role="status" aria-busy="true">
+      <span className="sr-only">Chargement…</span>
       {Array.from({ length: rows }, (_, index) => (
         <Skeleton key={index} className="h-11" />
       ))}

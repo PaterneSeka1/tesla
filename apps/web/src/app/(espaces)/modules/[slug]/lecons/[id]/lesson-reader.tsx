@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { BackLink } from '@/components/back-link';
+import { ProgressBar } from '@/components/progress-bar';
 import { LessonContent } from '@/components/modules/lesson-content';
 import { useOfflineImages, useReadingPosition } from '@/components/offline/use-offline-images';
 import { ResourceList } from '@/components/modules/resource-list';
@@ -28,7 +29,6 @@ export function LessonReader() {
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
 
   const { module, lesson, previous, next, lessonCount } = data;
-  const progress = Math.round(((lesson.position + 1) / lessonCount) * 100);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -37,16 +37,14 @@ export function LessonReader() {
         <p className="text-sm text-muted-foreground">
           Leçon {lesson.position + 1} sur {lessonCount}
         </p>
-        <div
-          className="h-1.5 overflow-hidden rounded-full bg-muted"
-          role="progressbar"
-          aria-label="Position dans le module"
-          aria-valuenow={lesson.position + 1}
-          aria-valuemin={1}
-          aria-valuemax={lessonCount}
-        >
-          <div className="h-full bg-tesla-or" style={{ width: `${progress}%` }} />
-        </div>
+        <ProgressBar
+          label="Position dans le module"
+          value={lesson.position + 1}
+          min={1}
+          max={lessonCount}
+          tone="or"
+          className="h-1.5"
+        />
       </div>
       <article className="space-y-6 rounded-lg border bg-white p-5 sm:p-8">
         <header className="space-y-1 border-b pb-4">

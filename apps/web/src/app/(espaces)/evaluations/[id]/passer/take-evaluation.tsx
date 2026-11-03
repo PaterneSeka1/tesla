@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, CircleCheck, Save, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
+import { ProgressBar } from '@/components/progress-bar';
 import { BackLink } from '@/components/back-link';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { QueryError, TableSkeleton } from '@/components/query-state';
@@ -198,19 +199,7 @@ export function TakeEvaluation({ variant = 'classique' }: { variant?: 'classique
             {answeredCount} répondue{answeredCount > 1 ? 's' : ''}
           </span>
         </div>
-        <div
-          className="h-2 overflow-hidden rounded-full bg-muted"
-          role="progressbar"
-          aria-label="Progression"
-          aria-valuemin={0}
-          aria-valuemax={questions.length}
-          aria-valuenow={answeredCount}
-        >
-          <div
-            className="h-full bg-tesla-rouge transition-all"
-            style={{ width: `${(answeredCount / questions.length) * 100}%` }}
-          />
-        </div>
+        <ProgressBar label="Progression" value={answeredCount} max={questions.length} />
       </div>
 
       {index === 0 && session.evaluation.instructions && (
