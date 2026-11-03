@@ -132,6 +132,8 @@ export interface NavItem {
   permission?: Permission;
   /** Entrée masquée si cette permission est détenue (page rangée dans une autre rubrique). */
   hiddenWith?: Permission;
+  /** Intertitre affiché avant l'entrée dans le menu, pour structurer une rubrique longue. */
+  section?: string;
 }
 
 export interface NavGroup {
@@ -172,46 +174,52 @@ export const NAVIGATION: readonly NavGroup[] = [
         permission: 'team.read',
       },
       {
-        href: '/administration/activites',
-        label: 'Activités',
-        icon: ClipboardList,
-        permission: 'activity.read',
-      },
-      {
-        href: '/administration/presences',
-        label: 'Présences',
-        icon: CalendarCheck,
-        permission: 'attendance.record',
-      },
-      {
         href: '/administration/validations',
         label: 'Acquis et propositions',
         icon: Medal,
         permission: 'competency.read',
       },
       {
-        href: '/administration/statistiques',
-        label: 'Statistiques',
-        icon: BarChart3,
-        permission: 'statistics.read',
-      },
-      {
         href: '/administration/programme-annuel',
         label: 'Programme annuel',
         icon: CalendarDays,
         permission: 'scout.read',
+        section: 'Organisation',
+      },
+      {
+        href: '/administration/activites',
+        label: 'Activités',
+        icon: ClipboardList,
+        permission: 'activity.read',
+        section: 'Organisation',
+      },
+      {
+        href: '/administration/presences',
+        label: 'Présences',
+        icon: CalendarCheck,
+        permission: 'attendance.record',
+        section: 'Organisation',
+      },
+      {
+        href: '/administration/statistiques',
+        label: 'Statistiques',
+        icon: BarChart3,
+        permission: 'statistics.read',
+        section: 'Organisation',
       },
       {
         href: '/administration/competences',
-        label: 'Référentiel de compétences',
+        label: 'Compétences',
         icon: GraduationCap,
         permission: 'competency.read',
+        section: 'Référentiels',
       },
       {
         href: '/administration/referentiel-age',
         label: 'Référentiel d’âge',
         icon: Route,
         permission: 'ageRules.read',
+        section: 'Référentiels',
       },
     ],
   },
@@ -237,18 +245,21 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Cours à approuver',
         icon: FileCheck2,
         permission: 'module.review',
+        section: 'Décisions',
       },
       {
         href: '/administration/modules',
         label: 'Tous les cours',
         icon: BookOpen,
         permission: 'module.review',
+        section: 'Décisions',
       },
       {
         href: '/administration/historique-publications',
         label: 'Publications',
         icon: History,
         permission: 'module.review',
+        section: 'Décisions',
       },
     ],
   },
@@ -285,18 +296,21 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Résultats à examiner',
         icon: ShieldCheck,
         permission: 'attempt.decide',
+        section: 'Décisions',
       },
       {
         href: '/administration/evaluations',
         label: 'Questionnaires à approuver',
         icon: FileCheck2,
         permission: 'evaluation.review',
+        section: 'Décisions',
       },
       {
         href: '/administration/deblocages',
         label: 'Déblocages',
         icon: Unlock,
         permission: 'waiver.manage',
+        section: 'Décisions',
       },
     ],
   },

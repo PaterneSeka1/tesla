@@ -124,8 +124,17 @@ export function AppNav({
               />
               {open && group.items.length > 1 && (
                 <ul className="mt-1 ml-4 animate-rise space-y-0.5 border-l border-white/15 pl-2">
-                  {group.items.slice(1).map((item) => (
+                  {group.items.slice(1).map((item, itemIndex, items) => (
                     <li key={item.href}>
+                      {/* Intertitre au premier élément d'une section (rubriques longues). */}
+                      {item.section && item.section !== items[itemIndex - 1]?.section && (
+                        <p
+                          className="px-3 pt-3 pb-1 text-[0.6875rem] font-semibold tracking-wide text-tesla-sable/70 uppercase"
+                          aria-hidden
+                        >
+                          {item.section}
+                        </p>
+                      )}
                       <NavLink
                         item={item}
                         active={item.href === activeHref}
