@@ -13,7 +13,7 @@ packages/shared ◄── importé par web et api (schémas Zod, constantes)
 packages/config ◄── tsconfig de base, configuration ESLint
 ```
 
-Le navigateur appelle directement l'API (CORS restreint aux origines déclarées). En production, Nginx servira les deux applications sous le même domaine (cible : VPS OVHcloud Ubuntu 24.04, 2 vCore, 4 Go RAM, partagé avec SCOUT-NDPST).
+En production (D167), le web est servi par Vercel et appelle l'API **en même origine** (`/api/v1`, relayé par `src/proxy.ts`) ; l'API, PostgreSQL et les sauvegardes sont sur le VPS OVHcloud Ubuntu 24.04 (2 vCore, 4 Go RAM, partagé avec d'autres applications), derrière Nginx, sous `/var/www/tesla`. Voir [DEPLOYMENT_VERCEL_OVH.md](DEPLOYMENT_VERCEL_OVH.md). En développement, le navigateur appelle directement l'API (CORS restreint aux origines déclarées).
 
 ## Paquets
 

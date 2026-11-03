@@ -18,7 +18,7 @@ Constat principal : **aucun fichier n'était téléversé ni écrit durablement 
 | Paquets hors ligne, réponses, position de lecture | IndexedDB chiffré (appareil) | AES-GCM | ≤ 30 Mo par module | personnelle | **Non** | oui | non (appareil) | aucune |
 | Coquille PWA | cache du service worker | pré-cache | Ko | publique | Non | oui | non | aucune |
 | Sauvegardes PostgreSQL | `/var/backups/tesla/<instance>` (14 jours) + distant rclone (non choisi) | dump GnuPG | Mo, 2 par jour | **sensible** (chiffré) | **Oui** (compartiment dédié) | — | — | rétention locale réduite, alertes, contrôle par relecture |
-| Journaux | journald (≤ 1 Go), Nginx (logrotate) | disque VPS | Mo / jour | interne | Non | — | non | aucune |
+| Journaux | journald (≤ 1 Go), Nginx (`/etc/logrotate.d/nginx` d'Ubuntu) | disque VPS | Mo / jour | interne | Non | — | non | aucune |
 | Fichiers temporaires | `mktemp` des scripts de sauvegarde | supprimés en fin d'exécution | taille d'un dump | sensible | Non | — | — | contrôle d'espace libre avant dump |
 
 ### Écarts relevés et corrigés
@@ -104,14 +104,14 @@ Le jeton applicatif ne peut pas atteindre les sauvegardes ; le jeton de sauvegar
 ```json
 [
   {
-    "AllowedOrigins": ["https://<domaine>"],
+    "AllowedOrigins": ["https://<projet>.vercel.app"],
     "AllowedMethods": ["PUT"],
     "AllowedHeaders": ["content-type", "if-none-match"],
     "MaxAgeSeconds": 3600
   }
 ]
 ```
-Préproduction : son propre domaine, sur son propre compartiment. Développement : `http://localhost:3000`. Aucune règle `GET` n'est nécessaire (navigation et `<img>` ne sont pas soumis à CORS).
+Origine exacte du web : l'adresse Vercel (D167), ou le domaine du site en mode historique. Préproduction : sa propre origine, sur son propre compartiment. Développement : `http://localhost:3000`. Aucune règle `GET` n'est nécessaire (navigation et `<img>` ne sont pas soumis à CORS).
 
 ### 6.4 Compartiment des sauvegardes
 - **Bucket lock** (R2 → `tesla-backups` → *Settings* → *Bucket lock rules*) : préfixe `production/`, rétention **30 jours** (proposition) ; une compromission du VPS ne peut pas effacer les sauvegardes récentes.

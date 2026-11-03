@@ -4,6 +4,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — déploiement Vercel + OVH, 2026-11-03
+- Web sur Vercel avec relais même origine `/api/v1` (`apps/web/src/lib/api-proxy.ts`, `apps/web/vercel.json`) ; API seule sur le VPS (`WEB_HOSTING=vercel`, D167).
+- Vhost `deploy/nginx/tesla-api.conf` (adresse client authentifiée par secret partagé, 503 JSON) ; `deploy/scripts/common.sh` ; test `deploy-scripts.test.sh` ; guide [DEPLOYMENT_VERCEL_OVH.md](docs/DEPLOYMENT_VERCEL_OVH.md).
+
+### Modifié
+- Racine de déploiement `/var/www/tesla` (au lieu de `/opt/tesla`), ACME et maintenance compris ; services isolés des autres dossiers de `/var/www`.
+- `bootstrap.sh` adapté à un VPS partagé : ports vérifiés, Node.js et PostgreSQL existants conservés, site Nginx par défaut jamais supprimé, UFW et journald seulement sur option, `nginx -t` en échec sans effet.
+- `deploy.sh` / `rollback.sh` : verrou, garde-fous de suppression, mode API seule.
+
+### Supprimé
+- `deploy/logrotate/tesla` (motif sans effet, doublon de `/etc/logrotate.d/nginx`).
+
 ### Ajouté — évaluations collectives, inscription sur invitation et sécurité des comptes, 2026-11-02
 - Distribution collective depuis un module : cours en PDF commun, copies d'évaluation pour plusieurs routiers (filtres compte, équipe, étape, sélection manuelle), préparation idempotente, PDF collectif et ZIP (D163).
 - Saisie des copies papier par tout l'encadrement (provisoire, reprise, progression, récapitulatif, transmission) ; « Saisir les réponses » sur la fiche routier ; bascule au papier d'une tentative en ligne (D164).

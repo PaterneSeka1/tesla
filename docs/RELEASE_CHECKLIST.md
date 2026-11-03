@@ -14,7 +14,7 @@
 
 ## Préproduction
 
-- [ ] `deploy.sh preproduction <étiquette>` réussi (sauvegarde, migrations, contrôle de santé).
+- [ ] `deploy.sh preproduction <étiquette>` réussi (sauvegarde, migrations, contrôle de santé), puis web Vercel de préproduction déployé sur la même étiquette.
 - [ ] Recette manuelle des parcours touchés ([TEST_PLAN.md](TEST_PLAN.md) § 4), au moins Chrome Android et Safari iOS.
 - [ ] Mise à jour testée avec des opérations hors ligne en attente sur un appareil.
 - [ ] Retour arrière testé (`rollback.sh preproduction`) puis redéploiement.
@@ -23,7 +23,7 @@
 
 - [ ] Fenêtre annoncée ; responsable plein informé.
 - [ ] Dernière sauvegarde hors site présente et vérifiée (`verify-backup.sh`) depuis moins d'un mois.
-- [ ] `deploy.sh production <étiquette>` réussi.
+- [ ] `deploy.sh production <étiquette>` réussi (API d'abord), puis déploiement Vercel de production de la même étiquette ; `curl https://<projet>.vercel.app/api/v1/health` OK.
 - [ ] `healthcheck.sh` OK ; `systemctl --failed` vide ; en-têtes (`curl -I`) : HSTS, `no-store` sur l'API.
 - [ ] Connexion, une fiche, un module publié, « Cet appareil » contrôlés.
 - [ ] Journaux sans erreur 5xx inattendue pendant 30 minutes.
@@ -33,7 +33,8 @@
 - [ ] Décisions bloquantes tranchées ou explicitement reportées ([PRODUCTION_AUDIT.md](PRODUCTION_AUDIT.md) § 4).
 - [ ] RPO/RTO validés ([BACKUP_RESTORE.md](BACKUP_RESTORE.md)) ; exercice de restauration réalisé, durée mesurée.
 - [ ] Clé privée de sauvegarde conservée hors ligne par deux personnes.
-- [ ] Serveur installé par `deploy/scripts/bootstrap.sh` ([DEPLOYMENT.md](DEPLOYMENT.md) § 3) ; `MEDICAL_DATA_KEY` copiée hors VPS.
+- [ ] Serveur installé par `deploy/scripts/bootstrap.sh` ([DEPLOYMENT_VERCEL_OVH.md](DEPLOYMENT_VERCEL_OVH.md) § 4) ; `MEDICAL_DATA_KEY` copiée hors VPS ; projet Vercel configuré (§ 8 : `NEXT_PUBLIC_API_URL=/api/v1`, `TESLA_API_ORIGIN`, `TESLA_PROXY_SECRET`, aucun secret de l'API).
+- [ ] Autres applications du VPS vérifiées après installation (sites Nginx, ports, services).
 - [ ] Premier administrateur créé par `create-admin.js` ; responsable plein désigné dans `/communaute`.
 - [ ] Alerte d'essai reçue (`systemctl start tesla-alert@tesla-healthcheck-production`).
 - [ ] Catalogue : points « à vérifier » relus avant `pedagogy:release -- --notes-verifiees` (D146).

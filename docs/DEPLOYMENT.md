@@ -1,5 +1,7 @@
 # Déploiement sur VPS OVH (Ubuntu 24.04 LTS)
 
+> **Architecture de référence depuis le 2026-11-03 (D167) : web sur Vercel, API sur le VPS — voir [DEPLOYMENT_VERCEL_OVH.md](DEPLOYMENT_VERCEL_OVH.md).** Ce guide décrit le **mode historique** (`WEB_HOSTING=local` : web et API sur le VPS, `bootstrap.sh … --web-hosting local`) et les étapes communes (R2, sauvegardes, supervision, sécurité) auxquelles le guide Vercel renvoie.
+
 Guide opérationnel unique. Fichiers de référence : [`deploy/`](../deploy). Sauvegardes : [BACKUP_RESTORE.md](BACKUP_RESTORE.md). Stockage objet : [STORAGE_R2.md](STORAGE_R2.md). Liste de contrôle : [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
 
 **État au 2026-11-02** : aucun VPS OVH, aucun compte Cloudflare ni aucun téléphone réel n'a été utilisé. Les scripts ont été vérifiés localement (shellcheck, `nginx -t` sur nginx 1.24, sauvegarde/restauration sur PostgreSQL 18, recettes navigateur sur l'application de production) ; leur première exécution réelle doit se faire en **préproduction**.
@@ -14,9 +16,9 @@ Internet ── 443 ── Nginx ──┬── /api/*  → 127.0.0.1:4000  tes
                                    Sauvegardes : R2 (compartiment verrouillé, jeton distinct)
 ```
 
-- Deux instances isolées possibles : `production` (3000/4000) et `preproduction` (3100/4100), chacune avec domaine, base `tesla_<instance>`, `/etc/tesla/<instance>.env`, compartiments et clés propres. Aucune donnée réelle en préproduction.
+- Deux instances isolées possibles : `production` (3000/4000 par défaut) et `preproduction` (3100/4100), ports refusés s'ils sont déjà pris sur le VPS (`--api-port`, `--web-port`), chacune avec domaine, base `tesla_<instance>`, `/etc/tesla/<instance>.env`, compartiments et clés propres. Aucune donnée réelle en préproduction.
 - systemd (pas de PM2) : `tesla-api@`, `tesla-web@`, `tesla-daily@.timer`, `tesla-backup@.timer`, `tesla-healthcheck@.timer`, et `tesla-alert@` déclenchée par `OnFailure=` des trois dernières.
-- Releases immuables : `/opt/tesla/<instance>/releases/<date>-<commit>/`, lien `current`. Une release n'est marquée saine (`HEALTHY`) qu'après un contrôle de santé réussi ; seules les releases saines servent au retour arrière.
+- Releases immuables : `/var/www/tesla/<instance>/releases/<date>-<commit>/`, lien `current` (arborescence : [DEPLOYMENT_VERCEL_OVH.md](DEPLOYMENT_VERCEL_OVH.md) § 2). Une release n'est marquée saine (`HEALTHY`) qu'après un contrôle de santé réussi ; seules les releases saines servent au retour arrière.
 
 ## 2. Ressources
 
@@ -45,12 +47,12 @@ Suivre [STORAGE_R2.md](STORAGE_R2.md) § 6 : compartiments privés `tesla-files-
 ### Étape 4 — Installation du serveur (root)
 
 ```bash
-git clone https://github.com/PaterneSeka1/tesla.git /root/tesla-install
-cd /root/tesla-install && git checkout <étiquette_validée>
-deploy/scripts/bootstrap.sh production <domaine> <e-mail_pour_lets_encrypt>
+git clone https://github.com/PaterneSeka1/tesla.git ~/tesla        # en ubuntu, hors de /var/www/tesla
+cd ~/tesla && git checkout <étiquette_validée>
+sudo deploy/scripts/bootstrap.sh production <domaine> <e-mail_pour_lets_encrypt> --web-hosting local
 ```
 
-`bootstrap.sh` est idempotent (relançable sans risque) et ne remplace jamais une configuration existante. Il installe Node.js 22 (NodeSource), PostgreSQL 18 (PGDG, écoute locale vérifiée), Nginx, Certbot, rclone et UFW ; crée l'utilisateur `tesla`, les répertoires, la base `tesla_production` et son rôle non superutilisateur (mot de passe aléatoire), l'extension `btree_gist` ; génère `/etc/tesla/production.env` (`root:tesla`, 0640) avec `DATABASE_URL` et `MEDICAL_DATA_KEY` ; clone le dépôt pour `tesla` ; installe unités systemd, alerte, journald, logrotate, sudoers ; obtient le certificat (vhost HTTP provisoire puis `certbot certonly --webroot`, renouvellement par `certbot.timer` avec rechargement de Nginx) ; active le pare-feu en conservant le port SSH réellement utilisé (`--no-firewall` pour s'en abstenir). Options : `--repo <url>` (dépôt privé : ajouter d'abord une clé de déploiement à l'utilisateur `tesla`), `--no-tls` (DNS pas encore prêt).
+`bootstrap.sh` est idempotent (relançable sans risque), ne remplace jamais une configuration existante et ne modifie rien hors des fichiers de Tesla (VPS partagé) : détail des options (`--api-port`, `--web-port`, `--pg-port`, `--enable-firewall`, `--with-journald`, `--repo`, `--no-tls`) et des garanties dans [DEPLOYMENT_VERCEL_OVH.md](DEPLOYMENT_VERCEL_OVH.md) § 4. En mode historique, il active aussi `tesla-web@` et installe `tesla.conf` (web et API derrière le même domaine). Le site Nginx par défaut, les autres sites, la version de Node.js ou de PostgreSQL déjà installée et l'état d'UFW ne sont jamais modifiés ; la rotation des journaux Nginx relève de `/etc/logrotate.d/nginx` d'Ubuntu.
 
 **Immédiatement** : copier `MEDICAL_DATA_KEY` dans le coffre de l'association (deux personnes, hors VPS). Sans elle, les fiches médicales restaurées sont illisibles.
 
@@ -72,7 +74,9 @@ Puis, en `tesla` : `gpg --import cle-publique.asc` et `rclone config` (remotes `
 ### Étape 6 — Premier déploiement (utilisateur `tesla`)
 
 ```bash
-sudo -iu tesla /opt/tesla/production/repo/deploy/scripts/deploy.sh production <étiquette_validée>
+sudo -iu tesla
+git -C /var/www/tesla/production/repo fetch --tags && git -C /var/www/tesla/production/repo checkout --detach <étiquette_validée>
+/var/www/tesla/production/repo/deploy/scripts/deploy.sh production <étiquette_validée>
 ```
 
 Contrôles (utilisateur, configuration, 2 Gio libres) → release `git archive` → `npm ci` et build → **sauvegarde** → `prisma migrate deploy` → bascule atomique du lien `current` → redémarrage → contrôle de santé (60 s) → `HEALTHY`, ou retour automatique au code précédent et release marquée `FAILED`. Un échec avant la bascule supprime la release sans toucher au service.
@@ -107,7 +111,7 @@ Depuis une autre machine : `nc -zv <ip> 5432` doit échouer.
 ### Étape 9 — Premier administrateur (utilisateur `tesla`)
 
 ```bash
-cd /opt/tesla/production/current/apps/api
+cd /var/www/tesla/production/current/apps/api
 set -a; . /etc/tesla/production.env; set +a
 node dist/jobs/create-admin.js --email <adresse> --first-name <prénom> --last-name <nom>
 ```
@@ -120,7 +124,8 @@ L'administrateur crée les comptes de l'encadrement, puis désigne le **responsa
 
 ```bash
 sudo -iu tesla
-/opt/tesla/production/repo/deploy/scripts/deploy.sh production <étiquette>
+git -C /var/www/tesla/production/repo fetch --tags && git -C /var/www/tesla/production/repo checkout --detach <étiquette>
+/var/www/tesla/production/repo/deploy/scripts/deploy.sh production <étiquette>
 ```
 - Toujours déployer d'abord la **même étiquette** en préproduction.
 - `migrate deploy` uniquement ; jamais `migrate reset` ni `db push`. Relire le SQL des nouvelles migrations ; une migration non additive exige un plan validé et une fenêtre de maintenance ([database.md](../.claude/rules/database.md)).
@@ -129,7 +134,7 @@ sudo -iu tesla
 
 ## 5. Retour arrière
 
-- **Code** : `deploy/scripts/rollback.sh production` (release saine la plus récente) ou `rollback.sh production /opt/tesla/production/releases/<dossier>`. Sans rebuild ni migration.
+- **Code** : `deploy/scripts/rollback.sh production` (release saine la plus récente) ou `rollback.sh production /var/www/tesla/production/releases/<dossier>` (en `tesla` ; verrou partagé avec `deploy.sh`). Sans rebuild ni migration.
 - **Ce n'est pas un retour arrière de la base.** Les migrations de Tesla sont additives, l'ancien code fonctionne sur le schéma plus récent. Si une migration non additive a été appliquée, ou en cas de corruption : restauration ([BACKUP_RESTORE.md](BACKUP_RESTORE.md) § 5).
 - Les releases installées avant l'introduction du marqueur `HEALTHY` ne sont pas proposées automatiquement : les désigner explicitement.
 

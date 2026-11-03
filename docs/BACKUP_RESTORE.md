@@ -46,7 +46,7 @@ Contrôles : empreinte, déchiffrement, restauration complète (`--exit-on-error
 
 La restauration ne s'écrit **jamais** par-dessus une base existante : elle crée une nouvelle base, puis l'application y est basculée.
 
-1. Annoncer l'interruption ; arrêter les écritures : `systemctl stop tesla-api@production tesla-web@production`.
+1. Annoncer l'interruption ; arrêter les écritures : `systemctl stop tesla-api@production` (mode historique : `tesla-api@production tesla-web@production`).
 2. Sauvegarder l'état courant, même dégradé : `deploy/scripts/backup.sh` (avec l'environnement de l'instance).
 3. Restaurer (clé privée importée temporairement chez l'opérateur, jamais laissée sur le VPS) :
    L'URL ci-dessous suppose l'authentification locale `peer` : exécuter la commande en tant qu'utilisateur système `postgres`, avec la clé privée importée dans son trousseau le temps de l'opération ; sinon utiliser le rôle de maintenance `CREATEDB` et son mot de passe. `RESTORE_OWNER` vaut `tesla_production` pour une installation faite par `bootstrap.sh`.
