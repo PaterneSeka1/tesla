@@ -28,6 +28,12 @@
   --border: #e8dccb;
   --input: #e0d2bf;
   --ring: var(--tesla-rouge);
+
+  /* Graphiques : ordre fixe, validé (bande de luminance, chroma, daltonisme, contraste sur blanc). */
+  --chart-1: #9b2a30;
+  --chart-2: #c0862c;
+  --chart-3: #2a76b0;
+  --chart-grid: #ece3d6;
 }
 
 @theme inline {
@@ -53,6 +59,9 @@
   --color-tesla-rouge: var(--tesla-rouge);
   --color-tesla-or: var(--tesla-or);
   --color-tesla-sable: var(--tesla-sable);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
