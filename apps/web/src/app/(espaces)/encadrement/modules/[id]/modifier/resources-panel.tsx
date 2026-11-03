@@ -14,6 +14,7 @@ import { Link2, Trash2 } from 'lucide-react';
 import { useId, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ResourceList } from '@/components/modules/resource-list';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useModuleAction } from '@/components/modules/use-module-action';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -133,21 +134,34 @@ export function ResourcesPanel({
           actions={
             editable
               ? (resource) => (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-destructive"
-                    aria-label={`Retirer la ressource ${resource.title}`}
-                    onClick={() =>
-                      void run(() => deleteResource(resource.id), {
+                  <ConfirmDialog
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-destructive"
+                        aria-label={`Retirer la ressource ${resource.title}`}
+                      >
+                        <Trash2 aria-hidden />
+                      </Button>
+                    }
+                    title="Retirer cette ressource ?"
+                    description={
+                      <p>
+                        « {resource.title} » sera retirée de ce brouillon. Les versions déjà
+                        publiées ne sont pas touchées.
+                      </p>
+                    }
+                    confirmLabel="Retirer"
+                    destructive
+                    onConfirm={() =>
+                      run(() => deleteResource(resource.id), {
                         success: 'Ressource retirée',
                         error: 'Retrait impossible',
                       })
                     }
-                  >
-                    <Trash2 aria-hidden />
-                  </Button>
+                  />
                 )
               : undefined
           }

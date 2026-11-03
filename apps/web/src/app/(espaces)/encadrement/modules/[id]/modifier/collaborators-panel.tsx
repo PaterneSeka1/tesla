@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { type EditorModuleDetail } from '@tesla/shared';
 import { UserMinus, UserPlus } from 'lucide-react';
 import { useId, useState } from 'react';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { useModuleAction } from '@/components/modules/use-module-action';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -44,20 +45,26 @@ export function CollaboratorsPanel({ module }: { module: EditorModuleDetail }) {
               </span>
             </span>
             {manage && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  void run(() => removeCollaborator(module.id, collaborator.user.id), {
+              <ConfirmDialog
+                trigger={
+                  <Button type="button" variant="ghost" size="sm">
+                    <UserMinus aria-hidden />
+                    Retirer
+                  </Button>
+                }
+                title="Retirer ce collaborateur ?"
+                description={
+                  <p>{fullName(collaborator.user)} ne pourra plus modifier ce module.</p>
+                }
+                confirmLabel="Retirer"
+                destructive
+                onConfirm={() =>
+                  run(() => removeCollaborator(module.id, collaborator.user.id), {
                     success: 'Collaborateur retiré',
                     error: 'Retrait impossible',
                   })
                 }
-              >
-                <UserMinus aria-hidden />
-                Retirer
-              </Button>
+              />
             )}
           </li>
         ))}

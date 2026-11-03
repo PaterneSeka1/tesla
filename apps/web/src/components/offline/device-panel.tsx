@@ -5,10 +5,12 @@ import { catalogModuleDetailSchema } from '@tesla/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeading } from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { meQueryOptions } from '@/lib/api/auth';
+import { formatBytes } from '@/lib/format';
 import { apiFetch } from '@/lib/api/client';
 import {
   type LocalAttempt,
@@ -81,7 +83,7 @@ export function DevicePanel() {
     const estimate = await navigator.storage?.estimate?.();
     if (estimate?.usage !== undefined)
       setStorage(
-        `${Math.ceil(estimate.usage / 1024 / 1024)} Mo utilisés${estimate.quota ? ` sur ${Math.floor(estimate.quota / 1024 / 1024)} Mo disponibles` : ''}`,
+        `${formatBytes(estimate.usage)} utilisés${estimate.quota ? ` sur ${formatBytes(estimate.quota)} disponibles` : ''}`,
       );
     if (ownerId() !== user.id) return;
     const [prep, ops, copies, modules] = await Promise.all([
@@ -271,21 +273,26 @@ export function DevicePanel() {
                           >
                             Réessayer
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  'Abandonner définitivement cette modification ? Elle sera supprimée de cet appareil sans être envoyée.',
-                                )
-                              )
-                                void run(() => discardOperation(op.id));
+                          <ConfirmDialog
+                            trigger={
+                              <Button size="sm" variant="outline" disabled={busy}>
+                                Abandonner
+                              </Button>
+                            }
+                            title="Abandonner cette modification ?"
+                            description={
+                              <p>
+                                « {op.label} » sera supprimée de cet appareil sans être envoyée.
+                                Cette action est définitive.
+                              </p>
+                            }
+                            confirmLabel="Abandonner"
+                            destructive
+                            onConfirm={async () => {
+                              await run(() => discardOperation(op.id));
+                              return true;
                             }}
-                          >
-                            Abandonner
-                          </Button>
+                          />
                         </div>
                       )}
                     </li>
@@ -359,28 +366,46 @@ export function DevicePanel() {
                     {m.package.content.title} · v{m.package.content.version}
                   </Link>
                   {updates.includes(m.package.content.slug) && (
-                    <Button
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => {
-                        if (window.confirm('Remplacer la version téléchargée ?'))
-                          void run(() => downloadModule(m.package.content.slug, setMessage));
+                    <ConfirmDialog
+                      trigger={
+                        <Button size="sm" disabled={busy}>
+                          Mettre à jour
+                        </Button>
+                      }
+                      title="Remplacer la version téléchargée ?"
+                      description={
+                        <p>
+                          La version publiée la plus récente de « {m.package.content.title} »
+                          remplacera celle de cet appareil.
+                        </p>
+                      }
+                      confirmLabel="Mettre à jour"
+                      onConfirm={async () => {
+                        await run(() => downloadModule(m.package.content.slug, setMessage));
+                        return true;
                       }}
-                    >
-                      Mettre à jour
-                    </Button>
+                    />
                   )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => {
-                      if (window.confirm('Supprimer les images de ce module de cet appareil ?'))
-                        void run(() => removeDownload(m.package.content.slug));
+                  <ConfirmDialog
+                    trigger={
+                      <Button size="sm" variant="outline" disabled={busy}>
+                        Supprimer
+                      </Button>
+                    }
+                    title="Supprimer les images de ce module ?"
+                    description={
+                      <p>
+                        Les images de « {m.package.content.title} » seront retirées de cet appareil.
+                        Le texte du module reste disponible.
+                      </p>
+                    }
+                    confirmLabel="Supprimer"
+                    destructive
+                    onConfirm={async () => {
+                      await run(() => removeDownload(m.package.content.slug));
+                      return true;
                     }}
-                  >
-                    Supprimer
-                  </Button>
+                  />
                 </div>
               ))}
               {downloads.length > 0 && (

@@ -62,6 +62,14 @@ export function TakeEvaluation({ variant = 'classique' }: { variant?: 'classique
   const [answers, setAnswers] = useState<Answers>({});
   const [index, setIndex] = useState(0);
   const [dirty, setDirty] = useState(false);
+
+  // Réponse non enregistrée : le navigateur demande confirmation avant de quitter la page.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
   const [saving, setSaving] = useState(false);
   const [finished, setFinished] = useState<AttemptSession | null>(null);
   const [skipsLeft, setSkipsLeft] = useState(PALIER_SKIPS);
