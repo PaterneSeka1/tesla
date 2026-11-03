@@ -59,7 +59,7 @@ Opérations différables : `attendance.save`, `activity.create`, `activity.updat
 | `tesla-static` | `/_next/static`, `/_next/image`, icônes, marque | Cache d'abord ; nettoyage des ressources plus référencées (`PRUNE_STATIC`) |
 
 - Les pages Next.js de Tesla sont rendues sans cookie ni donnée : le HTML et les charges RSC sont des coquilles génériques, sans risque d'exposition entre comptes. Les routes dynamiques servent une coquille sans paramètres puis demandent le segment complet (`Next-Router-Segment-Prefetch: /_full`) : la préparation le précharge (le serveur redirige vers la bonne clé `_rsc`).
-- Navigation sans réseau : page conservée ; `/` → `/connexion` (qui oriente vers le tableau de bord) ; page jamais préparée → `/hors-ligne` (« Page non disponible sans connexion »), seul cas de repli.
+- Navigation sans réseau : page conservée ; `/` → `/connexion` (qui oriente vers le tableau de bord) ; page jamais préparée → `/hors-ligne` (« Page non disponible sans connexion »), seul cas de repli ; si le chemin demandé n'est pas accessible à l'identité (serveur ou locale), le repli renvoie à `/accueil` comme `SessionGate` (`hors-ligne/forbidden-redirect.tsx`).
 - Jamais intercepté : API (autre origine), `/api/*`, requêtes non GET.
 - **Mises à jour** : une nouvelle version s'installe sans s'activer ; le bouton « Mettre à jour » de l'indicateur l'active (confirmation s'il reste des modifications en attente) puis recharge la page. Repli : rechargement après 3 s si l'ancienne version ne cède pas la main (application ouverte hors connexion). Ouverte hors connexion, l'application suit l'enregistrement existant et recherche les mises à jour au retour du réseau. IndexedDB n'est jamais touché.
 

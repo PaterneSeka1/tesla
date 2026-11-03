@@ -4,16 +4,19 @@ import Link from 'next/link';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { PageHeading } from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
+import { ForbiddenRedirect } from './forbidden-redirect';
 
 export const metadata: Metadata = { title: 'Page non disponible' };
 
 /**
  * Repli du service worker pour une page jamais préparée sur cet appareil (D114). Coquille publique
- * et générique : aucune donnée de compte. Les pages préparées s'ouvrent normalement, sans passer ici.
+ * et générique : aucune donnée de compte. Les pages préparées s'ouvrent normalement, sans passer ici ;
+ * une page non accessible à l'utilisateur renvoie à l'accueil (`ForbiddenRedirect`).
  */
 export default function OfflineFallbackPage() {
   return (
     <DashboardShell offline>
+      <ForbiddenRedirect />
       <PageHeading title="Page non disponible sans connexion" />
       <div className="flex max-w-prose items-start gap-3 text-sm">
         <CloudOff className="mt-0.5 size-5 shrink-0" aria-hidden />

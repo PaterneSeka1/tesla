@@ -13,6 +13,9 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 - `bootstrap.sh` adapté à un VPS partagé : ports vérifiés, Node.js et PostgreSQL existants conservés, site Nginx par défaut jamais supprimé, UFW et journald seulement sur option, `nginx -t` en échec sans effet.
 - `deploy.sh` / `rollback.sh` : verrou, garde-fous de suppression, mode API seule.
 
+### Corrigé
+- Hors ligne : une page d'encadrement ouverte par un routier sur un appareil où elle n'a jamais été préparée renvoie à l'accueil au lieu du repli « Page non disponible » (recette offline-first, étape 24).
+
 ### Supprimé
 - `deploy/logrotate/tesla` (motif sans effet, doublon de `/etc/logrotate.d/nginx`).
 
