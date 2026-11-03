@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 const publicEnvSchema = z.object({
-  NEXT_PUBLIC_API_URL: z.url({ error: 'NEXT_PUBLIC_API_URL doit être une URL valide' }),
+  /**
+   * URL absolue de l'API (développement, mode historique) ou `/api/v1` : appels même origine,
+   * relayés vers l'API par `src/proxy.ts` (web sur Vercel, docs/DEPLOYMENT_VERCEL_OVH.md).
+   */
+  NEXT_PUBLIC_API_URL: z.union([z.url(), z.literal('/api/v1')], {
+    error: 'NEXT_PUBLIC_API_URL doit être une URL valide ou « /api/v1 »',
+  }),
 });
 
 const result = publicEnvSchema.safeParse({
