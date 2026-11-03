@@ -4,6 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — Node.js 22 isolé sur le VPS OVH, 2026-11-03
+- `TESLA_NODE_DIR` (défaut `/opt/node22/bin`, option `bootstrap.sh --node-dir`) : `npm ci`, Prisma, builds, services systemd et commandes ponctuelles sur le Node.js 22 de TESLA ; `/usr/bin/node` (Node.js 20 des autres applications) jamais utilisé ni modifié (D168).
+- `deploy/scripts/exec.sh` : commande ponctuelle (premier administrateur, `prisma migrate status`, seeds, audit) avec l'environnement de l'instance et le Node.js de TESLA.
+- `bootstrap.sh` n'installe plus de paquet `nodejs` ; `deploy.sh` vérifie la version et refuse des unités installées sur un autre `node`.
+
 ### Ajouté — déploiement Vercel + OVH, 2026-11-03
 - Web sur Vercel avec relais même origine `/api/v1` (`apps/web/src/lib/api-proxy.ts`, `apps/web/vercel.json`) ; API seule sur le VPS (`WEB_HOSTING=vercel`, D167).
 - Vhost `deploy/nginx/tesla-api.conf` (adresse client authentifiée par secret partagé, 503 JSON) ; `deploy/scripts/common.sh` ; test `deploy-scripts.test.sh` ; guide [DEPLOYMENT_VERCEL_OVH.md](docs/DEPLOYMENT_VERCEL_OVH.md).

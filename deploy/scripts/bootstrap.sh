@@ -5,7 +5,9 @@
 # (/var/www/tesla), /etc/tesla, /var/backups/tesla et des fichiers « tesla » de systemd, Nginx et
 # sudoers. Jamais de suppression de site Nginx, de changement de version de Node.js ou de
 # PostgreSQL déjà installée, ni d'activation du pare-feu sans --enable-firewall.
-#   1. contrôles   2. paquets (Node 22, PostgreSQL 18, Nginx, Certbot, rclone)
+# Node.js : TESLA utilise son propre dossier (TESLA_NODE_DIR, /opt/node22/bin par défaut), installé
+# au préalable (docs/DEPLOYMENT_VERCEL_OVH.md § 3) ; /usr/bin/node n'est ni utilisé ni modifié.
+#   1. contrôles   2. paquets (PostgreSQL 18, Nginx, Certbot, rclone ; Node.js 22 vérifié)
 #   3. utilisateur « tesla » et arborescences   4. base et rôle PostgreSQL (écoute locale)
 #   5. /etc/tesla/<instance>.env (secrets générés : base, MEDICAL_DATA_KEY ; le reste à compléter)
 #   6. dépôt de code   7. systemd, sudoers, alertes
@@ -21,6 +23,8 @@
 #   --web-port <port>    port local du web en mode local (défaut 3000, préproduction 3100)
 #   --pg-port <port>     port du cluster PostgreSQL 18 à utiliser (défaut 5432)
 #   --repo <url>         dépôt Git (défaut : https://github.com/PaterneSeka1/tesla.git)
+#   --node-dir <dossier> dossier de node, npm et npx de TESLA (défaut /opt/node22/bin, ≥ 22.12) ;
+#                        commun aux deux instances (unités systemd partagées)
 #   --no-tls             ne pas demander de certificat (DNS pas encore prêt) ; relancer ensuite
 #   --no-firewall        ne rien faire sur UFW
 #   --enable-firewall    activer UFW s'il est inactif (port SSH effectif, 80 et 443 autorisés) ;
@@ -34,7 +38,7 @@ instance="${1:-}"; domain="${2:-}"; email="${3:-}"
 [[ "$instance" =~ ^(production|preproduction)$ && -n "$domain" && -n "$email" ]] || usage
 shift 3
 repo_url="https://github.com/PaterneSeka1/tesla.git"; firewall=check; tls=1; journald=0
-hosting=vercel; web_url=""; api_port=""; web_port=""; pg_port=5432
+hosting=vercel; web_url=""; api_port=""; web_port=""; pg_port=5432; node_dir=""
 while (( $# )); do
   case "$1" in
     --web-url) web_url="${2:?}"; shift 2 ;;
@@ -43,6 +47,7 @@ while (( $# )); do
     --web-port) web_port="${2:?}"; shift 2 ;;
     --pg-port) pg_port="${2:?}"; shift 2 ;;
     --repo) repo_url="${2:?}"; shift 2 ;;
+    --node-dir) node_dir="${2:?}"; shift 2 ;;
     --no-tls) tls=0; shift ;;
     --no-firewall) firewall=skip; shift ;;
     --enable-firewall) firewall=enable; shift ;;
@@ -70,7 +75,7 @@ db_name="tesla_${instance}"; db_role="tesla_${instance}"
 log() { printf '\n== %s\n' "$*"; }
 warn() { printf 'ATTENTION : %s\n' "$*" >&2; }
 port_busy() { [[ -n "$(ss -ltnH "sport = :${1}")" ]]; }
-env_value() { sed -n "s/^${1}=//p" "$env_file" | tail -1; }
+env_value() { sed -n "s/^${1}=//p" "${2:-$env_file}" | tail -1; }
 
 # 1. Contrôles ------------------------------------------------------------------------------------
 [[ "$(id -u)" == 0 ]] || { echo "À exécuter en root." >&2; exit 1; }
@@ -96,28 +101,33 @@ else
 fi
 [[ "$api_port" =~ ^[0-9]+$ ]] || { echo "API_PORT illisible dans ${env_file}." >&2; exit 1; }
 
+# Node.js de TESLA : celui d'un fichier d'instance existant fait foi (défaut sinon) ; les unités
+# systemd étant communes, les deux instances doivent utiliser le même dossier.
+if [[ -f "$env_file" ]]; then
+  configured="$(TESLA_NODE_DIR="$(env_value TESLA_NODE_DIR)" tesla_node_dir)"
+  [[ -z "$node_dir" || "${node_dir%/}" == "$configured" ]] ||
+    { echo "--node-dir ${node_dir} différent de ${env_file} (${configured}) : modifier TESLA_NODE_DIR dans ce fichier." >&2; exit 1; }
+  node_dir="$configured"
+else
+  node_dir="$(TESLA_NODE_DIR="$node_dir" tesla_node_dir)"
+fi
+for other in production preproduction; do
+  other_env="${TESLA_CONFIG_DIR}/${other}.env"
+  [[ "$other" == "$instance" || ! -f "$other_env" ]] && continue
+  other_dir="$(TESLA_NODE_DIR="$(env_value TESLA_NODE_DIR "$other_env")" tesla_node_dir)"
+  [[ "$other_dir" == "$node_dir" ]] ||
+    { echo "L'instance ${other} utilise ${other_dir} : même TESLA_NODE_DIR requis (unités systemd communes)." >&2; exit 1; }
+done
+tesla_check_node "$node_dir"
+system_node="$( [[ -x /usr/bin/node ]] && /usr/bin/node --version 2> /dev/null || echo absent)"
+echo "Node.js de TESLA : ${node_dir}/node $("${node_dir}/node" --version) ; /usr/bin/node (${system_node}) non utilisé ni modifié."
+
 # 2. Paquets --------------------------------------------------------------------------------------
 log "Paquets système"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
 apt-get install -y -q ca-certificates curl gnupg git nginx certbot rclone postgresql-common openssl util-linux
-install -d -m 0755 /etc/apt/keyrings
-# Node.js : /usr/bin/node existant conservé s'il convient (≥ 22.12) ; jamais remplacé sinon, car
-# d'autres applications peuvent en dépendre.
-node_ok() { /usr/bin/node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=12)?0:1)'; }
-if [[ -x /usr/bin/node ]]; then
-  node_ok || { echo "Node.js $(/usr/bin/node -v) déjà installé (≥ 22.12 requis) : mise à niveau à décider pour tout le serveur, hors de ce script." >&2; exit 1; }
-else
-  if ! ls /etc/apt/sources.list.d/nodesource* > /dev/null 2>&1; then
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key |
-      gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
-      > /etc/apt/sources.list.d/nodesource.list
-  fi
-  apt-get update -q
-  apt-get install -y -q nodejs
-  node_ok || { echo "Node.js 22.12 ou plus requis (trouvé $(/usr/bin/node -v))." >&2; exit 1; }
-fi
+# Aucun paquet nodejs : le Node.js système (et les applications qui en dépendent) n'est pas touché.
 # PostgreSQL : le cluster du port choisi doit être en version 18 (contraintes WITHOUT OVERLAPS) ; un
 # cluster d'une autre version n'est jamais modifié.
 if ! ls /etc/apt/sources.list.d/pgdg* > /dev/null 2>&1; then
@@ -183,6 +193,7 @@ if [[ ! -f "$env_file" ]]; then
   fi
   sed -e "s#<domaine_api>#${domain}#g" -e "s#<domaine>#${domain}#g" \
       -e "s#^TESLA_DEPLOY_ROOT=.*#TESLA_DEPLOY_ROOT=${deploy_root}#" \
+      -e "s#^TESLA_NODE_DIR=.*#TESLA_NODE_DIR=${node_dir}#" \
       -e "s#^API_PORT=.*#API_PORT=${api_port}#" \
       -e "s#^DATABASE_URL=.*#DATABASE_URL=postgresql://${db_role}:${db_password}@127.0.0.1:${pg_port}/${db_name}?schema=public#" \
       -e "s#^MEDICAL_DATA_KEY=.*#MEDICAL_DATA_KEY=${medical_key}#" \
@@ -197,7 +208,7 @@ if [[ ! -f "$env_file" ]]; then
   chown root:tesla "$env_file"; chmod 0640 "$env_file"
   warn "MEDICAL_DATA_KEY générée dans ${env_file} : copiez-la MAINTENANT dans le coffre de l'association (hors VPS). Sans elle, les fiches médicales restaurées sont illisibles."
 else
-  echo "Fichier existant conservé (WEB_HOSTING=${hosting}, API_PORT=${api_port})."
+  echo "Fichier existant conservé (WEB_HOSTING=${hosting}, API_PORT=${api_port}, TESLA_NODE_DIR=${node_dir})."
 fi
 
 # 6. Code -----------------------------------------------------------------------------------------
@@ -215,7 +226,7 @@ fi
 # 7. systemd, sudoers, alertes, journaux ----------------------------------------------------------
 log "Unités systemd et outils"
 for unit in "$src"/deploy/systemd/*.service "$src"/deploy/systemd/*.timer; do
-  sed "s#/var/www/tesla#${deploy_root}#g" "$unit" > "/etc/systemd/system/${unit##*/}"
+  tesla_render_unit "$unit" "$deploy_root" "$node_dir" > "/etc/systemd/system/${unit##*/}"
   chmod 0644 "/etc/systemd/system/${unit##*/}"
 done
 install -m 0755 "$src/deploy/scripts/alert.sh" /usr/local/bin/tesla-alert

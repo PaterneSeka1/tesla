@@ -52,7 +52,7 @@ cd ~/tesla && git checkout <étiquette_validée>
 sudo deploy/scripts/bootstrap.sh production <domaine> <e-mail_pour_lets_encrypt> --web-hosting local
 ```
 
-`bootstrap.sh` est idempotent (relançable sans risque), ne remplace jamais une configuration existante et ne modifie rien hors des fichiers de Tesla (VPS partagé) : détail des options (`--api-port`, `--web-port`, `--pg-port`, `--enable-firewall`, `--with-journald`, `--repo`, `--no-tls`) et des garanties dans [DEPLOYMENT_VERCEL_OVH.md](DEPLOYMENT_VERCEL_OVH.md) § 4. En mode historique, il active aussi `tesla-web@` et installe `tesla.conf` (web et API derrière le même domaine). Le site Nginx par défaut, les autres sites, la version de Node.js ou de PostgreSQL déjà installée et l'état d'UFW ne sont jamais modifiés ; la rotation des journaux Nginx relève de `/etc/logrotate.d/nginx` d'Ubuntu.
+`bootstrap.sh` est idempotent (relançable sans risque), ne remplace jamais une configuration existante et ne modifie rien hors des fichiers de Tesla (VPS partagé) : détail des options (`--api-port`, `--web-port`, `--pg-port`, `--node-dir`, `--enable-firewall`, `--with-journald`, `--repo`, `--no-tls`) et des garanties dans [DEPLOYMENT_VERCEL_OVH.md](DEPLOYMENT_VERCEL_OVH.md) § 4. En mode historique, il active aussi `tesla-web@` et installe `tesla.conf` (web et API derrière le même domaine). Le site Nginx par défaut, les autres sites, la version de Node.js ou de PostgreSQL déjà installée et l'état d'UFW ne sont jamais modifiés (TESLA s'exécute sur son propre Node.js 22, `/opt/node22/bin` par défaut, D168) ; la rotation des journaux Nginx relève de `/etc/logrotate.d/nginx` d'Ubuntu.
 
 **Immédiatement** : copier `MEDICAL_DATA_KEY` dans le coffre de l'association (deux personnes, hors VPS). Sans elle, les fiches médicales restaurées sont illisibles.
 
@@ -111,10 +111,10 @@ Depuis une autre machine : `nc -zv <ip> 5432` doit échouer.
 ### Étape 9 — Premier administrateur (utilisateur `tesla`)
 
 ```bash
-cd /var/www/tesla/production/current/apps/api
-set -a; . /etc/tesla/production.env; set +a
-node dist/jobs/create-admin.js --email <adresse> --first-name <prénom> --last-name <nom>
+sudo -iu tesla /var/www/tesla/production/repo/deploy/scripts/exec.sh production \
+  node dist/jobs/create-admin.js --email <adresse> --first-name <prénom> --last-name <nom>
 ```
+`exec.sh` charge l'environnement de l'instance et le Node.js de TESLA (`TESLA_NODE_DIR`, [DEPLOYMENT_VERCEL_OVH.md](DEPLOYMENT_VERCEL_OVH.md) § 3 et § 9).
 Le lien affiché est à usage unique (72 h) : le transmettre au titulaire par un canal personnel. Une seconde exécution est refusée ; `--recover` émet un lien de réinitialisation pour un administrateur existant (procédure de récupération sans e-mail). Aucun mot de passe ne passe par la ligne de commande.
 
 ### Étape 10 — Mise en service métier

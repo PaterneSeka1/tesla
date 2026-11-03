@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Test local de deploy.sh et rollback.sh, sans serveur : arborescence /var/www/tesla simulée dans un
 # répertoire temporaire, dépôt Git jetable, npm/npx/sudo/id remplacés par des doublures, sauvegarde
-# et contrôle de santé simulés. Aucun service, aucune base, aucun chemin réel n'est touché.
+# et contrôle de santé simulés. Deux Node.js simulés : 20.20.0 en tête du PATH (comme /usr/bin/node
+# sur le VPS) et 22.23.4 dans <tmp>/opt/node22/bin (TESLA_NODE_DIR), seul autorisé.
+# Aucun service, aucune base, aucun chemin réel n'est touché.
 # Usage : bash deploy/scripts/tests/deploy-scripts.test.sh
 set -euo pipefail
 
@@ -15,12 +17,15 @@ check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name";
 
 # Scripts testés (copie), sauvegarde et santé simulées.
 mkdir -p "$t/scripts" "$t/bin" "$t/etc"
-cp "$src"/deploy.sh "$src"/rollback.sh "$src"/common.sh "$t/scripts/"
+cp "$src"/deploy.sh "$src"/rollback.sh "$src"/exec.sh "$src"/common.sh "$t/scripts/"
 printf '#!/usr/bin/env bash\necho backup >> "%s/calls"\n' "$t" > "$t/scripts/backup.sh"
 printf '#!/usr/bin/env bash\n[[ "$(cat "%s/health")" == ok ]]\n' "$t" > "$t/scripts/healthcheck.sh"
 chmod +x "$t"/scripts/*.sh
 
-# Doublures : l'utilisateur est « tesla » ; sudo, npm et npx journalisent leurs arguments.
+# Doublures : l'utilisateur est « tesla » ; sudo journalise ses arguments. Node.js « système » 20
+# (node, npm, npx dans bin/, en tête du PATH) : toute utilisation est journalisée « NODE20 ».
+# Node.js de TESLA 22 (opt/node22/bin) : npm et npx journalisent leurs arguments et le node qu'ils
+# trouvent dans le PATH (celui qu'utiliseraient Prisma, Nest et les scripts npm).
 cat > "$t/bin/id" <<'EOF'
 #!/usr/bin/env bash
 [[ "${1:-}" == -un ]] && { echo tesla; exit 0; }
@@ -30,18 +35,24 @@ cat > "$t/bin/sudo" <<EOF
 #!/usr/bin/env bash
 echo "sudo \$*" >> "$t/calls"
 EOF
-cat > "$t/bin/npm" <<EOF
+node22="$t/opt/node22/bin"
+mkdir -p "$node22" "$t/systemd"
+for tool in node npm npx; do
+  printf '#!/usr/bin/env bash\necho "NODE20 %s $*" >> "%s/calls"\necho v20.20.0\n' "$tool" "$t" > "$t/bin/$tool"
+done
+printf '#!/usr/bin/env bash\necho v22.23.4\n' > "$node22/node"
+cat > "$node22/npm" <<EOF
 #!/usr/bin/env bash
-echo "npm \$*" >> "$t/calls"
+echo "npm \$* [\$(command -v node) \$(node --version)]" >> "$t/calls"
 [[ -f "$t/fail-build" && "\$1" == run ]] && exit 1
 exit 0
 EOF
-cat > "$t/bin/npx" <<EOF
+cat > "$node22/npx" <<EOF
 #!/usr/bin/env bash
-echo "npx \$*" >> "$t/calls"
+echo "npx \$* [\$(command -v node) \$(node --version)]" >> "$t/calls"
 EOF
-chmod +x "$t"/bin/*
-export PATH="$t/bin:$PATH" TESLA_CONFIG_DIR="$t/etc"
+chmod +x "$t"/bin/* "$node22"/*
+export PATH="$t/bin:$PATH" TESLA_CONFIG_DIR="$t/etc" TESLA_SYSTEMD_DIR="$t/systemd"
 
 # Instance installée : racine, dépôt de travail cloné d'un dépôt jetable.
 www="$t/var/www/tesla"; root="$www/production"
@@ -63,6 +74,7 @@ write_env() {
   cat > "$t/etc/production.env" <<EOF
 WEB_HOSTING=$1
 TESLA_DEPLOY_ROOT=$www
+TESLA_NODE_DIR=${2:-$node22}
 DATABASE_URL=postgresql://u:p@127.0.0.1:5432/db
 PUBLIC_URL=https://api.tesla.test
 CORS_ORIGINS=https://tesla.vercel.test
@@ -82,8 +94,13 @@ releases() { find "$root/releases" -mindepth 1 -maxdepth 1 -type d | wc -l; }
 check "déploiement v1 (mode vercel)" deploy v1
 check "lien current vers v1" test "$(current)" = v1
 check "release v1 marquée saine" test -f "$root/current/HEALTHY"
-check "build API seule (sans build Next.js)" grep -qx 'npm run build -w @tesla/api' "$t/calls"
-check "aucun build de tous les espaces" bash -c "! grep -qx 'npm run build' '$t/calls'"
+n22="[$node22/node v22.23.4]"
+check "npm ci avec Node.js 22" grep -qxF "npm ci --include=dev --no-audit --no-fund $n22" "$t/calls"
+check "build API seule avec Node.js 22 (sans build Next.js)" grep -qxF "npm run build -w @tesla/api $n22" "$t/calls"
+check "aucun build de tous les espaces" bash -c "! grep -q '^npm run build \\[' '$t/calls'"
+check "Prisma (migrate deploy) avec Node.js 22" grep -qxF "npx prisma migrate deploy $n22" "$t/calls"
+check "Node.js 20 du système jamais appelé" bash -c "! grep -q NODE20 '$t/calls'"
+check "version de Node.js journalisée" grep -qF "Node.js v22.23.4 : $node22/node" "$t/out"
 check "redémarrage de tesla-api seul" grep -qx 'sudo /usr/bin/systemctl restart tesla-api@production' "$t/calls"
 check "sauvegarde avant migration" bash -c "grep -n . '$t/calls' | grep -A9 backup | grep -q 'prisma migrate deploy'"
 check "verrou dans shared/" test -f "$root/shared/deploy.lock"
@@ -125,7 +142,7 @@ exec 8>&-
 # 6. Mode historique : build complet, API et web redémarrés.
 write_env local
 check "déploiement v2 (mode local)" deploy v2
-check "build de tous les espaces" grep -qx 'npm run build' "$t/calls"
+check "build de tous les espaces avec Node.js 22" grep -qxF "npm run build $n22" "$t/calls"
 check "redémarrage API et web" grep -qx 'sudo /usr/bin/systemctl restart tesla-api@production tesla-web@production' "$t/calls"
 write_env vercel
 
@@ -135,7 +152,36 @@ healthy_kept="$(find "$root/releases" -mindepth 2 -maxdepth 2 -name HEALTHY | wc
 check "rétention : 6 releases saines (current + 5)" test "$healthy_kept" = 6
 check "current vers v9" test "$(current)" = v9
 
-# 8. Garde-fous de chemin.
+# 8. Node.js : Node 20 ou dossier absent refusés avant toute release ; unités installées vérifiées.
+before="$(releases)"
+write_env vercel "$t/bin"
+check "TESLA_NODE_DIR en Node.js 20 refusé" bash -c "! '$t/scripts/deploy.sh' production v9 > '$t/out' 2>&1 && grep -q '22.12 requis' '$t/out'"
+write_env vercel "$t/opt/absent/bin"
+check "TESLA_NODE_DIR sans node refusé" bash -c "! '$t/scripts/deploy.sh' production v9 > '$t/out' 2>&1"
+write_env vercel /home/tesla/.nvm/bin
+check "TESLA_NODE_DIR sous /home refusé" bash -c "! '$t/scripts/deploy.sh' production v9 > '$t/out' 2>&1 && grep -q 'invalide' '$t/out'"
+check "aucune release créée par ces refus" test "$(releases)" = "$before"
+write_env vercel
+sed 's#/opt/node22/bin#/usr/bin#' "$src/../systemd/tesla-api@.service" > "$t/systemd/tesla-api@.service"
+check "unités sur /usr/bin/node refusées (bootstrap.sh à relancer)" \
+  bash -c "! '$t/scripts/deploy.sh' production v9 > '$t/out' 2>&1 && grep -q 'relancer bootstrap.sh' '$t/out'"
+. "$t/scripts/common.sh"
+for unit in "$src"/../systemd/*.service; do tesla_render_unit "$unit" "$www" "$node22" > "$t/systemd/${unit##*/}"; done
+check "unités rendues : déploiement accepté" deploy v9
+check "unités rendues : node de TESLA_NODE_DIR" bash -c "grep -h '^ExecStart=.*node' '$t'/systemd/*.service | grep -c '^ExecStart=$node22/node ' | grep -qx 3"
+check "unités rendues : PATH de Node.js 22" bash -c "grep -h '^Environment=PATH=' '$t'/systemd/*.service | grep -c '=$node22:' | grep -qx 3"
+check "unités : aucun /usr/bin/node ni node_modules/.bin" bash -c "! grep -hv '^#' '$src'/../systemd/* | grep -qE '/usr/bin/node|node_modules/\.bin'"
+check "unités rendues : racine de déploiement" bash -c "! grep -qE '(=| )/var/www/tesla/' '$t'/systemd/tesla-api@.service"
+check "dossier Node.js par défaut /opt/node22/bin" test "$(TESLA_NODE_DIR='' tesla_node_dir)" = /opt/node22/bin
+
+# 9. exec.sh : commande ponctuelle dans current/apps/api avec Node.js 22 et l'environnement.
+# shellcheck disable=SC2016 # développé par le shell lancé par exec.sh
+exec_out="$("$t/scripts/exec.sh" production bash -c 'echo "$(node --version) $PWD $PUBLIC_URL"' 2>&1 || true)"
+check "exec.sh : Node.js 22, apps/api et environnement" \
+  test "$exec_out" = "v22.23.4 $root/current/apps/api https://api.tesla.test"
+check "exec.sh sans commande refusé" bash -c "! '$t/scripts/exec.sh' production > /dev/null 2>&1"
+
+# 10. Garde-fous de chemin.
 . "$t/scripts/common.sh"
 for bad in / /var/www /var/www/ /opt /etc relative/path /var/www/tesla/../x '/var/www/te sla'; do
   check "racine refusée : '${bad}'" bash -c "TESLA_DEPLOY_ROOT='$bad'; . '$t/scripts/common.sh'; ! (tesla_deploy_root) 2> /dev/null"

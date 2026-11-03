@@ -2,7 +2,7 @@
 
 Architecture de référence (D167) : **web Next.js sur Vercel**, **API NestJS, PostgreSQL et sauvegardes sur le VPS OVH**, fichiers sur Cloudflare R2. Le mode historique (web et API sur le VPS) reste documenté dans [DEPLOYMENT.md](DEPLOYMENT.md), qui contient aussi les étapes communes (R2, sauvegardes, supervision, sécurité) auxquelles ce guide renvoie.
 
-**État au 2026-11-03** : scripts, unités, vhost et relais vérifiés localement (§ 12). Aucun VPS, aucun projet Vercel, aucun compte Cloudflare réels n'ont été utilisés : première exécution en **préproduction**.
+**État au 2026-11-03** : scripts, unités, vhost et relais vérifiés localement (§ 12), y compris l'exécution sur un Node.js 22 isolé (`/opt/node22/bin`) à côté du Node.js 20 du système (D168). Aucun VPS, aucun projet Vercel, aucun compte Cloudflare réels n'ont été utilisés : première exécution en **préproduction**.
 
 ## 1. Architecture
 
@@ -14,7 +14,8 @@ Navigateur ── https://<projet>.vercel.app ── Vercel (Next.js, PWA, sw.js
                                         │ HTTPS
                        https://<domaine_api> ── Nginx (vhost tesla-<instance>, VPS partagé)
                                         │ 127.0.0.1:<API_PORT>
-                                  tesla-api@<instance> (NestJS, utilisateur tesla)
+                                  tesla-api@<instance> (NestJS, utilisateur tesla,
+                                                        /opt/node22/bin/node)
                                         │ 127.0.0.1:5432
                                   PostgreSQL 18 (jamais exposé)
 Fichiers : R2 privé (URL signées) · Sauvegardes : R2 dédié, chiffrées (GnuPG)
@@ -41,6 +42,8 @@ Fichiers : R2 privé (URL signées) · Sauvegardes : R2 dédié, chiffrées (Gnu
 /etc/tesla/<instance>.env       root:tesla 0640  secrets (jamais dans Git)
 /etc/nginx/tesla/<instance>-proxy.conf  root 0600  secret du relais Vercel
 /var/backups/tesla/<instance>/  tesla 0700       sauvegardes chiffrées locales
+/opt/node22/bin/{node,npm,npx}  root             Node.js de TESLA (TESLA_NODE_DIR), installé hors script
+/usr/bin/node                   (système)        Node.js des autres applications : jamais utilisé ni modifié
 ```
 
 Les services TESLA (API, traitement quotidien, sauvegarde, santé) ne voient de `/var/www` que leur propre instance, en lecture seule (`TemporaryFileSystem=/var/www:ro` + `BindReadOnlyPaths`) : les autres applications du VPS leur sont invisibles. Aucune commande ne modifie les droits de `/var/www`.
@@ -50,7 +53,16 @@ Les services TESLA (API, traitement quotidien, sauvegarde, santé) ne voient de 
 1. **DNS** : enregistrement `A` (et `AAAA`) de `<domaine_api>` (ex. `api-academie.<domaine>`) vers le VPS ; préproduction : `api-preprod-academie.<domaine>`. Attendre `dig +short <domaine_api>`.
 2. **Cloudflare R2** : [STORAGE_R2.md](STORAGE_R2.md) § 6, avec **`AllowedOrigins` = l'origine Vercel** (`https://<projet>.vercel.app`) dans la règle CORS du compartiment applicatif (envoi direct par URL signée depuis le navigateur).
 3. **Vercel** : un projet relié au dépôt GitHub (étape 8). Noter l'adresse de production `https://<projet>.vercel.app`.
-4. **Vérifier l'existant du VPS** (applications déjà en place) : `ss -ltnp` (ports pris), `pg_lsclusters` (version et port de PostgreSQL), `node -v`, `ls /etc/nginx/sites-enabled/`, `ufw status`. Le script s'adapte (§ 4) mais ne modifie jamais ces éléments.
+4. **Vérifier l'existant du VPS** (applications déjà en place) : `ss -ltnp` (ports pris), `pg_lsclusters` (version et port de PostgreSQL), `/usr/bin/node -v`, `ls /etc/nginx/sites-enabled/`, `ufw status`. Le script s'adapte (§ 4) mais ne modifie jamais ces éléments.
+5. **Node.js 22 de TESLA (D168)** : TESLA exige Node.js ≥ 22.12 (`package.json`, `engines`). Sur le VPS OVH, `/usr/bin/node` (20.20.0) sert les autres applications et **n'est jamais modifié** ; TESLA utilise un Node.js distinct, `/opt/node22/bin` (22.23.4, npm 10.9.9), déjà installé. Contrôle :
+
+   ```bash
+   /usr/bin/node -v                                               # v20.20.0 (autres applications, inchangé)
+   /opt/node22/bin/node -v && /opt/node22/bin/npm -v && /opt/node22/bin/npx -v   # v22.23.4, 10.9.9, 10.9.9
+   ls -ld /opt/node22 /opt/node22/bin                             # root, lisible par tous (utilisateur tesla)
+   ```
+
+   Sur un autre serveur sans ce dossier : installer l'archive officielle `node-v22.x-linux-x64.tar.xz` de nodejs.org (somme SHA-256 vérifiée contre `SHASUMS256.txt`) dans `/opt/node22`, **sans** lien dans `/usr/bin` ni `/usr/local/bin` et sans paquet `nodejs`. Un autre dossier est possible (`--node-dir`) s'il est hors de `/home` et `/root` (invisibles des services, `ProtectHome=true`). `bootstrap.sh` n'installe jamais Node.js et s'arrête si le dossier est absent ou en version < 22.12.
 
 ## 4. Installation du serveur (root, une fois par instance)
 
@@ -68,13 +80,14 @@ sudo deploy/scripts/bootstrap.sh production <domaine_api> <e-mail_letsencrypt> \
 | --- | --- |
 | `--web-url` | Origine Vercel → `CORS_ORIGINS` (et `PUBLIC_APP_URL`, commenté). Sans elle, valeur `<projet>` à compléter : `deploy.sh` refuse de démarrer tant qu'elle reste. |
 | `--api-port` | Port local de l'API (défaut 4000, préproduction 4100). **Refus si le port est occupé** sur le VPS. |
+| `--node-dir` | Dossier de `node`, `npm`, `npx` de TESLA (défaut `/opt/node22/bin`). Écrit dans `TESLA_NODE_DIR` et dans les unités systemd ; **commun aux deux instances** (unités partagées) : refus si l'autre instance utilise un autre dossier, ou si la valeur diffère d'un fichier d'instance existant (modifier alors `TESLA_NODE_DIR` dans ce fichier). |
 | `--pg-port` | Port du cluster PostgreSQL **18** à utiliser (défaut 5432). Un cluster d'une autre version n'est jamais modifié : le script s'arrête. Sans aucun cluster, PostgreSQL 18 est installé. |
 | `--no-tls` | DNS pas encore prêt ; relancer ensuite. |
 | `--enable-firewall` | Active UFW s'il est inactif. **Par défaut, UFW inactif reste inactif** (d'autres applications peuvent écouter sur d'autres ports) ; actif, seuls 80/443 sont ajoutés. `--no-firewall` : aucune action. |
 | `--with-journald` | Installe la rétention journald de Tesla — réglage **global** du serveur, à n'activer qu'après accord. |
 | `--web-hosting local` | Mode historique ([DEPLOYMENT.md](DEPLOYMENT.md)). |
 
-Ce que fait le script (idempotent ; ne remplace jamais une configuration ou un secret existant) : paquets (Nginx, Certbot, rclone ; Node.js 22 seulement si `/usr/bin/node` est absent — une version < 22.12 existante arrête le script sans y toucher) ; utilisateur système `tesla` (sans sudo, sauf le redémarrage de ses propres unités) ; arborescence § 2 ; base `tesla_<instance>` et rôle non superutilisateur, extension `btree_gist` ; `/etc/tesla/<instance>.env` (`WEB_HOSTING=vercel`, `DATABASE_URL`, `MEDICAL_DATA_KEY` générés) ; unités systemd (`tesla-web@` n'est **ni activé ni démarré**) ; sudoers ; secret du relais ; vhost `tesla-<instance>` (HTTP provisoire, certificat `certonly --webroot` dans `/var/www/tesla/acme`, puis `tesla-api.conf`). Chaque changement Nginx passe par `nginx -t` ; en cas d'échec la version précédente est rétablie et Nginx n'est **pas** rechargé. Le site par défaut et les autres sites ne sont jamais modifiés.
+Ce que fait le script (idempotent ; ne remplace jamais une configuration ou un secret existant) : contrôle du Node.js de TESLA (`TESLA_NODE_DIR` ≥ 22.12, `npm` et `npx` présents ; aucun paquet `nodejs`, `/usr/bin/node` ni utilisé ni modifié) ; paquets (Nginx, Certbot, rclone) ; utilisateur système `tesla` (sans sudo, sauf le redémarrage de ses propres unités) ; arborescence § 2 ; base `tesla_<instance>` et rôle non superutilisateur, extension `btree_gist` ; `/etc/tesla/<instance>.env` (`WEB_HOSTING=vercel`, `DATABASE_URL`, `MEDICAL_DATA_KEY` générés) ; unités systemd rendues avec `TESLA_NODE_DIR` (`ExecStart=/opt/node22/bin/node …`, `Environment=PATH=/opt/node22/bin:…` ; `tesla-web@` n'est **ni activé ni démarré**) ; sudoers ; secret du relais ; vhost `tesla-<instance>` (HTTP provisoire, certificat `certonly --webroot` dans `/var/www/tesla/acme`, puis `tesla-api.conf`). Chaque changement Nginx passe par `nginx -t` ; en cas d'échec la version précédente est rétablie et Nginx n'est **pas** rechargé. Le site par défaut et les autres sites ne sont jamais modifiés.
 
 **Immédiatement** : copier `MEDICAL_DATA_KEY` dans le coffre de l'association (deux personnes, hors VPS).
 
@@ -90,6 +103,7 @@ Compléter `/etc/tesla/production.env` (le script liste les `<…>` restants) co
 | `PUBLIC_APP_URL` | `https://<projet>.vercel.app` si SMTP est configuré (liens des e-mails) |
 | `API_PORT` | Port local choisi à l'installation (Nginx l'utilise : relancer `bootstrap.sh` s'il change) |
 | `TRUST_PROXY` | `true` (Nginx écrase `X-Forwarded-For`) |
+| `TESLA_NODE_DIR` | `/opt/node22/bin` (écrit par `bootstrap.sh`) ; absent d'un fichier antérieur : même défaut |
 | `NEXT_PUBLIC_API_URL`, `WEB_PORT` | absents (Vercel) |
 
 Puis, en `tesla` : `gpg --import cle-publique.asc` et `rclone config` ([STORAGE_R2.md](STORAGE_R2.md) § 7).
@@ -105,7 +119,7 @@ exit
 sudo systemctl start tesla-daily@production.timer tesla-backup@production.timer tesla-healthcheck@production.timer
 ```
 
-`deploy.sh` (mode Vercel) : verrou → contrôles (variables sans `<…>`, 2 Gio libres) → release `git archive` → `npm ci`, build de `@tesla/shared` et de l'API seulement → **sauvegarde** → `prisma migrate deploy` (additif, jamais `reset` ni `db push`) → bascule de `current` → redémarrage de `tesla-api@production` seul → santé de l'API (60 s) → `HEALTHY`, ou retour automatique et `FAILED`. La santé ne dépend jamais de Vercel : une panne de Vercel ne provoque pas de retour arrière de l'API.
+`deploy.sh` (mode Vercel) : verrou → **Node.js de TESLA** placé en tête du `PATH` du script seul (version ≥ 22.12 vérifiée, journalisée ; unités installées vérifiées : une unité encore sur un autre `node` arrête le déploiement → relancer `bootstrap.sh`) → contrôles (variables sans `<…>`, 2 Gio libres) → release `git archive` → `npm ci`, build de `@tesla/shared` et de l'API seulement → **sauvegarde** → `prisma migrate deploy` (additif, jamais `reset` ni `db push`) → bascule de `current` → redémarrage de `tesla-api@production` seul → santé de l'API (60 s) → `HEALTHY`, ou retour automatique et `FAILED`. La santé ne dépend jamais de Vercel : une panne de Vercel ne provoque pas de retour arrière de l'API.
 
 Contrôle : `curl -fsS https://<domaine_api>/api/v1/health` → `"status":"ok"`.
 
@@ -135,11 +149,12 @@ Un changement de `NEXT_PUBLIC_API_URL` impose un nouveau build Vercel ; `TESLA_A
 ## 9. Premier administrateur (utilisateur `tesla`)
 
 ```bash
-cd /var/www/tesla/production/current/apps/api
-set -a; . /etc/tesla/production.env; set +a
-node dist/jobs/create-admin.js --email <adresse> --first-name <prénom> --last-name <nom> \
+sudo -iu tesla /var/www/tesla/production/repo/deploy/scripts/exec.sh production \
+  node dist/jobs/create-admin.js --email <adresse> --first-name <prénom> --last-name <nom> \
   --web-url https://<projet>.vercel.app
 ```
+
+`exec.sh <instance> <commande…>` exécute une commande ponctuelle dans `current/apps/api`, avec l'environnement de l'instance et le Node.js de TESLA (jamais un `node` nu de la session, qui serait `/usr/bin/node` 20). Mêmes usages : `exec.sh production npx prisma migrate status`, `exec.sh production npm run pedagogy:audit`, `exec.sh production npm run db:seed:pedagogy -- --dry-run`, `exec.sh production node dist/jobs/daily.js`.
 
 Le lien (usage unique, 72 h) pointe vers le web Vercel. Suite : [DEPLOYMENT.md](DEPLOYMENT.md) § 3 étape 10.
 
@@ -162,6 +177,7 @@ Navigateur : connexion, une fiche, un PDF (module, copie papier), déconnexion ;
 ## 11. Mise à jour, retour arrière, sauvegarde
 
 - **API** : comme § 6 avec la nouvelle étiquette, d'abord en préproduction. Si les unités, Nginx ou sudoers changent, relancer `bootstrap.sh` (idempotent) depuis `~/tesla` à jour.
+- **Node.js de TESLA** : mise à jour mineure dans le même dossier (`/opt/node22`) → redéployer (`deploy.sh` reconstruit les dépendances natives). Changement de dossier → `TESLA_NODE_DIR` dans **les deux** fichiers d'instance, `bootstrap.sh` (unités rendues de nouveau, `daemon-reload`), puis `deploy.sh`. Contrôle : `systemctl show -p ExecStart tesla-api@production` et `sudo cat /proc/$(systemctl show -p MainPID --value tesla-api@production)/cmdline | tr '\0' ' '` → `/opt/node22/bin/node dist/main.js`.
 - **Web** : déploiement Vercel de la **même étiquette** (branche de production ou *Promote*). Ordre : API d'abord (contrats additifs), web ensuite.
 - **Retour arrière de l'API** : `sudo -iu tesla /var/www/tesla/production/repo/deploy/scripts/rollback.sh production [release]` (dernière release saine ; jamais une release `FAILED` ni un chemin hors de `releases/`). **Web** : *Instant Rollback* Vercel. Aucun retour arrière de la base : [BACKUP_RESTORE.md](BACKUP_RESTORE.md).
 - **Sauvegardes** : inchangées (`tesla-backup@.timer`, `/var/backups/tesla/<instance>`, R2), voir [BACKUP_RESTORE.md](BACKUP_RESTORE.md). Restauration (jamais par-dessus la base existante, procédure complète : [BACKUP_RESTORE.md § 5](BACKUP_RESTORE.md#5-restauration-en-production)) :
@@ -181,6 +197,6 @@ Navigateur : connexion, une fiche, un PDF (module, copie papier), déconnexion ;
 
 ## 12. Vérifications locales et limites
 
-Exécuté localement le 2026-11-03 (détails : [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)) : `deploy-scripts.test.sh` (releases, retour arrière, verrou, rétention, garde-fous de chemins, modes vercel/local), ShellCheck, `systemd-analyze verify`, `nginx -t` (nginx 1.24 d'Ubuntu 24.04, deux instances + mode historique + un autre site), chaîne réelle web (`next start`, build `/api/v1`) → relais → Nginx TLS → API → PostgreSQL 18.
+Exécuté localement le 2026-11-03 (détails : [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)) : `deploy-scripts.test.sh` (releases, retour arrière, verrou, rétention, garde-fous de chemins, modes vercel/local ; deux Node.js simulés — 20 en tête du `PATH`, 22 dans `TESLA_NODE_DIR` : `npm ci`, builds et Prisma sur 22, aucun appel à 20, refus d'un dossier en 20, absent ou sous `/home`, refus d'unités sur un autre `node`, `exec.sh`), release `git archive` réelle construite avec un Node.js 22 isolé et un faux Node.js 20 bloquant en tête du `PATH` (`npm ci`, `@tesla/shared`, API, `prisma validate` / `migrate status`), ShellCheck, `systemd-analyze verify`, `nginx -t` (nginx 1.24 d'Ubuntu 24.04, deux instances + mode historique + un autre site), chaîne réelle web (`next start`, build `/api/v1`) → relais → Nginx TLS → API → PostgreSQL 18.
 
 À vérifier sur OVH et Vercel (non testable localement) : comportement exact du relais Vercel (transmission de `Set-Cookie`, `Origin`, corps binaires volumineux, délai maximal d'une réponse relayée — ZIP de lots), réécriture effective de `x-forwarded-for` par Vercel, isolation systemd réelle (`TemporaryFileSystem`), coexistence avec les autres sites Nginx (`listen 443 ssl http2` partagé), Certbot, R2 réel et CORS avec l'origine Vercel, appareils réels.

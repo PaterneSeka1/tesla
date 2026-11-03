@@ -9,6 +9,8 @@
 # release marquée FAILED (conservée pour diagnostic, jamais choisie par rollback.sh).
 # WEB_HOSTING=vercel (fichier d'instance) : seule l'API est construite et redémarrée ; le web est
 # déployé par Vercel depuis GitHub (docs/DEPLOYMENT_VERCEL_OVH.md).
+# Node.js : celui de TESLA_NODE_DIR (/opt/node22/bin par défaut) pour npm ci, Prisma et les builds ;
+# le Node.js système et les autres applications du serveur ne sont pas concernés.
 # Usage : deploy.sh <production|preproduction> <commit|étiquette>
 set -euo pipefail
 umask 027
@@ -26,6 +28,9 @@ tesla_load_env "$instance"
 root="$(tesla_deploy_root)/${instance}"
 hosting="$(tesla_web_hosting)"
 mapfile -t units < <(tesla_units "$instance")
+tesla_use_node
+tesla_check_units "$(tesla_node_dir)" tesla-api@.service tesla-daily@.service
+[[ "$hosting" == local ]] && tesla_check_units "$(tesla_node_dir)" tesla-web@.service
 required=(DATABASE_URL PUBLIC_URL CORS_ORIGINS BACKUP_DIR BACKUP_GPG_RECIPIENT)
 [[ "$hosting" == local ]] && required+=(NEXT_PUBLIC_API_URL)
 for var in "${required[@]}"; do
@@ -37,7 +42,7 @@ tesla_lock "$root"
 free_kb="$(df --output=avail -k "$root" | tail -1)"
 (( free_kb > 2 * 1024 * 1024 )) || { echo "Moins de 2 Gio libres sur ${root}." >&2; exit 1; }
 
-log "Préparation de ${ref} (web : ${hosting})"
+log "Préparation de ${ref} (web : ${hosting}, Node.js $(node --version) : $(command -v node))"
 git -C "$root/repo" fetch --quiet --tags origin
 sha="$(git -C "$root/repo" rev-parse --verify "${ref}^{commit}")"
 release="$root/releases/$(date -u +%Y%m%d%H%M%S)-${sha:0:12}"

@@ -12,8 +12,10 @@ Type=simple
 User=tesla
 Group=tesla
 EnvironmentFile=/etc/tesla/%i.env
+# Node.js de TESLA (TESLA_NODE_DIR, rendu par bootstrap.sh), jamais /usr/bin/node du système.
+Environment=PATH=/opt/node22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WorkingDirectory=/var/www/tesla/%i/current/apps/api
-ExecStart=/usr/bin/node dist/main.js
+ExecStart=/opt/node22/bin/node dist/main.js
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=20
