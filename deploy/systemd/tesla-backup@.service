@@ -11,10 +11,14 @@ Type=oneshot
 User=tesla
 Group=tesla
 EnvironmentFile=/etc/tesla/%i.env
-ExecStart=/opt/tesla/%i/current/deploy/scripts/backup.sh
+ExecStart=/var/www/tesla/%i/current/deploy/scripts/backup.sh
 SyslogIdentifier=tesla-backup-%i
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
+# Isolation : seul le répertoire de l'instance est visible sous /var/www (autres applications
+# du VPS masquées), en lecture seule.
+TemporaryFileSystem=/var/www:ro
+BindReadOnlyPaths=/var/www/tesla/%i
 ReadWritePaths=/var/backups/tesla/%i /home/tesla/.gnupg -/home/tesla/.config/rclone

@@ -46,6 +46,10 @@ jobs:
         run: npm run test
       - name: Build de production
         run: npm run build
+      - name: Build web en mode Vercel (appels même origine /api/v1)
+        run: npm run build -w @tesla/web
+        env:
+          NEXT_PUBLIC_API_URL: /api/v1
       - name: Audit des dépendances de production (gravité ≥ high)
         run: npm run audit:prod
 
@@ -181,7 +185,17 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - name: Shellcheck des scripts de déploiement
-        run: shellcheck -S warning deploy/scripts/*.sh deploy/scripts/tests/*.sh
+        run: shellcheck -x -S warning deploy/scripts/*.sh deploy/scripts/tests/*.sh
+      - name: Releases, retour arrière et garde-fous (arborescence /var/www/tesla simulée)
+        run: bash deploy/scripts/tests/deploy-scripts.test.sh
+      - name: Unités systemd (syntaxe)
+        run: |
+          t="$RUNNER_TEMP/systemd"; mkdir -p "$t"; cp deploy/systemd/* "$t/"; cd "$t"
+          for f in *@.service *@.timer; do ln -s "$f" "${f/@./@production.}"; done
+          out="$(systemd-analyze verify --man=no tesla-*@production.* 2>&1 || true)"
+          echo "$out"
+          # Seuls les binaires et unités absents du runner (node, scripts, postgresql) sont tolérés.
+          ! grep -vE 'is not executable|Unit postgresql.service not found|Failed to create .*/start' <<< "$out" | grep -q .
       - run: npm ci
       - name: Migrations (base sauvegardée par le test)
         working-directory: apps/api
@@ -193,16 +207,27 @@ jobs:
           docker run --rm --network host -e TEST_DATABASE_URL="$TEST_DATABASE_URL" \
             -v "$PWD:/repo:ro" postgres:18-alpine sh -c \
             'apk add --no-cache bash gnupg coreutils findutils curl > /dev/null && bash /repo/deploy/scripts/tests/backup-scripts.test.sh'
-      - name: Configuration Nginx (nginx 1.24 d'Ubuntu 24.04, deux instances)
+      - name: Configuration Nginx (nginx 1.24 ; API seule ×2, mode historique, ACME)
         run: |
-          t="$RUNNER_TEMP/nginx"; mkdir -p "$t/conf.d"
-          for pair in production:tesla.example.test:4000:3000 preproduction:pre.example.test:4100:3100; do
-            IFS=: read -r instance domain api web <<< "$pair"
-            mkdir -p "$t/le/live/$domain"
-            openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=$domain" \
-              -keyout "$t/le/live/$domain/privkey.pem" -out "$t/le/live/$domain/fullchain.pem" 2> /dev/null
-            sed -e "s/DOMAINE/$domain/g" -e "s/INSTANCE/$instance/g" -e "s/API_PORT/$api/" -e "s/WEB_PORT/$web/" \
-              deploy/nginx/tesla.conf > "$t/conf.d/$instance.conf"
+          t="$RUNNER_TEMP/nginx"; mkdir -p "$t/conf.d" "$t/tesla"
+          cert() {
+            mkdir -p "$t/le/live/$1"
+            openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=$1" \
+              -keyout "$t/le/live/$1/privkey.pem" -out "$t/le/live/$1/fullchain.pem" 2> /dev/null
+          }
+          for pair in production:api.example.test:4000 preproduction:api-pre.example.test:4100; do
+            IFS=: read -r instance domain api <<< "$pair"
+            cert "$domain"
+            # Secret du relais au format écrit par bootstrap.sh (32 caractères : map_hash_bucket_size).
+            printf 'map $http_x_tesla_proxy_secret $tesla_proxied_%s {\n    default 0;\n    "%s" 1;\n}\n' \
+              "$instance" "$(openssl rand -hex 16)" > "$t/tesla/$instance-proxy.conf"
+            sed -e "s/DOMAINE/$domain/g" -e "s/INSTANCE/$instance/g" -e "s#TESLA_ROOT#/var/www/tesla#g" \
+              -e "s/API_PORT/$api/" deploy/nginx/tesla-api.conf > "$t/conf.d/$instance.conf"
           done
-          sed 's/DOMAINE/acme.example.test/g' deploy/nginx/tesla-acme.conf > "$t/conf.d/acme.conf"
-          docker run --rm -v "$t/conf.d:/etc/nginx/conf.d:ro" -v "$t/le:/etc/letsencrypt:ro" nginx:1.24 nginx -t
+          cert legacy.example.test
+          sed -e "s/DOMAINE/legacy.example.test/g" -e "s/INSTANCE/legacy/g" -e "s#TESLA_ROOT#/var/www/tesla#g" \
+            -e "s/API_PORT/4200/" -e "s/WEB_PORT/3200/" deploy/nginx/tesla.conf > "$t/conf.d/legacy.conf"
+          sed -e 's/DOMAINE/acme.example.test/g' -e "s#TESLA_ROOT#/var/www/tesla#g" \
+            deploy/nginx/tesla-acme.conf > "$t/conf.d/acme.conf"
+          docker run --rm -v "$t/conf.d:/etc/nginx/conf.d:ro" -v "$t/le:/etc/letsencrypt:ro" \
+            -v "$t/tesla:/etc/nginx/tesla:ro" nginx:1.24 nginx -t

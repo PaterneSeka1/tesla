@@ -1,3 +1,5 @@
 # /etc/sudoers.d/tesla (visudo -cf) : l'utilisateur de déploiement ne peut que redémarrer les
-# services TESLA, rien d'autre.
+# services TESLA, rien d'autre. Première ligne : web sur Vercel (API seule, WEB_HOSTING=vercel) ;
+# seconde : mode historique (API et web sur le VPS, WEB_HOSTING=local).
+tesla ALL=(root) NOPASSWD: /usr/bin/systemctl restart tesla-api@production, /usr/bin/systemctl restart tesla-api@preproduction
 tesla ALL=(root) NOPASSWD: /usr/bin/systemctl restart tesla-api@production tesla-web@production, /usr/bin/systemctl restart tesla-api@preproduction tesla-web@preproduction

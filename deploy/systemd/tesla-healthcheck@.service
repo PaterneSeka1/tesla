@@ -8,10 +8,14 @@ Type=oneshot
 User=tesla
 Group=tesla
 EnvironmentFile=/etc/tesla/%i.env
-ExecStart=/opt/tesla/%i/current/deploy/scripts/healthcheck.sh
+ExecStart=/var/www/tesla/%i/current/deploy/scripts/healthcheck.sh
 SyslogIdentifier=tesla-health-%i
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+# Isolation : seul le répertoire de l'instance est visible sous /var/www (autres applications
+# du VPS masquées), en lecture seule.
+TemporaryFileSystem=/var/www:ro
+BindReadOnlyPaths=/var/www/tesla/%i
 MemoryMax=64M

@@ -1,5 +1,6 @@
 # API NestJS de TESLA. Instance : production ou preproduction (%i).
 # Installation : /etc/systemd/system/ ; activation : systemctl enable --now tesla-api@production
+# Écoute locale (API_HOST=127.0.0.1, API_PORT du fichier d'instance) : seul Nginx la joint.
 [Unit]
 Description=TESLA — API (%i)
 After=network-online.target postgresql.service
@@ -11,7 +12,7 @@ Type=simple
 User=tesla
 Group=tesla
 EnvironmentFile=/etc/tesla/%i.env
-WorkingDirectory=/opt/tesla/%i/current/apps/api
+WorkingDirectory=/var/www/tesla/%i/current/apps/api
 ExecStart=/usr/bin/node dist/main.js
 Restart=on-failure
 RestartSec=5
@@ -25,7 +26,10 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadOnlyPaths=/opt/tesla/%i
+# Isolation : seul le répertoire de l'instance est visible sous /var/www (autres applications
+# du VPS masquées), en lecture seule.
+TemporaryFileSystem=/var/www:ro
+BindReadOnlyPaths=/var/www/tesla/%i
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
