@@ -164,7 +164,19 @@ Navigateur : connexion, une fiche, un PDF (module, copie papier), déconnexion ;
 - **API** : comme § 6 avec la nouvelle étiquette, d'abord en préproduction. Si les unités, Nginx ou sudoers changent, relancer `bootstrap.sh` (idempotent) depuis `~/tesla` à jour.
 - **Web** : déploiement Vercel de la **même étiquette** (branche de production ou *Promote*). Ordre : API d'abord (contrats additifs), web ensuite.
 - **Retour arrière de l'API** : `sudo -iu tesla /var/www/tesla/production/repo/deploy/scripts/rollback.sh production [release]` (dernière release saine ; jamais une release `FAILED` ni un chemin hors de `releases/`). **Web** : *Instant Rollback* Vercel. Aucun retour arrière de la base : [BACKUP_RESTORE.md](BACKUP_RESTORE.md).
-- **Sauvegardes** : inchangées (`tesla-backup@.timer`, `/var/backups/tesla/<instance>`, R2), voir [BACKUP_RESTORE.md](BACKUP_RESTORE.md). Arrêt des écritures pour une restauration : `systemctl stop tesla-api@production`.
+- **Sauvegardes** : inchangées (`tesla-backup@.timer`, `/var/backups/tesla/<instance>`, R2), voir [BACKUP_RESTORE.md](BACKUP_RESTORE.md). Restauration (jamais par-dessus la base existante, procédure complète : [BACKUP_RESTORE.md § 5](BACKUP_RESTORE.md#5-restauration-en-production)) :
+
+  ```bash
+  sudo systemctl stop tesla-api@production
+  # restore.sh lu par root (dossier de l'instance en 0750), exécuté par postgres (authentification peer) ;
+  # sauvegarde, .sha256 et clé privée accessibles à postgres le temps de l'opération
+  sudo cat /var/www/tesla/production/repo/deploy/scripts/restore.sh | sudo -u postgres env \
+    BACKUP_RESTORE_CHECK_URL=postgresql://postgres@/postgres RESTORE_OWNER=tesla_production \
+    bash -s -- /chemin/tesla-<horodatage>.dump.gpg tesla_restaure_<date>
+  # puis DATABASE_URL → tesla_restaure_<date> dans /etc/tesla/production.env
+  sudo systemctl start tesla-api@production
+  sudo systemctl start tesla-healthcheck@production   # code non nul si l'API est en échec
+  ```
 - **Changement de secret du relais** : supprimer `/etc/nginx/tesla/<instance>-proxy.conf`, relancer `bootstrap.sh`, mettre à jour `TESLA_PROXY_SECRET` sur Vercel et redéployer (quelques minutes où les adresses ne sont plus distinguées).
 
 ## 12. Vérifications locales et limites

@@ -52,9 +52,9 @@ La restauration ne s'écrit **jamais** par-dessus une base existante : elle cré
    L'URL ci-dessous suppose l'authentification locale `peer` : exécuter la commande en tant qu'utilisateur système `postgres`, avec la clé privée importée dans son trousseau le temps de l'opération ; sinon utiliser le rôle de maintenance `CREATEDB` et son mot de passe. `RESTORE_OWNER` vaut `tesla_production` pour une installation faite par `bootstrap.sh`.
    ```bash
    BACKUP_RESTORE_CHECK_URL=postgresql://postgres@/postgres RESTORE_OWNER=tesla_production \
-     deploy/scripts/restore.sh tesla-<horodatage>.dump.gpg tesla_restaure_<date>
+     bash -s -- /chemin/tesla-<horodatage>.dump.gpg tesla_restaure_<date> < restore.sh   # copie de deploy/scripts/restore.sh lisible par postgres
    ```
-4. **Bascule** : dans `/etc/tesla/production.env`, pointer `DATABASE_URL` vers `tesla_restaure_<date>` ; vérifier les migrations (`cd current/apps/api && npx prisma migrate status`) ; redémarrer les services ; `healthcheck.sh`.
+4. **Bascule** : dans `/etc/tesla/production.env`, pointer `DATABASE_URL` vers `tesla_restaure_<date>` ; vérifier les migrations (`cd /var/www/tesla/production/current/apps/api && npx prisma migrate status`, en tant que `tesla` avec l'environnement de l'instance) ; redémarrer les services ; `healthcheck.sh`.
 5. Contrôles fonctionnels : connexion, une fiche, un module publié, le journal d'audit.
 6. Conserver l'ancienne base jusqu'à la validation écrite du responsable ; sa suppression est une décision explicite, hors script.
 7. Appareils : les opérations hors ligne postérieures à la sauvegarde sont renvoyées par les appareils ; celles qui portent sur des données absentes reviennent en conflit ou en rejet motivé, jamais appliquées en silence.
