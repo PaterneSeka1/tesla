@@ -4,6 +4,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — gestion des modules V2, 2026-11-04
+- « Tous les modules » : recherche serveur (titre, code, résumé, thème, auteur, sans accents), filtres combinables, vues rapides, pastilles, tri et pagination serveur, état dans l'URL, indicateurs compacts, tableau et cartes mobiles, menu d'actions (D171).
+- Suppression individuelle d'un brouillon jamais soumis (leçons comprises) ou abandon de la version de travail d'un module publié ; confirmation, audit, aucune suppression par lot. Migration `20261113090000_delete_module_drafts`.
+
 ### Modifié — fiche médicale, 2026-11-03
 - Formulaire en quatre sections numérotées (informations personnelles, contacts d'urgence, informations de santé, consignes complémentaires) avec aides à la saisie ; champs facultatifs repliés tant qu'ils sont vides ; suppression confirmée par dialogue ; alerte avant de quitter avec des modifications non enregistrées (D170).
 - PDF A4 réorganisé dans le même ordre : encadré des contacts d'urgence, identité sur deux colonnes, date de mise à jour en tête. Aucun champ ni chiffrement modifié.
