@@ -19,6 +19,7 @@ import {
   type EditorModuleListItem,
   type EditorModuleListQuery,
   editorModuleListQuerySchema,
+  type EditorModuleStats,
   emptyLessonDocument,
   isLessonDocumentEmpty,
   type ModuleActivityItem,
@@ -41,7 +42,6 @@ import {
   type UserSummary,
   type VersionActionInput,
   versionActionInputSchema,
-  WORKING_MODULE_STATUSES,
   moduleTypologyError,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
@@ -79,8 +79,12 @@ import {
   versionNotFound,
   versionSummaryInclude,
 } from './module-common.js';
-
-const workingStatuses = [...WORKING_MODULE_STATUSES];
+import {
+  moduleFilterWhere,
+  moduleOrderBy,
+  moduleSearchSql,
+  moduleTitlePageSql,
+} from './module-list-query.js';
 
 function workingVersionExists(): ConflictException {
   return new ConflictException({
@@ -104,53 +108,122 @@ export class ModuleEditorService {
 
   async list(actor: Actor, query: EditorModuleListQuery): Promise<Paginated<EditorModuleListItem>> {
     assertCan(actor, 'module.write');
-    const { page, pageSize, search, status } = parseInput(editorModuleListQuerySchema, query);
-    const filters: Prisma.PedagogicalModuleWhereInput[] = [editableModulesWhere(actor)];
-    if (status === 'working')
-      filters.push({ versions: { some: { status: { in: workingStatuses } } } });
-    else if (status === 'published') filters.push({ publishedVersionId: { not: null } });
-    else if (status !== 'all') filters.push({ versions: { some: { status } } });
+    const parsed = parseInput(editorModuleListQuerySchema, query);
+    const { page, pageSize, search, sort } = parsed;
+    const canReview = can(actor, 'module.review');
+    const filters: Prisma.PedagogicalModuleWhereInput[] = [
+      editableModulesWhere(actor),
+      ...moduleFilterWhere(parsed, { userId: actor.userId, canReview }),
+    ];
     if (search) {
-      filters.push({ versions: { some: { title: { contains: search, mode: 'insensitive' } } } });
+      const rows = await this.prisma.$queryRaw<{ id: string }[]>(moduleSearchSql(search));
+      filters.push({ id: { in: rows.map((row) => row.id) } });
     }
     const where: Prisma.PedagogicalModuleWhereInput = { AND: filters };
-    const [total, modules] = await this.prisma.$transaction([
-      this.prisma.pedagogicalModule.count({ where }),
-      this.prisma.pedagogicalModule.findMany({
-        where,
-        include: {
-          createdBy: userSummarySelect,
-          collaborators: { where: { userId: actor.userId, removedAt: null }, select: { id: true } },
-          versions: { include: versionSummaryInclude, orderBy: { version: 'desc' } },
-        },
-        orderBy: { updatedAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ]);
+    const skip = (page - 1) * pageSize;
+    const orderBy = moduleOrderBy(sort);
+    let total: number;
+    let pageIds: string[];
+    if (orderBy) {
+      const [count, rows] = await this.prisma.$transaction([
+        this.prisma.pedagogicalModule.count({ where }),
+        this.prisma.pedagogicalModule.findMany({
+          where,
+          select: { id: true },
+          orderBy,
+          skip,
+          take: pageSize,
+        }),
+      ]);
+      total = count;
+      pageIds = rows.map((row) => row.id);
+    } else {
+      // Tri par titre (porté par la version) : identifiants filtrés, puis page triée en SQL.
+      const ids = (
+        await this.prisma.pedagogicalModule.findMany({ where, select: { id: true } })
+      ).map((row) => row.id);
+      total = ids.length;
+      const direction = sort === 'title_desc' ? 'desc' : 'asc';
+      pageIds =
+        ids.length === 0
+          ? []
+          : (
+              await this.prisma.$queryRaw<{ id: string }[]>(
+                moduleTitlePageSql(ids, direction, skip, pageSize),
+              )
+            ).map((row) => row.id);
+    }
+    const modules = await this.prisma.pedagogicalModule.findMany({
+      where: { id: { in: pageIds } },
+      include: {
+        createdBy: userSummarySelect,
+        sourceImport: { select: { id: true } },
+        collaborators: { where: { userId: actor.userId, removedAt: null }, select: { id: true } },
+        versions: { include: versionSummaryInclude, orderBy: { version: 'desc' } },
+      },
+    });
+    const byId = new Map(modules.map((module) => [module.id, module]));
     return {
-      items: modules.map((module) => {
+      items: pageIds.flatMap((id) => {
+        const module = byId.get(id);
+        if (!module) return []; // supprimé entre les deux lectures
         const latest = module.versions[0]!;
         const working = module.versions.find((version) => isWorkingStatus(version.status));
         const published = module.versions.find(
           (version) => version.id === module.publishedVersionId,
         );
-        return {
-          id: module.id,
-          code: formatModuleCode(module.number),
-          slug: module.slug,
-          createdBy: toUserSummary(module.createdBy),
-          createdAt: module.createdAt.toISOString(),
-          access: accessOf(actor, module.createdById, module.collaborators.length > 0),
-          working: working ? toVersionSummary(working) : null,
-          published: published ? toVersionSummary(published) : null,
-          latest: toVersionSummary(latest),
-        };
+        const imported = module.sourceImport !== null;
+        const ownsDraft = (createdById: string | null) =>
+          canReview || (createdById !== null && createdById === actor.userId);
+        let draftDeletion: EditorModuleListItem['draftDeletion'] = null;
+        if (working?.status === 'BROUILLON' && working.submittedAt === null) {
+          if (module.versions.length === 1) {
+            if (!imported && ownsDraft(module.createdById)) draftDeletion = 'MODULE';
+          } else if (ownsDraft(working.createdById)) draftDeletion = 'VERSION';
+        }
+        return [
+          {
+            id: module.id,
+            code: formatModuleCode(module.number),
+            slug: module.slug,
+            createdBy: toUserSummary(module.createdBy),
+            createdAt: module.createdAt.toISOString(),
+            updatedAt: module.updatedAt.toISOString(),
+            access: accessOf(actor, module.createdById, module.collaborators.length > 0),
+            imported,
+            everPublished: module.versions.some((version) => version.publishedAt !== null),
+            draftDeletion,
+            working: working ? toVersionSummary(working) : null,
+            published: published ? toVersionSummary(published) : null,
+            latest: toVersionSummary(latest),
+          },
+        ];
       }),
       page,
       pageSize,
       total,
     };
+  }
+
+  /** Indicateurs compacts : modules distincts dans le périmètre de l'utilisateur. */
+  async stats(actor: Actor): Promise<EditorModuleStats> {
+    assertCan(actor, 'module.write');
+    const scope = editableModulesWhere(actor);
+    const [accessible, published, neverPublished, pendingApproval] = await this.prisma.$transaction(
+      [
+        this.prisma.pedagogicalModule.count({ where: scope }),
+        this.prisma.pedagogicalModule.count({
+          where: { AND: [scope, { publishedVersionId: { not: null } }] },
+        }),
+        this.prisma.pedagogicalModule.count({
+          where: { AND: [scope, { versions: { none: { publishedAt: { not: null } } } }] },
+        }),
+        this.prisma.pedagogicalModule.count({
+          where: { AND: [scope, { versions: { some: { status: 'SOUMIS' } } }] },
+        }),
+      ],
+    );
+    return { accessible, published, neverPublished, pendingApproval };
   }
 
   /** Crée le module et sa version 1 à l'état brouillon. Le slug est fixé ici et ne change plus. */

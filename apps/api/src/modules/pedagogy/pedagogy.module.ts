@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ModuleCatalogController } from './module-catalog.controller.js';
 import { ModuleCatalogService } from './module-catalog.service.js';
 import { ModuleEditorController } from './module-editor.controller.js';
+import { ModuleDraftDeletionService } from './module-draft-deletion.service.js';
 import { ModuleEditorService } from './module-editor.service.js';
 import { ModuleFilesController } from './module-files.controller.js';
 import { ModuleFilesService } from './module-files.service.js';
@@ -20,6 +21,12 @@ import { ModuleReviewService } from './module-review.service.js';
     ModuleReviewController,
     ModuleFilesController,
   ],
-  providers: [ModuleCatalogService, ModuleEditorService, ModuleReviewService, ModuleFilesService],
+  providers: [
+    ModuleCatalogService,
+    ModuleEditorService,
+    ModuleDraftDeletionService,
+    ModuleReviewService,
+    ModuleFilesService,
+  ],
 })
 export class PedagogyModule {}

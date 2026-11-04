@@ -30,12 +30,20 @@ import {
   createModuleInputSchema,
   type CreateResourceInput,
   createResourceInputSchema,
+  type DeleteDraftInput,
+  deleteDraftInputSchema,
+  type DeleteDraftResult,
+  deleteDraftResultSchema,
+  type DraftDeletionCheck,
+  draftDeletionCheckSchema,
   deleteLessonQuerySchema,
   type EditorModuleDetail,
   editorModuleDetailSchema,
   type EditorModuleListItem,
   editorModuleListItemSchema,
   type EditorModuleListQuery,
+  type EditorModuleStats,
+  editorModuleStatsSchema,
   moduleActivityListSchema,
   type ModuleActivityItem,
   type ModuleTextLink,
@@ -62,6 +70,7 @@ import { type Actor } from '../../common/actor.js';
 import { openApiSchema } from '../../common/openapi.js';
 import { parseId, parseInput } from '../../common/validation.js';
 import { CurrentActor } from '../auth/auth.decorators.js';
+import { ModuleDraftDeletionService } from './module-draft-deletion.service.js';
 import { ModuleEditorService } from './module-editor.service.js';
 
 const detail = { schema: openApiSchema(editorModuleDetailSchema) };
@@ -74,12 +83,27 @@ const detail = { schema: openApiSchema(editorModuleDetailSchema) };
 @ApiCookieAuth()
 @Controller('editor')
 export class ModuleEditorController {
-  constructor(private readonly editor: ModuleEditorService) {}
+  constructor(
+    private readonly editor: ModuleEditorService,
+    private readonly drafts: ModuleDraftDeletionService,
+  ) {}
 
   @Get('modules')
   @ApiOperation({ summary: 'Modules sur lesquels je peux intervenir (tous pour le responsable)' })
-  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'search', required: false, description: 'Titre, code, résumé, thème, auteur' })
   @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'publication', required: false })
+  @ApiQuery({ name: 'stageId', required: false })
+  @ApiQuery({ name: 'category', required: false })
+  @ApiQuery({ name: 'author', required: false, description: '`me` ou identifiant' })
+  @ApiQuery({ name: 'collaboration', required: false })
+  @ApiQuery({ name: 'origin', required: false })
+  @ApiQuery({ name: 'evaluation', required: false })
+  @ApiQuery({ name: 'lessons', required: false })
+  @ApiQuery({ name: 'dateField', required: false })
+  @ApiQuery({ name: 'from', required: false, description: 'AAAA-MM-JJ' })
+  @ApiQuery({ name: 'to', required: false, description: 'AAAA-MM-JJ' })
+  @ApiQuery({ name: 'sort', required: false })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'pageSize', required: false })
   @ApiOkResponse({ schema: openApiSchema(paginatedSchema(editorModuleListItemSchema)) })
@@ -88,6 +112,43 @@ export class ModuleEditorController {
     @Query() query: EditorModuleListQuery,
   ): Promise<Paginated<EditorModuleListItem>> {
     return this.editor.list(actor, query);
+  }
+
+  @Get('module-stats')
+  @ApiOperation({ summary: 'Indicateurs des modules accessibles (modules distincts)' })
+  @ApiOkResponse({ schema: openApiSchema(editorModuleStatsSchema) })
+  stats(@CurrentActor() actor: Actor): Promise<EditorModuleStats> {
+    return this.editor.stats(actor);
+  }
+
+  @Get('modules/:id/draft-deletion')
+  @ApiOperation({
+    summary:
+      'Diagnostic avant suppression du brouillon (module jamais publié ou version de travail)',
+  })
+  @ApiOkResponse({ schema: openApiSchema(draftDeletionCheckSchema) })
+  draftDeletion(
+    @CurrentActor() actor: Actor,
+    @Param('id') id: string,
+  ): Promise<DraftDeletionCheck> {
+    return this.drafts.check(actor, parseId(id));
+  }
+
+  @Post('modules/:id/draft-deletion')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Supprimer un brouillon jamais soumis (un seul module, une seule version)',
+    description:
+      'Module jamais publié : supprimé avec ses leçons. Module publié : seule la version de travail est abandonnée. 422 `DRAFT_NOT_DELETABLE`, 409 `DRAFT_CHANGED`, 403 hors auteur et responsable plein.',
+  })
+  @ApiBody({ schema: openApiSchema(deleteDraftInputSchema, 'input') })
+  @ApiOkResponse({ schema: openApiSchema(deleteDraftResultSchema) })
+  deleteDraft(
+    @CurrentActor() actor: Actor,
+    @Param('id') id: string,
+    @Body() body: DeleteDraftInput,
+  ): Promise<DeleteDraftResult> {
+    return this.drafts.delete(actor, parseId(id), body);
   }
 
   @Post('modules')

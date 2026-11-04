@@ -435,13 +435,202 @@ export const motivatedDecisionInputSchema = z.object({
 
 export type MotivatedDecisionInput = z.input<typeof motivatedDecisionInputSchema>;
 
-export const editorModuleListQuerySchema = paginationQuerySchema.extend({
-  search: searchQuerySchema,
-  /** `working` = brouillon, soumis, à corriger ou approuvé ; `published` = version publiée en ligne. */
-  status: z.enum([...MODULE_VERSION_STATUSES, 'working', 'published', 'all']).default('all'),
-});
+// ─── Gestion du catalogue (liste filtrée, D171) ────────────────────────────
+
+/** Tris de la liste ; un tri secondaire sur le numéro du module garantit un ordre stable. */
+export const MODULE_LIST_SORTS = [
+  'updated_desc',
+  'updated_asc',
+  'created_desc',
+  'created_asc',
+  'title_asc',
+  'title_desc',
+  'code_asc',
+  'code_desc',
+] as const;
+
+export type ModuleListSort = (typeof MODULE_LIST_SORTS)[number];
+
+export const MODULE_LIST_SORT_LABELS: Record<ModuleListSort, string> = {
+  updated_desc: 'Modifiés récemment',
+  updated_asc: 'Modifiés il y a longtemps',
+  created_desc: 'Créés récemment',
+  created_asc: 'Créés il y a longtemps',
+  title_asc: 'Titre A → Z',
+  title_desc: 'Titre Z → A',
+  code_asc: 'Code croissant',
+  code_desc: 'Code décroissant',
+};
+
+/** État de publication du module (indépendant du statut éditorial de sa version de travail). */
+export const MODULE_PUBLICATION_FILTERS = [
+  'current',
+  'never',
+  'withdrawn',
+  'with_working',
+] as const;
+
+export const MODULE_PUBLICATION_FILTER_LABELS: Record<
+  (typeof MODULE_PUBLICATION_FILTERS)[number],
+  string
+> = {
+  current: 'Actuellement publiés',
+  never: 'Jamais publiés',
+  withdrawn: 'Publications retirées',
+  with_working: 'Publiés avec une version en préparation',
+};
+
+export const MODULE_COLLABORATION_FILTERS = ['mine', 'collaborating', 'action'] as const;
+
+export const MODULE_COLLABORATION_FILTER_LABELS: Record<
+  (typeof MODULE_COLLABORATION_FILTERS)[number],
+  string
+> = {
+  mine: 'Mes modules',
+  collaborating: 'Modules auxquels je collabore',
+  action: 'Nécessitant mon intervention',
+};
+
+export const MODULE_ORIGIN_FILTERS = ['import', 'manual'] as const;
+
+export const MODULE_ORIGIN_FILTER_LABELS: Record<(typeof MODULE_ORIGIN_FILTERS)[number], string> = {
+  import: 'Import système',
+  manual: 'Création manuelle',
+};
+
+export const MODULE_EVALUATION_FILTERS = ['with', 'without', 'published'] as const;
+
+export const MODULE_EVALUATION_FILTER_LABELS: Record<
+  (typeof MODULE_EVALUATION_FILTERS)[number],
+  string
+> = {
+  with: 'Avec questionnaire',
+  without: 'Sans questionnaire',
+  published: 'Avec questionnaire publié',
+};
+
+export const MODULE_LESSON_FILTERS = ['with', 'without'] as const;
+
+export const MODULE_LESSON_FILTER_LABELS: Record<(typeof MODULE_LESSON_FILTERS)[number], string> = {
+  with: 'Avec leçons',
+  without: 'Sans leçon',
+};
+
+export const MODULE_DATE_FIELDS = ['updated', 'created'] as const;
+
+const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), z.enum(values).optional());
+
+const optionalDay = z.preprocess(
+  (value) => (value === '' ? undefined : value),
+  z.iso.date({ error: 'Date invalide (AAAA-MM-JJ).' }).optional(),
+);
+
+/**
+ * Liste des modules accessibles : recherche et filtres combinables, appliqués par la base ;
+ * pagination et compteurs portent sur les modules (jamais sur les versions).
+ */
+export const editorModuleListQuerySchema = paginationQuerySchema
+  .extend({
+    search: searchQuerySchema,
+    /**
+     * Statut éditorial : celui de la version de travail pour BROUILLON, SOUMIS, A_CORRIGER et
+     * APPROUVE ; `PUBLIE` = version en ligne ; `REFUSE` / `ARCHIVE` = module sans version de
+     * travail ni publiée dont une version porte cet état. `working` = une version de travail
+     * existe ; `published` = synonyme historique de `PUBLIE`.
+     */
+    status: z.enum([...MODULE_VERSION_STATUSES, 'working', 'published', 'all']).default('all'),
+    publication: optionalEnum(MODULE_PUBLICATION_FILTERS),
+    stageId: z.preprocess((value) => (value === '' ? undefined : value), z.uuid().optional()),
+    category: optionalEnum(MODULE_CATEGORIES),
+    /** `me` = créés par moi ; un identifiant = auteur choisi. */
+    author: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.union([z.literal('me'), z.uuid()]).optional(),
+    ),
+    collaboration: optionalEnum(MODULE_COLLABORATION_FILTERS),
+    origin: optionalEnum(MODULE_ORIGIN_FILTERS),
+    evaluation: optionalEnum(MODULE_EVALUATION_FILTERS),
+    lessons: optionalEnum(MODULE_LESSON_FILTERS),
+    dateField: z.enum(MODULE_DATE_FIELDS).default('updated'),
+    /** Période incluse, en jours calendaires (fuseau d'Abidjan = UTC). */
+    from: optionalDay,
+    to: optionalDay,
+    sort: z.enum(MODULE_LIST_SORTS).default('updated_desc'),
+  })
+  .refine((query) => !query.from || !query.to || query.from <= query.to, {
+    error: 'La date de début doit précéder la date de fin.',
+    path: ['to'],
+  });
 
 export type EditorModuleListQuery = z.input<typeof editorModuleListQuerySchema>;
+
+/** Indicateurs compacts de la liste (modules distincts, jamais les versions). */
+export const editorModuleStatsSchema = z.object({
+  /** Modules accessibles à l'utilisateur. */
+  accessible: z.number().int().nonnegative(),
+  /** Modules ayant une version actuellement publiée. */
+  published: z.number().int().nonnegative(),
+  /** Modules dont aucune version n'a jamais été publiée. */
+  neverPublished: z.number().int().nonnegative(),
+  /** Modules dont la version de travail attend une décision (soumise). */
+  pendingApproval: z.number().int().nonnegative(),
+});
+
+export type EditorModuleStats = z.infer<typeof editorModuleStatsSchema>;
+
+// ─── Suppression individuelle d'un brouillon (D171) ─────────────────────────
+
+/** `MODULE` = module jamais publié supprimé ; `VERSION` = version de travail abandonnée. */
+export const DRAFT_DELETION_KINDS = ['MODULE', 'VERSION'] as const;
+
+export type DraftDeletionKind = (typeof DRAFT_DELETION_KINDS)[number];
+
+export const DRAFT_DELETION_BLOCKERS = [
+  'NO_DRAFT',
+  'SUBMITTED',
+  'NOT_ALLOWED',
+  'IMPORTED',
+  'COLLABORATORS',
+  'FILES',
+  'EVALUATIONS',
+  'USAGE',
+  'CITED',
+] as const;
+
+export type DraftDeletionBlocker = (typeof DRAFT_DELETION_BLOCKERS)[number];
+
+/** Diagnostic avant suppression : affiché dans la confirmation ; l'API le refait à l'exécution. */
+export const draftDeletionCheckSchema = z.object({
+  moduleId: z.uuid(),
+  code: z.string(),
+  kind: z.enum(DRAFT_DELETION_KINDS).nullable(),
+  versionId: z.uuid().nullable(),
+  version: z.number().int().nullable(),
+  title: z.string(),
+  status: z.enum(MODULE_VERSION_STATUSES).nullable(),
+  lessonCount: z.number().int().nonnegative(),
+  resourceCount: z.number().int().nonnegative(),
+  /** Numéro de la version en ligne, conservée en cas d'abandon. */
+  publishedVersion: z.number().int().nullable(),
+  allowed: z.boolean(),
+  blockers: z.array(z.object({ code: z.enum(DRAFT_DELETION_BLOCKERS), message: z.string() })),
+});
+
+export type DraftDeletionCheck = z.infer<typeof draftDeletionCheckSchema>;
+
+/** Un seul module, une seule version, explicitement désignés : aucune suppression par lot. */
+export const deleteDraftInputSchema = z.object({ versionId: z.uuid() });
+
+export type DeleteDraftInput = z.input<typeof deleteDraftInputSchema>;
+
+export const deleteDraftResultSchema = z.object({
+  kind: z.enum(DRAFT_DELETION_KINDS),
+  moduleId: z.uuid(),
+  versionId: z.uuid(),
+});
+
+export type DeleteDraftResult = z.infer<typeof deleteDraftResultSchema>;
 
 export const submissionListQuerySchema = z.object({
   status: z.enum(['SOUMIS', 'APPROUVE']).default('SOUMIS'),
@@ -493,7 +682,19 @@ export const editorModuleListItemSchema = z.object({
   /** Null = module créé par le système (import d'une source documentaire). */
   createdBy: userSummarySchema.nullable(),
   createdAt: z.iso.datetime(),
+  /** Dernière activité sur le module (toute version). */
+  updatedAt: z.iso.datetime(),
   access: z.enum(MODULE_ACCESS_ROLES),
+  /** Provenance : import d'une source documentaire ou création manuelle. */
+  imported: z.boolean(),
+  /** Une version a déjà été publiée (même retirée depuis). */
+  everPublished: z.boolean(),
+  /**
+   * Suppression proposée à l'utilisateur (indication d'affichage) : `MODULE` = brouillon jamais
+   * publié, `VERSION` = version de travail abandonnable. Le diagnostic complet et la décision
+   * restent ceux de l'API (`draft-deletion`).
+   */
+  draftDeletion: z.enum(DRAFT_DELETION_KINDS).nullable(),
   /** Version de travail (au plus une). */
   working: moduleVersionSummarySchema.nullable(),
   /** Version publiée courante. */
