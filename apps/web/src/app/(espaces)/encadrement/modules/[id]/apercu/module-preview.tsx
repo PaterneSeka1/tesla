@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { BackLink } from '@/components/back-link';
+import { safeReturnPath } from '@/lib/module-list-params';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
 import { ModuleVersionView } from '@/components/modules/module-version-view';
 import { QueryError, TableSkeleton } from '@/components/query-state';
@@ -14,7 +15,9 @@ import { editorModuleQueryOptions, moduleVersionQueryOptions } from '@/lib/api/m
 /** Aperçu fidèle d'une version (version de travail par défaut, ou `?version=`). */
 export function ModulePreview() {
   const { id } = useParams<{ id: string }>();
-  const requested = useSearchParams().get('version');
+  const searchParams = useSearchParams();
+  const requested = searchParams.get('version');
+  const retour = searchParams.get('retour');
   const moduleQuery = useQuery(editorModuleQueryOptions(id));
   const versionId = requested ?? moduleQuery.data?.current.id;
   const version = useQuery({
@@ -31,7 +34,11 @@ export function ModulePreview() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <BackLink href={`/encadrement/modules/${id}/modifier`}>Retour à l’édition</BackLink>
+        <BackLink
+          href={`/encadrement/modules/${id}/modifier${retour ? `?retour=${encodeURIComponent(safeReturnPath(retour, '/encadrement/modules'))}` : ''}`}
+        >
+          Retour à l’édition
+        </BackLink>
         <Button variant="outline" onClick={() => window.print()}>
           <Printer aria-hidden />
           Imprimer l’aperçu

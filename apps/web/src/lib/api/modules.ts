@@ -10,9 +10,13 @@ import {
   type CreateLessonInput,
   type CreateModuleInput,
   type CreateResourceInput,
+  type DeleteDraftInput,
+  deleteDraftResultSchema,
+  draftDeletionCheckSchema,
   editorModuleDetailSchema,
   editorModuleListItemSchema,
   type EditorModuleListQuery,
+  editorModuleStatsSchema,
   moduleActivityListSchema,
   moduleReviewSchema,
   moduleVersionDetailSchema,
@@ -78,6 +82,23 @@ export const editorModulesQueryOptions = (query: EditorModuleListQuery) =>
     queryKey: ['modules', 'editor', 'list', query],
     queryFn: () => apiFetch(`/editor/modules${toQueryString({ ...query })}`, editorPageSchema),
   });
+
+export const editorModuleStatsQueryOptions = queryOptions({
+  queryKey: ['modules', 'editor', 'stats'],
+  queryFn: () => apiFetch('/editor/module-stats', editorModuleStatsSchema),
+});
+
+/** Diagnostic avant suppression d'un brouillon (relu à chaque ouverture de la confirmation). */
+export const draftDeletionQueryOptions = (id: string) =>
+  queryOptions({
+    queryKey: ['modules', 'editor', 'draft-deletion', id],
+    queryFn: () => apiFetch(`/editor/modules/${id}/draft-deletion`, draftDeletionCheckSchema),
+    staleTime: 0,
+  });
+
+/** Suppression d'un seul brouillon désigné ; jamais différée hors ligne (décision irréversible). */
+export const deleteDraft = (id: string, input: DeleteDraftInput) =>
+  apiSend('POST', `/editor/modules/${id}/draft-deletion`, deleteDraftResultSchema, input);
 
 export const editorModuleQueryOptions = (id: string) =>
   queryOptions({

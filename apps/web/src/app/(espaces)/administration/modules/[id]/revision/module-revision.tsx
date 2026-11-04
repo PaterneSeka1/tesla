@@ -4,11 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Archive, Check, CircleX, Pencil, Rocket, Undo2 } from 'lucide-react';
 import { pendingEditorialNotes } from '@tesla/shared';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { RequirePermission } from '@/components/auth/require-permission';
 import { BackLink } from '@/components/back-link';
+import { safeReturnPath } from '@/lib/module-list-params';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CommentDialog } from '@/components/modules/comment-dialog';
 import { ModuleHistory } from '@/components/modules/module-history';
@@ -40,6 +41,10 @@ export function ModuleRevision() {
 
 function RevisionContent() {
   const { id } = useParams<{ id: string }>();
+  const backHref = safeReturnPath(
+    useSearchParams().get('retour'),
+    '/administration/modules-a-valider',
+  );
   const run = useModuleAction();
   const [showPublished, setShowPublished] = useState(false);
   const { data, error, isPending, refetch } = useQuery(moduleReviewQueryOptions(id));
@@ -58,7 +63,11 @@ function RevisionContent() {
 
   return (
     <>
-      <BackLink href="/administration/modules-a-valider">Modules à valider</BackLink>
+      <BackLink href={backHref}>
+        {backHref.startsWith('/administration/modules-a-valider')
+          ? 'Modules à valider'
+          : 'Tous les modules'}
+      </BackLink>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">

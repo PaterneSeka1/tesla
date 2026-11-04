@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { type EditorModuleDetail, MODULE_VERSION_ACTION_LABELS } from '@tesla/shared';
 import { CircleAlert, Copy, Eye, FilePlus2, RotateCcw, Send, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { BackLink } from '@/components/back-link';
 import { CommentDialog } from '@/components/modules/comment-dialog';
 import { ModuleHistory } from '@/components/modules/module-history';
@@ -12,6 +12,7 @@ import { ModuleMetadataForm } from '@/components/modules/module-metadata-form';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
 import { SourceImportNotes } from '@/components/modules/source-import-notes';
 import { useModuleAction } from '@/components/modules/use-module-action';
+import { safeReturnPath } from '@/lib/module-list-params';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,8 @@ export function ModuleEditor() {
   const run = useModuleAction();
   const router = useRouter();
   const { data: module, error, isPending, refetch } = useQuery(editorModuleQueryOptions(id));
+  const retour = useSearchParams().get('retour');
+  const backHref = safeReturnPath(retour, '/encadrement/modules');
 
   if (isPending) return <TableSkeleton rows={6} />;
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
@@ -58,7 +61,9 @@ export function ModuleEditor() {
 
   return (
     <>
-      <BackLink href="/encadrement/modules">Mes modules</BackLink>
+      <BackLink href={backHref}>
+        {backHref.startsWith('/administration') ? 'Tous les modules' : 'Mes modules'}
+      </BackLink>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
@@ -74,7 +79,9 @@ export function ModuleEditor() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
-            <Link href={`/encadrement/modules/${module.id}/apercu`}>
+            <Link
+              href={`/encadrement/modules/${module.id}/apercu${retour ? `?retour=${encodeURIComponent(backHref)}` : ''}`}
+            >
               <Eye aria-hidden />
               Aperçu
             </Link>
@@ -267,7 +274,7 @@ export function ModuleEditor() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="historique" className="scroll-mt-20">
         <CardHeader>
           <CardTitle>Historique</CardTitle>
         </CardHeader>
