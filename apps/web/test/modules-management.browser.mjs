@@ -295,6 +295,17 @@ for (const width of [360, 390, 768, 1024, 1440]) {
   await noHorizontalScroll(page);
   const table = await page.locator('table').isVisible();
   assert.equal(table, width >= 768, `tableau à ${width} px`);
+  if (table) {
+    // Toutes les colonnes affichées tiennent : aucun défilement interne du tableau.
+    assert.ok(
+      await page
+        .locator('table')
+        .evaluate(
+          (element) => element.parentElement.scrollWidth <= element.parentElement.clientWidth + 1,
+        ),
+      `tableau trop large à ${width} px`,
+    );
+  }
   if (width < 768) {
     await page.getByRole('button', { name: 'Actions pour Brouillon de recette 1' }).click();
     assert.ok(await page.getByRole('menuitem', { name: 'Supprimer le brouillon…' }).isVisible());
