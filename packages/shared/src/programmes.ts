@@ -81,6 +81,39 @@ export const programmeSchema = z.object({
 
 export type Programme = z.infer<typeof programmeSchema>;
 
+/**
+ * Création ou correction d'un programme annuel (responsable). Action volontaire : aucune année n'est
+ * créée automatiquement. La période sert au contrôle des dates importées.
+ */
+export const programmeInputSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{4}-[0-9]{4}$/, { error: 'Code attendu : AAAA-AAAA (ex. 2027-2028).' }),
+    title: requiredText(3, 150, 'Le titre'),
+    startsOn: calendarDate,
+    endsOn: calendarDate,
+  })
+  .refine((value) => value.startsOn < value.endsOn, {
+    message: 'La fin du programme doit suivre son début.',
+    path: ['endsOn'],
+  });
+
+export type ProgrammeInput = z.input<typeof programmeInputSchema>;
+
+export const updateProgrammeInputSchema = z
+  .object({
+    title: requiredText(3, 150, 'Le titre').optional(),
+    startsOn: calendarDate.optional(),
+    endsOn: calendarDate.optional(),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'Aucune modification fournie.',
+  });
+
+export type UpdateProgrammeInput = z.input<typeof updateProgrammeInputSchema>;
+
 export const programmeListSchema = z.object({ items: z.array(programmeSchema) });
 
 // ─── Activités ──────────────────────────────────────────────────────────────
@@ -172,6 +205,17 @@ export const updateActivityInputSchema = z.object({
   difficulties: optionalText(3000).nullable().optional(),
   observations: optionalText(3000).nullable().optional(),
   report: optionalText(10000).nullable().optional(),
+  /** Prévu : format, observations de planification, contenu par catégorie. */
+  plannedFormat: optionalText(150).nullable().optional(),
+  planningNotes: optionalText(3000).nullable().optional(),
+  categoryContents: z
+    .array(z.object({ categoryId: z.uuid(), content: optionalText(3000).nullable() }))
+    .max(20)
+    .optional(),
+  /** Réalisé : responsable effectif, objectifs atteints ou non, décisions et suites. */
+  heldByLabel: optionalText(150).nullable().optional(),
+  outcomes: optionalText(5000).nullable().optional(),
+  followUp: optionalText(5000).nullable().optional(),
 });
 
 export type UpdateActivityInput = z.input<typeof updateActivityInputSchema>;
@@ -250,6 +294,8 @@ export const activityEventSchema = z.object({
   comment: z.string().nullable(),
   /** Champs modifiés (noms), pour l'historique des modifications sensibles. */
   fields: z.array(z.string()),
+  /** Changement de date prévue (report ou correction du programme). */
+  plannedOnChange: z.object({ from: z.iso.date(), to: z.iso.date() }).nullable(),
   actor: userSummarySchema,
   createdAt: z.iso.datetime(),
 });
@@ -264,7 +310,22 @@ export const activityDetailSchema = activitySummarySchema.extend({
   difficulties: z.string().nullable(),
   observations: z.string().nullable(),
   report: z.string().nullable(),
+  heldByLabel: z.string().nullable(),
+  outcomes: z.string().nullable(),
+  followUp: z.string().nullable(),
   statusReason: z.string().nullable(),
+  /** Prévu (programme) : format, observations, informations lues dans la source. */
+  plannedFormat: z.string().nullable(),
+  planningNotes: z.string().nullable(),
+  sourceStatus: z.string().nullable(),
+  sourceAttendanceCount: z.number().int().nullable(),
+  sourceNumber: z.number().int().nullable(),
+  /** Première date prévue connue (avant reports ou corrections du programme). */
+  initialPlannedOn: z.iso.date(),
+  /** Contenu prévu par catégorie (une catégorie prévue n'a pas forcément participé). */
+  categoryContents: z.array(
+    z.object({ categoryId: z.uuid(), label: z.string(), content: z.string().nullable() }),
+  ),
   imported: z.boolean(),
   manuallyEditedAt: z.iso.datetime().nullable(),
   revision: z.number().int(),
@@ -334,222 +395,3 @@ export const attendanceSheetSchema = z.object({
 });
 
 export type AttendanceSheet = z.infer<typeof attendanceSheetSchema>;
-
-// ─── Import du programme (Markdown) ─────────────────────────────────────────
-
-export const programmeImportInputSchema = z.object({
-  content: z
-    .string()
-    .min(1, { error: 'Collez le tableau du programme.' })
-    .max(200_000, { error: 'Contenu trop volumineux (200 000 caractères au maximum).' }),
-});
-
-export type ProgrammeImportInput = z.input<typeof programmeImportInputSchema>;
-
-export const IMPORT_ROW_ACTIONS = [
-  'CREER',
-  'METTRE_A_JOUR',
-  'INCHANGEE',
-  'CONSERVEE_MANUELLE',
-  'ERREUR',
-] as const;
-
-export type ImportRowAction = (typeof IMPORT_ROW_ACTIONS)[number];
-
-export const IMPORT_ROW_ACTION_LABELS: Record<ImportRowAction, string> = {
-  CREER: 'Sera créée',
-  METTRE_A_JOUR: 'Sera mise à jour',
-  INCHANGEE: 'Déjà à jour',
-  CONSERVEE_MANUELLE: 'Modifiée manuellement : conservée',
-  ERREUR: 'Erreur : ignorée',
-};
-
-export const programmeImportReportSchema = z.object({
-  applied: z.boolean(),
-  rows: z.array(
-    z.object({
-      line: z.number().int(),
-      date: z.string().nullable(),
-      title: z.string().nullable(),
-      action: z.enum(IMPORT_ROW_ACTIONS),
-      messages: z.array(z.string()),
-    }),
-  ),
-  counts: z.record(z.enum(IMPORT_ROW_ACTIONS), z.number().int()),
-});
-
-export type ProgrammeImportReport = z.infer<typeof programmeImportReportSchema>;
-
-export interface ParsedProgrammeRow {
-  line: number;
-  date: string;
-  title: string;
-  theme: string | null;
-  categories: string[];
-  objectives: string[];
-  moduleCodes: string[];
-  leaderLabel: string | null;
-  location: string | null;
-  importKey: string;
-}
-
-export interface ProgrammeParseResult {
-  rows: ParsedProgrammeRow[];
-  errors: { line: number; date: string | null; title: string | null; message: string }[];
-}
-
-/** En-têtes reconnus (sans accents, minuscules) → champ. `date` et `activite` sont obligatoires. */
-const HEADER_ALIASES: Record<string, keyof ParsedProgrammeRow | 'skip'> = {
-  date: 'date',
-  categories: 'categories',
-  categorie: 'categories',
-  niveaux: 'categories',
-  theme: 'theme',
-  activite: 'title',
-  activites: 'title',
-  seance: 'title',
-  titre: 'title',
-  objectifs: 'objectives',
-  objectif: 'objectives',
-  modules: 'moduleCodes',
-  module: 'moduleCodes',
-  responsable: 'leaderLabel',
-  responsables: 'leaderLabel',
-  lieu: 'location',
-};
-
-function normalizeLabel(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-/** Clé d'idempotence : date + titre normalisé (accents, casse et ponctuation ignorés). */
-export function programmeImportKey(date: string, title: string): string {
-  return `${date}|${normalizeLabel(title).replace(/ /g, '-')}`;
-}
-
-/** Accepte AAAA-MM-JJ ou JJ/MM/AAAA ; renvoie AAAA-MM-JJ ou null si la date n'existe pas. */
-export function parseProgrammeDate(raw: string): string | null {
-  const value = raw.trim();
-  let match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  let iso: string | null = null;
-  if (match) iso = `${match[1]}-${match[2]}-${match[3]}`;
-  match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
-  if (match) iso = `${match[3]}-${match[2]!.padStart(2, '0')}-${match[1]!.padStart(2, '0')}`;
-  if (!iso) return null;
-  const date = new Date(`${iso}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === iso ? iso : null;
-}
-
-function splitList(value: string, separators: RegExp): string[] {
-  return value
-    .split(separators)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function splitCells(line: string): string[] {
-  return line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim());
-}
-
-/**
- * Analyse un tableau Markdown du programme annuel (format : docs/FEATURES/PROGRAMME_ANNUEL.md).
- * Fonction pure : aucune écriture, aucune donnée inventée ; une ligne non conforme est signalée.
- */
-export function parseProgrammeMarkdown(content: string): ProgrammeParseResult {
-  const lines = content.split(/\r?\n/);
-  const result: ProgrammeParseResult = { rows: [], errors: [] };
-  let columns: (keyof ParsedProgrammeRow | 'skip')[] | null = null;
-  const seenKeys = new Map<string, number>();
-
-  for (const [index, rawLine] of lines.entries()) {
-    const lineNumber = index + 1;
-    const line = rawLine.trim();
-    if (!line.startsWith('|')) continue;
-    const cells = splitCells(line);
-    if (cells.every((cell) => /^:?-{3,}:?$/.test(cell))) continue; // ligne de séparation
-    if (!columns) {
-      columns = cells.map((cell) => HEADER_ALIASES[normalizeLabel(cell)] ?? 'skip');
-      if (!columns.includes('date') || !columns.includes('title')) {
-        result.errors.push({
-          line: lineNumber,
-          date: null,
-          title: null,
-          message: 'En-tête invalide : les colonnes « Date » et « Activité » sont obligatoires.',
-        });
-        columns = null;
-      }
-      continue;
-    }
-    const values: Partial<Record<keyof ParsedProgrammeRow, string>> = {};
-    for (const [position, column] of columns.entries()) {
-      if (column !== 'skip') values[column] = cells[position] ?? '';
-    }
-    const title = (values.title ?? '').trim();
-    const rawDate = (values.date ?? '').trim();
-    const date = parseProgrammeDate(rawDate);
-    if (!date) {
-      result.errors.push({
-        line: lineNumber,
-        date: rawDate || null,
-        title: title || null,
-        message: `Date invalide « ${rawDate} » (attendu : AAAA-MM-JJ ou JJ/MM/AAAA).`,
-      });
-      continue;
-    }
-    if (title === '' || title.length > 200) {
-      result.errors.push({
-        line: lineNumber,
-        date,
-        title: title || null,
-        message: 'Intitulé de l’activité manquant ou trop long (200 caractères au maximum).',
-      });
-      continue;
-    }
-    const importKey = programmeImportKey(date, title);
-    const duplicateOf = seenKeys.get(importKey);
-    if (duplicateOf !== undefined) {
-      result.errors.push({
-        line: lineNumber,
-        date,
-        title,
-        message: `Doublon de la ligne ${duplicateOf} (même date et même intitulé).`,
-      });
-      continue;
-    }
-    seenKeys.set(importKey, lineNumber);
-    const text = (value: string | undefined) =>
-      value && value.trim() !== '' ? value.trim() : null;
-    result.rows.push({
-      line: lineNumber,
-      date,
-      title,
-      theme: text(values.theme),
-      categories: splitList(values.categories ?? '', /[,;]/),
-      objectives: splitList(values.objectives ?? '', /;/),
-      moduleCodes: splitList(values.moduleCodes ?? '', /[,;\s]+/).map((code) => code.toUpperCase()),
-      leaderLabel: text(values.leaderLabel),
-      location: text(values.location),
-      importKey,
-    });
-  }
-
-  if (!columns && result.errors.length === 0) {
-    result.errors.push({
-      line: 0,
-      date: null,
-      title: null,
-      message: 'Aucun tableau Markdown trouvé (lignes commençant par « | »).',
-    });
-  }
-  return result;
-}

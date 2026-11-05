@@ -75,6 +75,27 @@ const TRANSITIONS: Record<ActivityStatus, ActivityStatus[]> = {
   REALISEE: [],
 };
 
+/** Changement de date enregistré dans un événement (report ou correction du programme). */
+function plannedOnChange(changes: unknown): { from: string; to: string } | null {
+  const value = (changes as { plannedOn?: { from?: unknown; to?: unknown } } | null)?.plannedOn;
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  return typeof value?.from === 'string' &&
+    typeof value.to === 'string' &&
+    iso.test(value.from) &&
+    iso.test(value.to)
+    ? { from: value.from, to: value.to }
+    : null;
+}
+
+/** Première date prévue : origine du plus ancien changement de date, sinon la date actuelle. */
+function initialPlannedOn(events: readonly { changes: unknown; createdAt: Date }[]): string | null {
+  const oldest = [...events]
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .map((event) => plannedOnChange(event.changes))
+    .find(Boolean);
+  return oldest?.from ?? null;
+}
+
 function invalidReference(): UnprocessableEntityException {
   return new UnprocessableEntityException({
     code: 'INVALID_REFERENCE',
@@ -167,9 +188,24 @@ export class ActivitiesService {
         ...competency,
         observed,
       })),
+      heldByLabel: row.heldByLabel,
+      outcomes: row.outcomes,
+      followUp: row.followUp,
+      plannedFormat: row.plannedFormat,
+      planningNotes: row.planningNotes,
+      sourceStatus: row.sourceStatus,
+      sourceAttendanceCount: row.sourceAttendanceCount,
+      sourceNumber: row.sourceNumber,
+      initialPlannedOn: initialPlannedOn(row.events) ?? toIsoDate(row.plannedOn),
+      categoryContents: row.categories.map(({ category, plannedContent }) => ({
+        categoryId: category.id,
+        label: category.label,
+        content: plannedContent,
+      })),
       events: row.events.map((event) => {
         const changes = (event.changes ?? {}) as { fields?: unknown };
         return {
+          plannedOnChange: plannedOnChange(event.changes),
           id: event.id,
           action: event.action,
           fromStatus: event.fromStatus,
@@ -236,12 +272,23 @@ export class ActivitiesService {
       moduleIds?: string[];
       competencyIds?: string[];
       observedCompetencyIds?: string[];
+      categoryContents?: { categoryId: string; content: string | null }[];
     },
   ): Promise<void> {
     if (links.categoryIds) {
-      await tx.activityCategory.deleteMany({ where: { activityId } });
+      // Les contenus prévus des catégories conservées ne sont pas perdus.
+      const keep = [...new Set(links.categoryIds)];
+      await tx.activityCategory.deleteMany({ where: { activityId, categoryId: { notIn: keep } } });
       await tx.activityCategory.createMany({
-        data: [...new Set(links.categoryIds)].map((categoryId) => ({ activityId, categoryId })),
+        data: keep.map((categoryId) => ({ activityId, categoryId })),
+        skipDuplicates: true,
+      });
+    }
+    for (const { categoryId, content } of links.categoryContents ?? []) {
+      await tx.activityCategory.upsert({
+        where: { activityId_categoryId: { activityId, categoryId } },
+        create: { activityId, categoryId, plannedContent: content },
+        update: { plannedContent: content },
       });
     }
     if (links.moduleIds) {
@@ -287,8 +334,15 @@ export class ActivitiesService {
 
   async update(actor: Actor, id: string, input: UpdateActivityInput): Promise<ActivityDetail> {
     assertCan(actor, 'activity.manage');
-    const { revision, categoryIds, moduleIds, competencyIds, observedCompetencyIds, ...fields } =
-      parseInput(updateActivityInputSchema, input);
+    const {
+      revision,
+      categoryIds,
+      moduleIds,
+      competencyIds,
+      observedCompetencyIds,
+      categoryContents,
+      ...fields
+    } = parseInput(updateActivityInputSchema, input);
     try {
       await this.prisma.$transaction(async (tx) => {
         const activity = await this.lock(tx, id, revision);
@@ -296,6 +350,7 @@ export class ActivitiesService {
           (key) => fields[key as keyof typeof fields] !== undefined,
         );
         if (categoryIds) changed.push('categoryIds');
+        if (categoryContents) changed.push('categoryContents');
         if (moduleIds) changed.push('moduleIds');
         if (competencyIds) changed.push('competencyIds');
         if (observedCompetencyIds) changed.push('observedCompetencyIds');
@@ -332,6 +387,11 @@ export class ActivitiesService {
             ...(fields.difficulties !== undefined && { difficulties: fields.difficulties }),
             ...(fields.observations !== undefined && { observations: fields.observations }),
             ...(fields.report !== undefined && { report: fields.report }),
+            ...(fields.plannedFormat !== undefined && { plannedFormat: fields.plannedFormat }),
+            ...(fields.planningNotes !== undefined && { planningNotes: fields.planningNotes }),
+            ...(fields.heldByLabel !== undefined && { heldByLabel: fields.heldByLabel }),
+            ...(fields.outcomes !== undefined && { outcomes: fields.outcomes }),
+            ...(fields.followUp !== undefined && { followUp: fields.followUp }),
             ...(activity.importKey !== null && { manuallyEditedAt: new Date() }),
             revision: { increment: 1 },
             updatedById: actor.userId,
@@ -342,13 +402,20 @@ export class ActivitiesService {
           moduleIds,
           competencyIds,
           observedCompetencyIds,
+          categoryContents,
         });
+        const newDate = fields.plannedOn && fields.plannedOn !== toIsoDate(activity.plannedOn);
         await tx.activityEvent.create({
           data: {
             activityId: id,
             actorId: actor.userId,
             action: 'MODIFIEE',
-            changes: { fields: changed },
+            changes: {
+              fields: changed,
+              ...(newDate && {
+                plannedOn: { from: toIsoDate(activity.plannedOn), to: fields.plannedOn },
+              }),
+            },
           },
         });
       });

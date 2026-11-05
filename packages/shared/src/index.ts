@@ -10,6 +10,7 @@ export * from './lesson-content.js';
 export * from './modules.js';
 export * from './observations.js';
 export * from './programmes.js';
+export * from './programme-import.js';
 export * from './progression.js';
 export * from './roles.js';
 export * from './scouts.js';

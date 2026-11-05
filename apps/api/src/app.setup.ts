@@ -1,5 +1,6 @@
 import { type INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { json } from 'express';
 import { API_PREFIX, CSRF_HEADER, OPERATION_ID_HEADER, SESSION_COOKIE_NAME } from '@tesla/shared';
 import { APP_VERSION } from './config/app-version.js';
 import { type Env } from './config/env.js';
@@ -27,6 +28,16 @@ export function configureApp(app: INestApplication, env: Env): void {
     allowedHeaders: ['Content-Type', 'Accept', CSRF_HEADER, OPERATION_ID_HEADER],
   });
   app.use(csrfProtection(env.CORS_ORIGINS));
+  // Seul l'import Excel accepte un corps plus lourd (classeur en base64, 2 Mo au maximum) ; les
+  // autres routes gardent la limite par défaut (100 ko). Analysé ici, le corps est ignoré ensuite.
+  // Couche nommée autrement que « jsonParser » : sinon Nest n'installerait pas son analyseur global.
+  const excelBody = json({ limit: '3mb' });
+  app.use(
+    new RegExp(`^/${API_PREFIX}/programmes/[^/]+/import/excel(/preview)?$`),
+    function programmeExcelBody(...args: Parameters<typeof excelBody>) {
+      return excelBody(...args);
+    },
+  );
 
   if (env.SWAGGER_ENABLED) {
     const config = new DocumentBuilder()

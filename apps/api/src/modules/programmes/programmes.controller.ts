@@ -23,7 +23,12 @@ import {
   type Paginated,
   paginatedSchema,
   programmeCategoryListSchema,
+  type ProgrammeExcelImportInput,
+  programmeExcelImportInputSchema,
+  programmeImportHistorySchema,
   type ProgrammeImportInput,
+  type ProgrammeInput,
+  programmeInputSchema,
   programmeImportInputSchema,
   type ProgrammeImportReport,
   programmeImportReportSchema,
@@ -34,6 +39,8 @@ import {
   updateActivityInputSchema,
   type UpdateProgrammeCategoryInput,
   updateProgrammeCategoryInputSchema,
+  type UpdateProgrammeInput,
+  updateProgrammeInputSchema,
 } from '@tesla/shared';
 import { z } from 'zod';
 import { type Actor } from '../../common/actor.js';
@@ -41,19 +48,34 @@ import { openApiSchema } from '../../common/openapi.js';
 import { parseId, parseInput } from '../../common/validation.js';
 import { CurrentActor } from '../auth/auth.decorators.js';
 import { ActivitiesService } from './activities.service.js';
+import { ProgrammeImportService } from './programme-import.service.js';
 import { ProgrammesService } from './programmes.service.js';
 
 @ApiTags('Programme annuel')
 @ApiCookieAuth()
 @Controller('programmes')
 export class ProgrammesController {
-  constructor(private readonly programmes: ProgrammesService) {}
+  constructor(
+    private readonly programmes: ProgrammesService,
+    private readonly imports: ProgrammeImportService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Programmes annuels et avancement' })
   @ApiOkResponse({ schema: openApiSchema(programmeListSchema) })
   async list(@CurrentActor() actor: Actor) {
     return { items: await this.programmes.listProgrammes(actor) };
+  }
+
+  @Post()
+  @ApiOperation({
+    summary: 'Créer un programme annuel (responsable)',
+    description: '409 PROGRAMME_CODE_TAKEN ou PROGRAMME_PERIOD_OVERLAP.',
+  })
+  @ApiBody({ schema: openApiSchema(programmeInputSchema, 'input') })
+  @ApiCreatedResponse({ schema: openApiSchema(programmeListSchema) })
+  async create(@CurrentActor() actor: Actor, @Body() body: ProgrammeInput) {
+    return { items: await this.programmes.createProgramme(actor, body) };
   }
 
   @Get('categories')
@@ -80,6 +102,57 @@ export class ProgrammesController {
     return { items: await this.programmes.updateCategory(actor, parseId(id), body) };
   }
 
+  @Patch(':id')
+  @ApiOperation({ summary: 'Modifier le titre ou la période d’un programme (responsable)' })
+  @ApiBody({ schema: openApiSchema(updateProgrammeInputSchema, 'input') })
+  @ApiOkResponse({ schema: openApiSchema(programmeListSchema) })
+  async update(
+    @CurrentActor() actor: Actor,
+    @Param('id') id: string,
+    @Body() body: UpdateProgrammeInput,
+  ) {
+    return { items: await this.programmes.updateProgramme(actor, parseId(id), body) };
+  }
+
+  @Get(':id/imports')
+  @ApiOperation({ summary: 'Historique des imports confirmés (sans le fichier source)' })
+  @ApiOkResponse({ schema: openApiSchema(programmeImportHistorySchema) })
+  importHistory(@CurrentActor() actor: Actor, @Param('id') id: string) {
+    return this.programmes.importHistory(actor, parseId(id));
+  }
+
+  @Post(':id/import/excel/preview')
+  @ApiOperation({
+    summary: 'Analyser un classeur .xlsx (aucune écriture)',
+    description:
+      'Fichier en base64 (2 Mo au maximum). Renvoie colonnes reconnues, anomalies, rapprochements et empreinte.',
+  })
+  @ApiBody({ schema: openApiSchema(programmeExcelImportInputSchema, 'input') })
+  @ApiCreatedResponse({ schema: openApiSchema(programmeImportReportSchema) })
+  previewExcel(
+    @CurrentActor() actor: Actor,
+    @Param('id') id: string,
+    @Body() body: ProgrammeExcelImportInput,
+  ): Promise<ProgrammeImportReport> {
+    return this.imports.previewExcel(actor, parseId(id), body);
+  }
+
+  @Post(':id/import/excel')
+  @ApiOperation({
+    summary: 'Confirmer l’import d’un classeur .xlsx (responsable)',
+    description:
+      'Empreinte de prévisualisation obligatoire : 409 IMPORT_PREVIEW_STALE si l’état a changé ; 422 IMPORT_HAS_ERRORS ou IMPORT_DECISIONS_REQUIRED.',
+  })
+  @ApiBody({ schema: openApiSchema(programmeExcelImportInputSchema, 'input') })
+  @ApiCreatedResponse({ schema: openApiSchema(programmeImportReportSchema) })
+  applyExcel(
+    @CurrentActor() actor: Actor,
+    @Param('id') id: string,
+    @Body() body: ProgrammeExcelImportInput,
+  ): Promise<ProgrammeImportReport> {
+    return this.imports.applyExcel(actor, parseId(id), body);
+  }
+
   @Post(':id/import/preview')
   @ApiOperation({ summary: 'Prévisualiser l’import d’un tableau Markdown (aucune écriture)' })
   @ApiBody({ schema: openApiSchema(programmeImportInputSchema, 'input') })
@@ -89,14 +162,14 @@ export class ProgrammesController {
     @Param('id') id: string,
     @Body() body: ProgrammeImportInput,
   ): Promise<ProgrammeImportReport> {
-    return this.programmes.previewImport(actor, parseId(id), body);
+    return this.imports.previewMarkdown(actor, parseId(id), body);
   }
 
   @Post(':id/import')
   @ApiOperation({
-    summary: 'Importer le programme (responsable, idempotent)',
+    summary: 'Importer un tableau Markdown (responsable, idempotent)',
     description:
-      'Refusé (422 IMPORT_HAS_ERRORS) si une ligne est en erreur. Les séances modifiées à la main sont conservées.',
+      'Refusé (422 IMPORT_HAS_ERRORS) si une ligne est en erreur. Les séances protégées sont conservées ; empreinte facultative.',
   })
   @ApiBody({ schema: openApiSchema(programmeImportInputSchema, 'input') })
   @ApiCreatedResponse({ schema: openApiSchema(programmeImportReportSchema) })
@@ -105,7 +178,7 @@ export class ProgrammesController {
     @Param('id') id: string,
     @Body() body: ProgrammeImportInput,
   ): Promise<ProgrammeImportReport> {
-    return this.programmes.applyImport(actor, parseId(id), body);
+    return this.imports.applyMarkdown(actor, parseId(id), body);
   }
 }
 

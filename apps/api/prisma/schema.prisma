@@ -44,10 +44,10 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sessions     Session[]
-  scoutProfile ScoutProfile?
+  sessions      Session[]
+  scoutProfile  ScoutProfile?
   medicalRecord MedicalRecord?
-  auditLogs    AuditLog[]
+  auditLogs     AuditLog[]
 
   teamAssignmentsMade  TeamAssignment[]           @relation("TeamAssignmentAssignedBy")
   teamAssignmentsEnded TeamAssignment[]           @relation("TeamAssignmentEndedBy")
@@ -104,6 +104,7 @@ model User {
   activitiesCreated            Activity[]                @relation("ActivityCreatedBy")
   activitiesUpdated            Activity[]                @relation("ActivityUpdatedBy")
   activityEvents               ActivityEvent[]
+  programmeImports             ProgrammeImport[]
   attendancesRecorded          ActivityAttendance[]
   ageRuleSetsActivated         AgeRuleSet[]              @relation("AgeRuleSetActivatedBy")
   catchUpDecisions             CatchUpObligation[]       @relation("CatchUpDecidedBy")
@@ -437,28 +438,28 @@ model EvaluationVersion {
 
 /// Question ordonnée d'une version. Écriture uniquement dans une version à l'état brouillon (trigger SQL).
 model EvaluationQuestion {
-  id             String        @id @default(uuid(7)) @db.Uuid
-  versionId      String        @map("version_id") @db.Uuid
+  id              String        @id @default(uuid(7)) @db.Uuid
+  versionId       String        @map("version_id") @db.Uuid
   /// Rang dans la version (0, 1, 2…), maintenu contigu par le service.
-  position       Int
-  type           QuestionType
+  position        Int
+  type            QuestionType
   /// Énoncé en texte brut (jamais de HTML).
-  prompt         String
+  prompt          String
   /// Barème de la question (points), confidentiel jusqu'à la correction.
-  points         Decimal       @db.Decimal(6, 2)
-  scoringPolicy  ScoringPolicy @default(TOUT_OU_RIEN) @map("scoring_policy")
+  points          Decimal       @db.Decimal(6, 2)
+  scoringPolicy   ScoringPolicy @default(TOUT_OU_RIEN) @map("scoring_policy")
   /// Critères de correction (corrigé réservé aux chefs et au responsable).
-  guidance       String?
+  guidance        String?
   /// Réponse ou éléments de réponse attendus pour une question ouverte (corrigé).
-  expectedAnswer String?       @map("expected_answer")
+  expectedAnswer  String?       @map("expected_answer")
   /// Réponse courte : variantes acceptées (corrigé), comparées après normalisation des espaces et de
   /// la casse ; vide = correction humaine (D138).
-  acceptedAnswers String[]     @default([]) @map("accepted_answers")
-  revision       Int           @default(1)
-  createdById    String        @map("created_by_id") @db.Uuid
-  updatedById    String?       @map("updated_by_id") @db.Uuid
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  acceptedAnswers String[]      @default([]) @map("accepted_answers")
+  revision        Int           @default(1)
+  createdById     String        @map("created_by_id") @db.Uuid
+  updatedById     String?       @map("updated_by_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   version   EvaluationVersion        @relation(fields: [versionId], references: [id], onDelete: Restrict)
   createdBy User                     @relation("EvaluationQuestionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
@@ -780,9 +781,9 @@ model PedagogicalModule {
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  createdBy        User?                @relation("ModuleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  publishedVersion ModuleVersion?       @relation("ModulePublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
-  versions         ModuleVersion[]      @relation("ModuleVersions")
+  createdBy        User?                  @relation("ModuleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  publishedVersion ModuleVersion?         @relation("ModulePublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
+  versions         ModuleVersion[]        @relation("ModuleVersions")
   collaborators    ModuleCollaborator[]
   events           ModuleVersionEvent[]
   evaluations      Evaluation[]
@@ -943,30 +944,30 @@ enum StoredFileStatus {
 /// aucun lien signé n'y est conservé. Clé d'objet générée par le serveur, sans nom d'utilisateur,
 /// immuable comme l'empreinte et la taille déclarées (trigger `stored_files_guard`). Jamais supprimée.
 model StoredFile {
-  id               String             @id @default(uuid(7)) @db.Uuid
-  category         StoredFileCategory
-  status           StoredFileStatus   @default(EN_ATTENTE)
+  id              String             @id @default(uuid(7)) @db.Uuid
+  category        StoredFileCategory
+  status          StoredFileStatus   @default(EN_ATTENTE)
   /// Compartiment (bucket) et clé d'objet : jamais exposés par l'API.
-  bucket           String
-  storageKey       String             @unique @map("storage_key")
+  bucket          String
+  storageKey      String             @unique @map("storage_key")
   /// Nom d'origine normalisé (affichage et nom de téléchargement uniquement).
-  originalName     String             @map("original_name")
+  originalName    String             @map("original_name")
   /// Type déclaré et vérifié par la signature du contenu (identiques une fois VALIDE).
-  mimeType         String             @map("mime_type")
-  sizeBytes        Int                @map("size_bytes")
+  mimeType        String             @map("mime_type")
+  sizeBytes       Int                @map("size_bytes")
   /// Empreinte SHA-256 déclarée, recalculée par le serveur à la confirmation.
-  sha256           String             @db.Char(64)
+  sha256          String             @db.Char(64)
   /// Module propriétaire (catégorie MODULE_RESOURCE).
-  moduleId         String?            @map("module_id") @db.Uuid
-  createdById      String             @map("created_by_id") @db.Uuid
-  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  moduleId        String?            @map("module_id") @db.Uuid
+  createdById     String             @map("created_by_id") @db.Uuid
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   /// Fin de validité de l'autorisation d'envoi ; au-delà, un fichier EN_ATTENTE est abandonné.
-  uploadExpiresAt  DateTime           @map("upload_expires_at") @db.Timestamptz(3)
-  validatedAt      DateTime?          @map("validated_at") @db.Timestamptz(3)
+  uploadExpiresAt DateTime           @map("upload_expires_at") @db.Timestamptz(3)
+  validatedAt     DateTime?          @map("validated_at") @db.Timestamptz(3)
   /// Motif technique d'un rejet ou d'un abandon (jamais de contenu).
-  rejectionReason  String?            @map("rejection_reason")
+  rejectionReason String?            @map("rejection_reason")
   /// Objet effacé du stockage (rejet, abandon) ; la ligne est conservée pour l'historique.
-  objectDeletedAt  DateTime?          @map("object_deleted_at") @db.Timestamptz(3)
+  objectDeletedAt DateTime?          @map("object_deleted_at") @db.Timestamptz(3)
 
   module    PedagogicalModule? @relation(fields: [moduleId], references: [id], onDelete: Restrict)
   createdBy User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
@@ -1418,8 +1419,37 @@ model Programme {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   activities Activity[]
+  imports    ProgrammeImport[]
 
   @@map("programmes")
+}
+
+enum ProgrammeImportFormat {
+  XLSX
+  MARKDOWN
+}
+
+/// Historique des imports confirmés d'un programme (ajout seul, trigger). Le fichier source n'est
+/// jamais conservé : seuls son nom, son empreinte SHA-256 et le bilan sont gardés.
+model ProgrammeImport {
+  id          String                @id @default(uuid(7)) @db.Uuid
+  programmeId String                @map("programme_id") @db.Uuid
+  actorId     String                @map("actor_id") @db.Uuid
+  format      ProgrammeImportFormat
+  fileName    String?               @map("file_name")
+  fileSha256  String?               @map("file_sha256")
+  sheetName   String?               @map("sheet_name")
+  counts      Json
+  /// Décisions de rapprochement prises par le responsable (ligne, action, séance choisie).
+  decisions   Json?
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  programme Programme @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  actor     User      @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([programmeId, createdAt])
+  @@index([actorId])
+  @@map("programme_imports")
 }
 
 enum ActivityOrigin {
@@ -1444,34 +1474,50 @@ enum ActivityAction {
 
 /// Activité (séance du programme annuel ou activité supplémentaire). Jamais supprimée : annulée.
 model Activity {
-  id               String         @id @default(uuid(7)) @db.Uuid
-  programmeId      String?        @map("programme_id") @db.Uuid
-  origin           ActivityOrigin
+  id                    String         @id @default(uuid(7)) @db.Uuid
+  programmeId           String?        @map("programme_id") @db.Uuid
+  origin                ActivityOrigin
   /// Clé d'import idempotent (date + titre normalisé) ; null pour une activité saisie à la main.
-  importKey        String?        @unique @map("import_key")
-  title            String
-  theme            String?
-  description      String         @default("")
-  objectives       String[]
-  plannedOn        DateTime       @map("planned_on") @db.Date
-  plannedLocation  String?        @map("planned_location")
+  importKey             String?        @unique @map("import_key")
+  title                 String
+  theme                 String?
+  description           String         @default("")
+  objectives            String[]
+  plannedOn             DateTime       @map("planned_on") @db.Date
+  plannedLocation       String?        @map("planned_location")
   /// Responsable de l'activité (libellé libre : la personne peut ne pas avoir de compte).
-  leaderLabel      String?        @map("leader_label")
-  status           ActivityStatus @default(PLANIFIEE)
-  heldOn           DateTime?      @map("held_on") @db.Date
-  location         String?
-  contentDone      String?        @map("content_done")
-  difficulties     String?
-  observations     String?
-  report           String?
-  statusReason     String?        @map("status_reason")
+  leaderLabel           String?        @map("leader_label")
+  /// Format prévu (ex. « Atelier / échange »).
+  plannedFormat         String?        @map("planned_format")
+  /// Observations de planification (programme), distinctes des observations de terrain.
+  planningNotes         String?        @map("planning_notes")
+  /// Statut lu dans la source du programme : information seulement, sans effet sur `status`.
+  sourceStatus          String?        @map("source_status")
+  /// Effectif indiqué dans la source : jamais converti en présences nominatives.
+  sourceAttendanceCount Int?           @map("source_attendance_count")
+  /// Numéro de séance dans la source (affichage ; jamais un identifiant).
+  sourceNumber          Int?           @map("source_number")
+  status                ActivityStatus @default(PLANIFIEE)
+  heldOn                DateTime?      @map("held_on") @db.Date
+  location              String?
+  contentDone           String?        @map("content_done")
+  difficulties          String?
+  observations          String?
+  report                String?
+  /// Responsable effectif (libellé libre), distinct du responsable prévu.
+  heldByLabel           String?        @map("held_by_label")
+  /// Objectifs atteints ou non atteints.
+  outcomes              String?
+  /// Décisions et suites à donner.
+  followUp              String?        @map("follow_up")
+  statusReason          String?        @map("status_reason")
   /// Renseigné dès qu'une modification manuelle touche une activité importée : l'import ne la remplace plus.
-  manuallyEditedAt DateTime?      @map("manually_edited_at") @db.Timestamptz(3)
-  revision         Int            @default(1)
-  createdById      String         @map("created_by_id") @db.Uuid
-  updatedById      String?        @map("updated_by_id") @db.Uuid
-  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  manuallyEditedAt      DateTime?      @map("manually_edited_at") @db.Timestamptz(3)
+  revision              Int            @default(1)
+  createdById           String         @map("created_by_id") @db.Uuid
+  updatedById           String?        @map("updated_by_id") @db.Uuid
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   programme    Programme?           @relation(fields: [programmeId], references: [id], onDelete: Restrict)
   createdBy    User                 @relation("ActivityCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
@@ -1493,8 +1539,10 @@ model Activity {
 }
 
 model ActivityCategory {
-  activityId String @map("activity_id") @db.Uuid
-  categoryId String @map("category_id") @db.Uuid
+  activityId     String  @map("activity_id") @db.Uuid
+  categoryId     String  @map("category_id") @db.Uuid
+  /// Contenu prévu pour cette catégorie lors de la séance (programme), une seule fois par catégorie.
+  plannedContent String? @map("planned_content")
 
   activity Activity          @relation(fields: [activityId], references: [id], onDelete: Restrict)
   category ProgrammeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
@@ -1882,20 +1930,20 @@ enum AccountTokenPurpose {
 /// le jeton n'est remis qu'une fois à la personne qui l'émet. Émettre un nouveau lien révoque les
 /// précédents non utilisés. Conservé (traçabilité), jamais supprimé.
 model AccountToken {
-  id          String              @id @default(uuid(7)) @db.Uuid
-  userId      String              @map("user_id") @db.Uuid
-  purpose     AccountTokenPurpose
-  tokenHash   String              @unique @map("token_hash")
+  id           String              @id @default(uuid(7)) @db.Uuid
+  userId       String              @map("user_id") @db.Uuid
+  purpose      AccountTokenPurpose
+  tokenHash    String              @unique @map("token_hash")
   /// Code de secours saisi avec l'e-mail (D162) : empreinte seulement, jamais le code en clair.
-  codeHash    String?             @unique @map("code_hash")
+  codeHash     String?             @unique @map("code_hash")
   /// Codes erronés : au-delà du seuil, le jeton (lien compris) est révoqué.
-  codeFailures Int                @default(0) @map("code_failures")
-  expiresAt   DateTime            @map("expires_at") @db.Timestamptz(3)
-  usedAt      DateTime?           @map("used_at") @db.Timestamptz(3)
-  revokedAt   DateTime?           @map("revoked_at") @db.Timestamptz(3)
+  codeFailures Int                 @default(0) @map("code_failures")
+  expiresAt    DateTime            @map("expires_at") @db.Timestamptz(3)
+  usedAt       DateTime?           @map("used_at") @db.Timestamptz(3)
+  revokedAt    DateTime?           @map("revoked_at") @db.Timestamptz(3)
   /// Null : lien émis par la procédure d'installation en ligne de commande (premier administrateur).
-  createdById String?             @map("created_by_id") @db.Uuid
-  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById  String?             @map("created_by_id") @db.Uuid
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
 
   user      User  @relation("AccountTokenUser", fields: [userId], references: [id], onDelete: Restrict)
   createdBy User? @relation("AccountTokenCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
