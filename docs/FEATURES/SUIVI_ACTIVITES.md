@@ -4,6 +4,8 @@
 
 Le détail `/administration/activites/[id]` permet de modifier préparation, thème, objectifs, date, lieu, responsable, catégories, modules et compétences ; saisir contenu réalisé, difficultés, observations et compte rendu ; indiquer les compétences effectivement observées ; réaliser, reporter, annuler ou rétablir l'activité. Chaque écriture contrôle la révision et conserve un événement historique. Les compétences observées doivent appartenir aux compétences associées. Aucune participation ne valide automatiquement un acquis.
 
+La fiche est organisée en « Prévu / Réalisé » (programme prévu avec contenus par catégorie, réalisation, présences, comparaison, historique) : voir [IMPORT_PROGRAMME_EXCEL.md](IMPORT_PROGRAMME_EXCEL.md) §7.
+
 La feuille de présence présente les profils routiers, même sans compte. Présent, absent et excusé sont des valeurs explicites ; une absence de saisie reste « Non renseigné ». La saisie groupée ne modifie que les lignes envoyées, refuse les doublons et journalise les modifications. La contrainte unique activité/profil empêche les doubles lignes. La saisie est autorisée pour une activité réalisée ou dont la date prévue est passée, selon les contrôles du service. `/administration/presences` liste les activités sans aucune présence renseignée : une feuille partiellement saisie se retrouve depuis la liste générale.
 
 `/mes-activites` expose uniquement les prochaines activités pertinentes et les propres présences du routier, sans feuille collective, notes individuelles ni compte rendu interne.

@@ -4,6 +4,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — import Excel du programme annuel, 2026-11-05
+- Import d'un classeur `.xlsx` depuis « Programme annuel » : feuille, colonnes reconnues ou associées à la main, anomalies localisées, prévisualisation sans écriture, rapprochements à décider, séances protégées et absentes signalées, confirmation transactionnelle liée à l'empreinte, historique des imports (D172). Import Markdown conservé en option secondaire.
+- Contenus prévus par catégorie (Novices, Aspirants, Compagnons, Confirmés) pour une même séance ; format, observations, statut et effectif du fichier conservés comme informations.
+- Fiche de séance « Prévu / Réalisé » : date initiale et effective, programme prévu, réalisation (responsable effectif, objectifs atteints, décisions et suites), présences, comparaison, historique.
+- Création d'une année et période du programme par le responsable.
+- Migration additive `20261114090000_programme_excel_import`.
+
 ### Corrigé — gestion des modules V2, 2026-11-05
 - Tri par titre selon l'ordre alphabétique français (collation ICU `fr-x-icu`).
 - Tableau sans défilement interne de 768 à 1440 px ; contrôles de filtre sur deux lignes jusqu'à 1400 px.

@@ -1,4 +1,6 @@
-# Programme annuel 2026–2027
+# Programme annuel
+
+**Import Excel (parcours principal) et fiche prévu / réalisé : voir [IMPORT_PROGRAMME_EXCEL.md](IMPORT_PROGRAMME_EXCEL.md) (D172).** L'import Markdown décrit ci-dessous reste disponible et partage le même moteur (rapprochements à décider, séances protégées, absentes signalées).
 
 `/administration/programme-annuel` propose un import Markdown en deux étapes : prévisualisation sans écriture, puis confirmation par le responsable. Les chefs peuvent consulter le programme. Le seed idempotent initialise le programme vide et les quatre catégories ; les correspondances proposées avec les étapes restent non confirmées. Le responsable peut les modifier et les confirmer séparément. Aucune durée ni règle de promotion n'en découle.
 

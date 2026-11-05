@@ -116,7 +116,7 @@ Responsable : examiner ─────────────────► ac
 
 ## Phase 4 — domaines implémentés
 
-Le module NestJS `progression` gère étapes, référentiel, propositions et études ; `programmes` gère import, activités et présences ; `dashboards` calcule les indicateurs. Contrats Zod dans `packages/shared/src/{progression,programmes,dashboards}.ts`, clients dans `apps/web/src/lib/api/`, composants réutilisés par rôle. Détails : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md).
+Le module NestJS `progression` gère étapes, référentiel, propositions et études ; `programmes` gère programmes annuels, import Excel et Markdown (moteur commun, [IMPORT_PROGRAMME_EXCEL.md](FEATURES/IMPORT_PROGRAMME_EXCEL.md)), activités et présences ; `dashboards` calcule les indicateurs. Contrats Zod dans `packages/shared/src/{progression,programmes,dashboards}.ts`, clients dans `apps/web/src/lib/api/`, composants réutilisés par rôle. Détails : [progression](FEATURES/PROGRESSION.md), [compétences](FEATURES/COMPETENCES.md), [programme annuel](FEATURES/PROGRAMME_ANNUEL.md), [activités](FEATURES/SUIVI_ACTIVITES.md), [tableaux de bord](FEATURES/DASHBOARDS.md).
 
 ## Phase 5 — hors ligne
 
