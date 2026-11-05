@@ -4,6 +4,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Corrigé — gestion des modules V2, 2026-11-05
+- Tri par titre selon l'ordre alphabétique français (collation ICU `fr-x-icu`).
+- Tableau sans défilement interne de 768 à 1440 px ; contrôles de filtre sur deux lignes jusqu'à 1400 px.
+
 ### Ajouté — gestion des modules V2, 2026-11-04
 - « Tous les modules » : recherche serveur (titre, code, résumé, thème, auteur, sans accents), filtres combinables, vues rapides, pastilles, tri et pagination serveur, état dans l'URL, indicateurs compacts, tableau et cartes mobiles, menu d'actions (D171).
 - Suppression individuelle d'un brouillon jamais soumis (leçons comprises) ou abandon de la version de travail d'un module publié ; confirmation, audit, aucune suppression par lot. Migration `20261113090000_delete_module_drafts`.
