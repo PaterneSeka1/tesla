@@ -187,10 +187,10 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
 
         <form
           role="search"
-          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))_auto] lg:items-end"
+          className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4 min-[1400px]:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(11rem,1fr))_auto]"
           onSubmit={(event) => event.preventDefault()}
         >
-          <div className="sm:col-span-2 lg:col-span-1">
+          <div className="sm:col-span-2 lg:col-span-4 min-[1400px]:col-span-1">
             <SearchInput
               id="module-search"
               placeholder="Titre, code, résumé, thème, auteur"
@@ -248,7 +248,6 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
           <Button
             type="button"
             variant="outline"
-            className="sm:col-span-2 lg:col-span-1"
             aria-expanded={advancedOpen}
             aria-controls="module-advanced-filters"
             onClick={() => setAdvancedOpen((open) => !open)}

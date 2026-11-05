@@ -73,7 +73,7 @@ function PublicationBadge({ module }: { module: EditorModuleListItem }) {
     return <Badge variant="success">En ligne · v{module.published.version}</Badge>;
   }
   if (module.everPublished) return <Badge variant="outline">Publication retirée</Badge>;
-  return <span className="text-xs text-muted-foreground">Jamais publié</span>;
+  return <span className="text-xs whitespace-nowrap text-muted-foreground">Jamais publié</span>;
 }
 
 /** Version de travail ; sans elle, état de la dernière version d'un module non publié. */
@@ -99,12 +99,12 @@ export function ModuleTable({ items, canReview, review, returnTo }: ItemsProps) 
         <TableHeader>
           <TableRow>
             <TableHead>Module</TableHead>
-            <TableHead className="hidden lg:table-cell">Étape</TableHead>
-            <TableHead className="hidden xl:table-cell">Catégorie</TableHead>
+            <TableHead className="hidden xl:table-cell">Étape</TableHead>
+            <TableHead className="hidden min-[1400px]:table-cell">Catégorie</TableHead>
             <TableHead>Publication</TableHead>
             <TableHead>Version de travail</TableHead>
-            <TableHead className="hidden lg:table-cell">Auteur</TableHead>
-            <TableHead className="hidden text-right xl:table-cell">Leçons</TableHead>
+            <TableHead className="hidden xl:table-cell">Auteur</TableHead>
+            <TableHead className="hidden text-right min-[1400px]:table-cell">Leçons</TableHead>
             <TableHead>Modifié</TableHead>
             <TableHead>
               <span className="sr-only">Actions</span>
@@ -128,8 +128,8 @@ export function ModuleTable({ items, canReview, review, returnTo }: ItemsProps) 
                     {module.imported && <span>· import</span>}
                   </p>
                 </TableCell>
-                <TableCell className="hidden lg:table-cell">{shown.stage?.name ?? '—'}</TableCell>
-                <TableCell className="hidden xl:table-cell">
+                <TableCell className="hidden xl:table-cell">{shown.stage?.name ?? '—'}</TableCell>
+                <TableCell className="hidden min-[1400px]:table-cell">
                   {shown.category ? MODULE_CATEGORY_LABELS[shown.category] : 'À classer'}
                 </TableCell>
                 <TableCell>
@@ -138,8 +138,8 @@ export function ModuleTable({ items, canReview, review, returnTo }: ItemsProps) 
                 <TableCell>
                   <WorkingCell module={module} />
                 </TableCell>
-                <TableCell className="hidden lg:table-cell">{authorOf(module)}</TableCell>
-                <TableCell className="hidden text-right tabular-nums xl:table-cell">
+                <TableCell className="hidden xl:table-cell">{authorOf(module)}</TableCell>
+                <TableCell className="hidden text-right tabular-nums min-[1400px]:table-cell">
                   {shown.lessonCount}
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
