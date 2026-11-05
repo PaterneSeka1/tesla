@@ -195,7 +195,9 @@ export function moduleSearchSql(search: string): Prisma.Sql {
 
 /**
  * Page d'identifiants triés par titre de la version affichée (travail, sinon publiée, sinon la plus
- * récente), départagés par numéro, parmi les modules déjà filtrés.
+ * récente), départagés par numéro, parmi les modules déjà filtrés. Ordre alphabétique français
+ * (collation ICU `fr-x-icu`, fournie par PostgreSQL compilé avec ICU, défaut depuis la version 16) :
+ * accents et casse secondaires, apostrophe « ’ » avant les lettres, comme `localeCompare('fr')`.
  */
 export function moduleTitlePageSql(
   ids: string[],
@@ -211,6 +213,6 @@ export function moduleTitlePageSql(
       ORDER BY (v.status IN (${workingSql})) DESC, (v.id = m.published_version_id) DESC, v.version DESC
       LIMIT 1) shown
     WHERE m.id = ANY(${ids}::uuid[])
-    ORDER BY ${fold(Prisma.sql`shown.title`)} ${order}, m.number ASC
+    ORDER BY shown.title COLLATE "fr-x-icu" ${order}, m.number ASC
     LIMIT ${take} OFFSET ${skip}`;
 }

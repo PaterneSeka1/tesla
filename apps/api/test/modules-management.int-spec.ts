@@ -335,6 +335,24 @@ describe('Gestion des modules V2 : liste, filtres et suppression de brouillons',
       expect(stats.pendingApproval).toBe(1);
     });
 
+    it('tri par titre selon l’ordre alphabétique français (apostrophe, accents, casse)', async () => {
+      const chef = await loginAs('CHEF');
+      const names = [
+        'Loi, principes et vertus',
+        'L’Entreprise routière',
+        'La méthode scoute',
+        'élan du service',
+        'Éthique routière',
+        'Equipe et responsabilités',
+        'zèbre',
+        'Accueil',
+      ];
+      for (const name of names) await createModule(chef, name);
+      const expected = [...names].sort((a, b) => a.localeCompare(b, 'fr'));
+      expect(await titles(chef, 'sort=title_asc')).toEqual(expected);
+      expect(await titles(chef, 'sort=title_desc')).toEqual([...expected].reverse());
+    });
+
     it('refuse la liste aux routiers et à l’administrateur', async () => {
       const routier = await loginAs('ROUTIER');
       const admin = await loginAs('ADMINISTRATEUR');
