@@ -6,13 +6,18 @@ import {
   attendanceSheetSchema,
   type ChangeActivityStatusInput,
   type CreateActivityInput,
+  type ImportDecision,
   paginatedSchema,
   programmeCategoryListSchema,
+  type ProgrammeExcelImportInput,
+  programmeImportHistorySchema,
   programmeImportReportSchema,
+  type ProgrammeInput,
   programmeListSchema,
   type SaveAttendanceInput,
   type UpdateActivityInput,
   type UpdateProgrammeCategoryInput,
+  type UpdateProgrammeInput,
 } from '@tesla/shared';
 import { apiFetch, apiSend, toQueryString } from './client';
 
@@ -50,12 +55,43 @@ export const attendanceQueryOptions = (id: string, teamId = '') =>
 export const updateProgrammeCategory = (id: string, input: UpdateProgrammeCategoryInput) =>
   apiSend('PATCH', `/programmes/categories/${id}`, programmeCategoryListSchema, input);
 
-export const importProgramme = (programmeId: string, content: string, apply: boolean) =>
+export const programmeImportsQueryOptions = (programmeId: string) =>
+  queryOptions({
+    queryKey: ['programmes', 'imports', programmeId],
+    queryFn: () => apiFetch(`/programmes/${programmeId}/imports`, programmeImportHistorySchema),
+  });
+
+// Décisions officielles : jamais différées hors connexion (aucune `OfflineWrite`).
+export const createProgramme = (input: ProgrammeInput) =>
+  apiSend('POST', '/programmes', programmeListSchema, input);
+
+export const updateProgramme = (id: string, input: UpdateProgrammeInput) =>
+  apiSend('PATCH', `/programmes/${id}`, programmeListSchema, input);
+
+export const importProgramme = (
+  programmeId: string,
+  content: string,
+  apply: boolean,
+  extra: { decisions?: ImportDecision[]; fingerprint?: string } = {},
+) =>
   apiSend(
     'POST',
     `/programmes/${programmeId}/import${apply ? '' : '/preview'}`,
     programmeImportReportSchema,
-    { content },
+    { content, ...extra },
+  );
+
+/** Classeur .xlsx : analyse (aucune écriture) ou confirmation avec l'empreinte examinée. */
+export const importProgrammeExcel = (
+  programmeId: string,
+  input: ProgrammeExcelImportInput,
+  apply: boolean,
+) =>
+  apiSend(
+    'POST',
+    `/programmes/${programmeId}/import/excel${apply ? '' : '/preview'}`,
+    programmeImportReportSchema,
+    input,
   );
 
 // Écritures différables hors connexion (D110) : rejouées par la file de l'appareil.

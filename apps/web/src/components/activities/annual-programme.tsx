@@ -6,10 +6,9 @@ import {
   ACTIVITY_STATUSES,
   type ActivityStatus,
   type ActivitySummary,
-  IMPORT_ROW_ACTION_LABELS,
-  type ImportRowAction,
   type Programme,
-  type ProgrammeImportReport,
+  programmeInputSchema,
+  updateProgrammeInputSchema,
 } from '@tesla/shared';
 import {
   CalendarCheck,
@@ -30,16 +29,17 @@ import { Tabs } from '@/components/progression/tabs';
 import { usePedagogyAction } from '@/components/progression/use-pedagogy-action';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { StatCard } from '@/components/stat-card';
-import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
-import { Textarea } from '@/components/ui/textarea';
 import {
   activitiesQueryOptions,
-  importProgramme,
+  createProgramme,
   programmeCategoriesQueryOptions,
   programmesQueryOptions,
+  updateProgramme,
   updateProgrammeCategory,
 } from '@/lib/api/programmes';
 import { stagesQueryOptions } from '@/lib/api/scouts';
@@ -47,10 +47,12 @@ import { addMonths, programmeOverview } from '@/lib/calendar';
 import { formatDate, formatMonth, todayIsoDate } from '@/lib/format';
 import { userCan } from '@/lib/navigation';
 import { ProgrammeCalendar, SessionList, sessionDate } from './programme-calendar';
+import { ProgrammeImportPanel } from './programme-import';
 
 // La page répond d'abord à : que faire prochainement, qu'a-t-on réalisé, qu'est-ce qui est en
-// retard, que reste-t-il à programmer ? L'import et la correspondance des catégories sont des
-// outils ponctuels, repliés en bas de page. Aucune séance n'est générée ni déduite.
+// retard, que reste-t-il à programmer ? L'import (Excel, Markdown en option), la période et la
+// correspondance des catégories sont des outils ponctuels, en bas de page. Aucune séance n'est
+// générée ni déduite.
 
 /** Séances lues en une fois : un programme annuel en compte quelques dizaines. */
 const SESSION_PAGE_SIZE = 100;
@@ -94,7 +96,10 @@ export function AnnualProgramme() {
           )}
           <ProgrammeSessions key={programme.id} programme={programme} />
           {userCan(user, 'programme.configure') && (
-            <ProgrammeImport key={`import-${programme.id}`} programmeId={programme.id} />
+            <>
+              <ProgrammeImportPanel programme={programme} />
+              <ProgrammeSettings key={`settings-${programme.id}`} programme={programme} />
+            </>
           )}
           <CategoryCorrespondence />
         </>
@@ -235,7 +240,7 @@ function ProgrammeSessions({ programme }: { programme: Programme }) {
           <EmptyState
             icon={CalendarDays}
             title="Aucune séance dans ce programme."
-            description="Les séances s’ajoutent depuis « Activités » ou par import du programme approuvé."
+            description="Les séances s’ajoutent depuis « Activités » ou par import du programme Excel approuvé."
           />
         ) : (
           <Tabs
@@ -292,96 +297,108 @@ function Timeline({ sessions }: { sessions: readonly ActivitySummary[] }) {
   );
 }
 
-const IMPORT_ROW_VARIANTS: Record<
-  ImportRowAction,
-  'secondary' | 'success' | 'outline' | 'accent' | 'destructive'
-> = {
-  CREER: 'success',
-  METTRE_A_JOUR: 'accent',
-  INCHANGEE: 'outline',
-  CONSERVEE_MANUELLE: 'secondary',
-  ERREUR: 'destructive',
-};
-
-/** Import du tableau Markdown approuvé : prévisualisation obligatoire, puis confirmation. */
-function ProgrammeImport({ programmeId }: { programmeId: string }) {
-  const [content, setContent] = useState('');
-  const [report, setReport] = useState<ProgrammeImportReport | null>(null);
+/** Création d'une année (action volontaire) et période du programme sélectionné. */
+function ProgrammeSettings({ programme }: { programme: Programme }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const action = usePedagogyAction();
-  const run = async (apply: boolean) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>, create: boolean) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+    const parsed = create
+      ? programmeInputSchema.safeParse(data)
+      : updateProgrammeInputSchema.safeParse({
+          title: data.title,
+          startsOn: data.startsOn || undefined,
+          endsOn: data.endsOn || undefined,
+        });
+    if (!parsed.success) {
+      setError(parsed.error.issues.map((i) => i.message).join(' '));
+      return;
+    }
+    setError('');
     setBusy(true);
-    if (!apply) setReport(null);
     await action(
-      async () => {
-        setReport(await importProgramme(programmeId, content, apply));
-      },
-      apply
-        ? { success: 'Programme importé', error: 'Import impossible' }
-        : { success: 'Prévisualisation disponible', error: 'Analyse impossible' },
+      () =>
+        create
+          ? createProgramme(programmeInputSchema.parse(data))
+          : updateProgramme(programme.id, parsed.data),
+      create
+        ? { success: 'Programme créé', error: 'Création impossible' }
+        : { success: 'Programme enregistré', error: 'Modification impossible' },
     );
     setBusy(false);
   };
   return (
     <Disclosure
-      title="Importer le programme approuvé"
-      summary="Tableau Markdown, prévisualisé avant tout enregistrement."
+      title="Programmes annuels"
+      summary="Période du programme sélectionné ; création d’une nouvelle année."
     >
-      <p className="text-sm text-muted-foreground">
-        Colonnes Date et Activité ; facultatives : Catégories, Thème, Objectifs (séparés par ;),
-        Modules (codes), Responsable, Lieu. Dates : AAAA-MM-JJ ou JJ/MM/AAAA. Les séances modifiées
-        manuellement sont conservées.
-      </p>
-      <div className="space-y-1.5">
-        <Label htmlFor="programme-source">Tableau source</Label>
-        <Textarea
-          id="programme-source"
-          rows={10}
-          maxLength={200000}
-          className="font-mono text-sm"
-          value={content}
-          onChange={(e) => {
-            setContent(e.target.value);
-            setReport(null);
-          }}
-        />
-      </div>
-      <Button variant="outline" disabled={busy || !content} onClick={() => void run(false)}>
-        Prévisualiser sans écrire
-      </Button>
-      {report && (
-        <div className="space-y-3">
-          <p role="status" className="text-sm font-medium">
-            {report.applied
-              ? 'Import enregistré.'
-              : 'Prévisualisation : vérifiez les lignes avant de confirmer.'}
-          </p>
-          <ul className="divide-y rounded-lg border">
-            {report.rows.map((row, index) => (
-              <li key={`${row.line}-${index}`} className="space-y-1 px-3 py-2 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground tabular-nums">Ligne {row.line}</span>
-                  <span className="font-medium">{row.title}</span>
-                  <span className="text-muted-foreground">{row.date}</span>
-                  <Badge variant={IMPORT_ROW_VARIANTS[row.action]}>
-                    {IMPORT_ROW_ACTION_LABELS[row.action]}
-                  </Badge>
-                </div>
-                {row.messages.length > 0 && (
-                  <p className="text-muted-foreground">{row.messages.join(' ')}</p>
-                )}
-              </li>
-            ))}
-          </ul>
-          <Button
-            disabled={
-              busy || report.applied || report.counts.ERREUR > 0 || report.rows.length === 0
-            }
-            onClick={() => void run(true)}
-          >
-            Confirmer l’import prévisualisé
+      <form
+        key={`${programme.id}-${programme.startsOn}-${programme.endsOn}`}
+        className="grid gap-3 sm:grid-cols-3"
+        onSubmit={(e) => void submit(e, false)}
+      >
+        <div className="space-y-1.5 sm:col-span-3">
+          <Label htmlFor="programme-title">Titre de « {programme.code} »</Label>
+          <Input id="programme-title" name="title" defaultValue={programme.title} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="programme-starts">Début</Label>
+          <Input
+            id="programme-starts"
+            type="date"
+            name="startsOn"
+            defaultValue={programme.startsOn ?? ''}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="programme-ends">Fin</Label>
+          <Input
+            id="programme-ends"
+            type="date"
+            name="endsOn"
+            defaultValue={programme.endsOn ?? ''}
+          />
+        </div>
+        <div className="flex items-end">
+          <Button variant="outline" disabled={busy}>
+            Enregistrer
           </Button>
         </div>
+      </form>
+      <form
+        className="grid gap-3 border-t pt-4 sm:grid-cols-3"
+        onSubmit={(e) => void submit(e, true)}
+      >
+        <p className="text-sm font-semibold sm:col-span-3">Nouvelle année</p>
+        <div className="space-y-1.5">
+          <Label htmlFor="new-programme-code">Code (AAAA-AAAA)</Label>
+          <Input id="new-programme-code" name="code" placeholder="2027-2028" required />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="new-programme-title">Titre</Label>
+          <Input id="new-programme-title" name="title" required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="new-programme-starts">Début</Label>
+          <Input id="new-programme-starts" type="date" name="startsOn" required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="new-programme-ends">Fin</Label>
+          <Input id="new-programme-ends" type="date" name="endsOn" required />
+        </div>
+        <div className="flex items-end">
+          <Button variant="outline" disabled={busy}>
+            Créer le programme
+          </Button>
+        </div>
+      </form>
+      {error && (
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
     </Disclosure>
   );
