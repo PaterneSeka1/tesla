@@ -103,7 +103,7 @@ const toDbDate = (value: string | null): Date | null =>
   value === null ? null : new Date(`${value}T00:00:00Z`);
 
 function snapshotAt(birthDate: string | null, context: StageContext): ComputedStageSnapshot {
-  const computed = computedStageOf({ birthDate: toDbDate(birthDate) }, context);
+  const computed = computedStageOf({ id: null, birthDate: toDbDate(birthDate) }, context);
   return {
     age: computed.progression.age,
     stage: toStageSummary(computed.stage),

@@ -15,6 +15,8 @@ import {
 } from './progression.controller.js';
 import { ProgressionService } from './progression.service.js';
 import { ScoutProgressionService } from './scout-progression.service.js';
+import { StageOverridesController } from './stage-overrides.controller.js';
+import { StageOverridesService } from './stage-overrides.service.js';
 
 /**
  * Progression des routiers : référentiel des étapes, historique des étapes (décisions du
@@ -30,6 +32,7 @@ import { ScoutProgressionService } from './scout-progression.service.js';
     CompetencyProposalsController,
     CompetencyValidationsController,
     PathwayController,
+    StageOverridesController,
   ],
   providers: [
     ProgressionService,
@@ -38,6 +41,7 @@ import { ScoutProgressionService } from './scout-progression.service.js';
     CompetencyProposalsService,
     PathwayService,
     MembershipService,
+    StageOverridesService,
   ],
   exports: [PathwayService, MembershipService],
 })

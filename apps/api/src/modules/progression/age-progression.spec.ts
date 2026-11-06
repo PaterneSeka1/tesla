@@ -213,8 +213,9 @@ describe('Étape actuelle calculée (D173)', () => {
     ruleSet: null,
     rules,
     stages,
+    overrides: new Map(),
   });
-  const born = (date: string) => ({ birthDate: new Date(`${date}T00:00:00Z`) });
+  const born = (date: string) => ({ id: 'p', birthDate: new Date(`${date}T00:00:00Z`) });
 
   it('le jour des 18 ans et pendant le mois de noviciat : Noviciat', () => {
     expect(computedStageOf(born('2008-05-10'), context('2026-05-10')).stage?.code).toBe('NOVICIAT');
@@ -232,7 +233,7 @@ describe('Étape actuelle calculée (D173)', () => {
   });
 
   it('date de naissance ou référentiel manquants : motif explicite', () => {
-    expect(computedStageOf({ birthDate: null }, context('2026-05-10')).reason).toBe(
+    expect(computedStageOf({ id: 'p', birthDate: null }, context('2026-05-10')).reason).toBe(
       'DATE_NAISSANCE_MANQUANTE',
     );
     expect(computedStageOf(born('2008-05-10'), context('2026-05-10', null)).reason).toBe(

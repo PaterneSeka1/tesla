@@ -127,7 +127,8 @@ export class AccountSelfService {
       seniority: joinedAt ? elapsedYearsMonths(joinedAt, context.today) : null,
       stage: toStageSummary(stage),
       stageReason: reason,
-      ruleSetVersion: progression.ruleSetVersion,
+      // Détail interne du calcul : jamais transmis au titulaire (D176).
+      ruleSetVersion: null,
       nextMilestone:
         reason === 'SORTI' || !milestone
           ? null
