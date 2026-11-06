@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ProgressionModule } from '../progression/progression.module.js';
 import { ObservationsController } from './observations.controller.js';
 import { ObservationsService } from './observations.service.js';
 import { ScoutProfilesService } from './scout-profiles.service.js';
@@ -11,6 +12,7 @@ import { TeamsService } from './teams.service.js';
  * et observations d'accompagnement.
  */
 @Module({
+  imports: [ProgressionModule],
   controllers: [ScoutsController, TeamsController, ObservationsController],
   providers: [ScoutProfilesService, TeamsService, ObservationsService],
   exports: [ScoutProfilesService, TeamsService],

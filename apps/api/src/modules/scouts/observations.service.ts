@@ -21,7 +21,7 @@ import { parseInput } from '../../common/validation.js';
 import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { toIsoDate, toUserSummary, userSummarySelect } from './presenters.js';
-import { scoutProfileNotFound } from './scout-profiles.service.js';
+import { scoutProfileNotFound } from './presenters.js';
 
 const withAuthor = { author: userSummarySelect } as const;
 

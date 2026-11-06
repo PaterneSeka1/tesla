@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { type StageSummary, type Team as TeamResponse, type UserSummary } from '@tesla/shared';
 import { type ProgressionStage, type Team, type User } from '../../generated/prisma/client.js';
 
@@ -30,3 +31,10 @@ export function toTeamResponse(team: Team, memberCount: number): TeamResponse {
 
 /** Sélection Prisma minimale d'un auteur (jamais l'e-mail ni le hash). */
 export const userSummarySelect = { select: { id: true, firstName: true, lastName: true } } as const;
+
+export function scoutProfileNotFound(): NotFoundException {
+  return new NotFoundException({
+    code: 'SCOUT_PROFILE_NOT_FOUND',
+    message: 'Routier introuvable.',
+  });
+}

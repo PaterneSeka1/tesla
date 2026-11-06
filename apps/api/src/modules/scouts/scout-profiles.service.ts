@@ -6,6 +6,9 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  type BirthDateImpact,
+  birthDateImpactQuerySchema,
+  type ComputedStageSnapshot,
   type CreateScoutProfileInput,
   createScoutProfileInputSchema,
   type LinkAccountInput,
@@ -23,11 +26,34 @@ import {
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
 import { assertCan, can } from '../../common/permissions.js';
-import { isForeignKeyViolation, isUniqueViolation } from '../../common/prisma-errors.js';
+import { isUniqueViolation } from '../../common/prisma-errors.js';
 import { parseInput } from '../../common/validation.js';
 import { type Prisma, type ScoutProfile } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { toIsoDate, toStageSummary, toUserSummary, userSummarySelect } from './presenters.js';
+import { assertCanAtWrite } from '../auth/write-authority.js';
+import { todayCivil } from '../progression/age-rules.js';
+import {
+  computedStageOf,
+  loadStageContext,
+  type StageContext,
+  withComputedStage,
+} from '../progression/computed-stage.js';
+import { PathwayService } from '../progression/pathway.service.js';
+import {
+  type AdminChange,
+  type AdminSnapshot,
+  assertAdminDates,
+  assertCorrectionJustified,
+  diffAdminFields,
+  rejectStageInput,
+} from './admin-changes.js';
+import {
+  scoutProfileNotFound,
+  toIsoDate,
+  toStageSummary,
+  toUserSummary,
+  userSummarySelect,
+} from './presenters.js';
 
 function matriculeAlreadyUsed(): ConflictException {
   return new ConflictException({
@@ -36,33 +62,53 @@ function matriculeAlreadyUsed(): ConflictException {
   });
 }
 
-function stageNotFound(): UnprocessableEntityException {
-  return new UnprocessableEntityException({
-    code: 'STAGE_NOT_FOUND',
-    message: 'Étape de progression inconnue.',
-  });
-}
-
 /** Relations nécessaires à l'affichage d'un routier en liste. */
 const listInclude = {
-  currentStage: true,
   teamAssignments: { where: { endedAt: null }, include: { team: true }, take: 1 },
 } as const satisfies Prisma.ScoutProfileInclude;
 
 type ScoutWithRelations = Prisma.ScoutProfileGetPayload<{ include: typeof listInclude }>;
 
-function toListItem(profile: ScoutWithRelations): ScoutListItem {
+/** L'étape affichée est toujours l'étape calculée selon l'âge (D173). */
+function toListItem(profile: ScoutWithRelations, context: StageContext): ScoutListItem {
   const team = profile.teamAssignments[0]?.team ?? null;
+  const computed = computedStageOf(profile, context);
   return {
     id: profile.id,
     firstName: profile.firstName,
     lastName: profile.lastName,
     matricule: profile.matricule,
     isActive: profile.isActive,
-    joinedAt: toIsoDate(profile.joinedAt),
-    stage: toStageSummary(profile.currentStage),
+    joinedAt: profile.joinedAt && toIsoDate(profile.joinedAt),
+    stage: toStageSummary(computed.stage),
+    stageReason: computed.reason,
     team: team && { id: team.id, name: team.name },
     hasAccount: profile.userId !== null,
+  };
+}
+
+const day = (date: Date | null): string | null => date && toIsoDate(date);
+
+function adminSnapshot(profile: ScoutProfile): AdminSnapshot {
+  return {
+    lastName: profile.lastName,
+    firstName: profile.firstName,
+    matricule: profile.matricule,
+    birthDate: day(profile.birthDate),
+    joinedAt: day(profile.joinedAt),
+  };
+}
+
+const toDbDate = (value: string | null): Date | null =>
+  value === null ? null : new Date(`${value}T00:00:00Z`);
+
+function snapshotAt(birthDate: string | null, context: StageContext): ComputedStageSnapshot {
+  const computed = computedStageOf({ birthDate: toDbDate(birthDate) }, context);
+  return {
+    age: computed.progression.age,
+    stage: toStageSummary(computed.stage),
+    stageReason: computed.reason,
+    branchExitOn: computed.progression.branchExitOn,
   };
 }
 
@@ -72,7 +118,10 @@ function toListItem(profile: ScoutWithRelations): ScoutListItem {
  */
 @Injectable()
 export class ScoutProfilesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pathway: PathwayService,
+  ) {}
 
   /**
    * Recherche par nom, prénoms ou matricule (chaque mot doit correspondre à l'un d'eux),
@@ -89,7 +138,6 @@ export class ScoutProfilesService {
       ...(status !== 'all' && { isActive: status === 'active' }),
       ...(account === 'with' && { userId: { not: null } }),
       ...(account === 'without' && { userId: null }),
-      ...(stageId && { currentStageId: stageId === NONE_FILTER ? null : stageId }),
       ...(teamId === NONE_FILTER && { teamAssignments: { none: { endedAt: null } } }),
       ...(teamId &&
         teamId !== NONE_FILTER && { teamAssignments: { some: { teamId, endedAt: null } } }),
@@ -101,17 +149,37 @@ export class ScoutProfilesService {
         ],
       })),
     };
+    const context = await loadStageContext(this.prisma);
+    const orderBy = [{ lastName: 'asc' as const }, { firstName: 'asc' as const }];
+    if (stageId) {
+      // Étape calculée : filtrée en mémoire (aucune étape stockée ne peut contredire le calcul).
+      const all = await this.prisma.scoutProfile.findMany({ where, include: listInclude, orderBy });
+      const matching = withComputedStage(all, context, stageId === NONE_FILTER ? null : stageId);
+      return {
+        items: matching
+          .slice((page - 1) * pageSize, page * pageSize)
+          .map((profile) => toListItem(profile, context)),
+        page,
+        pageSize,
+        total: matching.length,
+      };
+    }
     const [total, profiles] = await this.prisma.$transaction([
       this.prisma.scoutProfile.count({ where }),
       this.prisma.scoutProfile.findMany({
         where,
         include: listInclude,
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        orderBy,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
     ]);
-    return { items: profiles.map(toListItem), page, pageSize, total };
+    return {
+      items: profiles.map((profile) => toListItem(profile, context)),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   /** Fiche d'un routier. L'e-mail du compte rattaché n'est communiqué qu'au responsable. */
@@ -123,7 +191,7 @@ export class ScoutProfilesService {
     });
     if (!profile) throw scoutProfileNotFound();
     return {
-      ...toListItem(profile),
+      ...toListItem(profile, await loadStageContext(this.prisma)),
       birthDate: profile.birthDate ? toIsoDate(profile.birthDate) : null,
       createdAt: profile.createdAt.toISOString(),
       updatedAt: profile.updatedAt.toISOString(),
@@ -136,15 +204,23 @@ export class ScoutProfilesService {
   }
 
   /**
-   * Inscrit un routier sans compte ; le compte pourra être rattaché plus tard.
+   * Inscrit un routier sans compte ; le compte pourra être rattaché plus tard. Administrateur ou
+   * responsable plein en fonction (revérifié dans la transaction). Les informations absentes restent
+   * non renseignées ; l'étape n'est jamais saisie (calculée selon l'âge).
    * Un homonyme exact (nom et prénoms, sans distinction de casse) exige une confirmation explicite.
    */
   async create(actor: Actor, input: CreateScoutProfileInput): Promise<ScoutProfile> {
     assertCan(actor, 'scout.create');
+    rejectStageInput(input);
     const data = parseInput(createScoutProfileInputSchema, input);
-    if (data.currentStageId) assertCan(actor, 'scout.setStage');
+    assertAdminDates(
+      { birthDate: data.birthDate ?? null, joinedAt: data.joinedAt ?? null },
+      todayCivil(),
+    );
+    let created: ScoutProfile;
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      created = await this.prisma.$transaction(async (tx) => {
+        await assertCanAtWrite(tx, actor, 'scout.create');
         if (!data.confirmDuplicate) {
           const homonym = await tx.scoutProfile.findFirst({
             where: {
@@ -178,25 +254,10 @@ export class ScoutProfilesService {
             firstName: data.firstName,
             lastName: data.lastName,
             matricule: data.matricule ?? null,
-            birthDate: data.birthDate ? new Date(data.birthDate) : null,
-            joinedAt: new Date(data.joinedAt),
-            currentStageId: data.currentStageId ?? null,
-            currentStageSince: data.currentStageId ? new Date(data.joinedAt) : null,
+            birthDate: toDbDate(data.birthDate ?? null),
+            joinedAt: toDbDate(data.joinedAt ?? null),
           },
         });
-        if (data.currentStageId) {
-          // Étape initiale : première entrée de l'historique structuré des étapes.
-          await tx.scoutStageChange.create({
-            data: {
-              scoutProfileId: profile.id,
-              kind: 'INSCRIPTION',
-              toStageId: data.currentStageId,
-              effectiveOn: new Date(data.joinedAt),
-              decidedById: actor.userId,
-              reason: 'Étape initiale saisie à l’inscription.',
-            },
-          });
-        }
         if (data.teamId) {
           await tx.teamAssignment.create({
             data: {
@@ -213,21 +274,30 @@ export class ScoutProfilesService {
             action: 'scout_profile.created',
             entityType: 'ScoutProfile',
             entityId: profile.id,
-            metadata: { teamId: data.teamId ?? null, stageId: data.currentStageId ?? null },
+            metadata: {
+              teamId: data.teamId ?? null,
+              missing: (['matricule', 'birthDate', 'joinedAt'] as const).filter(
+                (field) => data[field] === undefined || data[field] === null,
+              ),
+            },
           },
         });
         return profile;
       });
     } catch (error) {
       if (isUniqueViolation(error)) throw matriculeAlreadyUsed();
-      if (isForeignKeyViolation(error)) throw stageNotFound();
       throw error;
     }
+    await this.pathway.syncCatchUps(created.id);
+    return created;
   }
 
   /**
-   * Modifie une fiche. Le changement d'étape n'est plus accepté ici : c'est une décision motivée et
-   * historisée (`POST /scouts/:id/stage-changes`, ScoutProgressionService.changeStage).
+   * Gestion administrative d'une fiche (D173) : complétion libre d'une information absente ;
+   * correction (remplacement ou retrait) avec motif et confirmation, ancienne et nouvelle valeurs
+   * journalisées. Habilitation revérifiée au moment de l'écriture ; fiche verrouillée. Une
+   * correction de la date de naissance recalcule l'étape (à la lecture) et le plan de rattrapage,
+   * sans effacer ni réécrire aucune obligation, décision ou validation existante.
    */
   async update(
     actor: Actor,
@@ -235,11 +305,16 @@ export class ScoutProfilesService {
     input: UpdateScoutProfileInput,
   ): Promise<ScoutProfile> {
     assertCan(actor, 'scout.update');
+    rejectStageInput(input);
     const data = parseInput(updateScoutProfileInputSchema, input);
+    let result: { profile: ScoutProfile; changes: AdminChange[] };
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const previous = await tx.scoutProfile.findUnique({ where: { id: scoutProfileId } });
-        if (!previous) throw scoutProfileNotFound();
+      result = await this.prisma.$transaction(async (tx) => {
+        await assertCanAtWrite(tx, actor, 'scout.update');
+        const locked = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM scout_profiles WHERE id = ${scoutProfileId}::uuid FOR UPDATE`;
+        if (locked.length === 0) throw scoutProfileNotFound();
+        const previous = await tx.scoutProfile.findUniqueOrThrow({ where: { id: scoutProfileId } });
         if (
           data.expectedUpdatedAt !== undefined &&
           previous.updatedAt.toISOString() !== new Date(data.expectedUpdatedAt).toISOString()
@@ -250,71 +325,87 @@ export class ScoutProfilesService {
               'Cette fiche a été modifiée entre-temps. Consultez la version à jour avant de reprendre vos changements.',
           });
         }
-
-        const stageChanged =
-          data.currentStageId !== undefined && data.currentStageId !== previous.currentStageId;
-        if (stageChanged) {
-          assertCan(actor, 'scout.setStage');
-          throw new UnprocessableEntityException({
-            code: 'STAGE_CHANGE_REQUIRES_DECISION',
-            message:
-              'Le changement d’étape est une décision motivée : utilisez « Changer l’étape » sur la fiche de progression.',
-          });
-        }
-        const matriculeChanged =
-          data.matricule !== undefined && data.matricule !== previous.matricule;
+        const before = adminSnapshot(previous);
+        const changes = diffAdminFields(before, data);
+        if (changes.length === 0) return { profile: previous, changes };
+        assertCorrectionJustified(changes, data);
+        const next = { ...before, ...Object.fromEntries(changes.map((c) => [c.field, c.next])) };
+        assertAdminDates({ birthDate: next.birthDate, joinedAt: next.joinedAt }, todayCivil());
 
         const profile = await tx.scoutProfile.update({
           where: { id: scoutProfileId },
-          data: {
-            ...(data.firstName !== undefined && { firstName: data.firstName }),
-            ...(data.lastName !== undefined && { lastName: data.lastName }),
-            ...(matriculeChanged && { matricule: data.matricule }),
-            ...(data.birthDate !== undefined && {
-              birthDate: data.birthDate ? new Date(data.birthDate) : null,
-            }),
-            ...(data.joinedAt !== undefined && { joinedAt: new Date(data.joinedAt) }),
-          },
+          data: Object.fromEntries(
+            changes.map(({ field, next: value }) => [
+              field,
+              field === 'birthDate' || field === 'joinedAt' ? toDbDate(value) : value,
+            ]),
+          ),
         });
-
-        const audit = (action: string, metadata: Prisma.InputJsonValue) =>
-          tx.auditLog.create({
+        const completions = changes.filter((change) => change.kind === 'COMPLETION');
+        const corrections = changes.filter((change) => change.kind === 'CORRECTION');
+        if (completions.length > 0) {
+          await tx.auditLog.create({
             data: {
               actorId: actor.userId,
-              action,
+              action: 'scout_profile.completed',
               entityType: 'ScoutProfile',
               entityId: scoutProfileId,
-              metadata,
+              metadata: {
+                changes: completions.map(({ field, next: value }) => ({ field, next: value })),
+              },
             },
           });
-        if (matriculeChanged) {
-          await audit('scout_profile.matricule_set', {
-            previous: previous.matricule,
-            next: profile.matricule,
+        }
+        if (corrections.length > 0) {
+          await tx.auditLog.create({
+            data: {
+              actorId: actor.userId,
+              action: 'scout_profile.corrected',
+              entityType: 'ScoutProfile',
+              entityId: scoutProfileId,
+              metadata: {
+                reason: data.reason ?? null,
+                changes: corrections.map(({ field, previous: old, next: value }) => ({
+                  field,
+                  previous: old,
+                  next: value,
+                })),
+              },
+            },
           });
         }
-        const identityFields = (['firstName', 'lastName', 'birthDate', 'joinedAt'] as const).filter(
-          (field) => data[field] !== undefined,
-        );
-        if (identityFields.length > 0) {
-          await audit('scout_profile.updated', { fields: identityFields });
-        }
-        // La date de naissance détermine l'étape théorique et la sortie à 21 ans (définitive) :
-        // ancienne et nouvelle valeur sont conservées pour pouvoir reconstituer une erreur.
-        const day = (date: Date | null) => date?.toISOString().slice(0, 10) ?? null;
-        if (data.birthDate !== undefined && day(previous.birthDate) !== day(profile.birthDate)) {
-          await audit('scout_profile.birth_date_changed', {
-            previous: day(previous.birthDate),
-            next: day(profile.birthDate),
-          });
-        }
-        return profile;
+        return { profile, changes };
       });
     } catch (error) {
       if (isUniqueViolation(error)) throw matriculeAlreadyUsed();
-      if (isForeignKeyViolation(error)) throw stageNotFound();
       throw error;
     }
+    if (result.changes.some((change) => change.field === 'birthDate')) {
+      await this.pathway.syncCatchUps(scoutProfileId);
+    }
+    return result.profile;
+  }
+
+  /**
+   * Aperçu, sans écriture, des conséquences d'une date de naissance corrigée : âge, étape et sortie
+   * avant / après, nouvelles obligations de rattrapage et obligations à réexaminer.
+   */
+  async birthDateImpact(
+    actor: Actor,
+    scoutProfileId: string,
+    query: unknown,
+  ): Promise<BirthDateImpact> {
+    assertCan(actor, 'scout.update');
+    const { birthDate } = parseInput(birthDateImpactQuerySchema, query);
+    const profile = await this.prisma.scoutProfile.findUnique({ where: { id: scoutProfileId } });
+    if (!profile) throw scoutProfileNotFound();
+    const context = await loadStageContext(this.prisma);
+    const catchUps = await this.pathway.catchUpImpact(profile.id, birthDate, context);
+    return {
+      current: snapshotAt(day(profile.birthDate), context),
+      next: snapshotAt(birthDate, context),
+      ...catchUps,
+    };
   }
 
   /**
@@ -324,6 +415,7 @@ export class ScoutProfilesService {
   async setActive(actor: Actor, scoutProfileId: string, active: boolean): Promise<ScoutProfile> {
     assertCan(actor, 'scout.setActive');
     return this.prisma.$transaction(async (tx) => {
+      await assertCanAtWrite(tx, actor, 'scout.setActive');
       const rows = await tx.$queryRaw<{ is_active: boolean }[]>`
         SELECT is_active FROM scout_profiles WHERE id = ${scoutProfileId}::uuid FOR UPDATE`;
       if (rows.length === 0) throw scoutProfileNotFound();
@@ -370,39 +462,6 @@ export class ScoutProfilesService {
     });
   }
 
-  /** Attribue, corrige ou retire (chaîne vide) le matricule. Jamais généré par l'application. */
-  async setMatricule(
-    actor: Actor,
-    scoutProfileId: string,
-    rawMatricule: string,
-  ): Promise<ScoutProfile> {
-    assertCan(actor, 'scout.setMatricule');
-    const matricule = parseInput(matriculeSchema, rawMatricule);
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        const previous = await tx.scoutProfile.findUnique({ where: { id: scoutProfileId } });
-        if (!previous) throw scoutProfileNotFound();
-        const profile = await tx.scoutProfile.update({
-          where: { id: scoutProfileId },
-          data: { matricule },
-        });
-        await tx.auditLog.create({
-          data: {
-            actorId: actor.userId,
-            action: 'scout_profile.matricule_set',
-            entityType: 'ScoutProfile',
-            entityId: scoutProfileId,
-            metadata: { previous: previous.matricule, next: matricule },
-          },
-        });
-        return profile;
-      });
-    } catch (error) {
-      if (isUniqueViolation(error)) throw matriculeAlreadyUsed();
-      throw error;
-    }
-  }
-
   async findByMatricule(actor: Actor, rawMatricule: string): Promise<ScoutProfile | null> {
     assertCan(actor, 'scout.read');
     const matricule = parseInput(matriculeSchema, rawMatricule);
@@ -435,6 +494,7 @@ export class ScoutProfilesService {
     assertCan(actor, 'scout.linkAccount');
     try {
       return await this.prisma.$transaction(async (tx) => {
+        await assertCanAtWrite(tx, actor, 'scout.linkAccount');
         const profile = await tx.scoutProfile.findUnique({ where: { id: scoutProfileId } });
         if (!profile) throw scoutProfileNotFound();
         if (profile.userId !== null) {
@@ -483,7 +543,8 @@ export class ScoutProfilesService {
    * historique structuré des étapes (`scout_stage_changes`). Aucune donnée n'est déduite ni simulée.
    */
   async pedagogicalHistory(actor: Actor, scoutProfileId: string): Promise<ScoutPedagogicalHistory> {
-    assertCan(actor, 'scout.read');
+    // Données pédagogiques : jamais l'administrateur, qui ne gère que les données administratives.
+    assertCan(actor, 'progression.read');
     const profile = await this.prisma.scoutProfile.findUnique({
       where: { id: scoutProfileId },
       select: { id: true },
@@ -523,12 +584,8 @@ export class ScoutProfilesService {
   }
 }
 
-export function scoutProfileNotFound(): NotFoundException {
-  return new NotFoundException({
-    code: 'SCOUT_PROFILE_NOT_FOUND',
-    message: 'Routier introuvable.',
-  });
-}
+// Défini dans `presenters.ts` (sans dépendance) pour éviter un import circulaire avec la progression.
+export { scoutProfileNotFound } from './presenters.js';
 
 function profileAlreadyLinked(): ConflictException {
   return new ConflictException({

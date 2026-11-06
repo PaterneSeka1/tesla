@@ -72,6 +72,7 @@ describe('Contrats routiers, équipes, observations', () => {
 
   it('produit un schéma OpenAPI à partir d’un contrat Zod', () => {
     const schema = openApiSchema(createScoutProfileInputSchema, 'input') as { required?: string[] };
-    expect(schema.required).toEqual(['firstName', 'lastName', 'joinedAt']);
+    // D173 : pré-inscription incomplète, date d'entrée facultative (jamais la date du jour par défaut).
+    expect(schema.required).toEqual(['firstName', 'lastName']);
   });
 });

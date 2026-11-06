@@ -24,8 +24,9 @@ import { isUniqueViolation } from '../../common/prisma-errors.js';
 import { parseInput } from '../../common/validation.js';
 import { type Prisma, type Team, type TeamAssignment } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { computedStageOf, loadStageContext } from '../progression/computed-stage.js';
 import { toStageSummary, toTeamResponse, toUserSummary, userSummarySelect } from './presenters.js';
-import { scoutProfileNotFound } from './scout-profiles.service.js';
+import { scoutProfileNotFound } from './presenters.js';
 
 const openAssignmentsCount = {
   _count: { select: { assignments: { where: { endedAt: null } } } },
@@ -94,12 +95,13 @@ export class TeamsService {
       include: {
         assignments: {
           where: { endedAt: null },
-          include: { scoutProfile: { include: { currentStage: true } } },
+          include: { scoutProfile: true },
           orderBy: [{ scoutProfile: { lastName: 'asc' } }, { scoutProfile: { firstName: 'asc' } }],
         },
       },
     });
     if (!team) throw teamNotFound();
+    const context = await loadStageContext(this.prisma);
     return {
       ...toTeamResponse(team, team.assignments.length),
       members: team.assignments.map(({ scoutProfile, startedAt }) => ({
@@ -107,7 +109,7 @@ export class TeamsService {
         firstName: scoutProfile.firstName,
         lastName: scoutProfile.lastName,
         matricule: scoutProfile.matricule,
-        stage: toStageSummary(scoutProfile.currentStage),
+        stage: toStageSummary(computedStageOf(scoutProfile, context).stage),
         since: startedAt.toISOString(),
       })),
     };

@@ -10,6 +10,8 @@ import {
 } from '@nestjs/swagger';
 import {
   assignTeamBodySchema,
+  type BirthDateImpact,
+  birthDateImpactSchema,
   createScoutProfileInputSchema,
   linkAccountInputSchema,
   type Paginated,
@@ -64,7 +66,7 @@ export class ScoutsController {
 
   @Post()
   @ApiOperation({
-    summary: 'Inscrire un routier sans compte (responsable)',
+    summary: 'Inscrire un routier sans compte (administrateur, responsable plein)',
     description: '409 POSSIBLE_DUPLICATE si un homonyme existe : renvoyer avec confirmDuplicate.',
   })
   @ApiBody({ schema: openApiSchema(createScoutProfileInputSchema, 'input') })
@@ -84,10 +86,27 @@ export class ScoutsController {
     return this.profiles.get(actor, parseId(id));
   }
 
+  @Get(':id/birth-date-impact')
+  @ApiOperation({
+    summary: 'Aperçu des conséquences d’une date de naissance corrigée (aucune écriture)',
+    description: 'Âge, étape calculée et sortie avant / après ; rattrapages créés ou à réexaminer.',
+  })
+  @ApiQuery({ name: 'birthDate', required: true, description: 'AAAA-MM-JJ, vide = retrait' })
+  @ApiOkResponse({ schema: openApiSchema(birthDateImpactSchema) })
+  birthDateImpact(
+    @CurrentActor() actor: Actor,
+    @Param('id') id: string,
+    @Query() query: unknown,
+  ): Promise<BirthDateImpact> {
+    return this.profiles.birthDateImpact(actor, parseId(id), query);
+  }
+
   @Patch(':id')
   @ApiOperation({
-    summary: 'Modifier une fiche (responsable)',
-    description: 'Le changement d’étape est journalisé et réservé au responsable.',
+    summary:
+      'Compléter ou corriger les données administratives (administrateur, responsable plein)',
+    description:
+      'Complétion libre ; correction : `reason` et `confirmCorrection` obligatoires (422 CORRECTION_REASON_REQUIRED / CORRECTION_NOT_CONFIRMED), anciennes et nouvelles valeurs journalisées. L’étape est calculée : tout champ d’étape est refusé (422 STAGE_IS_COMPUTED).',
   })
   @ApiBody({ schema: openApiSchema(updateScoutProfileInputSchema, 'input') })
   @ApiOkResponse({ schema: openApiSchema(scoutDetailSchema) })
