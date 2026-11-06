@@ -389,29 +389,77 @@ const nullableCount = (max: number) => z.number().int().min(1).max(max).nullable
  * Nouveau référentiel (brouillon). Seules les règles confirmées sont saisies, chacune avec sa source ;
  * une valeur absente reste nulle (« non arbitrée »), jamais remplacée par une valeur par défaut.
  */
-export const createAgeRuleSetInputSchema = z.object({
-  version: z
-    .string()
-    .trim()
-    .regex(/^[A-Za-z0-9._-]{1,30}$/, {
-      error: 'Version : 1 à 30 caractères (lettres, chiffres, . _ -).',
-    }),
-  sourceReference: sourceText,
-  notes: z.string().trim().max(3000).nullable().optional(),
-  branchExitAgeYears: nullableCount(40),
-  catchUpDelayMonths: nullableCount(120),
-  exitAlertMonths: nullableCount(60),
-  stages: z
-    .array(
-      z.object({
-        stageCode: z.string().trim().min(1),
-        start: agePointSchema,
-        end: agePointSchema.nullable(),
-        sourceReference: sourceText,
+export const createAgeRuleSetInputSchema = z
+  .object({
+    version: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9._-]{1,30}$/, {
+        error: 'Version : 1 à 30 caractères (lettres, chiffres, . _ -).',
       }),
-    )
-    .max(10),
-});
+    sourceReference: sourceText,
+    notes: z.string().trim().max(3000).nullable().optional(),
+    branchExitAgeYears: nullableCount(40),
+    catchUpDelayMonths: nullableCount(120),
+    exitAlertMonths: nullableCount(60),
+    stages: z
+      .array(
+        z.object({
+          stageCode: z.string().trim().min(1),
+          start: agePointSchema,
+          end: agePointSchema.nullable(),
+          sourceReference: sourceText,
+        }),
+      )
+      .max(10),
+  })
+  .superRefine((data, ctx) => {
+    // Cohérence des périodes : une étape au plus une fois, fin après le début, aucun chevauchement
+    // (sinon l'étape d'un âge serait ambiguë), aucune période au-delà de la sortie de la branche.
+    const months = (point: { years: number; months: number }) => point.years * 12 + point.months;
+    const seen = new Set<string>();
+    data.stages.forEach((rule, index) => {
+      if (seen.has(rule.stageCode)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['stages', index, 'stageCode'],
+          message: 'Cette étape a déjà une période.',
+        });
+      }
+      seen.add(rule.stageCode);
+      if (rule.end && months(rule.end) <= months(rule.start)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['stages', index, 'end'],
+          message: 'La fin doit être postérieure au début.',
+        });
+      }
+      const exit = data.branchExitAgeYears;
+      if (exit !== null && months(rule.start) >= exit * 12) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['stages', index, 'start'],
+          message: 'Le début doit précéder la sortie de la branche.',
+        });
+      }
+    });
+    const sorted = data.stages
+      .map((rule, index) => ({
+        index,
+        start: months(rule.start),
+        end: rule.end ? months(rule.end) : Infinity,
+      }))
+      .sort((a, b) => a.start - b.start);
+    for (let i = 1; i < sorted.length; i += 1) {
+      if (sorted[i]!.start < sorted[i - 1]!.end) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['stages', sorted[i]!.index, 'start'],
+          message: 'Cette période chevauche une autre période.',
+        });
+      }
+    }
+  });
 
 export type CreateAgeRuleSetInput = z.input<typeof createAgeRuleSetInputSchema>;
 
