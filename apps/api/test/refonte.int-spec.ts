@@ -137,7 +137,8 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       );
 
       const admin = await login('ADMINISTRATEUR');
-      await admin.get('/scouts').expect(403);
+      // D173 : l'administrateur consulte les fiches pour leur gestion administrative seulement.
+      await admin.get('/scouts').expect(200);
       await admin.get('/modules').expect(403);
       const view = await json(admin.get('/leadership/admin'), 200, leadershipAdminSchema);
       expect(view.members).toEqual([]);
@@ -326,14 +327,14 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       return { admin, plein, assistant };
     }
 
-    const createScout = (plein: Client, n: number, birthDate: string, stageCode = 'NOVICIAT') =>
+    // L'étape n'est jamais saisie (D173) : seule la date de naissance la détermine.
+    const createScout = (plein: Client, n: number, birthDate: string) =>
       json(
         plein.post('/scouts', {
           firstName: 'Routier',
           lastName: `Fictif${n}`,
           birthDate,
           joinedAt: TODAY,
-          currentStageId: stages[stageCode],
         }),
         201,
         scoutDetailSchema,
@@ -365,33 +366,32 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       return module;
     }
 
-    it('étape théorique selon l’âge, distincte de l’étape officielle ; rien d’inventé sans référentiel', async () => {
+    it('étape actuelle calculée selon l’âge, seule étape de l’application ; rien d’inventé sans référentiel', async () => {
       const { plein } = await staff();
       const novice = await createScout(plein, 1, bornYearsAgo(18, -3));
       let pathway = await json(plein.get(`/scouts/${novice.id}/pathway`), 200, scoutPathwaySchema);
       expect(pathway.age.reason).toBe('AUCUN_REFERENTIEL');
-      expect(pathway.theoreticalStage).toBeNull();
+      expect(pathway.stage).toBeNull();
 
       await seedInitialAgeRuleSet(prisma);
       pathway = await json(plein.get(`/scouts/${novice.id}/pathway`), 200, scoutPathwaySchema);
       expect(pathway.age.age).toBe(18);
-      expect(pathway.theoreticalStage?.code).toBe('NOVICIAT');
-      expect(pathway.officialStage?.code).toBe('NOVICIAT');
-      expect(pathway.gap).toBe('ALIGNEE');
+      expect(pathway.stage?.code).toBe('NOVICIAT');
+      // La fiche et la liste affichent la même étape que le parcours (une seule vérité).
+      const fiche = await json(plein.get(`/scouts/${novice.id}`), 200, scoutDetailSchema);
+      expect(fiche.stage?.code).toBe('NOVICIAT');
       expect(pathway.age.period?.endsOn).toBe(
         addCalendarMonths(anniversaryOf(bornYearsAgo(18, -3), 18), 1),
       );
 
       // 19 ans, sans règle validée après le noviciat : non déterminée (aucune étape présumée).
-      const older = await createScout(plein, 2, bornYearsAgo(19), 'APPRENTISSAGE');
+      const older = await createScout(plein, 2, bornYearsAgo(19));
       pathway = await json(plein.get(`/scouts/${older.id}/pathway`), 200, scoutPathwaySchema);
-      expect(pathway.theoreticalStage).toBeNull();
+      expect(pathway.stage).toBeNull();
       expect(pathway.age.reason).toBe('AUCUNE_REGLE');
-      expect(pathway.gap).toBe('INDETERMINE');
-      // Aucun statut de calcul ne change l'étape officielle.
       expect(
-        (await prisma.scoutProfile.findUniqueOrThrow({ where: { id: older.id } })).currentStageId,
-      ).toBe(stages.APPRENTISSAGE);
+        (await json(plein.get(`/scouts/${older.id}`), 200, scoutDetailSchema)).stageReason,
+      ).toBe('AUCUNE_REGLE');
 
       // Référentiel figé une fois en vigueur.
       await expect(
@@ -403,8 +403,8 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       const { plein, assistant } = await staff();
       await seedInitialAgeRuleSet(prisma);
       const module = await publishedMandatoryModule('NOVICIAT');
-      // Routier sans compte, inscrit à 19 ans directement en Apprentissage.
-      const late = await createScout(plein, 3, bornYearsAgo(19), 'APPRENTISSAGE');
+      // Routier sans compte, arrivé à 19 ans (après la fin de son noviciat théorique).
+      const late = await createScout(plein, 3, bornYearsAgo(19));
 
       const first = await json(plein.get(`/scouts/${late.id}/pathway`), 200, scoutPathwaySchema);
       expect(first.catchUps).toHaveLength(1);
@@ -414,6 +414,9 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
         dueOn: null,
         decision: null,
         stillRequired: true,
+        // Arrivée tardive : information de suivi, jamais une dispense.
+        stillDue: true,
+        arrival: 'AVANT_ARRIVEE',
       });
       expect(first.catchUpDeadlineUndetermined).toBe(true);
       // Recalcul idempotent (lecture répétée, encadrement sans mandat).
@@ -509,8 +512,8 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       const { plein } = await staff();
       await seedInitialAgeRuleSet(prisma);
       const team = await plein.post('/teams', { name: 'Équipe fictive' }).expect(201);
-      const eve = await createScout(plein, 5, bornYearsAgo(21, 1), 'COMPAGNONNAGE');
-      const day = await createScout(plein, 6, bornYearsAgo(21), 'COMPAGNONNAGE');
+      const eve = await createScout(plein, 5, bornYearsAgo(21, 1));
+      const day = await createScout(plein, 6, bornYearsAgo(21));
       await plein
         .post(`/scouts/${day.id}/teams/assign`, { teamId: (team.body as { id: string }).id })
         .expect(201);
@@ -532,11 +535,11 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       });
       expect(profile.membershipStatus).toBe('SORTI');
       expect(profile.isActive).toBe(true);
-      expect(profile.currentStageId).toBe(stages.COMPAGNONNAGE);
+      expect(profile.currentStageId).toBeNull();
       expect(profile.membershipEvents).toHaveLength(1);
       expect(profile.teamAssignments).toHaveLength(1);
       expect(profile.teamAssignments[0]!.endedAt).not.toBeNull();
-      expect(profile.stageChanges.length).toBeGreaterThan(0);
+      expect(profile.stageChanges).toHaveLength(0);
       expect(
         (await prisma.scoutProfile.findUniqueOrThrow({ where: { id: eve.id } })).membershipStatus,
       ).toBe('ACTIF');

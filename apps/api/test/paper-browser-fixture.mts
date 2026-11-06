@@ -7,7 +7,7 @@
  * (une question à choix, une réponse rédigée), deux routiers sans compte et un avec compte.
  */
 import { hashPassword } from '../src/modules/auth/password.js';
-import { createTestPrisma, grantPersona, resetDatabase } from './int-database.js';
+import { createTestPrisma, grantPersona, resetDatabase, stageData } from './int-database.js';
 
 const PASSWORD = 'phrase-fictive-recette-papier';
 const db = createTestPrisma();
@@ -128,7 +128,7 @@ for (const [lastName, withAccount] of [
       firstName: 'Routier',
       lastName,
       matricule: `000000${lastName.length}${lastName[0]}`,
-      currentStageId: stage.id,
+      ...(await stageData(db, 'NOVICIAT')),
       joinedAt: new Date(),
       userId: account?.id ?? null,
     },

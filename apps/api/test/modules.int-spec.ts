@@ -31,8 +31,9 @@ import {
   grantPersona,
   personaRole,
   resetDatabase,
-  type TestPersona,
+  stageData,
   testDatabaseUrl,
+  type TestPersona,
 } from './int-database.js';
 
 // Modules pédagogiques de bout en bout : rédaction, collaboration, concurrence, workflow
@@ -645,7 +646,7 @@ describe('Modules pédagogiques (intégration PostgreSQL)', () => {
           firstName: 'Routier',
           lastName: 'Fictif',
           joinedAt: new Date('2026-10-01'),
-          currentStageId: stages[0]!.id,
+          ...(await stageData(prisma, 'NOVICIAT')),
         },
       });
       await publishedModule(chef, responsable, 'Loi scoute', {

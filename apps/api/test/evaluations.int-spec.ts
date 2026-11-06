@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { offlineEvaluationPackageSchema, offlineStatusSchema } from '@tesla/shared';
+import {
+  offlineEvaluationPackageSchema,
+  offlineStatusSchema,
+  type ProgressionStageCode,
+} from '@tesla/shared';
 import { inflateSync } from 'node:zlib';
 import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -32,8 +36,9 @@ import {
   grantPersona,
   personaRole,
   resetDatabase,
-  type TestPersona,
+  stageData,
   testDatabaseUrl,
+  type TestPersona,
 } from './int-database.js';
 
 // Phase 3 de bout en bout (HTTP) : rédaction et approbation des questionnaires, passation en ligne,
@@ -140,7 +145,7 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
               firstName: 'Routier',
               lastName: `Connecté ${counter}`,
               joinedAt: new Date('2026-10-01'),
-              currentStageId: stages[stageCode]!,
+              ...(await stageData(prisma, stageCode as ProgressionStageCode)),
             },
           })
         : null;
@@ -164,13 +169,13 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
 
   type Client = Awaited<ReturnType<typeof loginAs>>;
 
-  const scoutWithoutAccount = (n: number, stageCode = 'NOVICIAT') =>
+  const scoutWithoutAccount = async (n: number, stageCode = 'NOVICIAT') =>
     prisma.scoutProfile.create({
       data: {
         firstName: 'Sans',
         lastName: `Compte ${n}`,
         joinedAt: new Date('2026-10-01'),
-        currentStageId: stages[stageCode]!,
+        ...(await stageData(prisma, stageCode as ProgressionStageCode)),
       },
     });
 
@@ -744,7 +749,8 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     const profile = await prisma.scoutProfile.findUniqueOrThrow({
       where: { id: routier.profile!.id },
     });
-    expect(profile.currentStageId).toBe(stages.NOVICIAT);
+    // L'étape est calculée (D173) : aucune étape n'est jamais enregistrée sur la fiche.
+    expect(profile.currentStageId).toBeNull();
 
     // Le routier retrouve son résultat, sans les bonnes réponses.
     const after = await json(routier.get('/me/attempts'), 200, myAttempts);
@@ -974,7 +980,7 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     expect(next.code).not.toBe(prepared.code);
     expect(
       (await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } })).currentStageId,
-    ).toBe(stages.NOVICIAT);
+    ).toBeNull();
   });
 
   it('19. permissions appliquées côté serveur et rédaction réservée à l’auteur', async () => {
@@ -1077,7 +1083,7 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
     expect(
       (await prisma.scoutProfile.findUniqueOrThrow({ where: { id: routier.profile!.id } }))
         .currentStageId,
-    ).toBe(stages.NOVICIAT);
+    ).toBeNull();
     expect(
       await prisma.evaluationAttemptEvent.count({
         where: { attemptId: pkg.session.id, toStatus: 'A_CORRIGER' },

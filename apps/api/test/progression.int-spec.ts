@@ -23,7 +23,6 @@ import {
   scoutDetailSchema,
   scoutProgressionSchema,
   scoutTimelineSchema,
-  stageChangeSchema,
   statisticsSchema,
   teamDetailSchema,
   observationSchema,
@@ -37,12 +36,13 @@ import { validateEnv } from '../src/config/env.js';
 import { hashPassword } from '../src/modules/auth/password.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
+  birthDateIsoForStage,
   createTestPrisma,
   grantPersona,
   personaRole,
   resetDatabase,
-  type TestPersona,
   testDatabaseUrl,
+  type TestPersona,
 } from './int-database.js';
 
 // Phase 4 de bout en bout : progression, compétences, études, programme, activités, présences,
@@ -139,13 +139,15 @@ describe('Progression, compétences, programme et présences (intégration Postg
   const loginAs = async (role: TestPersona) => login(await createUser(role));
   type Client = Awaited<ReturnType<typeof loginAs>>;
 
-  const createScout = (responsable: Client, n: number, extra: object = {}) =>
+  // L'étape est calculée selon l'âge (D173) : la date de naissance fictive place le routier au
+  // noviciat (référentiel fictif des tests).
+  const createScout = async (responsable: Client, n: number, extra: object = {}) =>
     json(
       responsable.post('/scouts', {
         firstName: 'Routier',
         lastName: `Fictif${n}`,
         joinedAt: '2026-10-01',
-        currentStageId: stages.NOVICIAT,
+        birthDate: await birthDateIsoForStage(prisma, 'NOVICIAT'),
         ...extra,
       }),
       201,
@@ -249,154 +251,88 @@ describe('Progression, compétences, programme et présences (intégration Postg
   // ─── 1, 2, 7, 8 : progression et historique des étapes ─────────────────────
 
   describe('Progression et changements d’étape', () => {
-    it('suit un routier sans compte : historique, décision transactionnelle, correction tracée', async () => {
+    it('suit un routier sans compte : étape calculée, aucune décision manuelle, correction tracée (D173)', async () => {
       const responsable = await loginAs('RESPONSABLE');
       const chef = await loginAs('CHEF');
       const scout = await createScout(responsable, 1);
       expect(scout.hasAccount).toBe(false);
+      const birthDate = (await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } }))
+        .birthDate!.toISOString()
+        .slice(0, 10);
 
       let progression = await progressionOf(chef, scout.id);
-      expect(progression.scout).toMatchObject({ hasAccount: false, stageSince: '2026-10-01' });
-      expect(progression.stageChanges).toHaveLength(1);
-      expect(progression.stageChanges[0]).toMatchObject({
-        kind: 'INSCRIPTION',
-        to: { code: 'NOVICIAT' },
+      // Début de l'étape = 18e anniversaire (référentiel fictif des tests).
+      expect(progression.scout).toMatchObject({
+        hasAccount: false,
+        stage: { code: 'NOVICIAT' },
+        stageSince: `${Number(birthDate.slice(0, 4)) + 18}${birthDate.slice(4)}`,
       });
+      expect(progression.stageChanges).toHaveLength(0);
 
-      const decision = {
-        expectedCurrentStageId: stages.NOVICIAT,
-        toStageId: stages.APPRENTISSAGE,
-        effectiveOn: '2026-10-25',
-        reason: 'Décision fictive après examen des acquis.',
-        ceremonyReference: 'Cérémonie fictive du 25 octobre',
-        confirm: true,
-      };
-      // Chef : refusé ; sans confirmation : refusé ; étape lue périmée : refusé.
-      expect(await errorCode(chef.post(`/scouts/${scout.id}/stage-changes`, decision), 403)).toBe(
-        'FORBIDDEN',
-      );
-      await responsable
-        .post(`/scouts/${scout.id}/stage-changes`, { ...decision, confirm: false })
-        .expect(400);
-      expect(
-        await errorCode(
-          responsable.post(`/scouts/${scout.id}/stage-changes`, {
-            ...decision,
-            expectedCurrentStageId: stages.COMPAGNONNAGE,
-          }),
-          409,
-        ),
-      ).toBe('STAGE_CHANGED_MEANWHILE');
-      expect(
-        await errorCode(
-          responsable.post(`/scouts/${scout.id}/stage-changes`, {
-            ...decision,
-            effectiveOn: daysFromToday(5),
-          }),
-          422,
-        ),
-      ).toBe('EFFECTIVE_DATE_IN_FUTURE');
-      // L'ancienne voie (modification de fiche) ne change plus l'étape.
+      // Aucune voie de changement manuel : route supprimée, champ refusé, même pour le plein.
+      await responsable.post(`/scouts/${scout.id}/stage-changes`, { confirm: true }).expect(404);
       expect(
         await errorCode(
           responsable.patch(`/scouts/${scout.id}`, { currentStageId: stages.APPRENTISSAGE }),
           422,
         ),
-      ).toBe('STAGE_CHANGE_REQUIRES_DECISION');
-      expect((await progressionOf(chef, scout.id)).stageChanges).toHaveLength(1);
+      ).toBe('STAGE_IS_COMPUTED');
 
-      const change = await json(
-        responsable.post(`/scouts/${scout.id}/stage-changes`, decision),
-        201,
-        stageChangeSchema,
-      );
-      expect(change).toMatchObject({
-        kind: 'DECISION',
-        from: { code: 'NOVICIAT' },
-        to: { code: 'APPRENTISSAGE' },
-        effectiveOn: '2026-10-25',
-        decidedBy: { id: responsable.user.id },
-        ceremonyReference: 'Cérémonie fictive du 25 octobre',
-      });
-      progression = await progressionOf(chef, scout.id);
-      expect(progression.scout).toMatchObject({
-        stage: { code: 'APPRENTISSAGE' },
-        stageSince: '2026-10-25',
-      });
+      // Correction de la date de naissance : motif et confirmation exigés, étape recalculée.
+      const corrected = await birthDateIsoForStage(prisma, 'APPRENTISSAGE');
       expect(
-        await prisma.auditLog.count({
-          where: { action: 'scout_profile.stage_changed', entityId: scout.id },
-        }),
-      ).toBe(1);
-
-      // Correction exceptionnelle de la dernière décision : nouvelle entrée, l'ancienne reste visible.
-      const correction = await json(
-        responsable.post(`/scouts/${scout.id}/stage-changes`, {
-          ...decision,
-          expectedCurrentStageId: stages.APPRENTISSAGE,
-          toStageId: stages.NOVICIAT,
-          reason: 'Correction fictive : décision saisie par erreur.',
-          correctsChangeId: change.id,
-        }),
-        201,
-        stageChangeSchema,
-      );
-      expect(correction).toMatchObject({ kind: 'CORRECTION', correctsChangeId: change.id });
-      progression = await progressionOf(chef, scout.id);
-      expect(progression.stageChanges.map((row) => row.kind)).toEqual([
-        'CORRECTION',
-        'DECISION',
-        'INSCRIPTION',
-      ]);
-      expect(progression.stageChanges[1]?.correctedByChangeId).toBe(correction.id);
+        await errorCode(responsable.patch(`/scouts/${scout.id}`, { birthDate: corrected }), 422),
+      ).toBe('CORRECTION_REASON_REQUIRED');
       expect(
         await errorCode(
-          responsable.post(`/scouts/${scout.id}/stage-changes`, {
-            ...decision,
-            expectedCurrentStageId: stages.NOVICIAT,
-            correctsChangeId: change.id,
+          responsable.patch(`/scouts/${scout.id}`, {
+            birthDate: corrected,
+            reason: 'Acte de naissance fictif vérifié.',
           }),
-          409,
+          422,
         ),
-      ).toBe('CORRECTION_NOT_LATEST');
-
-      // Historique immuable en base (aucune suppression silencieuse).
-      await expect(
-        prisma.scoutStageChange.deleteMany({ where: { scoutProfileId: scout.id } }),
-      ).rejects.toThrow();
-      await expect(
-        prisma.scoutStageChange.update({ where: { id: change.id }, data: { reason: 'Réécrit' } }),
-      ).rejects.toThrow();
-    });
-
-    it('sérialise deux décisions concurrentes : une seule est enregistrée', async () => {
-      const responsable = await loginAs('RESPONSABLE');
-      const scout = await createScout(responsable, 2);
-      const body = {
-        expectedCurrentStageId: stages.NOVICIAT,
-        effectiveOn: TODAY,
-        reason: 'Décision fictive concurrente.',
-        confirm: true,
-      };
-      const results = await Promise.all([
-        responsable.post(`/scouts/${scout.id}/stage-changes`, {
-          ...body,
-          toStageId: stages.APPRENTISSAGE,
-        }),
-        responsable.post(`/scouts/${scout.id}/stage-changes`, {
-          ...body,
-          toStageId: stages.COMPAGNONNAGE,
-        }),
-      ]);
-      expect(results.map((result) => result.status).sort()).toEqual([201, 409]);
-      const profile = await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } });
-      const changes = await prisma.scoutStageChange.findMany({
-        where: { scoutProfileId: scout.id },
-      });
-      expect(changes).toHaveLength(2); // inscription + une seule décision
+      ).toBe('CORRECTION_NOT_CONFIRMED');
+      // Vider d'abord le champ est aussi une correction.
       expect(
-        changes.some((row) => row.toStageId === profile.currentStageId && row.kind === 'DECISION'),
-      ).toBe(true);
+        await errorCode(responsable.patch(`/scouts/${scout.id}`, { birthDate: null }), 422),
+      ).toBe('CORRECTION_REASON_REQUIRED');
+      await responsable
+        .patch(`/scouts/${scout.id}`, {
+          birthDate: corrected,
+          reason: 'Acte de naissance fictif vérifié.',
+          confirmCorrection: true,
+        })
+        .expect(200);
+      progression = await progressionOf(chef, scout.id);
+      expect(progression.scout.stage?.code).toBe('APPRENTISSAGE');
+      const audit = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'scout_profile.corrected', entityId: scout.id },
+      });
+      expect(audit.actorId).toBe(responsable.user.id);
+      expect(audit.metadata).toMatchObject({
+        reason: 'Acte de naissance fictif vérifié.',
+        changes: [{ field: 'birthDate', previous: birthDate, next: corrected }],
+      });
+
+      // En base : l'ancienne étape est figée, l'historique des décisions fermé aux ajouts.
+      await expect(
+        prisma.scoutProfile.update({
+          where: { id: scout.id },
+          data: { currentStageId: stages.COMPAGNONNAGE },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.scoutStageChange.create({
+          data: {
+            scoutProfileId: scout.id,
+            kind: 'DECISION',
+            toStageId: stages.COMPAGNONNAGE,
+            effectiveOn: new Date(),
+            decidedById: responsable.user.id,
+            reason: 'Écriture directe refusée.',
+          },
+        }),
+      ).rejects.toThrow();
     });
 
     it('conserve l’historique après un changement d’équipe et le rattachement d’un compte', async () => {
@@ -413,15 +349,6 @@ describe('Progression, compétences, programme et présences (intégration Postg
         teamDetailSchema,
       );
       await responsable.post(`/scouts/${scout.id}/teams/assign`, { teamId: teamA.id }).expect(201);
-      await responsable
-        .post(`/scouts/${scout.id}/stage-changes`, {
-          expectedCurrentStageId: stages.NOVICIAT,
-          toStageId: stages.APPRENTISSAGE,
-          effectiveOn: TODAY,
-          reason: 'Décision fictive.',
-          confirm: true,
-        })
-        .expect(201);
       await responsable
         .post(`/scouts/${scout.id}/teams/assign`, {
           teamId: teamB.id,
@@ -440,17 +367,18 @@ describe('Progression, compétences, programme et présences (intégration Postg
       );
       const kinds = timeline.items.map((item) => item.kind);
       expect(kinds.filter((kind) => kind === 'EQUIPE').length).toBeGreaterThanOrEqual(3);
-      expect(kinds.filter((kind) => kind === 'ETAPE')).toHaveLength(2);
+      // Aucune décision d'étape : l'étape est calculée (D173).
+      expect(kinds.filter((kind) => kind === 'ETAPE')).toHaveLength(0);
       expect(kinds).toContain('COMPTE');
 
       // Le routier retrouve le même historique via son compte (aucun second profil).
       const routier = await login(account);
       const mine = await json(routier.get('/me/progression'), 200, myProgressionSchema);
       expect(mine.scout).toMatchObject({
-        stage: { code: 'APPRENTISSAGE' },
+        stage: { code: 'NOVICIAT' },
         team: { id: teamB.id },
       });
-      expect(mine.stageChanges).toHaveLength(2);
+      expect(mine.stageChanges).toHaveLength(0);
       expect(await prisma.scoutProfile.count()).toBe(1);
     });
   });
@@ -1220,7 +1148,7 @@ describe('Progression, compétences, programme et présences (intégration Postg
       const s1 = await createScout(responsable, 1, { teamId: teamA.id });
       const s2 = await createScout(responsable, 2, {
         teamId: teamA.id,
-        currentStageId: stages.APPRENTISSAGE,
+        birthDate: await birthDateIsoForStage(prisma, 'APPRENTISSAGE'),
       });
       const s3 = await createScout(responsable, 3, { teamId: teamB.id });
       await createScout(responsable, 4); // sans équipe
@@ -1427,10 +1355,6 @@ describe('Progression, compétences, programme et présences (intégration Postg
       // Sans session ou sans en-tête anti-CSRF.
       await request(app.getHttpServer()).get(`/api/v1/scouts/${scout.id}/progression`).expect(401);
       await chef.get('/me/dashboard').expect(403);
-      const unprotected = await request(app.getHttpServer())
-        .post(`/api/v1/scouts/${scout.id}/stage-changes`)
-        .send({});
-      expect([401, 403]).toContain(unprotected.status);
       await responsable.get('/scouts/pas-un-uuid/progression').expect(400);
     });
   });

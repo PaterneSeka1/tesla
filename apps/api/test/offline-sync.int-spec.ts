@@ -233,7 +233,11 @@ describe('Synchronisation différée des écritures (intégration PostgreSQL)', 
     const responsable = await loginAs('RESPONSABLE');
     const scout = await createScout(responsable, 'Gamma');
     await json(
-      responsable.patch(`/scouts/${scout.id}`, { firstName: 'Modifié' }),
+      responsable.patch(`/scouts/${scout.id}`, {
+        firstName: 'Modifié',
+        reason: 'Correction fictive du prénom.',
+        confirmCorrection: true,
+      }),
       200,
       scoutDetailSchema,
     );

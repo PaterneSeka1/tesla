@@ -9,7 +9,6 @@ import {
   paginatedSchema,
   scoutDetailSchema,
   scoutListItemSchema,
-  scoutPedagogicalHistorySchema,
   SESSION_COOKIE_NAME,
   teamAssignmentListSchema,
   teamDetailSchema,
@@ -24,12 +23,13 @@ import { validateEnv } from '../src/config/env.js';
 import { hashPassword } from '../src/modules/auth/password.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
+  birthDateIsoForStage,
   createTestPrisma,
   grantPersona,
   personaRole,
   resetDatabase,
-  type TestPersona,
   testDatabaseUrl,
+  type TestPersona,
 } from './int-database.js';
 
 // Routes HTTP de bout en bout (session, CSRF, permissions, transactions) sur PostgreSQL réel.
@@ -451,37 +451,41 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
       expect(history.items).toHaveLength(1);
     });
 
-    it('change l’étape (responsable uniquement) et la journalise dans l’historique pédagogique', async () => {
+    it('l’étape est calculée selon l’âge et ne se modifie jamais (D173)', async () => {
       const responsable = await loginAs('RESPONSABLE');
-      const scout = await createScout(responsable, 1, {
-        currentStageId: await stageId('NOVICIAT'),
-      });
-      // La modification de fiche ne change plus l'étape : décision motivée dédiée (phase 4).
-      await responsable
-        .patch(`/scouts/${scout.id}`, { currentStageId: await stageId('APPRENTISSAGE') })
-        .expect(422);
-      await responsable
-        .post(`/scouts/${scout.id}/stage-changes`, {
-          expectedCurrentStageId: await stageId('NOVICIAT'),
-          toStageId: await stageId('APPRENTISSAGE'),
-          effectiveOn: new Date().toISOString().slice(0, 10),
-          reason: 'Décision fictive.',
-          confirm: true,
-        })
-        .expect(201);
-      const history = await json(
-        responsable.get(`/scouts/${scout.id}/pedagogical-history`),
+      const birthDate = await birthDateIsoForStage(prisma, 'NOVICIAT');
+      const scout = await createScout(responsable, 1, { birthDate });
+      expect(scout).toMatchObject({ stage: { code: 'NOVICIAT' }, stageReason: 'REGLE' });
+      // Aucun champ d'étape accepté, ni à l'inscription ni en modification ; plus de route dédiée.
+      expect(
+        await errorCode(
+          responsable.post('/scouts', scoutBody(2, { currentStageId: await stageId('NOVICIAT') })),
+          422,
+        ),
+      ).toBe('STAGE_IS_COMPUTED');
+      expect(
+        await errorCode(
+          responsable.patch(`/scouts/${scout.id}`, {
+            currentStageId: await stageId('APPRENTISSAGE'),
+          }),
+          422,
+        ),
+      ).toBe('STAGE_IS_COMPUTED');
+      await responsable.post(`/scouts/${scout.id}/stage-changes`, {}).expect(404);
+      // Sans date de naissance : étape non déterminée, jamais une étape de substitution.
+      const unknown = await createScout(responsable, 3);
+      expect(unknown).toMatchObject({ stage: null, stageReason: 'DATE_NAISSANCE_MANQUANTE' });
+      const stored = await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } });
+      expect(stored.currentStageId).toBeNull();
+      // Filtre par étape calculée.
+      const novices = await json(
+        responsable.get(`/scouts?stageId=${await stageId('NOVICIAT')}`),
         200,
-        scoutPedagogicalHistorySchema,
+        scoutPage,
       );
-      expect(history.attempts).toEqual([]);
-      // Étape initiale (inscription) puis décision du responsable.
-      expect(history.stageChanges).toHaveLength(2);
-      expect(history.stageChanges[0]).toMatchObject({
-        from: { code: 'NOVICIAT' },
-        to: { code: 'APPRENTISSAGE' },
-        by: { id: responsable.user.id },
-      });
+      expect(novices.items.map((item) => item.id)).toEqual([scout.id]);
+      const undetermined = await json(responsable.get('/scouts?stageId=none'), 200, scoutPage);
+      expect(undetermined.items.map((item) => item.id)).toEqual([unknown.id]);
     });
   });
 

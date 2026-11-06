@@ -18,12 +18,13 @@ import { validateEnv } from '../src/config/env.js';
 import { hashPassword } from '../src/modules/auth/password.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
+  birthDateIsoForStage,
   createTestPrisma,
   grantPersona,
   personaRole,
   resetDatabase,
-  type TestPersona,
   testDatabaseUrl,
+  type TestPersona,
 } from './int-database.js';
 import {
   buildXlsx,
@@ -60,7 +61,6 @@ describe('Import Excel du programme annuel (intégration PostgreSQL)', () => {
   let passwordHash: string;
   let counter = 0;
   let programmeId: string;
-  let noviciat: string;
 
   beforeAll(async () => {
     process.env.DATABASE_URL = testDatabaseUrl();
@@ -86,8 +86,6 @@ describe('Import Excel du programme annuel (intégration PostgreSQL)', () => {
   beforeEach(async () => {
     await resetDatabase(prisma);
     programmeId = (await prisma.programme.findFirstOrThrow()).id;
-    noviciat = (await prisma.progressionStage.findUniqueOrThrow({ where: { code: 'NOVICIAT' } }))
-      .id;
   });
 
   async function loginAs(role: TestPersona) {
@@ -306,7 +304,7 @@ describe('Import Excel du programme annuel (intégration PostgreSQL)', () => {
         firstName: 'Routier',
         lastName: 'Fictif',
         joinedAt: '2026-10-01',
-        currentStageId: noviciat,
+        birthDate: await birthDateIsoForStage(prisma, 'NOVICIAT'),
       }),
       201,
       scoutDetailSchema,

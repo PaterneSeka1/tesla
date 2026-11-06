@@ -9,6 +9,7 @@ import {
   civilDateAt,
   CSRF_HEADER,
   meResponseSchema,
+  myProfileSchema,
   paginatedSchema,
   revokedSessionsSchema,
   scoutDetailSchema,
@@ -23,7 +24,12 @@ import { validateEnv } from '../src/config/env.js';
 import { THROTTLE_LIMITS } from '../src/modules/auth/login-rate-limiter.js';
 import { AccountsService } from '../src/modules/users/accounts.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { createTestPrisma, resetDatabase, testDatabaseUrl } from './int-database.js';
+import {
+  birthDateIsoForStage,
+  createTestPrisma,
+  resetDatabase,
+  testDatabaseUrl,
+} from './int-database.js';
 
 // Cycle de vie des comptes (D118–D121) : installation, activation, réinitialisation, périmètres,
 // désactivation, sessions, limitation persistante. PostgreSQL réel, comptes fictifs.
@@ -229,13 +235,12 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
   it('routier sans compte, compte créé plus tard et rattaché à sa fiche par le plein', async () => {
     const { client: admin } = await bootstrapAdmin();
     const { client: pleinClient } = await plein(admin);
-    const stage = await prisma.progressionStage.findFirstOrThrow({ where: { code: 'NOVICIAT' } });
     const scout = await json(
       pleinClient.post('/scouts', {
         firstName: 'Fictif',
         lastName: 'Sans Compte',
         joinedAt: TODAY,
-        currentStageId: stage.id,
+        birthDate: await birthDateIsoForStage(prisma, 'NOVICIAT'),
       }),
       201,
       scoutDetailSchema,
@@ -406,12 +411,11 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
     const adminSessions = await json(admin.get('/auth/sessions'), 200, sessionListSchema);
     await first.post(`/auth/sessions/${adminSessions.items[0]!.id}/revoke`).expect(404);
 
-    const profile = await json(
-      first.patch('/auth/profile', { firstName: 'Prénom', lastName: 'Modifié' }),
-      200,
-      meResponseSchema,
-    );
-    expect(profile.user).toMatchObject({ firstName: 'Prénom', lastName: 'Modifié' });
+    // D173 : nom et prénom protégés, « Mon profil » en lecture seule.
+    await first.patch('/auth/profile', { firstName: 'Prénom', lastName: 'Modifié' }).expect(404);
+    const profile = await json(first.get('/auth/profile'), 200, myProfileSchema);
+    expect(profile).toMatchObject({ email: created.account.email, scout: null });
+    expect(await prisma.user.count({ where: { lastName: 'Modifié' } })).toBe(0);
   });
 
   it('limitation persistante : blocage après échecs, conservé en base, sans e-mail en clair', async () => {
@@ -468,10 +472,19 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
       201,
       scoutDetailSchema,
     );
-    await pleinClient.patch(`/scouts/${scout.id}`, { birthDate: '2006-06-10' }).expect(200);
+    await pleinClient
+      .patch(`/scouts/${scout.id}`, {
+        birthDate: '2006-06-10',
+        reason: 'Erreur de saisie fictive.',
+        confirmCorrection: true,
+      })
+      .expect(200);
     const entry = await prisma.auditLog.findFirstOrThrow({
-      where: { entityId: scout.id, action: 'scout_profile.birth_date_changed' },
+      where: { entityId: scout.id, action: 'scout_profile.corrected' },
     });
-    expect(entry.metadata).toEqual({ previous: '2006-05-10', next: '2006-06-10' });
+    expect(entry.metadata).toEqual({
+      reason: 'Erreur de saisie fictive.',
+      changes: [{ field: 'birthDate', previous: '2006-05-10', next: '2006-06-10' }],
+    });
   });
 });

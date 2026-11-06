@@ -5,15 +5,21 @@ import {
   BadRequestException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { ATTEMPT_CODE_PATTERN } from '@tesla/shared';
+import { ATTEMPT_CODE_PATTERN, type ProgressionStageCode } from '@tesla/shared';
 import { type Actor } from '../src/common/actor.js';
 import { EvaluationAttemptsService } from '../src/modules/evaluations/evaluation-attempts.service.js';
 import { EvaluationWaiversService } from '../src/modules/evaluations/evaluation-waivers.service.js';
 import { ScoutProfilesService } from '../src/modules/scouts/scout-profiles.service.js';
+import { PathwayService } from '../src/modules/progression/pathway.service.js';
 import { TeamsService } from '../src/modules/scouts/teams.service.js';
 import { LoginRateLimiter } from '../src/modules/auth/login-rate-limiter.js';
 import { type PrismaService } from '../src/prisma/prisma.service.js';
-import { createTestPrisma, grantPersona, resetDatabase } from './int-database.js';
+import {
+  birthDateIsoForStage,
+  createTestPrisma,
+  grantPersona,
+  resetDatabase,
+} from './int-database.js';
 
 // Données exclusivement fictives.
 describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', () => {
@@ -33,7 +39,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
 
   beforeAll(() => {
     prisma = createTestPrisma();
-    profiles = new ScoutProfilesService(prisma);
+    profiles = new ScoutProfilesService(prisma, new PathwayService(prisma));
     teams = new TeamsService(prisma);
     attempts = new EvaluationAttemptsService(prisma, teams, new LoginRateLimiter(prisma));
     waivers = new EvaluationWaiversService(prisma);
@@ -109,12 +115,16 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     ).id;
   });
 
-  const newScout = (n: number, extra: { matricule?: string; stage?: string } = {}) =>
+  const newScout = async (
+    n: number,
+    extra: { matricule?: string; stage?: ProgressionStageCode } = {},
+  ) =>
     profiles.create(responsable, {
       firstName: 'Routier',
       lastName: `Fictif${n}`,
       joinedAt: '2026-10-01',
-      currentStageId: stageIds[extra.stage ?? 'NOVICIAT'],
+      // L'étape est calculée selon l'âge (D173) : la date de naissance fictive la détermine.
+      birthDate: await birthDateIsoForStage(prisma, extra.stage ?? 'NOVICIAT'),
       ...(extra.matricule === undefined ? {} : { matricule: extra.matricule }),
     });
 
@@ -399,7 +409,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     expect(decided.status).toBe('VALIDEE');
 
     const after = await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } });
-    expect(after.currentStageId).toBe(stageIds.NOVICIAT);
+    expect(after.currentStageId).toBeNull();
     expect(
       await prisma.auditLog.count({ where: { action: 'evaluation_attempt.review_accepted' } }),
     ).toBe(1);
@@ -572,14 +582,14 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     expect(published).toMatchObject({ status: 'VALIDEE', score: 1.5, maxScore: 2 });
     expect(published.questions[0]?.expectedAnswer).toBeNull();
     const after = await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } });
-    expect(after.currentStageId).toBe(stageIds.NOVICIAT);
+    expect(after.currentStageId).toBeNull();
     expect(await prisma.evaluationAttempt.count({ where: { scoutProfileId: scout.id } })).toBe(1);
   });
 
   // ─── D163 : distribution collective idempotente ───────────────────────────────────────────
 
   it('D163. distribution collective : avec ou sans compte, inéligible ignoré, double envoi sans doublon, PDF et ZIP sans corrigé', async () => {
-    const otherStage = Object.keys(stageIds).find((code) => code !== 'NOVICIAT')!;
+    const otherStage = 'APPRENTISSAGE' as const;
     const [withoutAccount, withAccount, ineligible] = [
       await newScout(1),
       await newScout(2),

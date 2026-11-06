@@ -6,7 +6,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { hashPassword } from '../src/modules/auth/password.js';
-import { createTestPrisma, grantPersona, resetDatabase } from './int-database.js';
+import { createTestPrisma, grantPersona, resetDatabase, stageData } from './int-database.js';
 
 const db = createTestPrisma();
 await resetDatabase(db);
@@ -30,7 +30,7 @@ await db.scoutProfile.upsert({
     userId: user.id,
     firstName: 'Fictif',
     lastName: 'HorsLigne',
-    currentStageId: stage.id,
+    ...(await stageData(db, 'NOVICIAT')),
     joinedAt: new Date(),
   },
 });
@@ -136,7 +136,12 @@ const team = await db.team.create({ data: { name: 'Équipe fictive' } });
 const scouts = [];
 for (const lastName of ['Alpha', 'Beta']) {
   const scout = await db.scoutProfile.create({
-    data: { firstName: 'Routier', lastName, currentStageId: stage.id, joinedAt: new Date() },
+    data: {
+      firstName: 'Routier',
+      lastName,
+      ...(await stageData(db, 'NOVICIAT')),
+      joinedAt: new Date(),
+    },
   });
   await db.teamAssignment.create({
     data: {
