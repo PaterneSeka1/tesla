@@ -58,14 +58,14 @@ export function ModuleDetail() {
       <BackLink href="/modules">Bibliothèque</BackLink>
       <header className="space-y-3 rounded-lg bg-tesla-bordeaux p-5 text-white sm:p-6">
         <div className="flex flex-wrap gap-2">
-          {module.stage && <Badge variant="accent">Étape recommandée : {module.stage.name}</Badge>}
-          {module.theme && <Badge variant="secondary">{module.theme}</Badge>}
-          {recommended && (
+          {module.stage && (
             <Badge variant="accent">
-              <Sparkles aria-hidden />
-              Votre étape
+              {recommended && <Sparkles aria-hidden />}
+              Étape recommandée : {module.stage.name}
+              {recommended && ' · votre étape'}
             </Badge>
           )}
+          {module.theme && <Badge variant="secondary">{module.theme}</Badge>}
         </div>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{module.title}</h1>
         {module.summary && (
@@ -208,10 +208,7 @@ export function ModuleDetail() {
                   Fiches pratiques
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Modèles vierges à imprimer (PDF A4).
-                </p>
+              <CardContent>
                 <ul className="space-y-2 text-sm">
                   {module.practicalSheets.map((sheet) => (
                     <li key={sheet.key}>

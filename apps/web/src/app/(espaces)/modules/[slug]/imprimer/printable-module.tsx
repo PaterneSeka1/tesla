@@ -95,7 +95,7 @@ export function PrintableModule() {
           </section>
         )}
         <footer className="border-t pt-2 text-center text-xs text-muted-foreground">
-          {module.code} · version {module.version} — document destiné aux routiers, sans corrigé.
+          {module.code} · version {module.version}
         </footer>
       </article>
     </>

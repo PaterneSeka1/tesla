@@ -9,9 +9,7 @@ export function DownloadModuleButton({ slug }: { slug: string }) {
   const [busy, setBusy] = useState(false);
   async function download() {
     if (!ownerId()) {
-      setMessage(
-        'Ouvrez « Cet appareil » pour activer ou déverrouiller le stockage local, puis revenez ici.',
-      );
+      setMessage('Activez ou déverrouillez d’abord le stockage dans « Cet appareil ».');
       return;
     }
     setBusy(true);
@@ -26,10 +24,10 @@ export function DownloadModuleButton({ slug }: { slug: string }) {
     }
   }
   return (
-    <div className="space-y-2 rounded border bg-card p-4 text-foreground">
-      <div className="flex flex-wrap gap-3">
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
         <Button disabled={busy} onClick={() => void download()}>
-          Télécharger avec les images
+          Rendre disponible hors ligne
         </Button>
         <Button asChild variant="outline">
           <Link href="/appareil">Cet appareil</Link>

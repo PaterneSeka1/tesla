@@ -94,7 +94,7 @@ export function LessonReader() {
           </Button>
         ) : (
           <Button asChild variant="secondary">
-            <Link href={`/modules/${module.slug}`}>Fin du module — retour au sommaire</Link>
+            <Link href={`/modules/${module.slug}`}>Retour au sommaire</Link>
           </Button>
         )}
       </nav>

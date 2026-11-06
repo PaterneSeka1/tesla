@@ -135,11 +135,7 @@ export function Catalog() {
         <EmptyState
           icon={BookOpen}
           title={filtered ? 'Aucun module trouvé' : 'Aucun module publié'}
-          description={
-            filtered
-              ? 'Modifiez la recherche ou les filtres.'
-              : 'Les modules apparaissent après leur publication par le responsable.'
-          }
+          description={filtered ? 'Modifiez la recherche ou les filtres.' : undefined}
         />
       ) : (
         <>
@@ -153,18 +149,18 @@ export function Catalog() {
                     className="group flex h-full flex-col gap-3 rounded-lg border border-t-4 border-t-tesla-rouge bg-card p-4 transition-colors hover:border-tesla-or focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                   >
                     <div className="flex flex-wrap gap-2">
-                      {module.stage && <Badge variant="secondary">{module.stage.name}</Badge>}
+                      {module.stage && (
+                        <Badge variant={recommended ? 'accent' : 'secondary'}>
+                          {recommended && <Sparkles aria-hidden />}
+                          {module.stage.name}
+                          {recommended && ' · votre étape'}
+                        </Badge>
+                      )}
                       {module.theme && <Badge variant="outline">{module.theme}</Badge>}
                       {module.obligation === 'OBLIGATOIRE' && (
                         <Badge variant="default">Obligatoire</Badge>
                       )}
-                      {!module.official && <Badge variant="outline">Contenu non homologué</Badge>}
-                      {recommended && (
-                        <Badge variant="accent">
-                          <Sparkles aria-hidden />
-                          Recommandé pour votre étape
-                        </Badge>
-                      )}
+                      {!module.official && <Badge variant="outline">Non homologué</Badge>}
                     </div>
                     <h3 className="text-lg font-semibold text-tesla-bordeaux group-hover:underline">
                       {module.title}
@@ -182,7 +178,6 @@ export function Catalog() {
                           {formatDuration(module.durationMinutes)}
                         </span>
                       )}
-                      <span>Version {module.version}</span>
                     </p>
                   </Link>
                 </li>
