@@ -28,7 +28,7 @@ interface DemoAccount {
   firstName: string;
   lastName: string;
   role: Role;
-  /** Étape du profil routier fictif ; absent = compte sans profil. */
+  /** Étape visée par la date de naissance fictive du profil routier ; absent = compte sans profil. */
   stageCode?: ProgressionStageCode;
 }
 
@@ -87,6 +87,16 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
 ];
 /** Date d'entrée fictive des profils de démonstration. */
 const DEMO_JOINED_AT = new Date('2026-09-05');
+
+/** Date de naissance fictive : 18 ans et 10 jours (noviciat), 19 ou 20 ans pour les autres étapes. */
+function demoBirthDate(stageCode: ProgressionStageCode): Date {
+  const years = stageCode === 'NOVICIAT' ? 18 : stageCode === 'APPRENTISSAGE' ? 19 : 20;
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCFullYear(date.getUTCFullYear() - years);
+  if (stageCode === 'NOVICIAT') date.setUTCDate(date.getUTCDate() - 10);
+  return date;
+}
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
@@ -182,7 +192,6 @@ try {
   } else {
     const passwordHash = await hashPassword(demoPassword);
     let profiles = 0;
-    let demoResponsableId: string | undefined;
     for (const { stageCode, ...account } of DEMO_ACCOUNTS) {
       const user = await prisma.user.upsert({
         where: { email: account.email },
@@ -190,10 +199,12 @@ try {
         update: { passwordHash, isActive: true },
         include: { scoutProfile: { select: { id: true } } },
       });
-      if (account.email === 'responsable.demo@tesla.test') demoResponsableId = user.id;
       // Profil créé une seule fois : étape, équipe et résultats saisis pendant les tests sont conservés.
       if (!stageCode || user.scoutProfile) continue;
-      const stage = await prisma.progressionStage.findUniqueOrThrow({ where: { code: stageCode } });
+      // L'étape n'est jamais saisie (D173) : une date de naissance fictive la produit par le calcul
+      // selon l'âge (noviciat dans les 10 jours de ses 18 ans ; au-delà, étape non déterminée tant que
+      // le référentiel ne définit pas d'autres périodes).
+      const birthDate = demoBirthDate(stageCode);
       await prisma.$transaction(async (tx) => {
         const profile = await tx.scoutProfile.create({
           data: {
@@ -201,33 +212,7 @@ try {
             firstName: account.firstName,
             lastName: account.lastName,
             joinedAt: DEMO_JOINED_AT,
-            currentStageId: stage.id,
-            currentStageSince: DEMO_JOINED_AT,
-          },
-        });
-        const stageChange = tx as unknown as {
-          scoutStageChange: {
-            create: (args: {
-              data: {
-                scoutProfileId: string;
-                kind: 'INSCRIPTION';
-                toStageId: string;
-                effectiveOn: Date;
-                decidedById: string;
-                reason: string;
-              };
-            }) => Promise<unknown>;
-          };
-        };
-        await stageChange.scoutStageChange.create({
-          data: {
-            scoutProfileId: profile.id,
-            kind: 'INSCRIPTION',
-            toStageId: stage.id,
-            effectiveOn: DEMO_JOINED_AT,
-            // L'historique exige un auteur hors reprise : le compte fictif « Responsable » (créé en premier).
-            decidedById: demoResponsableId!,
-            reason: 'Étape initiale fictive (seed de démonstration).',
+            birthDate,
           },
         });
         await tx.auditLog.create({

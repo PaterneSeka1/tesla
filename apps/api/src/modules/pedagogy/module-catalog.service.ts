@@ -18,6 +18,7 @@ import { assertCan } from '../../common/permissions.js';
 import { parseInput } from '../../common/validation.js';
 import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { computedStageIdOf, loadStageContext } from '../progression/computed-stage.js';
 import { toStageSummary } from '../scouts/presenters.js';
 import {
   formatModuleCode,
@@ -275,8 +276,9 @@ export class ModuleCatalogService {
     if (actor.role !== 'ROUTIER') return null;
     const profile = await this.prisma.scoutProfile.findUnique({
       where: { userId: actor.userId },
-      select: { currentStageId: true },
+      select: { birthDate: true, membershipStatus: true },
     });
-    return profile?.currentStageId ?? null;
+    // Étape actuelle calculée selon l'âge (D173).
+    return profile ? computedStageIdOf(profile, await loadStageContext(this.prisma)) : null;
   }
 }

@@ -22,6 +22,11 @@ import { assertCan } from '../../common/permissions.js';
 import { parseInput } from '../../common/validation.js';
 import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import {
+  computedStageIdOf,
+  computedStageOf,
+  loadStageContext,
+} from '../progression/computed-stage.js';
 import { editableEvaluationsWhere } from '../evaluations/evaluation-common.js';
 import { editableModulesWhere } from '../pedagogy/module-common.js';
 import { scoutRefInclude, toScoutRef } from '../progression/progression-common.js';
@@ -76,12 +81,11 @@ export class DashboardsService {
       return (!filters.from || day >= filters.from) && (!filters.to || day <= filters.to);
     };
 
-    const [profiles, stages, competencyCount, validations, proposals, activities, studies] =
+    const context = await loadStageContext(this.prisma);
+    const { stages } = context;
+    const [rawProfiles, competencyCount, validations, proposals, activities, studies] =
       await Promise.all([
-        this.prisma.scoutProfile.findMany({
-          include: { ...scoutRefInclude, currentStage: true },
-        }),
-        this.prisma.progressionStage.findMany({ orderBy: { position: 'asc' } }),
+        this.prisma.scoutProfile.findMany({ include: scoutRefInclude }),
         this.prisma.competency.count({ where: { isActive: true } }),
         this.prisma.competencyValidation.findMany({
           where: { revokedAt: null },
@@ -100,12 +104,17 @@ export class DashboardsService {
         }),
       ]);
 
+    // Étape actuelle calculée selon l'âge (D173), jamais l'ancienne étape enregistrée.
+    const profiles = rawProfiles.map((profile) => ({
+      ...profile,
+      stageId: computedStageIdOf(profile, context),
+    }));
     // Population : filtrée par équipe actuelle et étape actuelle si demandé.
     const population = profiles.filter((profile) => {
       const teamId = profile.teamAssignments[0]?.teamId ?? null;
       return (
         (!filters.teamId || teamId === filters.teamId) &&
-        (!filters.stageId || profile.currentStageId === filters.stageId)
+        (!filters.stageId || profile.stageId === filters.stageId)
       );
     });
     const populationIds = new Set(population.map((profile) => profile.id));
@@ -167,7 +176,7 @@ export class DashboardsService {
           byStage: stageKeys
             .map((stageId) => ({
               stage: toStageSummary(stages.find((stage) => stage.id === stageId) ?? null),
-              count: members.filter((member) => member.currentStageId === stageId).length,
+              count: members.filter((member) => member.stageId === stageId).length,
             }))
             .filter((entry) => entry.count > 0),
           acquiredCompetencies: sumAcquired([...memberIds]),
@@ -178,7 +187,7 @@ export class DashboardsService {
 
     const byStage = stageKeys
       .map((stageId) => {
-        const members = active.filter((profile) => profile.currentStageId === stageId);
+        const members = active.filter((profile) => profile.stageId === stageId);
         return {
           stage: toStageSummary(stages.find((stage) => stage.id === stageId) ?? null),
           active: members.length,
@@ -230,7 +239,7 @@ export class DashboardsService {
         withAccount: active.filter((profile) => profile.userId !== null).length,
         withoutAccount: active.filter((profile) => profile.userId === null).length,
         withoutTeam: active.filter((profile) => profile.teamAssignments.length === 0).length,
-        withoutStage: active.filter((profile) => profile.currentStageId === null).length,
+        withoutStage: active.filter((profile) => profile.stageId === null).length,
       },
       byTeam,
       byStage,
@@ -269,10 +278,11 @@ export class DashboardsService {
 
   /** Faits enregistrés signalant un besoin d'accompagnement (jamais une sanction ni une décision). */
   private async followUp(): Promise<FollowUpItem[]> {
+    const context = await loadStageContext(this.prisma);
     const [profiles, toRework, attendances] = await Promise.all([
       this.prisma.scoutProfile.findMany({
         where: { isActive: true },
-        include: { ...scoutRefInclude, currentStage: true },
+        include: scoutRefInclude,
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       }),
       this.prisma.competencyValidation.findMany({
@@ -317,11 +327,12 @@ export class DashboardsService {
       ) {
         reasons.push('ABSENCES_RECENTES');
       }
-      if (!profile.currentStageId) reasons.push('SANS_ETAPE');
+      const stage = computedStageOf(profile, context).stage;
+      if (!stage) reasons.push('SANS_ETAPE');
       if (profile.teamAssignments.length === 0) reasons.push('SANS_EQUIPE');
       if (reasons.length > 0) {
         items.push({
-          scout: { ...toScoutRef(profile), stage: toStageSummary(profile.currentStage) },
+          scout: { ...toScoutRef(profile), stage: toStageSummary(stage) },
           reasons,
         });
       }
@@ -701,7 +712,7 @@ export class DashboardsService {
     assertCan(actor, 'progression.readOwn');
     const profile = await this.prisma.scoutProfile.findUnique({
       where: { userId: actor.userId },
-      include: { ...scoutRefInclude, currentStage: true },
+      include: scoutRefInclude,
     });
     if (!profile) {
       return {
@@ -716,14 +727,16 @@ export class DashboardsService {
         upcomingActivities: [],
       };
     }
+    const computed = computedStageOf(profile, await loadStageContext(this.prisma));
+    const stageId = computed.stage?.id ?? null;
     const [studies, recommended, validations, results, upcoming] = await Promise.all([
       this.prisma.moduleStudy.findMany({
         where: { scoutProfileId: profile.id, cancelledAt: null },
         select: { moduleId: true },
       }),
-      profile.currentStageId
+      stageId
         ? this.prisma.pedagogicalModule.findMany({
-            where: { publishedVersion: { stageId: profile.currentStageId } },
+            where: { publishedVersion: { stageId } },
             include: { publishedVersion: { select: { title: true } } },
             orderBy: { number: 'asc' },
           })
@@ -740,13 +753,13 @@ export class DashboardsService {
         orderBy: { decidedAt: 'desc' },
         take: 5,
       }),
-      this.upcomingActivities(this.relevantForStage(profile.currentStageId)),
+      this.upcomingActivities(this.relevantForStage(stageId)),
     ]);
     const studied = new Set(studies.map((study) => study.moduleId));
     return {
       linked: true,
-      stage: toStageSummary(profile.currentStage),
-      stageSince: profile.currentStageSince ? toIsoDate(profile.currentStageSince) : null,
+      stage: toStageSummary(computed.stage),
+      stageSince: computed.stage ? (computed.progression.period?.startsOn ?? null) : null,
       team: toScoutRef(profile).team,
       recommendedModules: recommended
         .filter((module) => !studied.has(module.id))
@@ -777,8 +790,9 @@ export class DashboardsService {
     assertCan(actor, 'progression.readOwn');
     const profile = await this.prisma.scoutProfile.findUnique({ where: { userId: actor.userId } });
     if (!profile) return { upcoming: [], attended: [] };
+    const stageId = computedStageIdOf(profile, await loadStageContext(this.prisma));
     const [upcoming, attendances] = await Promise.all([
-      this.upcomingActivities(this.relevantForStage(profile.currentStageId), 20),
+      this.upcomingActivities(this.relevantForStage(stageId), 20),
       this.prisma.activityAttendance.findMany({
         where: { scoutProfileId: profile.id },
         include: { activity: { include: activitySummaryInclude } },
