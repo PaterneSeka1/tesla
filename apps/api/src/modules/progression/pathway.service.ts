@@ -25,6 +25,7 @@ import {
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
 import { assertCan } from '../../common/permissions.js';
+import { assertCanAtWrite } from '../auth/write-authority.js';
 import { isUniqueViolation } from '../../common/prisma-errors.js';
 import { parseInput } from '../../common/validation.js';
 import { type Prisma } from '../../generated/prisma/client.js';
@@ -162,6 +163,8 @@ export class PathwayService {
     }
     try {
       return await this.prisma.$transaction(async (tx) => {
+        // Décision officielle : fonction du plein revérifiée au moment de l'écriture (D173).
+        await assertCanAtWrite(tx, actor, 'ageRules.manage');
         const row = await tx.ageRuleSet.create({
           data: {
             version: data.version,
@@ -215,6 +218,7 @@ export class PathwayService {
     const { effectiveFrom } = parseInput(activateAgeRuleSetInputSchema, input);
     try {
       return await this.prisma.$transaction(async (tx) => {
+        await assertCanAtWrite(tx, actor, 'ageRules.manage');
         const { count } = await tx.ageRuleSet.updateMany({
           where: { id, status: 'BROUILLON' },
           data: {
