@@ -20,7 +20,6 @@ function ResponsableQueue() {
       <Card>
         <CardHeader>
           <CardTitle>Propositions à examiner</CardTitle>
-          <CardDescription>Les plus anciennes en premier.</CardDescription>
         </CardHeader>
         <CardContent>
           <ProposalList
@@ -72,10 +71,7 @@ export function ValidationsBoard() {
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeading
-          title={isResponsable ? 'Validation des acquis' : 'Mes propositions'}
-          description={isResponsable ? undefined : 'Seul le responsable décide.'}
-        />
+        <PageHeading title={isResponsable ? 'Validation des acquis' : 'Mes propositions'} />
         <Button asChild>
           <Link href="/administration/validations/nouvelle">
             <Plus aria-hidden />
@@ -90,13 +86,11 @@ export function ValidationsBoard() {
           <Card>
             <CardHeader>
               <CardTitle>En cours</CardTitle>
-              <CardDescription>En attente du responsable ou complément demandé.</CardDescription>
             </CardHeader>
             <CardContent>
               <ProposalList
                 query={{ status: 'open', mine: 'true' }}
                 emptyTitle="Aucune proposition en cours"
-                emptyDescription="Vos propositions soumises apparaîtront ici."
               />
             </CardContent>
           </Card>
@@ -108,7 +102,6 @@ export function ValidationsBoard() {
               <ProposalList
                 query={{ status: 'closed', mine: 'true' }}
                 emptyTitle="Aucune réponse"
-                emptyDescription="Les décisions du responsable sur vos propositions apparaîtront ici."
               />
             </CardContent>
           </Card>

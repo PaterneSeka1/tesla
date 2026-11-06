@@ -57,7 +57,7 @@ export function ProposalDetail() {
             </Link>{' '}
             · {proposal.scout.matricule ?? 'matricule non renseigné'} ·{' '}
             {proposal.scout.team?.name ?? 'sans équipe'} ·{' '}
-            {proposal.scout.stage?.name ?? 'étape non renseignée'}
+            {proposal.scout.stage?.name ?? 'étape non déterminée'}
           </p>
           <ProposalStatusBadge status={proposal.status} />
         </div>
@@ -129,9 +129,7 @@ export function ProposalDetail() {
       <Card>
         <CardHeader>
           <CardTitle>Éléments justificatifs ({proposal.evidences.length})</CardTitle>
-          <CardDescription>
-            Minimum fixé par le référentiel : {proposal.competency.minEvidenceCount}.
-          </CardDescription>
+          <CardDescription>Minimum : {proposal.competency.minEvidenceCount}.</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm">
@@ -163,11 +161,6 @@ export function ProposalDetail() {
         <Card>
           <CardHeader>
             <CardTitle>Compléter la proposition</CardTitle>
-            <CardDescription>
-              {proposal.status === 'COMPLEMENT_DEMANDE'
-                ? 'Ajoutez les éléments demandés, puis soumettez à nouveau.'
-                : 'Ajoutez des éléments ou retirez la proposition.'}
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <EvidencePicker scoutId={proposal.scout.id} value={extra} onChange={setExtra} />

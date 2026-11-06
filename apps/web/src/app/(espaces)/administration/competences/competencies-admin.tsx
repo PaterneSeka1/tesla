@@ -17,7 +17,7 @@ import { usePedagogyAction } from '@/components/progression/use-pedagogy-action'
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -262,9 +262,6 @@ export function CompetenciesAdmin() {
         <Card>
           <CardHeader>
             <CardTitle>Nouvelle compétence</CardTitle>
-            <CardDescription>
-              Domaines proposés à titre d’exemple ; aucune liste officielle n’est imposée.
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <CompetencyForm onDone={() => setEditing(null)} />
@@ -305,11 +302,7 @@ export function CompetenciesAdmin() {
       ) : error ? (
         <QueryError error={error} onRetry={() => void refetch()} />
       ) : data.items.length === 0 ? (
-        <EmptyState
-          icon={BadgeCheck}
-          title="Aucune compétence"
-          description={isResponsable ? 'Créez la première compétence du référentiel.' : undefined}
-        />
+        <EmptyState icon={BadgeCheck} title="Aucune compétence" />
       ) : (
         <>
           <ul className="space-y-2">

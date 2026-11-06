@@ -11,7 +11,7 @@ import { PageHeading } from '@/components/page-heading';
 import { EvidencePicker } from '@/components/progression/evidence-picker';
 import { usePedagogyAction } from '@/components/progression/use-pedagogy-action';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -70,10 +70,7 @@ export function NewProposal() {
   return (
     <>
       <BackLink href="/administration/validations">Validations</BackLink>
-      <PageHeading
-        title="Proposer une validation"
-        description="Appuyez-vous sur des faits observables. Sans effet avant la décision du responsable."
-      />
+      <PageHeading title="Proposer une validation" />
       <Card>
         <CardHeader>
           <CardTitle>Routier et compétence</CardTitle>
@@ -169,9 +166,6 @@ export function NewProposal() {
       <Card>
         <CardHeader>
           <CardTitle>Éléments justificatifs</CardTitle>
-          <CardDescription>
-            Données déjà enregistrées pour ce routier, ou fait observable décrit librement.
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {scoutId ? (

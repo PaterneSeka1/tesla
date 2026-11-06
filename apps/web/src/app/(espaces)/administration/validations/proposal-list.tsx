@@ -16,11 +16,9 @@ import { formatDate, fullName } from '@/lib/format';
 export function ProposalList({
   query,
   emptyTitle,
-  emptyDescription,
 }: {
   query: Omit<ProposalListQuery, 'page'>;
   emptyTitle: string;
-  emptyDescription?: string;
 }) {
   const [page, setPage] = useState(1);
   const { data, error, isPending, refetch } = useQuery({
@@ -31,7 +29,7 @@ export function ProposalList({
   if (isPending) return <TableSkeleton rows={3} />;
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
   if (data.items.length === 0) {
-    return <EmptyState icon={BadgeCheck} title={emptyTitle} description={emptyDescription} />;
+    return <EmptyState icon={BadgeCheck} title={emptyTitle} />;
   }
   return (
     <>
@@ -50,7 +48,7 @@ export function ProposalList({
               </div>
               <p className="text-muted-foreground">
                 {proposal.scout.team?.name ?? 'Sans équipe'} ·{' '}
-                {proposal.scout.stage?.name ?? 'Étape non renseignée'} · {proposal.evidences.length}{' '}
+                {proposal.scout.stage?.name ?? 'Étape non déterminée'} · {proposal.evidences.length}{' '}
                 élément(s) justificatif(s) · proposée par {fullName(proposal.proposedBy)} le{' '}
                 {formatDate(proposal.createdAt)}
               </p>
