@@ -75,7 +75,7 @@ export function TeamCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Encadrement de la communauté</CardTitle>
+        <CardTitle>En fonction</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {vacant && (

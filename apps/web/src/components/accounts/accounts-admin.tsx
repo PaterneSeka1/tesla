@@ -252,8 +252,8 @@ function CreateAccount({
       description={
         <>
           <p>
-            Le compte est créé sans mot de passe : un lien d’activation à usage unique vous sera
-            remis. Pour un routier déjà inscrit, créez plutôt le compte depuis sa fiche.
+            Un lien d’activation à usage unique vous sera remis. Pour un routier déjà inscrit, créez
+            le compte depuis sa fiche.
           </p>
           <FormField id="account-email" label="Adresse e-mail" required>
             <Input
@@ -376,8 +376,7 @@ function AccountActions({
               <>
                 <p>
                   {name} ne pourra plus se connecter ; ses sessions et liens en attente sont
-                  révoqués. Aucune donnée n’est supprimée ; la fiche routier éventuelle est
-                  conservée.
+                  révoqués. Aucune donnée n’est supprimée.
                 </p>
                 <FormField id={`reason-${account.id}`} label="Motif" required>
                   <Textarea

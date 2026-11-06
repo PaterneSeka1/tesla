@@ -49,9 +49,9 @@ export function AccountLinkDialog({
           <DialogDescription>
             {link?.sentByEmail
               ? `Envoyé par e-mail à ${name}. `
-              : `À transmettre uniquement à ${name}, par un canal personnel, après avoir vérifié son identité. `}
-            Il ne fonctionne qu’une fois, jusqu’au {link ? formatDateTime(link.expiresAt) : ''}, et
-            ne sera plus affiché. Personne d’autre que {name} ne choisit son mot de passe.
+              : `À transmettre uniquement à ${name}, par un canal personnel, après vérification de son identité. `}
+            Usage unique, valable jusqu’au {link ? formatDateTime(link.expiresAt) : ''} ; il ne sera
+            plus affiché.
           </DialogDescription>
         </DialogHeader>
         <Input
