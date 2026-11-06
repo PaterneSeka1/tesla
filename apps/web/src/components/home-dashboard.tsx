@@ -5,7 +5,6 @@ import { KeyRound, Network } from 'lucide-react';
 import Link from 'next/link';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { TeamCard } from '@/components/leadership/community-leadership';
-import { MyPathwayOverview } from '@/components/pathway/my-pathway';
 import { StaffDashboard } from '@/components/pathway/staff-dashboard';
 import { RoutierPedagogyDashboard } from '@/components/progression/pedagogy-dashboard';
 import { QueryError, TableSkeleton } from '@/components/query-state';
@@ -25,13 +24,8 @@ export function HomeDashboard() {
   const staff = userCan(user, 'progression.read');
   return (
     <div className="space-y-6">
-      {pathway && (
-        <>
-          {/* Étape actuelle et activité d'abord ; le détail du calcul par l'âge ensuite. */}
-          <RoutierPedagogyDashboard />
-          <MyPathwayOverview />
-        </>
-      )}
+      {/* Étape actuelle, modules du parcours, rattrapages et activités (D173). */}
+      {pathway && <RoutierPedagogyDashboard />}
       {staff && <StaffDashboard />}
       {userCan(user, 'leadership.manage') && <AdministrationOverview />}
     </div>

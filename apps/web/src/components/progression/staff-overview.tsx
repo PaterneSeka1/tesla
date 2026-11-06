@@ -141,6 +141,8 @@ export function TaskInbox({
   total: number;
   className?: string;
 }) {
+  // Rien à faire : le bandeau d'accueil le dit déjà.
+  if (total === 0) return null;
   return (
     <Card className={className}>
       <CardHeader>

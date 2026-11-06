@@ -14,7 +14,6 @@ import {
   CalendarDays,
   ChevronRight,
   ClipboardCheck,
-  CloudDownload,
   FileCheck2,
   FilePenLine,
   HeartHandshake,
@@ -25,7 +24,6 @@ import {
   Printer,
   ShieldCheck,
   UserPlus,
-  Trophy,
   Users,
   UserX,
 } from 'lucide-react';
@@ -34,6 +32,7 @@ import { useEffect, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { EmptyState } from '@/components/empty-state';
 import { lastReading, type LastReading } from '@/components/offline/use-offline-images';
+import { MyPathwayOverview } from '@/components/pathway/my-pathway';
 import { QueryError } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,8 +44,6 @@ import {
   responsableDashboardQueryOptions,
 } from '@/lib/api/dashboards';
 import { formatDate, formatScore, fullName } from '@/lib/format';
-import { listDownloads } from '@/lib/offline/downloads';
-import { ownerId } from '@/lib/offline/vault';
 import {
   type QuickAction,
   QuickActions,
@@ -84,6 +81,28 @@ function ActionRow({
         <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
       </Link>
     </li>
+  );
+}
+
+interface QueueRow {
+  label: string;
+  count: number;
+  href: string;
+  icon: LucideIcon;
+}
+
+/** Files non vides seulement ; rien n'est affiché lorsque tout est traité (« À faire » le dit). */
+function QueuePanel({ title, rows }: { title: string; rows: QueueRow[] }) {
+  const pending = rows.filter((row) => row.count > 0);
+  if (pending.length === 0) return null;
+  return (
+    <Panel title={title}>
+      <ul className="-mx-3">
+        {pending.map((row) => (
+          <ActionRow key={row.label} {...row} />
+        ))}
+      </ul>
+    </Panel>
   );
 }
 
@@ -137,7 +156,7 @@ function Upcoming({ items }: { items: ActivitySummary[] }) {
 
 function FollowUp({ items }: { items: FollowUpItem[] }) {
   return (
-    <Panel title="Accompagnement" description="Aucune décision automatique.">
+    <Panel title="Accompagnement">
       {items.length === 0 ? (
         <EmptyState icon={HeartHandshake} title="Aucun signal enregistré" />
       ) : (
@@ -186,26 +205,17 @@ function Distribution({ rows }: { rows: { label: string; value: number }[] }) {
   );
 }
 
-function Distributions({ statistics }: { statistics: Statistics }) {
+/** Répartition par équipe (la répartition par étape figure dans « Parcours de la communauté »). */
+function TeamDistribution({ statistics }: { statistics: Statistics }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Panel title="Routiers actifs par équipe">
-        <Distribution
-          rows={statistics.byTeam.map((row) => ({
-            label: row.team?.name ?? 'Sans équipe',
-            value: row.active,
-          }))}
-        />
-      </Panel>
-      <Panel title="Routiers actifs par étape">
-        <Distribution
-          rows={statistics.byStage.map((row) => ({
-            label: row.stage?.name ?? 'Étape non renseignée',
-            value: row.active,
-          }))}
-        />
-      </Panel>
-    </div>
+    <Panel title="Routiers actifs par équipe">
+      <Distribution
+        rows={statistics.byTeam.map((row) => ({
+          label: row.team?.name ?? 'Sans équipe',
+          value: row.active,
+        }))}
+      />
+    </Panel>
   );
 }
 
@@ -263,16 +273,13 @@ export function ResponsablePedagogyDashboard() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <TaskInbox tasks={tasks} total={taskTotal} className="lg:col-span-2" />
-        <YearTimeline year={year} />
+        <YearTimeline year={year} className={taskTotal === 0 ? 'lg:col-span-3' : undefined} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <FollowUp items={query.data.followUp} />
-        <Upcoming items={query.data.upcomingActivities} />
-      </div>
+      <FollowUp items={query.data.followUp} />
 
       <SectionTitle>En chiffres</SectionTitle>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard
           label="Routiers actifs"
           value={statistics.scouts.active}
@@ -302,60 +309,55 @@ export function ResponsablePedagogyDashboard() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Validation des contenus">
-          <ul className="-mx-3">
-            <ActionRow
-              label="Modules à approuver"
-              count={contentQueue.modulesToApprove}
-              href="/administration/modules-a-valider"
-              icon={FileCheck2}
-            />
-            <ActionRow
-              label="Questionnaires à approuver"
-              count={contentQueue.evaluationsToApprove}
-              href="/administration/evaluations"
-              icon={ClipboardCheck}
-            />
-          </ul>
-        </Panel>
-        <Panel title="Décisions">
-          <ul className="-mx-3">
-            <ActionRow
-              label="Résultats à examiner"
-              count={pedagogyQueue.resultsToReview}
-              href="/administration/evaluations-a-valider"
-              icon={ShieldCheck}
-            />
-            <ActionRow
-              label="Propositions de compétences"
-              count={pedagogyQueue.proposalsPending}
-              href="/administration/validations"
-              icon={Medal}
-            />
-            <ActionRow
-              label="Compléments demandés"
-              count={pedagogyQueue.complementRequested}
-              href="/administration/validations"
-              icon={MessageSquareText}
-            />
-            <ActionRow
-              label="Copies en cours de correction"
-              count={pedagogyQueue.correctionsInProgress}
-              href="/encadrement/corrections"
-              icon={PenLine}
-            />
-            <ActionRow
-              label="Activités sans présences renseignées"
-              count={statistics.activities.attendanceMissing}
-              href="/administration/presences"
-              icon={CalendarCheck}
-            />
-          </ul>
-        </Panel>
-      </div>
+      <QueuePanel
+        title="Files d’attente"
+        rows={[
+          {
+            label: 'Modules à approuver',
+            count: contentQueue.modulesToApprove,
+            href: '/administration/modules-a-valider',
+            icon: FileCheck2,
+          },
+          {
+            label: 'Questionnaires à approuver',
+            count: contentQueue.evaluationsToApprove,
+            href: '/administration/evaluations',
+            icon: ClipboardCheck,
+          },
+          {
+            label: 'Résultats à examiner',
+            count: pedagogyQueue.resultsToReview,
+            href: '/administration/evaluations-a-valider',
+            icon: ShieldCheck,
+          },
+          {
+            label: 'Propositions de compétences',
+            count: pedagogyQueue.proposalsPending,
+            href: '/administration/validations',
+            icon: Medal,
+          },
+          {
+            label: 'Compléments demandés',
+            count: pedagogyQueue.complementRequested,
+            href: '/administration/validations',
+            icon: MessageSquareText,
+          },
+          {
+            label: 'Copies en cours de correction',
+            count: pedagogyQueue.correctionsInProgress,
+            href: '/encadrement/corrections',
+            icon: PenLine,
+          },
+          {
+            label: 'Activités sans présences renseignées',
+            count: statistics.activities.attendanceMissing,
+            href: '/administration/presences',
+            icon: CalendarCheck,
+          },
+        ]}
+      />
 
-      <Distributions statistics={statistics} />
+      <TeamDistribution statistics={statistics} />
     </div>
   );
 }
@@ -378,11 +380,11 @@ export function ChefPedagogyDashboard() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <TaskInbox tasks={d.tasks} total={d.taskTotal} className="lg:col-span-2" />
-        <YearTimeline year={d.year} />
+        <YearTimeline year={d.year} className={d.taskTotal === 0 ? 'lg:col-span-3' : undefined} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Mes propositions" description="Seul le responsable plein décide.">
+        <Panel title="Mes propositions">
           <ul className="-mx-3">
             <ActionRow
               label="En attente de décision"
@@ -399,7 +401,7 @@ export function ChefPedagogyDashboard() {
           </ul>
           <h3 className="mt-4 mb-2 text-sm font-medium">Décisions récentes</h3>
           {d.myProposals.recentlyDecided.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune décision récente.</p>
+            <p className="text-sm text-muted-foreground">Aucune.</p>
           ) : (
             <ul className="divide-y">
               {d.myProposals.recentlyDecided.map((proposal) => (
@@ -446,13 +448,10 @@ export function ChefPedagogyDashboard() {
         </Panel>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <FollowUp items={d.followUp} />
-        <Upcoming items={d.upcomingActivities} />
-      </div>
+      <FollowUp items={d.followUp} />
 
       <SectionTitle>En chiffres</SectionTitle>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard
           label="Routiers suivis"
           value={d.activeScouts}
@@ -479,33 +478,6 @@ export function ChefPedagogyDashboard() {
         />
       </div>
     </div>
-  );
-}
-
-/**
- * Modules téléchargés sur cet appareil. Le coffre chiffré n'est lisible qu'une fois déverrouillé :
- * sinon, seul un lien vers l'écran hors ligne est proposé (aucune lecture sans la phrase locale).
- */
-function OfflineSummary() {
-  const [count, setCount] = useState<number | null>(null);
-  useEffect(() => {
-    if (!ownerId()) return;
-    let cancelled = false;
-    listDownloads()
-      .then((downloads) => !cancelled && setCount(downloads.length))
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return (
-    <StatCard
-      label="Modules avec images"
-      value={count ?? '—'}
-      hint={count === null ? 'Déverrouillez « Cet appareil » pour les voir' : 'Sur cet appareil'}
-      href="/appareil"
-      icon={CloudDownload}
-    />
   );
 }
 
@@ -546,7 +518,7 @@ export function RoutierPedagogyDashboard() {
       <EmptyState
         icon={UserX}
         title="Compte non rattaché"
-        description="Demandez le rattachement de votre compte au responsable."
+        description="Demandez le rattachement au responsable."
       />
     );
 
@@ -554,16 +526,17 @@ export function RoutierPedagogyDashboard() {
     <div className="stagger space-y-6">
       <div className="rounded-xl bg-tesla-bordeaux p-5 text-white shadow-sm">
         <p className="text-xs tracking-wider text-tesla-or uppercase">Étape actuelle</p>
-        <p className="mt-1 text-2xl font-semibold">{d.stage?.name ?? 'Étape non renseignée'}</p>
+        <p className="mt-1 text-2xl font-semibold">{d.stage?.name ?? 'Non déterminée'}</p>
         <p className="mt-1 text-sm text-tesla-sable">
-          {d.stageSince ? `Depuis le ${formatDate(d.stageSince)}` : 'Date non renseignée'} ·{' '}
-          {d.team?.name ?? 'Sans équipe'}
+          {[d.stageSince && `Depuis le ${formatDate(d.stageSince)}`, d.team?.name ?? 'Sans équipe']
+            .filter(Boolean)
+            .join(' · ')}
         </p>
       </div>
 
       <ResumeReading />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3">
         <StatCard
           label="Modules étudiés"
           value={d.studiedModules}
@@ -576,24 +549,13 @@ export function RoutierPedagogyDashboard() {
           href="/mes-competences"
           icon={Medal}
         />
-        <StatCard
-          label="Résultats récents"
-          value={d.recentResults.length}
-          href="/mes-resultats"
-          icon={Trophy}
-        />
-        <OfflineSummary />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Modules recommandés" description="De votre étape, pas encore étudiés.">
-          {d.recommendedModules.length === 0 ? (
-            <EmptyState
-              icon={BookOpen}
-              title="Aucune recommandation"
-              description="Tous les modules publiés restent accessibles."
-            />
-          ) : (
+      <MyPathwayOverview compact />
+
+      <div className="grid gap-4 empty:hidden lg:grid-cols-2">
+        {d.recommendedModules.length > 0 && (
+          <Panel title="À étudier">
             <ul className="-mx-3">
               {d.recommendedModules.map((module) => (
                 <li key={module.id}>
@@ -608,12 +570,10 @@ export function RoutierPedagogyDashboard() {
                 </li>
               ))}
             </ul>
-          )}
-        </Panel>
-        <Panel title="Résultats récents" description="Un résultat ne valide jamais une étape.">
-          {d.recentResults.length === 0 ? (
-            <EmptyState icon={Trophy} title="Aucun résultat communiqué" />
-          ) : (
+          </Panel>
+        )}
+        {d.recentResults.length > 0 && (
+          <Panel title="Résultats récents">
             <ul className="divide-y">
               {d.recentResults.map((result) => (
                 <li key={result.code} className="flex items-center justify-between gap-3 py-2">
@@ -624,11 +584,11 @@ export function RoutierPedagogyDashboard() {
                 </li>
               ))}
             </ul>
-          )}
-        </Panel>
+          </Panel>
+        )}
       </div>
 
-      <Upcoming items={d.upcomingActivities} />
+      {d.upcomingActivities.length > 0 && <Upcoming items={d.upcomingActivities} />}
     </div>
   );
 }
