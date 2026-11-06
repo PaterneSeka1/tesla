@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { THEORETICAL_STAGE_REASON_LABELS } from '@tesla/shared';
 import { Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -16,6 +17,11 @@ import { scoutQueryOptions } from '@/lib/api/scouts';
 import { formatDate, formatDateTime, fullName } from '@/lib/format';
 import { PedagogicalFile } from './pedagogical-file';
 import { ScoutActions } from './scout-actions';
+
+/** Information absente : jamais de valeur fictive (D173). */
+function Missing({ children }: { children: React.ReactNode }) {
+  return <span className="text-muted-foreground italic">{children}</span>;
+}
 
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -34,7 +40,10 @@ export function ScoutProfileView() {
   if (isPending) return <TableSkeleton rows={6} />;
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
 
+  // Gestion administrative : administrateur ou responsable plein en fonction (vérifié par l'API).
   const isResponsable = userCan(user, 'scout.update');
+  // Le dossier pédagogique n'est jamais ouvert à l'administrateur (permissions distinctes).
+  const pedagogy = userCan(user, 'progression.read');
 
   return (
     <>
@@ -55,7 +64,9 @@ export function ScoutProfileView() {
             ) : (
               <Badge variant="outline">Sans compte</Badge>
             )}
-            {scout.stage && <Badge variant="accent">{scout.stage.name}</Badge>}
+            <Badge variant={scout.stage ? 'accent' : 'outline'}>
+              {scout.stage?.name ?? 'Étape non déterminée'}
+            </Badge>
           </div>
         </div>
         {isResponsable && (
@@ -63,7 +74,7 @@ export function ScoutProfileView() {
             <Button asChild variant="outline">
               <Link href={`/administration/routiers/${scout.id}/modifier`}>
                 <Pencil aria-hidden />
-                Modifier
+                Compléter ou corriger
               </Link>
             </Button>
             <ScoutActions scout={scout} />
@@ -80,7 +91,11 @@ export function ScoutProfileView() {
             <Detail label="Nom">{scout.lastName}</Detail>
             <Detail label="Prénoms">{scout.firstName}</Detail>
             <Detail label="Matricule">
-              <span className="font-mono">{scout.matricule ?? 'Non renseigné'}</span>
+              {scout.matricule ? (
+                <span className="font-mono">{scout.matricule}</span>
+              ) : (
+                <Missing>Matricule non renseigné</Missing>
+              )}
             </Detail>
             <Detail label="Équipe actuelle">
               {scout.team ? (
@@ -94,10 +109,37 @@ export function ScoutProfileView() {
                 'Sans équipe'
               )}
             </Detail>
-            <Detail label="Étape actuelle">{scout.stage?.name ?? 'Non renseignée'}</Detail>
-            <Detail label="Date d’intégration">{formatDate(scout.joinedAt)}</Detail>
+            <Detail label="Étape actuelle">
+              {scout.stage ? (
+                <>
+                  {scout.stage.name}
+                  <span className="block text-xs text-muted-foreground">Déterminée par l’âge</span>
+                </>
+              ) : (
+                <Missing>
+                  Étape non déterminée
+                  {/* Le motif « date de naissance manquante » figure déjà sur le champ voisin. */}
+                  {scout.stageReason !== 'DATE_NAISSANCE_MANQUANTE' && (
+                    <span className="block text-xs">
+                      {THEORETICAL_STAGE_REASON_LABELS[scout.stageReason]}
+                    </span>
+                  )}
+                </Missing>
+              )}
+            </Detail>
+            <Detail label="Date d’entrée à la Route">
+              {scout.joinedAt ? (
+                formatDate(scout.joinedAt)
+              ) : (
+                <Missing>Date d’entrée non renseignée</Missing>
+              )}
+            </Detail>
             <Detail label="Date de naissance">
-              {scout.birthDate ? formatDate(scout.birthDate) : 'Non renseignée'}
+              {scout.birthDate ? (
+                formatDate(scout.birthDate)
+              ) : (
+                <Missing>Date de naissance non renseignée</Missing>
+              )}
             </Detail>
             <Detail label="Compte">
               {scout.account ? (
@@ -119,9 +161,9 @@ export function ScoutProfileView() {
         </CardContent>
       </Card>
 
-      <PathwaySection scoutId={scout.id} user={user} />
+      {userCan(user, 'catchUp.read') && <PathwaySection scoutId={scout.id} user={user} />}
 
-      <PedagogicalFile scoutId={scout.id} />
+      {pedagogy && <PedagogicalFile scoutId={scout.id} />}
     </>
   );
 }

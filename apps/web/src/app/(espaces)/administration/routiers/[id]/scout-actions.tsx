@@ -24,12 +24,14 @@ import { fullName } from '@/lib/format';
 export function ScoutActions({ scout }: { scout: ScoutDetail }) {
   const toast = useToast();
   const queryClient = useQueryClient();
-  const teams = useQuery(activeTeamsQueryOptions);
+  const user = useSessionUser();
+  // Équipes : décision du responsable plein ; l'administrateur ne gère que les données administratives.
+  const canAssign = userCan(user, 'team.assign');
+  const teams = useQuery({ ...activeTeamsQueryOptions, enabled: canAssign });
   const [teamId, setTeamId] = useState('');
   const [email, setEmail] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [link, setLink] = useState<AccountLink | null>(null);
-  const user = useSessionUser();
   const name = fullName(scout);
 
   /** Exécute l'action, rafraîchit les données et notifie ; renvoie `true` en cas de succès. */
@@ -55,7 +57,7 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
 
   return (
     <>
-      {scout.isActive && (
+      {scout.isActive && canAssign && (
         <ConfirmDialog
           trigger={
             <Button variant="outline">
@@ -109,7 +111,7 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
         />
       )}
 
-      {scout.team && (
+      {scout.team && canAssign && (
         <ConfirmDialog
           trigger={
             <Button variant="outline">

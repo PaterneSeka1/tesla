@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import {
+  birthDateImpactSchema,
   type AssignTeamBody,
   type CreateObservationInput,
   type CreateScoutProfileInput,
@@ -55,6 +56,17 @@ export const stagesQueryOptions = queryOptions({
 });
 
 // Écritures différables hors connexion (D110) : rejouées par la file de l'appareil.
+/** Conséquences d'une date de naissance corrigée, calculées par l'API sans écriture (D173). */
+export const birthDateImpactQueryOptions = (id: string, birthDate: string) =>
+  queryOptions({
+    queryKey: ['scouts', id, 'birth-date-impact', birthDate],
+    queryFn: () =>
+      apiFetch(
+        `/scouts/${id}/birth-date-impact${toQueryString({ birthDate })}`,
+        birthDateImpactSchema,
+      ),
+  });
+
 export const createScout = (input: CreateScoutProfileInput) =>
   apiSend('POST', '/scouts', scoutDetailSchema, input, {
     type: 'scout.create',

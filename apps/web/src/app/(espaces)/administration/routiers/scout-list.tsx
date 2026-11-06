@@ -146,7 +146,7 @@ export function ScoutList() {
             onChange={(event) => setFilter('stageId', event.target.value)}
           >
             <option value="">Toutes</option>
-            <option value={NONE_FILTER}>Non renseignée</option>
+            <option value={NONE_FILTER}>Non déterminée</option>
             {stages.data?.items.map((stage) => (
               <option key={stage.id} value={stage.id}>
                 {stage.name}
@@ -224,7 +224,7 @@ export function ScoutList() {
                     {scout.team?.name ?? 'Sans équipe'}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {scout.stage?.name ?? 'Non renseignée'}
+                    {scout.stage?.name ?? 'Non déterminée'}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
                     {scout.hasAccount ? (
