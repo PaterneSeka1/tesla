@@ -126,13 +126,16 @@ try {
 
   await page.goto(`${origin}/compte`);
   await page.getByRole('heading', { name: 'Mon profil' }).waitFor();
-  await page.getByRole('main').getByText('Cet appareil', { exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Connexion' }).waitFor();
+  // Sessions non listées dans l'interface (D174) ; leur sécurité reste assurée par l'API.
+  assert.equal(await page.getByText('Sessions ouvertes').count(), 0);
+  assert.equal(await page.getByRole('main').getByText('Cet appareil', { exact: true }).count(), 0);
   await noScroll('compte');
   await page.getByLabel('Mot de passe actuel').fill('mauvais-mot-de-passe');
   await page.getByLabel('Nouveau mot de passe').fill('phrase-recette-admin-02');
   await page.getByRole('button', { name: 'Modifier le mot de passe' }).click();
   await page.getByText('Le mot de passe actuel est incorrect.').first().waitFor();
-  check('« Mon profil » : sessions affichées, mot de passe actuel vérifié');
+  check('« Mon profil » : sessions non affichées, mot de passe actuel vérifié');
   assert.deepEqual(errors, []);
   console.log(`\n${n} contrôles réussis.`);
 } catch (error) {
