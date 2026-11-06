@@ -221,8 +221,8 @@ export function DevicePanel() {
                 </div>
               ) : (
                 <p>
-                  Cet appareil n’est pas encore préparé. La préparation télécharge vos données
-                  autorisées et les pages de l’application ; elle nécessite Internet.
+                  Non préparé. La préparation télécharge vos données et les pages de l’application
+                  (connexion requise).
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
@@ -353,8 +353,8 @@ export function DevicePanel() {
             <CardContent className="space-y-2 text-sm">
               {downloads.length === 0 && (
                 <p className="text-muted-foreground">
-                  Le texte des modules est préparé avec l’appareil. Pour lire aussi les images sans
-                  connexion, ouvrez un module et choisissez « Télécharger avec les images ».
+                  Aucun. Pour lire les images sans connexion, ouvrez un module et choisissez «
+                  Télécharger avec les images ».
                 </p>
               )}
               {downloads.map((m) => (
@@ -435,39 +435,36 @@ export function DevicePanel() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           {storage && <p>{storage}.</p>}
-          {persisted !== null && (
-            <p>
-              {persisted
-                ? 'Conservation durable accordée : le navigateur ne supprimera pas ces données de lui-même.'
-                : 'Conservation durable non accordée : le navigateur peut effacer ces données s’il manque d’espace.'}
-            </p>
+          {persisted === false && (
+            <p>Le navigateur peut effacer ces données s’il manque d’espace.</p>
           )}
           <p>
-            Les données sont chiffrées sur cet appareil avec votre phrase locale, jamais transmise.
-            Le déverrouillage dure 12 heures au plus ; verrouillez avant de prêter l’appareil.
+            Données chiffrées avec votre phrase locale, jamais transmise. Déverrouillage de 12
+            heures au plus : verrouillez avant de prêter l’appareil.
           </p>
           <p>
-            Sans nouvelle connexion pendant 14 jours, les données restent chiffrées mais ne sont
-            plus affichées. Les modifications non synchronisées ne sont jamais supprimées
-            automatiquement : n’effacez pas les données du navigateur avant leur synchronisation.
+            Sans connexion pendant 14 jours, les données ne sont plus affichées. N’effacez pas les
+            données du navigateur avant la synchronisation de vos modifications.
           </p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              void run(async () => {
-                const granted = await navigator.storage?.persist?.();
-                setPersisted(granted ?? null);
-                setMessage(
-                  granted
-                    ? 'Conservation durable accordée par le navigateur.'
-                    : 'Conservation durable non accordée par ce navigateur.',
-                );
-              })
-            }
-          >
-            Demander la conservation durable
-          </Button>
+          {persisted !== true && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                void run(async () => {
+                  const granted = await navigator.storage?.persist?.();
+                  setPersisted(granted ?? null);
+                  setMessage(
+                    granted
+                      ? 'Conservation durable accordée par le navigateur.'
+                      : 'Conservation durable non accordée par ce navigateur.',
+                  );
+                })
+              }
+            >
+              Demander la conservation durable
+            </Button>
+          )}
         </CardContent>
       </Card>
     </>

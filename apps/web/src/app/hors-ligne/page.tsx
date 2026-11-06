@@ -27,7 +27,7 @@ export default function OfflineFallbackPage() {
       </div>
       <div className="flex flex-wrap gap-2">
         <Button asChild>
-          <Link href="/connexion">Tableau de bord</Link>
+          <Link href="/connexion">Accueil</Link>
         </Button>
         <Button asChild variant="outline">
           <Link href="/appareil">Cet appareil</Link>
