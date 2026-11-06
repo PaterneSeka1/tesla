@@ -68,7 +68,10 @@ const ACCESS_RULES: readonly AccessRule[] = [
   { path: '/encadrement/evaluations/papier', anyOf: ['attempt.preparePaper'] },
   { path: '/encadrement/corrections', anyOf: ['attempt.record'] },
   { path: '/encadrement/distribution', anyOf: ['attempt.preparePaper'] },
+  // Fiches routiers : encadrement et administrateur (gestion administrative, D173).
   { path: '/administration', anyOf: ['scout.read'] },
+  { path: '/administration/equipes', anyOf: ['team.read'] },
+  { path: '/administration/programme-annuel', anyOf: ['activity.read'] },
   { path: '/administration/statistiques', anyOf: ['statistics.read'] },
   { path: '/administration/activites', anyOf: ['activity.read'] },
   { path: '/administration/presences', anyOf: ['attendance.record'] },
@@ -183,7 +186,7 @@ export const NAVIGATION: readonly NavGroup[] = [
         href: '/administration/programme-annuel',
         label: 'Programme annuel',
         icon: CalendarDays,
-        permission: 'scout.read',
+        permission: 'activity.read',
         section: 'Organisation',
       },
       {

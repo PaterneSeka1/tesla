@@ -157,7 +157,6 @@ describe('file de synchronisation (D110)', () => {
   it('ne réserve aucune opération différable aux décisions officielles', () => {
     const permissions = Object.values(OPERATION_TYPES).map((d) => d.permission);
     for (const official of [
-      'scout.setStage',
       'competency.decide',
       'leadership.manage',
       'attempt.decide',

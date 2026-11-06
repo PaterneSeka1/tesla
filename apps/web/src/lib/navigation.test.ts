@@ -87,7 +87,6 @@ describe('accès par chemin', () => {
       '/encadrement/corrections',
       '/encadrement/corrections/NT-2027-000001',
       '/encadrement/distribution/bases-du-scoutisme',
-      '/administration/routiers',
       '/administration/validations',
     ]) {
       for (const user of [encadrant, adjoint, assistant, plein])
@@ -119,11 +118,19 @@ describe('accès par chemin', () => {
   it('l’administrateur n’a aucun accès pédagogique', () => {
     for (const path of [
       '/encadrement/modules',
-      '/administration/routiers',
+      '/administration/equipes',
+      '/administration/programme-annuel',
       '/modules',
       '/progression',
     ])
       expect(canAccessPath(admin, path)).toBe(false);
+  });
+
+  it('fiches routiers : tout l’encadrement et l’administrateur (gestion administrative, D173)', () => {
+    for (const user of [encadrant, adjoint, assistant, plein, admin]) {
+      expect(canAccessPath(user, '/administration/routiers')).toBe(true);
+    }
+    expect(canAccessPath(routier, '/administration/routiers')).toBe(false);
   });
 
   it('distingue le préfixe exact (« evaluations » n’ouvre pas « evaluations-a-valider »)', () => {
@@ -190,10 +197,11 @@ describe('navigation', () => {
     expect(new Set(hrefs(user)).size).toBe(hrefs(user).length);
   });
 
-  it('administrateur : comptes et encadrement dans « Administration », rien d’autre (D142)', () => {
+  it('administrateur : fiches routiers, comptes et encadrement, rien de pédagogique (D142, D173)', () => {
     const groups = navigationFor(admin);
     expect(groups.map((group) => [group.label, group.items.map((item) => item.href)])).toEqual([
       ['Accueil', [HOME_ROUTE]],
+      ['Routiers', ['/administration/routiers']],
       ['Mon profil', ['/compte']],
       ['Administration', ['/administration/comptes', '/communaute']],
     ]);
@@ -204,7 +212,7 @@ describe('navigation', () => {
     expect(first?.items[0]?.href).toBe(HOME_ROUTE);
   });
 
-  it('cinq rubriques pour le routier et l’encadrement, trois pour l’administrateur', () => {
+  it('cinq rubriques pour le routier et l’encadrement, quatre pour l’administrateur', () => {
     const rubriques = (user: NavUser) => navigationFor(user).map((group) => group.label);
     expect(rubriques(routier)).toEqual([
       'Accueil',
@@ -231,7 +239,7 @@ describe('navigation', () => {
       'Mon profil',
       'Administration',
     ]);
-    expect(rubriques(admin)).toEqual(['Accueil', 'Mon profil', 'Administration']);
+    expect(rubriques(admin)).toEqual(['Accueil', 'Routiers', 'Mon profil', 'Administration']);
   });
 
   it('la rubrique active est celle de la page affichée', () => {
@@ -247,7 +255,13 @@ describe('navigation', () => {
     expect(hrefs(routier)).not.toContain('/administration/routiers');
     expect(hrefs(encadrant)).toContain('/administration/routiers');
     expect(hrefs(encadrant)).not.toContain('/progression');
-    expect(hrefs(admin)).toEqual([HOME_ROUTE, '/compte', '/administration/comptes', '/communaute']);
+    expect(hrefs(admin)).toEqual([
+      HOME_ROUTE,
+      '/administration/routiers',
+      '/compte',
+      '/administration/comptes',
+      '/communaute',
+    ]);
   });
 
   it('un même menu pour l’encadrement, enrichi des seules décisions du plein', () => {
