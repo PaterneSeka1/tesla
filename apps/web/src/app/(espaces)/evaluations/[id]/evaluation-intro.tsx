@@ -112,14 +112,20 @@ export function EvaluationIntro() {
             </Alert>
           )}
           {localCopy && (
-            <Button asChild size="lg">
-              <Link href={`/evaluations/${data.id}/passer`}>
-                <Play aria-hidden />
-                {localCopy === 'LOCAL'
-                  ? 'Reprendre sur cet appareil'
-                  : `Copie de cet appareil · ${SYNC_STATE_LABELS[localCopy]}`}
-              </Link>
-            </Button>
+            <div className="space-y-1">
+              <Button asChild size="lg">
+                <Link href={`/evaluations/${data.id}/passer`}>
+                  <Play aria-hidden />
+                  {localCopy === 'LOCAL' ? 'Reprendre sur cet appareil' : 'Voir ma copie'}
+                </Link>
+              </Button>
+              {/* État de la copie remise sur cet appareil (synchronisation, conflit…). */}
+              {localCopy !== 'LOCAL' && (
+                <p className="text-sm text-muted-foreground" role="status">
+                  {SYNC_STATE_LABELS[localCopy]}
+                </p>
+              )}
+            </div>
           )}
           {!localCopy && eligibility?.allowed && (!open || open.mode === 'HORS_LIGNE') && (
             <Button
