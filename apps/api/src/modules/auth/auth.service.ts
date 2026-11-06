@@ -8,6 +8,7 @@ import {
 import { parseInput } from '../../common/validation.js';
 import { ENV } from '../../config/config.module.js';
 import { type Env } from '../../config/env.js';
+import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { LoginRateLimiter } from './login-rate-limiter.js';
 import { verifyPassword } from './password.js';
@@ -162,7 +163,7 @@ export class AuthService {
  * garde de session et les commandes serveur.
  */
 export async function resolveAuthority(
-  prisma: Pick<PrismaService, 'leadershipAssignment'>,
+  prisma: Pick<Prisma.TransactionClient, 'leadershipAssignment'>,
   user: { id: string; role: string },
 ): Promise<Authority> {
   // Rôle historique (impossible en base après migration, contrainte users_role_current_check) :

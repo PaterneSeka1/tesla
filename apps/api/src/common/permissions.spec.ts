@@ -49,16 +49,8 @@ describe('Permissions', () => {
 });
 
 describe('Permissions des routiers, équipes et observations', () => {
-  it('le responsable gère fiches, étapes, équipes et affectations', () => {
-    for (const permission of [
-      'scout.create',
-      'scout.update',
-      'scout.setStage',
-      'scout.setActive',
-      'scout.linkAccount',
-      'team.manage',
-      'team.assign',
-    ] as const) {
+  it('le responsable plein gère équipes et affectations', () => {
+    for (const permission of ['team.manage', 'team.assign'] as const) {
       expect(can(responsable, permission)).toBe(true);
       expect(can(chef, permission)).toBe(false);
       expect(can(routier, permission)).toBe(false);
@@ -129,7 +121,9 @@ describe('Fonctions d’encadrement, sans mandat ni délégation (D132)', () => 
   it('l’administrateur désigne l’encadrement, sans aucun droit pédagogique', () => {
     expect(can(admin, 'leadership.manage')).toBe(true);
     expect(can(encadrement('PLEIN'), 'leadership.manage')).toBe(false);
-    expect(can(admin, 'scout.read')).toBe(false);
+    // D173 : fiches consultées pour leur gestion administrative, jamais le dossier pédagogique.
+    expect(can(admin, 'scout.read')).toBe(true);
+    expect(can(admin, 'progression.read')).toBe(false);
     expect(can(admin, 'module.read')).toBe(false);
     expect(can(admin, 'module.review')).toBe(false);
   });
@@ -145,5 +139,49 @@ describe('Fonctions d’encadrement, sans mandat ni délégation (D132)', () => 
     expect(can(encadrement('PLEIN'), 'account.manage')).toBe(true);
     expect(can(encadrement('ADJOINT'), 'account.read')).toBe(false);
     expect(can({ userId: 'r', role: 'ROUTIER', leaderFunction: null }, 'account.read')).toBe(false);
+  });
+});
+
+describe('Gouvernance des données administratives (D173)', () => {
+  const administrateur = { userId: 'admin', role: 'ADMINISTRATEUR', leaderFunction: null } as const;
+  const adjoint = { userId: 'adj', role: 'ENCADREMENT', leaderFunction: 'ADJOINT' } as const;
+  const ancienPlein = { userId: 'ex', role: 'ENCADREMENT', leaderFunction: null } as const;
+  const scoutAdmin = [
+    'scout.create',
+    'scout.update',
+    'scout.setMatricule',
+    'scout.setActive',
+    'scout.linkAccount',
+  ] as const;
+
+  it('administrateur et plein en fonction gèrent les routiers ; personne d’autre', () => {
+    for (const permission of scoutAdmin) {
+      expect(can(administrateur, permission)).toBe(true);
+      expect(can(responsable, permission)).toBe(true);
+      expect(can(adjoint, permission)).toBe(false);
+      expect(can(chef, permission)).toBe(false);
+      expect(can(ancienPlein, permission)).toBe(false);
+      expect(can(routier, permission)).toBe(false);
+    }
+  });
+
+  it('seul l’administrateur désigne l’encadrement et gère tous les comptes', () => {
+    expect(can(administrateur, 'leadership.manage')).toBe(true);
+    for (const actor of [responsable, adjoint, chef, ancienPlein, routier]) {
+      expect(can(actor, 'leadership.manage')).toBe(false);
+    }
+  });
+
+  it('aucune permission ne permet de choisir une étape', () => {
+    expect(PERMISSION_KEYS.some((key) => /stage/i.test(key) && key.startsWith('scout.'))).toBe(
+      false,
+    );
+  });
+
+  it('l’administrateur consulte les fiches sans accès pédagogique', () => {
+    expect(can(administrateur, 'scout.read')).toBe(true);
+    for (const permission of ['progression.read', 'observation.read', 'catchUp.read'] as const) {
+      expect(can(administrateur, permission)).toBe(false);
+    }
   });
 });
