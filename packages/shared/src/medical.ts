@@ -10,8 +10,7 @@ import { z } from 'zod';
 
 /** Finalité affichée au titulaire avant la saisie. */
 export const MEDICAL_RECORD_PURPOSE =
-  'Ces informations servent uniquement à vous porter secours ou à adapter une activité. ' +
-  'Elles sont facultatives, visibles par vous seul et modifiables ou supprimables à tout moment.';
+  'Visible par vous seul. Sert uniquement à vous porter secours ou à adapter une activité.';
 
 const optionalText = (max: number) =>
   z
@@ -84,7 +83,7 @@ export const MEDICAL_FIELD_LABELS = {
  */
 export const MEDICAL_FIELD_HINTS = {
   phone: 'Numéro où vous joindre pendant une activité.',
-  emergencyContacts: 'Deux personnes au plus, joignables pendant les activités.',
+  emergencyContacts: 'Joignables pendant les activités.',
   allergies: 'À des médicaments, des aliments, des matières… et la réaction à surveiller.',
   treatments: 'Pour chaque médicament : nom, raison et posologie.',
   emergencyInstructions:
