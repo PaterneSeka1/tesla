@@ -130,7 +130,7 @@ assert.ok(await page.locator('table').getByText(code).isVisible());
 await page.getByLabel('Rechercher', { exact: true }).fill('introuvable-xyz');
 await page.waitForURL(/introuvable/);
 await page.getByText('Aucun module ne correspond').waitFor();
-await page.getByRole('button', { name: 'Réinitialiser les filtres' }).click();
+await page.getByRole('button', { name: 'Réinitialiser', exact: true }).click();
 await page.waitForURL((url) => url.search === '');
 await settle(page);
 assert.equal(await page.getByLabel('Rechercher', { exact: true }).inputValue(), '');
