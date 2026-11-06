@@ -32,7 +32,9 @@ export const PROGRESSION_STAGES = [
   {
     code: 'DEPART_ROUTIER',
     order: 4,
-    name: 'Départ routier',
+    // Période de préparation (20 → 21 ans) : y entrer ne signifie jamais que la cérémonie du Départ
+    // a eu lieu (D176) ; le code technique est conservé.
+    name: 'Préparation au Départ routier',
     programmeLabel: 'Routiers Confirmés',
     badge: 'Étoile or',
   },

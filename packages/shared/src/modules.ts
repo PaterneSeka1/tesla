@@ -908,6 +908,11 @@ export const catalogModuleSchema = z.object({
   durationMinutes: z.number().int().nullable(),
   lessonCount: z.number().int().nonnegative(),
   publishedAt: z.iso.datetime(),
+  /**
+   * Vrai pour le routier dont les rattrapages de l'étape en cours ne sont pas terminés (D177) :
+   * contenu fermé jusqu'à leur achèvement ; seuls ses modules à rattraper restent ouverts.
+   */
+  locked: z.boolean().default(false),
 });
 
 export type CatalogModule = z.infer<typeof catalogModuleSchema>;
@@ -919,7 +924,7 @@ export const catalogPageSchema = z.object({
   total: z.number().int().nonnegative(),
   /** Thèmes des modules publiés (filtre). */
   themes: z.array(z.string()),
-  /** Étape actuelle du routier connecté, pour signaler les modules recommandés (jamais un blocage). */
+  /** Étape actuelle du routier connecté, pour signaler les modules recommandés. */
   myStageId: z.uuid().nullable(),
 });
 

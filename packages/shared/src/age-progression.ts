@@ -158,6 +158,11 @@ export interface AgeRuleSetSnapshot {
   branchExitAgeYears: number | null;
   /** Délai de rattrapage en mois calendaires ; nul tant qu'aucune durée officielle n'est validée. */
   catchUpDelayMonths: number | null;
+  /**
+   * Délai de rattrapage **par étape**, en jours (D177) ; prioritaire sur le délai en mois. Les étapes
+   * à rattraper s'enchaînent : chacune dispose de ce délai à la suite de la précédente.
+   */
+  catchUpDelayDays?: number | null;
   /** Seuil d'alerte avant la sortie, en mois ; nul tant qu'il n'est pas validé. */
   exitAlertMonths: number | null;
   stages: readonly AgeStageRuleSnapshot[];
@@ -179,6 +184,19 @@ export const THEORETICAL_STAGE_REASON_LABELS: Record<TheoreticalStageReason, str
   AUCUN_REFERENTIEL: 'Aucun référentiel d’âge en vigueur',
   AUCUNE_REGLE: 'Aucune règle validée pour cet âge',
   SORTI: 'Sorti de la branche (limite d’âge atteinte)',
+};
+
+/**
+ * Indication courte pour les personnes qui ne supervisent pas la progression (routier, adjoint,
+ * assistants, administrateur) : jamais la règle de calcul (D176). Les libellés détaillés ci-dessus
+ * sont réservés au responsable plein.
+ */
+export const STAGE_STATUS_SHORT_LABELS: Record<TheoreticalStageReason, string> = {
+  REGLE: '',
+  DATE_NAISSANCE_MANQUANTE: 'Date de naissance non renseignée',
+  AUCUN_REFERENTIEL: 'Étape non déterminée',
+  AUCUNE_REGLE: 'Étape non déterminée',
+  SORTI: 'Sorti de la branche',
 };
 
 export const MEMBERSHIP_STATUSES = ['ACTIF', 'SORTI'] as const;
@@ -310,12 +328,70 @@ export function catchUpDueOn(
   createdOn: string,
   delayMonths: number | null,
   branchExitOn: string | null,
+  delayDays: number | null = null,
 ): string | null {
-  if (delayMonths === null) return null;
-  const due = addCalendarMonths(createdOn, delayMonths);
+  if (delayDays === null && delayMonths === null) return null;
+  // Échéance = dernier jour du délai : départ le jour J, délai de N jours → J + N − 1 inclus.
+  const due =
+    delayDays !== null
+      ? addCalendarDays(createdOn, delayDays - 1)
+      : addCalendarMonths(createdOn, delayMonths!);
   if (branchExitOn === null) return due;
   const lastDay = addCalendarDays(branchExitOn, -1);
   return compareCivilDates(due, lastDay) > 0 ? lastDay : due;
+}
+
+/**
+ * Point de départ du délai d'une obligation de rattrapage (D176), jamais rétroactif : la plus
+ * tardive des dates suivantes —
+ * - fin de la période de l'étape d'origine (l'obligation n'existe pas avant) ;
+ * - entrée à la Route (nouvel arrivant : le délai court depuis son arrivée) ; à défaut, la date de
+ *   création de l'obligation (aucune échéance déjà dépassée pour une date d'entrée inconnue) ;
+ * - publication de la version obligatoire du module (obligation apparue après l'arrivée) ;
+ * - mise en vigueur du référentiel qui a fait naître l'obligation.
+ */
+export function catchUpReferenceDate(input: {
+  stageEndedOn: string;
+  joinedOn: string | null;
+  createdOn: string;
+  modulePublishedOn: string | null;
+  ruleSetEffectiveFrom: string | null;
+}): string {
+  return [
+    input.stageEndedOn,
+    input.joinedOn ?? input.createdOn,
+    input.modulePublishedOn,
+    input.ruleSetEffectiveFrom,
+  ]
+    .filter((value): value is string => value !== null)
+    .reduce((latest, value) => (compareCivilDates(value, latest) > 0 ? value : latest));
+}
+
+/**
+ * Calendrier des rattrapages **étape par étape** (D177) : les étapes à rattraper sont traitées dans
+ * l'ordre du parcours ; chacune dispose du délai validé, à partir de son point de départ ou du
+ * lendemain de l'échéance de l'étape précédente si elle est plus tardive. Une échéance déjà
+ * enregistrée n'est jamais réécrite. Jamais au-delà de la veille de la sortie de la branche.
+ */
+export function catchUpStageSchedule(
+  steps: readonly { stageCode: string; reference: string; existingDueOn: string | null }[],
+  rules: Pick<AgeRuleSetSnapshot, 'catchUpDelayMonths' | 'catchUpDelayDays'>,
+  branchExitOn: string | null,
+): Map<string, string | null> {
+  const schedule = new Map<string, string | null>();
+  let previous: string | null = null;
+  for (const step of steps) {
+    const start: string =
+      previous && compareCivilDates(addCalendarDays(previous, 1), step.reference) > 0
+        ? addCalendarDays(previous, 1)
+        : step.reference;
+    const due =
+      step.existingDueOn ??
+      catchUpDueOn(start, rules.catchUpDelayMonths, branchExitOn, rules.catchUpDelayDays ?? null);
+    schedule.set(step.stageCode, due);
+    if (due) previous = due;
+  }
+  return schedule;
 }
 
 // ─── Contrats d'API ─────────────────────────────────────────────────────────
@@ -362,6 +438,8 @@ export const ageRuleSetSchema = z.object({
   notes: z.string().nullable(),
   branchExitAgeYears: z.number().int().nullable(),
   catchUpDelayMonths: z.number().int().nullable(),
+  /** Délai par étape à rattraper, en jours (prioritaire sur les mois, D177). */
+  catchUpDelayDays: z.number().int().nullable(),
   exitAlertMonths: z.number().int().nullable(),
   stages: z.array(
     z.object({
@@ -401,6 +479,7 @@ export const createAgeRuleSetInputSchema = z
     notes: z.string().trim().max(3000).nullable().optional(),
     branchExitAgeYears: nullableCount(40),
     catchUpDelayMonths: nullableCount(120),
+    catchUpDelayDays: nullableCount(365).optional(),
     exitAlertMonths: nullableCount(60),
     stages: z
       .array(

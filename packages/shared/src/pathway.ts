@@ -78,7 +78,8 @@ export const catchUpObligationSchema = z.object({
   id: z.uuid(),
   module: moduleRefSchema,
   originStage: stageSummarySchema,
-  ruleSetVersion: z.string(),
+  /** Référentiel et motif détaillé : responsable plein seulement (nuls / générique sinon, D176). */
+  ruleSetVersion: z.string().nullable(),
   reason: z.string(),
   createdAt: z.iso.datetime(),
   /** Nulle : aucun délai officiel validé (arbitrage nécessaire). */
@@ -103,6 +104,11 @@ export const catchUpObligationSchema = z.object({
    * information de suivi, jamais une dispense (une arrivée tardive ne dispense de rien).
    */
   arrival: z.enum(CATCH_UP_ARRIVALS),
+  /**
+   * Vrai si l'obligation retient encore le routier (D177) : sans décision, toujours exigée, étape
+   * d'origine échue et aucun résultat accepté. Tant qu'il en reste une, les autres cours sont fermés.
+   */
+  blocking: z.boolean(),
 });
 
 export type CatchUpObligation = z.infer<typeof catchUpObligationSchema>;
@@ -123,7 +129,26 @@ export const pathwayModuleSchema = moduleRefSchema.extend({
   obligation: z.enum(['OBLIGATOIRE', 'FACULTATIF']).nullable(),
   officialSource: z.string().nullable(),
   studied: z.boolean(),
+  /** Fermé tant que les rattrapages en cours ne sont pas terminés (D177). */
+  locked: z.boolean(),
 });
+
+/**
+ * Verrou des rattrapages (D177) : tant qu'une étape antérieure reste à rattraper, seuls ses modules
+ * (et ceux des étapes déjà rattrapées) sont ouverts au routier ; les autres cours et évaluations
+ * sont fermés, sauf dérogation du responsable. Les étapes se rattrapent dans l'ordre du parcours.
+ */
+export const catchUpLockSchema = z.object({
+  active: z.boolean(),
+  /** Étape en cours de rattrapage (la plus ancienne non terminée). */
+  stage: stageSummarySchema.nullable(),
+  /** Échéance de cette étape (nulle sans délai validé). */
+  dueOn: z.iso.date().nullable(),
+  /** Modules ouverts pendant le verrou. */
+  allowedModuleIds: z.array(z.uuid()),
+});
+
+export type CatchUpLock = z.infer<typeof catchUpLockSchema>;
 
 export const scoutPathwaySchema = z.object({
   scout: scoutRefSchema,
@@ -140,6 +165,7 @@ export const scoutPathwaySchema = z.object({
   catchUps: z.array(catchUpObligationSchema),
   /** Vrai si au moins une obligation n'a pas d'échéance faute de délai officiel. */
   catchUpDeadlineUndetermined: z.boolean(),
+  catchUpLock: catchUpLockSchema,
 });
 
 export type ScoutPathway = z.infer<typeof scoutPathwaySchema>;

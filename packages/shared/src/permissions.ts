@@ -91,9 +91,19 @@ export const PERMISSIONS = {
   'statistics.read': ENCADREMENT,
   /** Indicateurs et file de décisions officielles du tableau de bord. */
   'dashboard.official': OFFICIEL,
-  /** Référentiel d'âge : consultation par l'encadrement, versions et mise en vigueur officielles. */
-  'ageRules.read': ENCADREMENT,
+  /**
+   * Référentiel d'âge : règles internes du calcul, réservées au responsable plein en fonction
+   * (D176) ; l'adjoint, les assistants, l'administrateur et les routiers n'en voient que le résultat
+   * (étape, échéances, sortie prévue).
+   */
+  'ageRules.read': OFFICIEL,
   'ageRules.manage': OFFICIEL,
+  /**
+   * Supervision de la progression (D176) : explications internes du calcul, correction
+   * exceptionnelle et temporaire de l'étape (créer, lever, historique, motifs). Responsable plein
+   * en fonction seulement, revérifié à l'écriture ; jamais l'administrateur technique.
+   */
+  'progression.supervise': OFFICIEL,
   /** Rattrapages : suivi par l'encadrement ; acquis ou non-applicabilité décidés officiellement. */
   'catchUp.read': ENCADREMENT,
   'catchUp.decide': OFFICIEL,

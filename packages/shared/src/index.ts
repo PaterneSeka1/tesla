@@ -24,3 +24,4 @@ export * from './profile.js';
 export * from './medical.js';
 export * from './evaluation-results.js';
 export * from './entreprise.js';
+export * from './stage-override.js';
