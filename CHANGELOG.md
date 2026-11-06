@@ -4,6 +4,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — sobriété de l'interface, 2026-11-06
+- « Mon profil » : identité, progression et connexion regroupées ; section « Sessions ouvertes » retirée de l'interface (sécurité des sessions inchangée côté API) ; plus de titre en double sur mobile (D174).
+- Fiche médicale : mentions « facultatif » et textes répétés supprimés ; champs affichés directement ; confidentialité en une phrase.
+- Accueils : blocs vides masqués, files d'attente non vides seulement, doublons (activités, effectif, répartition par étape, carte « Modules avec images ») retirés ; indicateurs sur deux colonnes en mobile.
+- Progression : « étape officielle décidée par le responsable » (contraire à D173) retirée ; dates et mentions techniques du calcul simplifiées.
+- Modules, évaluations, espaces administratifs et activités : descriptions décoratives, badges redondants et précisions de messages supprimés ; avertissements, consignes et règles préventives conservés.
+- Recette hors ligne réalignée sur la fiche de séance en onglets (D172) et la confirmation d'abandon.
+
 ### Modifié — profils protégés et progression automatique, 2026-11-06
 - L'étape d'un routier est **calculée selon l'âge** et le référentiel en vigueur, partout dans l'application ; le changement manuel d'étape est supprimé (D173). « Étape non déterminée » si une donnée ou une règle manque.
 - Données administratives (nom, prénoms, matricule, date de naissance, date d'entrée) : gérées par l'administrateur ou le responsable plein en fonction pour les routiers, par l'administrateur seul pour les chefs ; correction motivée, confirmée et journalisée ; aperçu des conséquences d'une date de naissance corrigée.

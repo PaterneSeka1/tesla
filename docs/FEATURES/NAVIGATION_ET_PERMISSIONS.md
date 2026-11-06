@@ -72,7 +72,7 @@ Rubriques, dans l'ordre ; `navigationFor(user)` retire les pages non autorisées
 | Cours | bibliothèque, rédaction, mes soumissions, cours à approuver, tous les cours, publications |
 | Évaluations | évaluations (routier), questionnaires (dont « Résultats »), corrections, évaluations papier, résultats à examiner, questionnaires à approuver, déblocages |
 | Mon parcours | progression, rattrapages, résultats, compétences, activités |
-| Mon profil | mon profil (compte, mot de passe, **fiche médicale** sauf administrateur, sessions), encadrement (sauf administrateur) |
+| Mon profil | mon profil (identité, progression, connexion et mot de passe, **fiche médicale** sauf administrateur), encadrement (sauf administrateur) |
 | Administration | comptes, encadrement (administrateur : désignation, D142) |
 
 Résultat : routier — Accueil, Cours, Évaluations, Mon parcours, Mon profil ; encadrement (adjoint, assistants compris) — Accueil, Routiers, Cours, Évaluations, Mon profil ; plein — idem + Administration (comptes routiers) ; administrateur — Accueil, Mon profil (compte seul), Administration (comptes, encadrement). Une entrée peut être masquée pour qui détient une permission (`hiddenWith`) afin de ranger une page dans une autre rubrique.

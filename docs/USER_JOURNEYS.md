@@ -30,4 +30,4 @@ Menu : **Accueil · Routiers · Cours · Évaluations · Mon profil**.
 Mêmes rubriques que l'encadrement, enrichies des décisions : cours et questionnaires à approuver, publications, résultats à examiner, déblocages, acquis ; fiches routiers, matricules, étapes, équipes ; rubrique **Administration** (comptes routiers).
 
 ## Administrateur (compte technique, D142)
-Menu : **Accueil · Mon profil · Administration**. Seul travail : la gestion des comptes — Administration › Comptes (création, lien d'activation, désactivation) et Administration › Encadrement (désignation du responsable plein, de l'adjoint et des assistants). Mon profil : nom, mot de passe, sessions ; ni fiche médicale ni accès pédagogique.
+Menu : **Accueil · Mon profil · Administration**. Seul travail : la gestion des comptes — Administration › Comptes (création, lien d'activation, désactivation) et Administration › Encadrement (désignation du responsable plein, de l'adjoint et des assistants). Mon profil : nom, mot de passe ; ni fiche médicale ni accès pédagogique.

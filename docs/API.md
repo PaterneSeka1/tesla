@@ -48,7 +48,7 @@ Révoque la session courante et efface le cookie → `204`.
 | `POST /auth/account-link/complete` (public) | `{ token, password }` (≥ 12 caractères) → `204` ; consomme le lien, ferme toutes les sessions du compte |
 | `POST /auth/password` | `{ currentPassword, newPassword }` → `204` ; ferme les autres sessions ; `400 INVALID_CURRENT_PASSWORD` |
 | `PATCH /auth/profile` | `{ firstName, lastName }` → `{ user }` |
-| `GET /auth/sessions` | Sessions ouvertes du compte (`current` pour la session de la requête) |
+| `GET /auth/sessions` | Sessions ouvertes du compte (`current` pour la session de la requête) ; non affichées par le web depuis D174 (API conservée) |
 | `POST /auth/sessions/:id/revoke` | `204` ; session d'un autre compte : `404` |
 | `POST /auth/sessions/revoke-others` | `{ revoked }` |
 
