@@ -11,6 +11,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 - Progression : « étape officielle décidée par le responsable » (contraire à D173) retirée ; dates et mentions techniques du calcul simplifiées.
 - Modules, évaluations, espaces administratifs et activités : descriptions décoratives, badges redondants et précisions de messages supprimés ; avertissements, consignes et règles préventives conservés.
 - Recette hors ligne réalignée sur la fiche de séance en onglets (D172) et la confirmation d'abandon.
+- Fiche routier : étape affichée une seule fois ; ancien historique d'étape regroupé dans « Historique ».
+- Évaluation : « Voir ma copie » remplace un libellé d'état sur le bouton principal.
+
+### Corrigé — interface, 2026-11-06
+- « Soumissions » : toutes les versions suivies sont listées (plus de troncature à 100 modules).
 
 ### Modifié — profils protégés et progression automatique, 2026-11-06
 - L'étape d'un routier est **calculée selon l'âge** et le référentiel en vigueur, partout dans l'application ; le changement manuel d'étape est supprimé (D173). « Étape non déterminée » si une donnée ou une règle manque.

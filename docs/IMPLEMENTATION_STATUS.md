@@ -19,7 +19,8 @@ Branche `feat/simplification-libelles-profil` (depuis les commits D173). Décisi
 ### Vérifications (2026-11-06, local)
 - `npm run lint`, `typecheck`, `format:check`, `build` : réussis ; `npm run test` : API 248, web 100.
 - Recettes Chromium sur base jetable `tesla_profil_test` (API et web compilés) : profils 10/10 (dont absence des sessions et de « facultatif », fiche médicale chargée, titre unique, 360 → 1440 px), gestion des modules 13/13, hors ligne 25/25 (recette réalignée sur D172), distribution papier 7/7, lecture du catalogue 8/8 ; balayage 4 profils × 360/1440 px sans défilement horizontal ni squelette résiduel.
-- Non exécutées : `programme-import.browser.mjs` (classeur réel requis), `accounts.browser.mjs`, `ui-sweep.browser.mjs` ; tests d'intégration API (aucun code API modifié).
+- Compléments (même jour) : fiche routier — étape affichée une seule fois (carte « Informations ») ; onglet « Progression » fusionné dans « Historique » (décisions d'étape antérieures, seulement s'il en existe) ; bouton « Voir ma copie » au lieu d'un libellé d'état ; « Soumissions » charge toutes les pages (plus de limite à 100) ; visibilité d'observation « Tout l'encadrement ».
+- Recettes complémentaires : comptes 11/11 (sessions absentes de « Mon profil »), balayage UI 490 affichages (4 profils × 7 largeurs) sans anomalie, import du programme 15/15 avec un classeur **fictif** généré par `apps/api/test/xlsx-fixture.ts` (hors dépôt). Intégration API (`tesla_test`) : 165 réussis, 1 ignoré (classeur réel).
 
 
 ## Profils protégés, gouvernance des droits et progression automatique (2026-11-06)
