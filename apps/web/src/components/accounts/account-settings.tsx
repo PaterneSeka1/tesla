@@ -8,7 +8,7 @@ import {
   LEADER_FUNCTION_LABELS,
   type MyProfile,
   PASSWORD_MIN_LENGTH,
-  THEORETICAL_STAGE_REASON_LABELS,
+  STAGE_STATUS_SHORT_LABELS,
 } from '@tesla/shared';
 import { LoaderCircle } from 'lucide-react';
 import Link from 'next/link';
@@ -187,7 +187,7 @@ function ProgressCard({ scout }: { scout: NonNullable<MyProfile['scout']> }) {
                 <span className="block text-xs not-italic">
                   {scout.stageReason === 'DATE_NAISSANCE_MANQUANTE'
                     ? 'Date de naissance à faire renseigner par votre responsable'
-                    : THEORETICAL_STAGE_REASON_LABELS[scout.stageReason]}
+                    : STAGE_STATUS_SHORT_LABELS[scout.stageReason]}
                 </span>
               </Missing>
             )}

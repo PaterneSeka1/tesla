@@ -14,7 +14,7 @@ export interface CachedResponse {
 /**
  * Jamais conservé sur l'appareil : session, réservations hors ligne, passation en ligne, et tout ce
  * qui contient corrigés ou barèmes (rédaction et revue des questionnaires, corrections, examen des
- * résultats), ainsi que la gestion des comptes et la fiche médicale personnelle (D137). Ces
+ * résultats), la supervision de la progression (D176), ainsi que la gestion des comptes et la fiche médicale personnelle (D137). Ces
  * écrans exigent le serveur (D113).
  */
 const EXCLUDED_PREFIXES = [
@@ -34,6 +34,9 @@ export function isCacheablePath(path: string) {
   return (
     !EXCLUDED_PREFIXES.some((prefix) => path.startsWith(prefix)) &&
     !path.includes('/pdf') &&
+    // Supervision de la progression et exceptions (motifs confidentiels, D176) : serveur seulement.
+    !path.includes('/stage-supervision') &&
+    !path.includes('/stage-overrides') &&
     !path.endsWith('/distribution')
   );
 }

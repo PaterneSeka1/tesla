@@ -1,10 +1,6 @@
 'use client';
 
-import {
-  PROGRESSION_STAGES,
-  type ScoutPathway,
-  THEORETICAL_STAGE_REASON_LABELS,
-} from '@tesla/shared';
+import { PROGRESSION_STAGES, type ScoutPathway, STAGE_STATUS_SHORT_LABELS } from '@tesla/shared';
 import { CalendarClock, Flag, Hourglass, Route } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,7 +34,8 @@ function remaining(days: number): string {
 }
 
 /**
- * Synthèse du parcours : âge, étape actuelle calculée par l'API selon l'âge (D173), échéances.
+ * Synthèse du parcours : âge, étape actuelle (calculée par l'API, D173, D176), échéances. Aucune
+ * explication du calcul (réservée au responsable plein).
  * L'étape n'est jamais saisie ; elle ne valide aucun acquis.
  */
 export function PathwaySummary({
@@ -89,7 +86,7 @@ export function PathwaySummary({
             {/* Étape déterminée : l'échéance est donnée par « Prochaine échéance » ci-dessous. */}
             {age.reason !== 'REGLE' && (
               <CardContent className="text-sm text-muted-foreground">
-                {THEORETICAL_STAGE_REASON_LABELS[age.reason]}
+                {STAGE_STATUS_SHORT_LABELS[age.reason]}
               </CardContent>
             )}
           </Card>
@@ -121,7 +118,7 @@ export function PathwaySummary({
           </span>
         </p>
       )}
-      {/* Référence du calcul : utile à l'encadrement seulement (vérification du référentiel). */}
+      {/* Référence du calcul : transmise par l'API au seul responsable plein (D176). */}
       {audience === 'encadrement' && age.ruleSetVersion && (
         <p className="text-xs text-muted-foreground">
           Référentiel d’âge {age.ruleSetVersion}, calcul au {formatCivilDate(age.referenceDate)}.

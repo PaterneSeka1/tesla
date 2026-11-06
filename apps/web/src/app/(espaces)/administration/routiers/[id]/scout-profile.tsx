@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { THEORETICAL_STAGE_REASON_LABELS } from '@tesla/shared';
+import { STAGE_STATUS_SHORT_LABELS, THEORETICAL_STAGE_REASON_LABELS } from '@tesla/shared';
 import { Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -17,6 +17,7 @@ import { scoutQueryOptions } from '@/lib/api/scouts';
 import { formatDate, formatDateTime, fullName } from '@/lib/format';
 import { PedagogicalFile } from './pedagogical-file';
 import { ScoutActions } from './scout-actions';
+import { StageSupervisionSection } from './stage-supervision-section';
 
 /** Information absente : jamais de valeur fictive (D173). */
 function Missing({ children }: { children: React.ReactNode }) {
@@ -44,6 +45,9 @@ export function ScoutProfileView() {
   const isResponsable = userCan(user, 'scout.update');
   // Le dossier pédagogique n'est jamais ouvert à l'administrateur (permissions distinctes).
   const pedagogy = userCan(user, 'progression.read');
+  // Règles du calcul et exception de secours : responsable plein en fonction seulement (D176).
+  const supervise = userCan(user, 'progression.supervise');
+  const reasonLabels = supervise ? THEORETICAL_STAGE_REASON_LABELS : STAGE_STATUS_SHORT_LABELS;
 
   return (
     <>
@@ -109,9 +113,7 @@ export function ScoutProfileView() {
                   Étape non déterminée
                   {/* Le motif « date de naissance manquante » figure déjà sur le champ voisin. */}
                   {scout.stageReason !== 'DATE_NAISSANCE_MANQUANTE' && (
-                    <span className="block text-xs">
-                      {THEORETICAL_STAGE_REASON_LABELS[scout.stageReason]}
-                    </span>
+                    <span className="block text-xs">{reasonLabels[scout.stageReason]}</span>
                   )}
                 </Missing>
               )}
@@ -151,6 +153,8 @@ export function ScoutProfileView() {
       </Card>
 
       {userCan(user, 'catchUp.read') && <PathwaySection scoutId={scout.id} user={user} />}
+
+      {supervise && <StageSupervisionSection scoutId={scout.id} />}
 
       {pedagogy && <PedagogicalFile scoutId={scout.id} />}
     </>

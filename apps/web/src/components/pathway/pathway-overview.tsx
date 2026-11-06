@@ -42,18 +42,15 @@ export function PathwayOverviewPanel() {
         <Figure
           label="Dates de naissance manquantes"
           value={d.missingBirthDate}
-          hint="Empêchent le calcul de l’étape et de la sortie."
+          hint="À faire compléter."
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Étapes (calculées selon l’âge)</CardTitle>
-            <CardDescription>
-              {d.ruleSetVersion
-                ? `Référentiel ${d.ruleSetVersion}`
-                : 'Aucun référentiel d’âge en vigueur'}
-            </CardDescription>
+            <CardTitle className="text-base">Étapes</CardTitle>
+            {/* Version du référentiel : transmise au seul responsable plein (D176). */}
+            {d.ruleSetVersion && <CardDescription>Référentiel {d.ruleSetVersion}</CardDescription>}
           </CardHeader>
           <CardContent>
             <ul className="space-y-1 text-sm">

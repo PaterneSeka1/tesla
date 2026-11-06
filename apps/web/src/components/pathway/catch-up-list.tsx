@@ -111,7 +111,8 @@ export function CatchUpList({
   }
   return (
     <div className="space-y-3">
-      {deadlineUndetermined && audience === 'encadrement' && (
+      {/* Arbitrages et positions par rapport à l'arrivée : supervision du plein (D176). */}
+      {deadlineUndetermined && canDecide && (
         <p className="text-sm text-muted-foreground">
           Durée de rattrapage non arbitrée : échéances non déterminées.
         </p>
@@ -142,16 +143,16 @@ export function CatchUpList({
                 {obligation.acceptedAttempts > 0 &&
                   `, ${obligation.acceptedAttempts} résultat(s) accepté(s)`}
               </p>
-              {audience === 'encadrement' && obligation.arrival !== 'INCONNUE' && (
+              {canDecide && obligation.arrival !== 'INCONNUE' && (
                 <p className="text-xs text-muted-foreground">
                   {CATCH_UP_ARRIVAL_LABELS[obligation.arrival]}
                 </p>
               )}
               {obligation.status === 'A_REEXAMINER' && (
                 <p className="text-sm">
-                  {audience === 'routier'
-                    ? 'En attente d’une décision du responsable.'
-                    : 'L’étape d’origine n’est plus échue d’après les données actuelles : décision attendue.'}
+                  {canDecide
+                    ? 'L’étape d’origine n’est plus échue d’après les données actuelles : décision attendue.'
+                    : 'En attente d’une décision du responsable.'}
                 </p>
               )}
               {obligation.decisionReason && (

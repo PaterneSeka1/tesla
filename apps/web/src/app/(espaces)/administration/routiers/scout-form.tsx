@@ -8,7 +8,7 @@ import {
   SCOUT_ADMIN_FIELD_LABELS,
   type ScoutAdminField,
   type ScoutDetail,
-  THEORETICAL_STAGE_REASON_LABELS,
+  STAGE_STATUS_SHORT_LABELS,
 } from '@tesla/shared';
 import { TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
@@ -80,8 +80,7 @@ function BirthDateImpact({ scoutId, birthDate }: { scoutId: string; birthDate: s
   if (!impact.data) return null;
   const { current, next, newCatchUps, catchUpsToReview } = impact.data;
   const stage = (snapshot: typeof current) =>
-    snapshot.stage?.name ??
-    `non déterminée (${THEORETICAL_STAGE_REASON_LABELS[snapshot.stageReason].toLowerCase()})`;
+    snapshot.stage?.name ?? STAGE_STATUS_SHORT_LABELS[snapshot.stageReason].toLowerCase();
   return (
     <ul className="list-disc space-y-1 pl-5 text-sm">
       <li>
