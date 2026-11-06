@@ -154,11 +154,16 @@ model ScoutProfile {
   matricule         String?               @unique
   firstName         String                @map("first_name")
   lastName          String                @map("last_name")
-  /// Utilisée uniquement pour les durées d'étape dépendant de l'âge (règle à arbitrer).
+  /// Seule source de l'étape actuelle, calculée avec le référentiel d'âge en vigueur (D173).
   birthDate         DateTime?             @map("birth_date") @db.Date
-  joinedAt          DateTime              @map("joined_at") @db.Date
+  /// Date réelle d'entrée à la Route : ancienneté et suivi des rattrapages, jamais l'étape. Nulle tant
+  /// qu'elle n'est pas renseignée (jamais remplacée par la date du jour).
+  joinedAt          DateTime?             @map("joined_at") @db.Date
+  /// **Historique figé (D173)** : dernière étape officielle décidée avant le calcul automatique.
+  /// Jamais lue pour une décision ni affichée comme étape actuelle ; toute écriture est refusée par
+  /// le trigger `scout_profiles_stage_frozen`.
   currentStageId    String?               @map("current_stage_id") @db.Uuid
-  /// Date d'effet de l'étape courante (renseignée par chaque décision de l'historique des étapes).
+  /// Historique figé (D173), voir `currentStageId`.
   currentStageSince DateTime?             @map("current_stage_since") @db.Date
   /// Profil désactivé (départ, inactivité) : conservé avec tout son historique, jamais supprimé.
   isActive          Boolean               @default(true) @map("is_active")
