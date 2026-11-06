@@ -109,6 +109,8 @@ model User {
   ageRuleSetsActivated         AgeRuleSet[]              @relation("AgeRuleSetActivatedBy")
   catchUpDecisions             CatchUpObligation[]       @relation("CatchUpDecidedBy")
   membershipEvents             RouteMembershipEvent[]
+  stageOverridesCreated        StageOverride[]           @relation("StageOverrideCreatedBy")
+  stageOverridesLifted         StageOverride[]           @relation("StageOverrideLiftedBy")
   scoutYearsCreated            ScoutYear[]
   mandates                     LeadershipMandate[]       @relation("MandateHolder")
   mandatesRecorded             LeadershipMandate[]       @relation("MandateRecordedBy")
@@ -187,6 +189,7 @@ model ScoutProfile {
   attendances           ActivityAttendance[]
   catchUpObligations    CatchUpObligation[]
   membershipEvents      RouteMembershipEvent[]
+  stageOverrides        StageOverride[]
 
   @@index([currentStageId])
   @@index([membershipStatus])
@@ -217,6 +220,8 @@ model ProgressionStage {
   programmeCategories ProgrammeCategory[]
   ageRules            AgeStageRule[]
   catchUpObligations  CatchUpObligation[]
+  stageOverrides      StageOverride[]     @relation("StageOverrideStage")
+  stageOverridesFrom  StageOverride[]     @relation("StageOverrideComputedStage")
 
   @@map("progression_stages")
 }
@@ -1666,6 +1671,8 @@ model AgeRuleSet {
   notes              String?
   branchExitAgeYears Int?             @map("branch_exit_age_years")
   catchUpDelayMonths Int?             @map("catch_up_delay_months")
+  /// Délai par étape à rattraper, en jours (D177) ; prioritaire sur le délai en mois.
+  catchUpDelayDays   Int?             @map("catch_up_delay_days")
   exitAlertMonths    Int?             @map("exit_alert_months")
   activatedAt        DateTime?        @map("activated_at") @db.Timestamptz(3)
   /// Null = activé par le système (seed de la règle fournie par le responsable).
@@ -1730,6 +1737,43 @@ model RouteMembershipEvent {
 
   @@unique([scoutProfileId, kind, effectiveOn])
   @@map("route_membership_events")
+}
+
+/// Correction exceptionnelle et temporaire de l'étape (procédure de secours, D176). Ajout seul : seule
+/// la levée (`lifted_*`, une fois) est permise ; jamais supprimée (trigger `stage_overrides_guard`).
+/// Au plus une exception non levée par période (exclusion `stage_overrides_no_overlap`). Ne modifie
+/// jamais l'étape normale calculée selon l'âge ni la sortie de la branche.
+model StageOverride {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  scoutProfileId    String    @map("scout_profile_id") @db.Uuid
+  /// Étape appliquée pendant l'exception.
+  stageId           String    @map("stage_id") @db.Uuid
+  /// Étape normalement calculée au moment de la demande (nulle = non déterminée).
+  computedStageId   String?   @map("computed_stage_id") @db.Uuid
+  /// Version du référentiel d'âge appliquée au moment de la demande.
+  ruleSetVersion    String?   @map("rule_set_version")
+  reason            String
+  /// Premier et dernier jour d'application (inclus).
+  startsOn          DateTime  @map("starts_on") @db.Date
+  endsOn            DateTime  @map("ends_on") @db.Date
+  createdById       String    @map("created_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  liftedAt          DateTime? @map("lifted_at") @db.Timestamptz(3)
+  liftedById        String?   @map("lifted_by_id") @db.Uuid
+  liftReason        String?   @map("lift_reason")
+
+  scoutProfile  ScoutProfile      @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  stage         ProgressionStage  @relation("StageOverrideStage", fields: [stageId], references: [id], onDelete: Restrict)
+  computedStage ProgressionStage? @relation("StageOverrideComputedStage", fields: [computedStageId], references: [id], onDelete: Restrict)
+  createdBy     User              @relation("StageOverrideCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  liftedBy      User?             @relation("StageOverrideLiftedBy", fields: [liftedById], references: [id], onDelete: Restrict)
+
+  @@index([scoutProfileId, startsOn])
+  @@index([stageId])
+  @@index([computedStageId])
+  @@index([createdById])
+  @@index([liftedById])
+  @@map("stage_overrides")
 }
 
 enum CatchUpDecision {

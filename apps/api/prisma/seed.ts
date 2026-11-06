@@ -15,7 +15,7 @@ import { PROGRAMME_CATEGORIES, PROGRESSION_STAGES, type ProgressionStageCode } f
 import { type Role } from '../src/generated/prisma/enums.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { hashPassword } from '../src/modules/auth/password.js';
-import { seedInitialAgeRuleSet } from './seeds/age-rules.seed.js';
+import { seedAgeRuleSet2026_2, seedInitialAgeRuleSet } from './seeds/age-rules.seed.js';
 import { FUNDAMENTAL_TEXTS, ROUTE_MODULES } from './seeds/route-bibliotheque.seed.js';
 import { SCOUTISME_BASE_MODULES } from './seeds/scoutisme-base.seed.js';
 import { formatImportReport, importSourceModules } from './seeds/source-modules.js';
@@ -171,6 +171,7 @@ try {
   );
 
   await seedInitialAgeRuleSet(prisma);
+  await seedAgeRuleSet2026_2(prisma);
 
   console.log(
     formatImportReport(
