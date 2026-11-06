@@ -10,6 +10,7 @@ import {
   type AgeRuleSet,
   type AgeRuleSetList,
   type AgeRuleSetSnapshot,
+  type CatchUpArrival,
   catchUpDueOn,
   catchUpStatus,
   compareCivilDates,
@@ -20,7 +21,6 @@ import {
   type CatchUpObligation,
   type PathwayOverview,
   type ScoutPathway,
-  stageGap,
   stagePeriods,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
@@ -40,6 +40,7 @@ import {
   todayCivil,
   toSnapshot,
 } from './age-rules.js';
+import { computedStageOf, loadStageContext, type StageContext } from './computed-stage.js';
 import {
   moduleRefSelect,
   scoutProfileNotFound,
@@ -54,7 +55,6 @@ const toDate = (value: string): Date => new Date(`${value}T00:00:00Z`);
 
 const profileInclude = {
   ...scoutRefInclude,
-  currentStage: true,
 } as const satisfies Prisma.ScoutProfileInclude;
 
 type ProfileRow = Prisma.ScoutProfileGetPayload<{ include: typeof profileInclude }>;
@@ -96,6 +96,34 @@ export function expectedCatchUps(
   return mandatory
     .filter((module) => ended.has(module.stageCode))
     .map((module) => ({ module, endedOn: ended.get(module.stageCode)! }));
+}
+
+/** Étapes dont la période est échue à la date de référence, avec leur date d'échéance. */
+function endedStages(
+  birthDate: string | null,
+  rules: AgeRuleSetSnapshot | null,
+  referenceDate: string,
+): Map<string, string> {
+  if (!birthDate || !rules) return new Map();
+  return new Map(
+    stagePeriods(birthDate, rules)
+      .filter(
+        (period) => period.endsOn !== null && compareCivilDates(period.endsOn, referenceDate) <= 0,
+      )
+      .map((period) => [period.stageCode, period.endsOn!]),
+  );
+}
+
+/**
+ * Position de l'échéance de l'étape d'origine par rapport à l'entrée à la Route : information de
+ * suivi seulement (une arrivée tardive ne dispense d'aucun module).
+ */
+export function catchUpArrival(
+  endedOn: string | undefined,
+  joinedAt: string | null,
+): CatchUpArrival {
+  if (!endedOn || !joinedAt) return 'INCONNUE';
+  return compareCivilDates(endedOn, joinedAt) <= 0 ? 'AVANT_ARRIVEE' : 'APRES_ARRIVEE';
 }
 
 /**
@@ -312,14 +340,47 @@ export class PathwayService {
     );
   }
 
+  /**
+   * Effets d'une date de naissance hypothétique sur le plan de rattrapage, sans écriture : nouvelles
+   * obligations attendues et obligations sans décision qui ne seraient plus échues.
+   */
+  async catchUpImpact(
+    profileId: string,
+    birthDate: string | null,
+    context: StageContext,
+  ): Promise<{ newCatchUps: number; catchUpsToReview: number }> {
+    const [existing, mandatory] = await Promise.all([
+      this.prisma.catchUpObligation.findMany({
+        where: { scoutProfileId: profileId },
+        select: { moduleId: true, decision: true, originStage: { select: { code: true } } },
+      }),
+      this.mandatoryModules(),
+    ]);
+    const ended = endedStages(birthDate, context.rules, context.today);
+    const exited =
+      birthDate !== null &&
+      ageProgressionOf({ birthDate: toDate(birthDate) }, context.rules, context.today)
+        .membership === 'SORTI';
+    const known = new Set(existing.map((row) => row.moduleId));
+    return {
+      newCatchUps: exited
+        ? 0
+        : mandatory.filter((module) => ended.has(module.stageCode) && !known.has(module.moduleId))
+            .length,
+      catchUpsToReview: existing.filter(
+        (row) => row.decision === null && !ended.has(row.originStage.code),
+      ).length,
+    };
+  }
+
   private async build(profile: ProfileRow): Promise<ScoutPathway> {
-    const today = todayCivil();
-    const rules = await loadRuleSetRow(this.prisma, today);
+    const context = await loadStageContext(this.prisma);
+    const { today, ruleSet: rules, rules: snapshot } = context;
     await this.sync(profile, rules, today);
-    const snapshot = rules && toSnapshot(rules);
-    const age = ageProgressionOf(profile, snapshot, today);
-    const [stages, obligations, mandatory] = await Promise.all([
-      this.prisma.progressionStage.findMany({ orderBy: { position: 'asc' } }),
+    const computed = computedStageOf(profile, context);
+    const age = computed.progression;
+    const stage = computed.stage;
+    const [obligations, mandatory] = await Promise.all([
       this.prisma.catchUpObligation.findMany({
         where: { scoutProfileId: profile.id },
         include: obligationInclude,
@@ -327,7 +388,6 @@ export class PathwayService {
       }),
       this.mandatoryModules(),
     ]);
-    const theoretical = stages.find((stage) => stage.code === age.theoreticalStageCode) ?? null;
     const moduleIds = obligations.map((row) => row.moduleId);
 
     const [studies, attempts, stageModules] = await Promise.all([
@@ -344,9 +404,9 @@ export class PathwayService {
         },
         select: { status: true, evaluation: { select: { moduleId: true } } },
       }),
-      theoretical
+      stage
         ? this.prisma.pedagogicalModule.findMany({
-            where: { publishedVersion: { is: { stageId: theoretical.id } } },
+            where: { publishedVersion: { is: { stageId: stage.id } } },
             select: {
               ...moduleRefSelect.select,
               publishedVersion: { select: { title: true, obligation: true, officialSource: true } },
@@ -357,6 +417,8 @@ export class PathwayService {
     ]);
     const studiedCount = new Map(studies.map((row) => [row.moduleId, row._count._all]));
     const stillRequired = new Set(mandatory.map((module) => module.moduleId));
+    const ended = endedStages(profile.birthDate && iso(profile.birthDate), snapshot, today);
+    const joinedAt = profile.joinedAt && iso(profile.joinedAt);
 
     const catchUps = obligations.map((row) =>
       toObligation(row, today, {
@@ -366,15 +428,15 @@ export class PathwayService {
           (a) => a.evaluation.moduleId === row.moduleId && a.status === 'VALIDEE',
         ).length,
         stillRequired: stillRequired.has(row.moduleId),
+        stillDue: ended.has(row.originStage.code),
+        arrival: catchUpArrival(ended.get(row.originStage.code), joinedAt),
       }),
     );
 
     return {
       scout: toScoutRef(profile),
       age,
-      theoreticalStage: theoretical && toStageSummary(theoretical),
-      officialStage: profile.currentStage && toStageSummary(profile.currentStage),
-      gap: stageGap(theoretical?.position ?? null, profile.currentStage?.position ?? null),
+      stage: toStageSummary(stage),
       membership: {
         status: effectiveMembership(profile, snapshot, today),
         exitedOn: profile.branchExitedOn ? iso(profile.branchExitedOn) : null,
@@ -395,10 +457,9 @@ export class PathwayService {
   /** Indicateurs de parcours pour l'encadrement (calculés à la lecture, filtre d'équipe facultatif). */
   async overview(actor: Actor, teamId?: string): Promise<PathwayOverview> {
     assertCan(actor, 'statistics.read');
-    const today = todayCivil();
-    const rules = await loadRuleSetRow(this.prisma, today);
-    const snapshot = rules && toSnapshot(rules);
-    const [profiles, stages, obligations] = await Promise.all([
+    const context = await loadStageContext(this.prisma);
+    const { today, ruleSet: rules, rules: snapshot, stages } = context;
+    const [profiles, obligations] = await Promise.all([
       this.prisma.scoutProfile.findMany({
         where: {
           isActive: true,
@@ -406,7 +467,6 @@ export class PathwayService {
         },
         include: profileInclude,
       }),
-      this.prisma.progressionStage.findMany({ orderBy: { position: 'asc' } }),
       this.prisma.catchUpObligation.findMany({
         where: {
           decision: null,
@@ -430,7 +490,6 @@ export class PathwayService {
     ).length;
 
     const stageCounts = new Map<string | null, number>();
-    const gapCounts = new Map<string, number>();
     const upcoming: PathwayOverview['upcomingExits'] = [];
     let active = 0;
     let exited = 0;
@@ -440,11 +499,8 @@ export class PathwayService {
         continue;
       }
       active += 1;
-      const age = ageProgressionOf(profile, snapshot, today);
-      const theoretical = stages.find((stage) => stage.code === age.theoreticalStageCode) ?? null;
-      stageCounts.set(theoretical?.id ?? null, (stageCounts.get(theoretical?.id ?? null) ?? 0) + 1);
-      const gap = stageGap(theoretical?.position ?? null, profile.currentStage?.position ?? null);
-      gapCounts.set(gap, (gapCounts.get(gap) ?? 0) + 1);
+      const { stage, progression: age } = computedStageOf(profile, context);
+      stageCounts.set(stage?.id ?? null, (stageCounts.get(stage?.id ?? null) ?? 0) + 1);
       if (age.branchExitOn && age.daysUntilExit !== null) {
         upcoming.push({
           scout: toScoutRef(profile),
@@ -460,16 +516,12 @@ export class PathwayService {
       activeMembers: active,
       exitedMembers: exited,
       missingBirthDate: profiles.filter((profile) => !profile.birthDate).length,
-      byTheoreticalStage: [
+      byStage: [
         ...stages
           .filter((stage) => stageCounts.has(stage.id))
           .map((stage) => ({ stage: toStageSummary(stage), count: stageCounts.get(stage.id)! })),
         ...(stageCounts.has(null) ? [{ stage: null, count: stageCounts.get(null)! }] : []),
       ],
-      byGap: [...gapCounts].map(([gap, count]) => ({
-        gap: gap as PathwayOverview['byGap'][number]['gap'],
-        count,
-      })),
       upcomingExits: upcoming.sort((a, b) => a.daysUntilExit - b.daysUntilExit).slice(0, 8),
       catchUps: {
         open: obligations.length,
@@ -533,6 +585,8 @@ export class PathwayService {
         attempts: 0,
         acceptedAttempts: 0,
         stillRequired: true,
+        stillDue: true,
+        arrival: 'INCONNUE',
       });
     });
   }
@@ -541,7 +595,14 @@ export class PathwayService {
 function toObligation(
   row: ObligationRow,
   today: string,
-  facts: { studies: number; attempts: number; acceptedAttempts: number; stillRequired: boolean },
+  facts: {
+    studies: number;
+    attempts: number;
+    acceptedAttempts: number;
+    stillRequired: boolean;
+    stillDue: boolean;
+    arrival: CatchUpArrival;
+  },
 ): CatchUpObligation {
   const dueOn = row.dueOn ? iso(row.dueOn) : null;
   return {
@@ -561,6 +622,8 @@ function toObligation(
     decidedAt: row.decidedAt?.toISOString() ?? null,
     decidedBy: row.decidedBy && toUserSummary(row.decidedBy),
     stillRequired: facts.stillRequired,
+    stillDue: facts.stillDue,
+    arrival: facts.arrival,
   };
 }
 

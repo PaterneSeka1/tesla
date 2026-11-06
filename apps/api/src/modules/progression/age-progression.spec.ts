@@ -7,9 +7,10 @@ import {
   catchUpStatus,
   civilDateAt,
   computeAgeProgression,
-  stageGap,
+  elapsedYearsMonths,
 } from '@tesla/shared';
-import { expectedCatchUps } from './pathway.service.js';
+import { computedStageOf, type StageContext } from './computed-stage.js';
+import { catchUpArrival, expectedCatchUps } from './pathway.service.js';
 
 // Référentiel de test : seules les deux règles fournies par le responsable (noviciat d'un mois
 // à 18 ans, sortie à 21 ans). Aucune autre période n'est inventée.
@@ -202,11 +203,87 @@ describe('Obligations de rattrapage attendues', () => {
   });
 });
 
-describe('Écart entre étape officielle et théorique', () => {
-  it('information d’accompagnement uniquement', () => {
-    expect(stageGap(1, 1)).toBe('ALIGNEE');
-    expect(stageGap(1, 2)).toBe('EN_AVANCE');
-    expect(stageGap(2, 1)).toBe('EN_RETARD');
-    expect(stageGap(null, 1)).toBe('INDETERMINE');
+describe('Étape actuelle calculée (D173)', () => {
+  const stages = [
+    { id: 'n', code: 'NOVICIAT', name: 'Noviciat', position: 1 },
+    { id: 'a', code: 'APPRENTISSAGE', name: 'Apprentissage', position: 2 },
+  ] as unknown as StageContext['stages'];
+  const context = (today: string, rules: AgeRuleSetSnapshot | null = RULES): StageContext => ({
+    today,
+    ruleSet: null,
+    rules,
+    stages,
+  });
+  const born = (date: string) => ({ birthDate: new Date(`${date}T00:00:00Z`) });
+
+  it('le jour des 18 ans et pendant le mois de noviciat : Noviciat', () => {
+    expect(computedStageOf(born('2008-05-10'), context('2026-05-10')).stage?.code).toBe('NOVICIAT');
+    expect(computedStageOf(born('2008-05-10'), context('2026-06-09')).stage?.code).toBe('NOVICIAT');
+  });
+
+  it('à l’échéance du noviciat sans règle validée : étape non déterminée, jamais substituée', () => {
+    const computed = computedStageOf(born('2008-05-10'), context('2026-06-10'));
+    expect(computed.stage).toBeNull();
+    expect(computed.reason).toBe('AUCUNE_REGLE');
+  });
+
+  it('veille des 18 ans : non déterminée', () => {
+    expect(computedStageOf(born('2008-05-10'), context('2026-05-09')).stage).toBeNull();
+  });
+
+  it('date de naissance ou référentiel manquants : motif explicite', () => {
+    expect(computedStageOf({ birthDate: null }, context('2026-05-10')).reason).toBe(
+      'DATE_NAISSANCE_MANQUANTE',
+    );
+    expect(computedStageOf(born('2008-05-10'), context('2026-05-10', null)).reason).toBe(
+      'AUCUN_REFERENTIEL',
+    );
+  });
+
+  it('le jour des 21 ans, ou une sortie enregistrée : aucune étape', () => {
+    expect(computedStageOf(born('2005-05-10'), context('2026-05-10')).reason).toBe('SORTI');
+    expect(
+      computedStageOf({ ...born('2008-05-10'), membershipStatus: 'SORTI' }, context('2026-05-10'))
+        .stage,
+    ).toBeNull();
+  });
+
+  it('une période supplémentaire validée est appliquée telle quelle', () => {
+    const rules: AgeRuleSetSnapshot = {
+      ...RULES,
+      stages: [
+        ...RULES.stages,
+        {
+          stageCode: 'APPRENTISSAGE',
+          start: { years: 18, months: 1 },
+          end: { years: 19, months: 0 },
+        },
+      ],
+    };
+    expect(computedStageOf(born('2008-05-10'), context('2026-06-10', rules)).stage?.code).toBe(
+      'APPRENTISSAGE',
+    );
+  });
+
+  it('une date de naissance corrigée change l’étape sans autre intervention', () => {
+    expect(computedStageOf(born('2008-05-10'), context('2026-05-20')).stage?.code).toBe('NOVICIAT');
+    expect(computedStageOf(born('2008-08-10'), context('2026-05-20')).stage).toBeNull();
+  });
+});
+
+describe('Ancienneté et date d’entrée', () => {
+  it('années et mois révolus', () => {
+    expect(elapsedYearsMonths('2024-09-05', '2026-11-05')).toEqual({ years: 2, months: 2 });
+    expect(elapsedYearsMonths('2024-09-05', '2026-11-04')).toEqual({ years: 2, months: 1 });
+    expect(elapsedYearsMonths('2026-01-31', '2026-02-28')).toEqual({ years: 0, months: 1 });
+    expect(elapsedYearsMonths('2026-11-05', '2026-11-05')).toEqual({ years: 0, months: 0 });
+    expect(elapsedYearsMonths('2026-11-06', '2026-11-05')).toBeNull();
+  });
+
+  it('position d’un rattrapage par rapport à l’arrivée (jamais une dispense)', () => {
+    expect(catchUpArrival('2026-06-10', '2026-09-05')).toBe('AVANT_ARRIVEE');
+    expect(catchUpArrival('2026-10-10', '2026-09-05')).toBe('APRES_ARRIVEE');
+    expect(catchUpArrival('2026-06-10', null)).toBe('INCONNUE');
+    expect(catchUpArrival(undefined, '2026-09-05')).toBe('INCONNUE');
   });
 });

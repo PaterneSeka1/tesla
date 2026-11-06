@@ -43,11 +43,12 @@ import {
   toValidation,
   validationInclude,
 } from './progression-common.js';
+import { computedStageOf, loadStageContext, type StageContext } from './computed-stage.js';
 
 type Tx = Prisma.TransactionClient;
 
 const proposalInclude = {
-  scoutProfile: { include: { ...scoutRefInclude, currentStage: true } },
+  scoutProfile: { include: scoutRefInclude },
   competency: { include: { stage: true } },
   proposedBy: userSummarySelect,
   decidedBy: userSummarySelect,
@@ -85,14 +86,14 @@ function invalidEvidence(message: string): UnprocessableEntityException {
 export class CompetencyProposalsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private toProposal(actor: Actor, row: ProposalRow): Proposal {
+  private toProposal(actor: Actor, row: ProposalRow, context: StageContext): Proposal {
     const isOpen = OPEN_STATUSES.includes(row.status);
     return {
       id: row.id,
       status: row.status,
       scout: {
         ...toScoutRef(row.scoutProfile),
-        stage: toStageSummary(row.scoutProfile.currentStage),
+        stage: toStageSummary(computedStageOf(row.scoutProfile, context).stage),
       },
       competency: {
         id: row.competency.id,
@@ -161,7 +162,13 @@ export class CompetencyProposalsService {
         take: pageSize,
       }),
     ]);
-    return { items: rows.map((row) => this.toProposal(actor, row)), page, pageSize, total };
+    const context = await loadStageContext(this.prisma);
+    return {
+      items: rows.map((row) => this.toProposal(actor, row, context)),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async get(actor: Actor, id: string): Promise<Proposal> {
@@ -171,7 +178,7 @@ export class CompetencyProposalsService {
       include: proposalInclude,
     });
     if (!row) throw proposalNotFound();
-    return this.toProposal(actor, row);
+    return this.toProposal(actor, row, await loadStageContext(this.prisma));
   }
 
   /** Vérifie que chaque élément existe, concerne ce routier et est consultable par l'auteur. */

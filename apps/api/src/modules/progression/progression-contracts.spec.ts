@@ -3,7 +3,6 @@ import {
   ACTIVITY_ORIGINS,
   ACTIVITY_STATUSES,
   ATTENDANCE_STATUSES,
-  changeStageInputSchema,
   COMPETENCY_DECISIONS,
   computeCompetencyStatus,
   createCompetencyInputSchema,
@@ -90,21 +89,6 @@ describe('Statut d’une compétence (aucune validation automatique)', () => {
 });
 
 describe('Contrats de la phase 4', () => {
-  const stageChange = {
-    expectedCurrentStageId: null,
-    toStageId: ID,
-    effectiveOn: '2026-10-24',
-    reason: 'Décision fictive motivée',
-  };
-
-  it('le changement d’étape exige une confirmation explicite et un motif', () => {
-    expect(changeStageInputSchema.safeParse(stageChange).success).toBe(false);
-    expect(changeStageInputSchema.safeParse({ ...stageChange, confirm: true }).success).toBe(true);
-    expect(
-      changeStageInputSchema.safeParse({ ...stageChange, confirm: true, reason: ' ' }).success,
-    ).toBe(false);
-  });
-
   it('normalise le code de compétence et borne le nombre de preuves exigées', () => {
     const parsed = createCompetencyInputSchema.parse({ code: 'serv-01', name: 'Service fictif' });
     expect(parsed).toMatchObject({ code: 'SERV-01', minEvidenceCount: 1, observableCriteria: [] });
@@ -226,7 +210,6 @@ describe('Permissions de la phase 4', () => {
       'competency.decide',
       'competency.manage',
       'programme.configure',
-      'scout.setStage',
       'dashboard.official',
     ] as const) {
       expect(can(responsable, permission)).toBe(true);

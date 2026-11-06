@@ -11,7 +11,6 @@ import {
 import {
   type AddEvidenceInput,
   type CancelModuleStudyInput,
-  type ChangeStageInput,
   type CreateCompetencyInput,
   type CreateProposalInput,
   type DeclareModuleStudyInput,
@@ -22,7 +21,6 @@ import {
   type UpdateCompetencyInput,
   addEvidenceInputSchema,
   cancelModuleStudyInputSchema,
-  changeStageInputSchema,
   type Competency,
   type CompetencyListQuery,
   competencySchema,
@@ -48,8 +46,6 @@ import {
   scoutProgressionSchema,
   type ScoutTimeline,
   scoutTimelineSchema,
-  type StageChange,
-  stageChangeSchema,
   type StageListResponse,
   stageListResponseSchema,
   updateCompetencyInputSchema,
@@ -114,22 +110,6 @@ export class ScoutProgressionController {
   @ApiOkResponse({ schema: openApiSchema(scoutTimelineSchema) })
   timeline(@CurrentActor() actor: Actor, @Param('id') id: string): Promise<ScoutTimeline> {
     return this.scouts.timeline(actor, parseId(id));
-  }
-
-  @Post('stage-changes')
-  @ApiOperation({
-    summary: 'Changer l’étape (responsable, décision motivée et confirmée)',
-    description:
-      'Transaction : historique + étape courante + audit. 409 STAGE_CHANGED_MEANWHILE si l’étape lue est périmée. `correctsChangeId` : correction tracée de la dernière décision.',
-  })
-  @ApiBody({ schema: openApiSchema(changeStageInputSchema, 'input') })
-  @ApiCreatedResponse({ schema: openApiSchema(stageChangeSchema) })
-  changeStage(
-    @CurrentActor() actor: Actor,
-    @Param('id') id: string,
-    @Body() body: unknown,
-  ): Promise<StageChange> {
-    return this.scouts.changeStage(actor, parseId(id), body as ChangeStageInput);
   }
 
   @Post('module-studies')

@@ -8,8 +8,6 @@ import {
 import {
   type CancelModuleStudyInput,
   cancelModuleStudyInputSchema,
-  type ChangeStageInput,
-  changeStageInputSchema,
   computeCompetencyStatus,
   type DeclareModuleStudyInput,
   declareModuleStudyInputSchema,
@@ -21,7 +19,6 @@ import {
   type ScoutProgression,
   type ScoutTimeline,
   STAGE_CHANGE_KIND_LABELS,
-  type StageChange,
   STUDY_MODE_LABELS,
   type TimelineKind,
   type UserSummary,
@@ -53,147 +50,22 @@ import {
   validationInclude,
   moduleRefSelect,
 } from './progression-common.js';
+import { computedStageOf, loadStageContext } from './computed-stage.js';
 
 const toNumber = (value: { toNumber(): number } | null) =>
   value === null ? null : value.toNumber();
 
 /**
  * Dossier de progression d'un routier (avec ou sans compte) : étapes, compétences, études de
- * modules, évaluations, présences. Le changement d'étape est un acte officiel du responsable,
- * transactionnel et historisé ; aucune autre action ne modifie l'étape.
+ * modules, évaluations, présences. L'étape est calculée selon l'âge (D173) ; aucune action ne la
+ * modifie. Les décisions d'étape antérieures restent consultables.
  */
 @Injectable()
 export class ScoutProgressionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ─── Changement d'étape ───────────────────────────────────────────────────
-
-  /**
-   * Met à jour l'étape courante et insère l'entrée d'historique dans la même transaction (avec le
-   * journal d'audit) : en cas d'échec, rien n'est conservé. Le profil est verrouillé et l'étape lue
-   * par le responsable (`expectedCurrentStageId`) doit être encore l'étape courante.
-   */
-  async changeStage(
-    actor: Actor,
-    scoutProfileId: string,
-    input: ChangeStageInput,
-  ): Promise<StageChange> {
-    assertCan(actor, 'scout.setStage');
-    const data = parseInput(changeStageInputSchema, input);
-    if (data.effectiveOn > todayIso()) {
-      throw new UnprocessableEntityException({
-        code: 'EFFECTIVE_DATE_IN_FUTURE',
-        message: 'La date d’effet ne peut pas être postérieure à aujourd’hui.',
-      });
-    }
-    try {
-      const changeId = await this.prisma.$transaction(async (tx) => {
-        const rows = await tx.$queryRaw<
-          { current_stage_id: string | null; joined_at: Date; is_active: boolean }[]
-        >`SELECT current_stage_id, joined_at, is_active FROM scout_profiles
-          WHERE id = ${scoutProfileId}::uuid FOR UPDATE`;
-        const profile = rows[0];
-        if (!profile) throw scoutProfileNotFound();
-        if (profile.current_stage_id !== data.expectedCurrentStageId) {
-          throw new ConflictException({
-            code: 'STAGE_CHANGED_MEANWHILE',
-            message: 'L’étape de ce routier a changé entre-temps. Rechargez la fiche.',
-          });
-        }
-        const toStage = await tx.progressionStage.findUnique({ where: { id: data.toStageId } });
-        if (!toStage) {
-          throw new UnprocessableEntityException({
-            code: 'STAGE_NOT_FOUND',
-            message: 'Étape de progression inconnue.',
-          });
-        }
-        if (data.effectiveOn < toIsoDate(profile.joined_at)) {
-          throw new UnprocessableEntityException({
-            code: 'EFFECTIVE_DATE_BEFORE_JOINING',
-            message: 'La date d’effet précède la date d’intégration du routier.',
-          });
-        }
-        if (data.correctsChangeId) {
-          const latest = await tx.scoutStageChange.findFirst({
-            where: { scoutProfileId },
-            orderBy: { decidedAt: 'desc' },
-          });
-          if (!latest || latest.id !== data.correctsChangeId) {
-            throw new ConflictException({
-              code: 'CORRECTION_NOT_LATEST',
-              message: 'Seule la dernière décision d’étape peut être corrigée.',
-            });
-          }
-          if (data.toStageId === profile.current_stage_id) {
-            throw new UnprocessableEntityException({
-              code: 'SAME_STAGE',
-              message: 'La correction doit désigner une étape différente de l’étape actuelle.',
-            });
-          }
-        } else if (data.toStageId === profile.current_stage_id) {
-          throw new UnprocessableEntityException({
-            code: 'SAME_STAGE',
-            message: 'Le routier est déjà à cette étape.',
-          });
-        }
-        if (!profile.is_active) {
-          throw new ConflictException({
-            code: 'SCOUT_INACTIVE',
-            message: 'Ce profil est désactivé : réactivez-le avant toute décision.',
-          });
-        }
-        const change = await tx.scoutStageChange.create({
-          data: {
-            scoutProfileId,
-            kind: data.correctsChangeId ? 'CORRECTION' : 'DECISION',
-            fromStageId: profile.current_stage_id,
-            toStageId: data.toStageId,
-            effectiveOn: isoToDate(data.effectiveOn),
-            decidedById: actor.userId,
-            reason: data.reason,
-            observations: data.observations ?? null,
-            evidence: data.evidence ?? null,
-            ceremonyReference: data.ceremonyReference ?? null,
-            correctsChangeId: data.correctsChangeId ?? null,
-          },
-        });
-        await tx.scoutProfile.update({
-          where: { id: scoutProfileId },
-          data: { currentStageId: data.toStageId, currentStageSince: isoToDate(data.effectiveOn) },
-        });
-        await tx.auditLog.create({
-          data: {
-            actorId: actor.userId,
-            action: 'scout_profile.stage_changed',
-            entityType: 'ScoutProfile',
-            entityId: scoutProfileId,
-            metadata: {
-              changeId: change.id,
-              kind: change.kind,
-              previousStageId: profile.current_stage_id,
-              nextStageId: data.toStageId,
-              correctsChangeId: data.correctsChangeId ?? null,
-            },
-          },
-        });
-        return change.id;
-      });
-      return toStageChange(
-        await this.prisma.scoutStageChange.findUniqueOrThrow({
-          where: { id: changeId },
-          include: stageChangeInclude,
-        }),
-      );
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new ConflictException({
-          code: 'CHANGE_ALREADY_CORRECTED',
-          message: 'Cette décision a déjà été corrigée.',
-        });
-      }
-      throw error;
-    }
-  }
+  // Le changement manuel d'étape est supprimé (D173) : l'étape est calculée selon l'âge
+  // (`computed-stage.ts`) ; l'historique des décisions antérieures reste consultable.
 
   // ─── Études de modules ────────────────────────────────────────────────────
 
@@ -348,9 +220,10 @@ export class ScoutProgressionService {
     assertCan(actor, 'progression.read');
     const profile = await this.prisma.scoutProfile.findUnique({
       where: { id: scoutProfileId },
-      include: { ...scoutRefInclude, currentStage: true },
+      include: scoutRefInclude,
     });
     if (!profile) throw scoutProfileNotFound();
+    const computed = computedStageOf(profile, await loadStageContext(this.prisma));
 
     const [stageChanges, competencies, validations, proposals, studies, attempts, attendances] =
       await Promise.all([
@@ -404,8 +277,8 @@ export class ScoutProgressionService {
         ...toScoutRef(profile),
         isActive: profile.isActive,
         hasAccount: profile.userId !== null,
-        stage: toStageSummary(profile.currentStage),
-        stageSince: profile.currentStageSince ? toIsoDate(profile.currentStageSince) : null,
+        stage: toStageSummary(computed.stage),
+        stageSince: computed.stage ? (computed.progression.period?.startsOn ?? null) : null,
       },
       stageChanges: stageChanges.map(toStageChange),
       competencies,
@@ -690,9 +563,10 @@ export class ScoutProgressionService {
     assertCan(actor, 'progression.readOwn');
     const profile = await this.prisma.scoutProfile.findUnique({
       where: { userId: actor.userId },
-      include: { ...scoutRefInclude, currentStage: true },
+      include: scoutRefInclude,
     });
     if (!profile) throw scoutProfileNotLinked();
+    const computed = computedStageOf(profile, await loadStageContext(this.prisma));
     const [changes, validations, stageCompetencies, studies] = await Promise.all([
       this.prisma.scoutStageChange.findMany({
         where: { scoutProfileId: profile.id },
@@ -704,9 +578,9 @@ export class ScoutProgressionService {
         include: { competency: { select: { id: true, code: true, name: true, domain: true } } },
         orderBy: { decidedAt: 'desc' },
       }),
-      profile.currentStageId
+      computed.stage
         ? this.prisma.competency.findMany({
-            where: { isActive: true, stageId: profile.currentStageId },
+            where: { isActive: true, stageId: computed.stage.id },
             orderBy: [{ position: 'asc' }, { code: 'asc' }],
           })
         : Promise.resolve([]),
@@ -723,8 +597,8 @@ export class ScoutProgressionService {
         firstName: profile.firstName,
         lastName: profile.lastName,
         team: ref.team,
-        stage: toStageSummary(profile.currentStage),
-        stageSince: profile.currentStageSince ? toIsoDate(profile.currentStageSince) : null,
+        stage: toStageSummary(computed.stage),
+        stageSince: computed.stage ? (computed.progression.period?.startsOn ?? null) : null,
       },
       stageChanges: changes
         .filter((row) => !row.correctedBy)

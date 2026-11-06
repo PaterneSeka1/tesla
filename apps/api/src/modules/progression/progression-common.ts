@@ -17,7 +17,7 @@ import {
   userSummarySelect,
 } from '../scouts/presenters.js';
 
-export { scoutProfileNotFound } from '../scouts/scout-profiles.service.js';
+export { scoutProfileNotFound } from '../scouts/presenters.js';
 
 export function scoutProfileNotLinked(): NotFoundException {
   return new NotFoundException({
