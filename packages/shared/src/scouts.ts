@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { paginationQuerySchema, searchQuerySchema, userSummarySchema } from './api.js';
+import { THEORETICAL_STAGE_REASONS } from './age-progression.js';
 import { EVALUATION_MODES, ATTEMPT_STATUSES } from './evaluation-enums.js';
 
 /**
@@ -31,7 +32,39 @@ const personNameSchema = z
 const calendarDateSchema = z.iso.date({ error: 'Date invalide (AAAA-MM-JJ).' });
 
 /**
+ * Données administratives protégées d'un routier (D173) : renseignées uniquement par l'administrateur
+ * ou le responsable plein en fonction, jamais par le routier lui-même. L'étape n'en fait pas partie :
+ * elle est calculée selon l'âge et ne se saisit jamais.
+ */
+export const SCOUT_ADMIN_FIELDS = [
+  'lastName',
+  'firstName',
+  'matricule',
+  'birthDate',
+  'joinedAt',
+] as const;
+
+export type ScoutAdminField = (typeof SCOUT_ADMIN_FIELDS)[number];
+
+export const SCOUT_ADMIN_FIELD_LABELS: Record<ScoutAdminField, string> = {
+  lastName: 'Nom',
+  firstName: 'Prénoms',
+  matricule: 'Matricule',
+  birthDate: 'Date de naissance',
+  joinedAt: 'Date d’entrée à la Route',
+};
+
+/** Motif d'une correction (remplacement ou retrait d'une valeur déjà renseignée), conservé au journal. */
+export const correctionReasonSchema = z
+  .string()
+  .trim()
+  .min(5, { error: 'Indiquez le motif de la correction (5 caractères au minimum).' })
+  .max(500, { error: '500 caractères au maximum.' });
+
+/**
  * Inscription d'un routier, sans adresse e-mail ni mot de passe : aucun compte n'est créé (RM-001).
+ * Pré-inscription incomplète permise : matricule, date de naissance et date d'entrée peuvent rester
+ * non renseignés (jamais remplacés par une valeur fictive ni par la date du jour).
  * `teamId` : affectation initiale facultative (même transaction).
  * `confirmDuplicate` : confirme l'inscription malgré un homonyme déjà enregistré.
  */
@@ -40,8 +73,7 @@ export const createScoutProfileInputSchema = z.object({
   lastName: personNameSchema,
   matricule: matriculeSchema.optional(),
   birthDate: calendarDateSchema.optional(),
-  joinedAt: calendarDateSchema,
-  currentStageId: z.uuid().optional(),
+  joinedAt: calendarDateSchema.optional(),
   teamId: z.uuid().optional(),
   confirmDuplicate: z.boolean().optional(),
 });
@@ -49,8 +81,9 @@ export const createScoutProfileInputSchema = z.object({
 export type CreateScoutProfileInput = z.input<typeof createScoutProfileInputSchema>;
 
 /**
- * Modification d'une fiche. `null` (ou chaîne vide pour le matricule) retire la valeur.
- * Le changement d'étape est réservé au responsable (vérifié par l'API).
+ * Modification administrative d'une fiche (D173). Renseigner une valeur absente est une
+ * **complétion** ; remplacer ou retirer (`null`, chaîne vide pour le matricule) une valeur présente est
+ * une **correction** : motif et confirmation exigés par l'API, ancienne et nouvelle valeurs journalisées.
  */
 export const updateScoutProfileInputSchema = z
   .object({
@@ -58,18 +91,17 @@ export const updateScoutProfileInputSchema = z
     lastName: personNameSchema.optional(),
     matricule: matriculeSchema.nullable().optional(),
     birthDate: calendarDateSchema.nullable().optional(),
-    joinedAt: calendarDateSchema.optional(),
-    currentStageId: z.uuid().nullable().optional(),
+    joinedAt: calendarDateSchema.nullable().optional(),
+    /** Motif, obligatoire dès qu'une valeur déjà renseignée change. */
+    reason: correctionReasonSchema.optional(),
+    /** Confirmation explicite d'une correction. */
+    confirmCorrection: z.literal(true).optional(),
     /** Version de la fiche vue lors de la saisie (synchronisation différée) : conflit si elle a changé. */
     expectedUpdatedAt: z.iso.datetime().optional(),
   })
-  .refine(
-    ({ expectedUpdatedAt: _, ...value }) =>
-      Object.values(value).some((field) => field !== undefined),
-    {
-      message: 'Aucune modification fournie.',
-    },
-  );
+  .refine((value) => SCOUT_ADMIN_FIELDS.some((field) => value[field] !== undefined), {
+    message: 'Aucune modification fournie.',
+  });
 
 export type UpdateScoutProfileInput = z.input<typeof updateScoutProfileInputSchema>;
 
@@ -199,8 +231,12 @@ export const scoutListItemSchema = z.object({
   lastName: z.string(),
   matricule: z.string().nullable(),
   isActive: z.boolean(),
-  joinedAt: z.iso.date(),
+  /** Nulle tant que la date d'entrée n'est pas renseignée. */
+  joinedAt: z.iso.date().nullable(),
+  /** Étape actuelle, calculée par l'API selon l'âge (D173) ; nulle = « Étape non déterminée ». */
   stage: stageSummarySchema.nullable(),
+  /** Origine du calcul de l'étape (déterminée par l'âge, date de naissance manquante…). */
+  stageReason: z.enum(THEORETICAL_STAGE_REASONS),
   team: teamRefSchema.nullable(),
   hasAccount: z.boolean(),
 });
@@ -266,3 +302,33 @@ export type StageListResponse = z.infer<typeof stageListResponseSchema>;
 export const teamAssignmentListSchema = z.object({ items: z.array(teamAssignmentSchema) });
 
 export type TeamAssignmentList = z.infer<typeof teamAssignmentListSchema>;
+
+/** État calculé d'un routier à une date de naissance donnée (aperçu d'une correction). */
+export const computedStageSnapshotSchema = z.object({
+  age: z.number().int().nullable(),
+  stage: stageSummarySchema.nullable(),
+  stageReason: z.enum(THEORETICAL_STAGE_REASONS),
+  branchExitOn: z.iso.date().nullable(),
+});
+
+export type ComputedStageSnapshot = z.infer<typeof computedStageSnapshotSchema>;
+
+export const birthDateImpactQuerySchema = z.object({
+  birthDate: calendarDateSchema.or(z.literal('').transform(() => null)),
+});
+
+/**
+ * Conséquences d'une correction de la date de naissance, montrées avant confirmation (D173) : rien
+ * n'est écrit. Les obligations existantes ne sont jamais effacées : celles qui ne seraient plus
+ * exigées passent « à réexaminer » ; les nouvelles sont créées après l'enregistrement.
+ */
+export const birthDateImpactSchema = z.object({
+  current: computedStageSnapshotSchema,
+  next: computedStageSnapshotSchema,
+  /** Nouvelles obligations de rattrapage qui naîtraient de la correction. */
+  newCatchUps: z.number().int(),
+  /** Obligations sans décision dont l'étape d'origine ne serait plus échue. */
+  catchUpsToReview: z.number().int(),
+});
+
+export type BirthDateImpact = z.infer<typeof birthDateImpactSchema>;

@@ -20,6 +20,7 @@ export * from './age-progression.js';
 export * from './permissions.js';
 export * from './leadership.js';
 export * from './pathway.js';
+export * from './profile.js';
 export * from './medical.js';
 export * from './evaluation-results.js';
 export * from './entreprise.js';

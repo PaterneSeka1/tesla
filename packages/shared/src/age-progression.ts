@@ -116,6 +116,22 @@ export function ageOn(birthDate: string, date: string): number {
   return Math.max(years, 0);
 }
 
+/**
+ * Durée écoulée entre deux dates civiles en années et mois révolus (ancienneté) ; nulle si `to`
+ * précède `from`. Même convention de fin de mois que {@link addCalendarMonths}.
+ */
+export function elapsedYearsMonths(
+  from: string,
+  to: string,
+): { years: number; months: number } | null {
+  if (compareCivilDates(to, from) < 0) return null;
+  const a = parse(from);
+  const b = parse(to);
+  let total = (b.year - a.year) * 12 + (b.month - a.month);
+  if (total > 0 && compareCivilDates(addCalendarMonths(from, total), to) > 0) total -= 1;
+  return { years: Math.floor(total / 12), months: total % 12 };
+}
+
 /** Point d'âge : N années révolues puis M mois calendaires (ex. 18 ans + 1 mois). */
 export interface AgePoint {
   years: number;

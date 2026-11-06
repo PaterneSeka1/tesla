@@ -109,7 +109,7 @@ export const FOLLOW_UP_ABSENCE_STREAK = 2;
 export const FOLLOW_UP_REASON_LABELS: Record<FollowUpReason, string> = {
   COMPETENCE_A_RETRAVAILLER: 'Compétence à retravailler',
   ABSENCES_RECENTES: `Absent (non excusé) aux ${FOLLOW_UP_ABSENCE_STREAK} dernières activités renseignées`,
-  SANS_ETAPE: 'Étape non renseignée',
+  SANS_ETAPE: 'Étape non déterminée',
   SANS_EQUIPE: 'Sans équipe',
 };
 

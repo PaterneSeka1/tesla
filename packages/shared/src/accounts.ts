@@ -156,13 +156,23 @@ export const createAccountInputSchema = z
 
 export type CreateAccountInput = z.input<typeof createAccountInputSchema>;
 
+/**
+ * Modification d'un compte par l'administration. Nom et prénom sont des données protégées (D173) :
+ * leur correction exige un motif (`reason`), conservé au journal avec l'ancienne et la nouvelle valeur.
+ */
 export const updateAccountInputSchema = z
   .object({
     email: accountEmailSchema.optional(),
     firstName: accountNameSchema.optional(),
     lastName: accountNameSchema.optional(),
+    reason: z
+      .string()
+      .trim()
+      .min(5, { error: 'Indiquez le motif de la correction (5 caractères au minimum).' })
+      .max(500, { error: '500 caractères au maximum.' })
+      .optional(),
   })
-  .refine((input) => Object.values(input).some((value) => value !== undefined), {
+  .refine(({ reason: _, ...input }) => Object.values(input).some((value) => value !== undefined), {
     message: 'Aucune modification.',
   });
 
@@ -307,12 +317,8 @@ export const changePasswordInputSchema = z
 export type ChangePasswordInput = z.input<typeof changePasswordInputSchema>;
 
 /** Profil personnel : nom affiché. L'adresse e-mail se modifie par une personne habilitée. */
-export const updateProfileInputSchema = z.object({
-  firstName: accountNameSchema,
-  lastName: accountNameSchema,
-});
-
-export type UpdateProfileInput = z.input<typeof updateProfileInputSchema>;
+// Nom et prénoms sont des données administratives protégées (D173) : plus aucune modification
+// depuis « Mon profil » ; seule l'administration les corrige.
 
 export const sessionInfoSchema = z.object({
   id: z.uuid(),

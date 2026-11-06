@@ -80,29 +80,13 @@ export type StageChangeKind = (typeof STAGE_CHANGE_KINDS)[number];
 
 export const STAGE_CHANGE_KIND_LABELS: Record<StageChangeKind, string> = {
   INSCRIPTION: 'Étape initiale (inscription)',
-  DECISION: 'Décision du responsable',
+  DECISION: 'Décision du responsable (avant le calcul automatique)',
   CORRECTION: 'Correction d’une décision',
   REPRISE: 'Changement antérieur (repris)',
 };
 
-/**
- * Changement d'étape : acte officiel du responsable, confirmé explicitement. `expectedCurrentStageId`
- * protège contre une décision prise sur une fiche périmée (409 si l'étape a changé entre-temps).
- */
-export const changeStageInputSchema = z.object({
-  expectedCurrentStageId: z.uuid().nullable(),
-  toStageId: z.uuid({ error: 'Choisissez la nouvelle étape.' }),
-  effectiveOn: calendarDate,
-  reason: requiredText(3, 2000, 'Le motif'),
-  observations: optionalText(3000).optional(),
-  evidence: optionalText(3000).optional(),
-  ceremonyReference: optionalText(200).optional(),
-  /** Correction exceptionnelle : désigne la décision corrigée (motif obligatoire, tracé). */
-  correctsChangeId: z.uuid().optional(),
-  confirm: z.literal(true, { error: 'Confirmation explicite requise.' }),
-});
-
-export type ChangeStageInput = z.input<typeof changeStageInputSchema>;
+// Le changement manuel d'étape est supprimé (D173) : l'étape est calculée selon l'âge. L'historique
+// des décisions antérieures (`ScoutStageChange`) reste consultable, en lecture seule.
 
 export const stageChangeSchema = z.object({
   id: z.uuid(),

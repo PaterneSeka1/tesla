@@ -4,8 +4,8 @@ import { ageProgressionSchema, ageRuleSetSchema, MEMBERSHIP_STATUSES } from './a
 import { scoutRefSchema } from './progression.js';
 import { stageSummarySchema } from './scouts.js';
 
-// Parcours individuel : étape théorique (âge), étape officielle (décision), modules de l'étape,
-// rattrapages. Voir docs/FEATURES/PROGRESSION_PAR_AGE.md et docs/FEATURES/RATTRAPAGE.md.
+// Parcours individuel : étape actuelle calculée selon l'âge (D173), modules de l'étape,
+// rattrapages, modules acquis. Voir docs/FEATURES/PROGRESSION_PAR_AGE.md et docs/FEATURES/RATTRAPAGE.md.
 
 /** Statuts affichés d'une obligation de rattrapage (calculés à la lecture, sauf décision humaine). */
 export const CATCH_UP_STATUSES = [
@@ -15,6 +15,7 @@ export const CATCH_UP_STATUSES = [
   'ACQUIS',
   'EN_RETARD',
   'NON_APPLICABLE',
+  'A_REEXAMINER',
 ] as const;
 
 export type CatchUpStatus = (typeof CATCH_UP_STATUSES)[number];
@@ -26,6 +27,7 @@ export const CATCH_UP_STATUS_LABELS: Record<CatchUpStatus, string> = {
   ACQUIS: 'Acquis',
   EN_RETARD: 'En retard',
   NON_APPLICABLE: 'Non applicable',
+  A_REEXAMINER: 'À réexaminer',
 };
 
 /** Synchronisé avec l'enum Prisma `CatchUpDecision`. */
@@ -45,13 +47,30 @@ export function catchUpStatus(facts: {
   studies: number;
   attempts: number;
   acceptedAttempts: number;
+  /**
+   * Faux si, d'après les données actuelles (date de naissance corrigée…), la période de l'étape
+   * d'origine n'est plus échue : l'obligation reste tracée et attend une décision humaine.
+   */
+  stillDue?: boolean;
 }): CatchUpStatus {
   if (facts.decision) return facts.decision;
+  if (facts.stillDue === false) return 'A_REEXAMINER';
   if (facts.acceptedAttempts > 0) return 'EN_ATTENTE_VALIDATION';
   if (facts.dueOn !== null && facts.dueOn < facts.today) return 'EN_RETARD';
   if (facts.studies > 0 || facts.attempts > 0) return 'EN_COURS';
   return 'A_FAIRE';
 }
+
+/** Étape d'origine échue avant l'entrée à la Route, après, ou date d'entrée non renseignée. */
+export const CATCH_UP_ARRIVALS = ['AVANT_ARRIVEE', 'APRES_ARRIVEE', 'INCONNUE'] as const;
+
+export type CatchUpArrival = (typeof CATCH_UP_ARRIVALS)[number];
+
+export const CATCH_UP_ARRIVAL_LABELS: Record<CatchUpArrival, string> = {
+  AVANT_ARRIVEE: 'Étape échue avant l’entrée à la Route',
+  APRES_ARRIVEE: 'Étape échue depuis l’entrée à la Route',
+  INCONNUE: 'Date d’entrée non renseignée',
+};
 
 const moduleRefSchema = z.object({ id: z.uuid(), code: z.string(), title: z.string() });
 
@@ -74,6 +93,16 @@ export const catchUpObligationSchema = z.object({
   decidedBy: userSummarySchema.nullable(),
   /** Faux si le module n'est plus obligatoire dans le référentiel publié (l'obligation reste tracée). */
   stillRequired: z.boolean(),
+  /**
+   * Faux si la période de l'étape d'origine n'est plus échue selon les données actuelles (correction
+   * de la date de naissance, nouveau référentiel) : incohérence héritée à réexaminer, jamais effacée.
+   */
+  stillDue: z.boolean(),
+  /**
+   * Position de l'échéance de l'étape d'origine par rapport à la date d'entrée à la Route :
+   * information de suivi, jamais une dispense (une arrivée tardive ne dispense de rien).
+   */
+  arrival: z.enum(CATCH_UP_ARRIVALS),
 });
 
 export type CatchUpObligation = z.infer<typeof catchUpObligationSchema>;
@@ -90,27 +119,6 @@ export const decideCatchUpInputSchema = z.object({
 
 export type DecideCatchUpInput = z.input<typeof decideCatchUpInputSchema>;
 
-export const STAGE_GAPS = ['ALIGNEE', 'EN_AVANCE', 'EN_RETARD', 'INDETERMINE'] as const;
-
-export type StageGap = (typeof STAGE_GAPS)[number];
-
-export const STAGE_GAP_LABELS: Record<StageGap, string> = {
-  ALIGNEE: 'Étape officielle conforme à l’âge',
-  EN_AVANCE: 'Étape officielle en avance sur l’âge',
-  EN_RETARD: 'Étape officielle en retard sur l’âge',
-  INDETERMINE: 'Comparaison impossible (étape théorique non déterminée)',
-};
-
-/** Écart entre étape officielle et étape théorique : information d'accompagnement, jamais une décision. */
-export function stageGap(
-  theoreticalPosition: number | null,
-  officialPosition: number | null,
-): StageGap {
-  if (theoreticalPosition === null || officialPosition === null) return 'INDETERMINE';
-  if (officialPosition === theoreticalPosition) return 'ALIGNEE';
-  return officialPosition > theoreticalPosition ? 'EN_AVANCE' : 'EN_RETARD';
-}
-
 export const pathwayModuleSchema = moduleRefSchema.extend({
   obligation: z.enum(['OBLIGATOIRE', 'FACULTATIF']).nullable(),
   officialSource: z.string().nullable(),
@@ -120,15 +128,14 @@ export const pathwayModuleSchema = moduleRefSchema.extend({
 export const scoutPathwaySchema = z.object({
   scout: scoutRefSchema,
   age: ageProgressionSchema,
-  theoreticalStage: stageSummarySchema.nullable(),
-  officialStage: stageSummarySchema.nullable(),
-  gap: z.enum(STAGE_GAPS),
+  /** Étape actuelle, calculée selon l'âge (seule étape de l'application, D173). */
+  stage: stageSummarySchema.nullable(),
   membership: z.object({
     status: z.enum(MEMBERSHIP_STATUSES),
     /** Date de sortie enregistrée (traitement appliqué) ; nulle si seulement calculée. */
     exitedOn: z.iso.date().nullable(),
   }),
-  /** Modules publiés rattachés à l'étape théorique (à étudier). */
+  /** Modules publiés rattachés à l'étape actuelle (à étudier). */
   stageModules: z.array(pathwayModuleSchema),
   catchUps: z.array(catchUpObligationSchema),
   /** Vrai si au moins une obligation n'a pas d'échéance faute de délai officiel. */
@@ -155,10 +162,7 @@ export const pathwayOverviewSchema = z.object({
   activeMembers: z.number().int(),
   exitedMembers: z.number().int(),
   missingBirthDate: z.number().int(),
-  byTheoreticalStage: z.array(
-    z.object({ stage: stageSummarySchema.nullable(), count: z.number().int() }),
-  ),
-  byGap: z.array(z.object({ gap: z.enum(STAGE_GAPS), count: z.number().int() })),
+  byStage: z.array(z.object({ stage: stageSummarySchema.nullable(), count: z.number().int() })),
   upcomingExits: z.array(
     z.object({
       scout: scoutRefSchema,

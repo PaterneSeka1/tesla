@@ -11,22 +11,31 @@ export type AccessLevel = 'ROUTIER' | 'ENCADREMENT' | 'OFFICIEL' | 'ADMINISTRATE
 
 const ENCADREMENT = ['ENCADREMENT'] as const;
 const OFFICIEL = ['OFFICIEL'] as const;
+/** Gestion administrative des routiers : administrateur ou responsable plein en fonction (D173). */
+const ADMINISTRATION = ['ADMINISTRATEUR', 'OFFICIEL'] as const;
 
 /**
  * Matrice des permissions métier, vérifiée côté serveur par chaque service (`assertCan`) et utilisée
  * par le web pour l'affichage seulement. Les lignes « à confirmer » sont provisoires (docs/DECISIONS.md).
  */
 export const PERMISSIONS = {
-  /** Consulter les fiches, équipes et historiques des routiers. */
-  'scout.read': ENCADREMENT,
-  /** Inscrire et modifier un routier (avec ou sans compte) — à confirmer (D32). */
-  'scout.create': OFFICIEL,
-  'scout.update': OFFICIEL,
-  'scout.setMatricule': OFFICIEL,
-  'scout.setActive': OFFICIEL,
-  /** Changer l'étape officielle : acte officiel (RM-010). */
-  'scout.setStage': OFFICIEL,
-  'scout.linkAccount': OFFICIEL,
+  /**
+   * Consulter les fiches (identité, données administratives, équipe, étape calculée) : tout
+   * l'encadrement et l'administrateur, qui en assure la gestion administrative (D173). Les données
+   * pédagogiques de la fiche relèvent d'autres permissions (`progression.read`…).
+   */
+  'scout.read': ['ENCADREMENT', 'ADMINISTRATEUR'],
+  /**
+   * Gestion administrative d'un routier (D173) : inscrire, compléter ou corriger nom, prénoms,
+   * matricule, date de naissance et date d'entrée, désactiver, rattacher un compte. Administrateur et
+   * responsable plein **en fonction** seulement (désignation revérifiée au moment de l'écriture).
+   * Aucune permission ne permet de choisir l'étape : elle est calculée selon l'âge.
+   */
+  'scout.create': ADMINISTRATION,
+  'scout.update': ADMINISTRATION,
+  'scout.setMatricule': ADMINISTRATION,
+  'scout.setActive': ADMINISTRATION,
+  'scout.linkAccount': ADMINISTRATION,
   'team.read': ENCADREMENT,
   'team.manage': OFFICIEL,
   'team.assign': OFFICIEL,
