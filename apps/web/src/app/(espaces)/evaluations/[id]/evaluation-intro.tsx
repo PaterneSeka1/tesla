@@ -58,7 +58,7 @@ export function EvaluationIntro() {
       <BackLink href="/evaluations">Évaluations</BackLink>
       <div className="space-y-2">
         <p className="text-sm text-muted-foreground">
-          {data.stage.name} · version {data.version}
+          {data.stage.name}
           {data.module && ` · module « ${data.module.title} »`}
         </p>
         <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">{data.title}</h1>
@@ -79,11 +79,7 @@ export function EvaluationIntro() {
               Vos réponses sont enregistrées au fil de l’eau ; vous pouvez reprendre plus tard.
             </li>
             <li>Une fois remises, elles ne sont plus modifiables.</li>
-            <li>
-              Les réponses rédigées sont corrigées par l’encadrement, puis le résultat est examiné
-              par le responsable plein. Un résultat n’entraîne jamais à lui seul un changement
-              d’étape.
-            </li>
+            <li>Les réponses rédigées sont corrigées par l’encadrement.</li>
             {data.maxAttempts && (
               <li>
                 {data.maxAttempts} tentative{data.maxAttempts > 1 ? 's' : ''} au maximum (
@@ -103,8 +99,7 @@ export function EvaluationIntro() {
               <CircleAlert aria-hidden />
               <AlertTitle>{ELIGIBILITY_LABELS[eligibility.status]}</AlertTitle>
               <AlertDescription>
-                Le module reste consultable librement. Si vous pensez être prêt, parlez-en à
-                l’encadrement : seul le responsable plein peut accorder un déblocage.
+                Le module reste consultable. Pour un déblocage, adressez-vous à l’encadrement.
               </AlertDescription>
             </Alert>
           )}
@@ -166,7 +161,7 @@ export function EvaluationIntro() {
           ) : attempts.error ? (
             <QueryError error={attempts.error} onRetry={() => void attempts.refetch()} />
           ) : attempts.data.items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune tentative pour l’instant.</p>
+            <p className="text-sm text-muted-foreground">Aucune tentative.</p>
           ) : (
             <ul className="space-y-2">
               {attempts.data.items.map((attempt) => (

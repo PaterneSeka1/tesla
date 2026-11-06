@@ -45,9 +45,8 @@ export function PassEvaluation({ variant = 'classique' }: { variant?: 'classique
           <CloudOff aria-hidden />
           <AlertTitle>Hors connexion</AlertTitle>
           <AlertDescription>
-            Cette évaluation n’a pas été préparée sur cet appareil. Avec Internet, choisissez «
-            Préparer pour passer sans connexion » : vos droits sont vérifiés et une tentative est
-            réservée.
+            Évaluation non préparée sur cet appareil. Avec une connexion, choisissez « Préparer pour
+            passer sans connexion ».
           </AlertDescription>
         </Alert>
       </>

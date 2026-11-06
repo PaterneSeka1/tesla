@@ -44,9 +44,8 @@ export function PrepareEvaluation() {
       <BackLink href={`/evaluations/${id}`}>Évaluation</BackLink>
       <PageHeading title="Passer sans connexion" />
       <p className="max-w-prose text-sm">
-        Une tentative est réservée pendant 24 heures : vos réponses doivent parvenir au serveur dans
-        ce délai. Le questionnaire est conservé chiffré sur cet appareil, sans les réponses
-        attendues.
+        Une tentative est réservée 24 heures : vos réponses doivent être synchronisées dans ce
+        délai. Le questionnaire est conservé chiffré sur cet appareil.
       </p>
       {unlocked === false && <DeviceUnlock user={user} create={!exists} />}
       {unlocked && (

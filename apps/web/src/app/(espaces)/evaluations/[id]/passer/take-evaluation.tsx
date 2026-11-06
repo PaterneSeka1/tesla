@@ -102,11 +102,7 @@ export function TakeEvaluation({ variant = 'classique' }: { variant?: 'classique
         <CircleCheck aria-hidden />
         <AlertTitle>Vos réponses ont été remises</AlertTitle>
         <AlertDescription>
-          <p>
-            Les questions à choix sont corrigées ; les réponses rédigées le seront par
-            l’encadrement, puis le responsable examinera le résultat. Vous le retrouverez dans « Mes
-            résultats ».
-          </p>
+          <p>Le résultat sera visible après correction.</p>
           <Button asChild size="sm">
             <Link href="/mes-resultats">Mes résultats</Link>
           </Button>
@@ -157,7 +153,7 @@ export function TakeEvaluation({ variant = 'classique' }: { variant?: 'classique
       const result = await submitAttempt(session.id, payload());
       setFinished(result);
       await queryClient.invalidateQueries({ queryKey: ['evaluations'] });
-      toast.success('Réponses remises', 'Merci ! Votre copie part en correction.');
+      toast.success('Réponses remises');
       return true;
     } catch (cause) {
       toast.error('Remise impossible', cause instanceof Error ? cause.message : undefined);

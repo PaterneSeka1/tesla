@@ -106,7 +106,7 @@ export function PalierGame({
                 </Button>
               }
               title="Terminer et remettre vos réponses ?"
-              description="Toutes les questions ont une réponse. Après la remise, elles ne seront plus modifiables."
+              description="Après la remise, vos réponses ne seront plus modifiables."
               confirmLabel="Remettre définitivement"
               onConfirm={onSubmit}
             />
@@ -182,8 +182,7 @@ export function PalierFinish({ answered }: { answered: readonly boolean[] }) {
         {count} réponse{count > 1 ? 's' : ''} sur {answered.length}
       </p>
       <p className="text-sm text-tesla-sable">
-        Vos réponses sont corrigées comme pour le mode classique. Votre score apparaîtra dans « Mes
-        résultats » dès qu’il vous sera communiqué.
+        Votre score apparaîtra dans « Mes résultats » après correction.
       </p>
       <Button asChild variant="secondary">
         <Link href="/mes-resultats">Mes résultats</Link>

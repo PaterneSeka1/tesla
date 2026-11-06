@@ -25,13 +25,13 @@ export function MyResults() {
 
   return (
     <>
-      <PageHeading title="Résultats" description="Un résultat ne valide jamais seul une étape." />
+      <PageHeading title="Résultats" />
       {isPending ? (
         <TableSkeleton />
       ) : error ? (
         <QueryError error={error} onRetry={() => void refetch()} />
       ) : data.items.length === 0 ? (
-        <EmptyState icon={Trophy} title="Aucune évaluation pour l’instant" />
+        <EmptyState icon={Trophy} title="Aucun résultat" />
       ) : (
         <>
           <ul className="space-y-3">
@@ -43,8 +43,8 @@ export function MyResults() {
                       {attempt.evaluation.title}
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-mono">{attempt.code}</span> · version {attempt.version}{' '}
-                      · {EVALUATION_MODE_LABELS[attempt.mode]} ·{' '}
+                      <span className="font-mono">{attempt.code}</span> ·{' '}
+                      {EVALUATION_MODE_LABELS[attempt.mode]} ·{' '}
                       {formatDateTime(
                         attempt.submittedAt ?? attempt.completedAt ?? attempt.createdAt,
                       )}
@@ -87,7 +87,7 @@ export function MyResults() {
                 ) : (
                   attempt.status !== 'ANNULEE' && (
                     <p className="text-sm text-muted-foreground">
-                      Le résultat sera visible après la correction et l’examen du responsable.
+                      Résultat visible après correction.
                     </p>
                   )
                 )}

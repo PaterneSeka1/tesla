@@ -77,7 +77,7 @@ export function OfflineAttempt({ id }: { id: string }) {
       await submitLocal(id);
       const row = await readRecord<LocalAttempt>(`attempt:${id}`);
       setItem(row?.value ?? null);
-      setMessage('En attente de synchronisation. Aucun résultat officiel n’est encore enregistré.');
+      setMessage('En attente de synchronisation.');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Remise impossible.');
     } finally {
@@ -93,8 +93,7 @@ export function OfflineAttempt({ id }: { id: string }) {
     <section className="space-y-4 rounded-lg border p-4">
       <h2 className="text-xl font-semibold">{item.package.session.evaluation.title}</h2>
       <p>
-        {item.package.session.code} · version {item.package.session.version} ·{' '}
-        {SYNC_STATE_LABELS[item.status]}
+        {item.package.session.code} · {SYNC_STATE_LABELS[item.status]}
       </p>
       {expired ? (
         <p role="alert" className="text-sm text-destructive">
@@ -148,9 +147,6 @@ export function OfflineAttempt({ id }: { id: string }) {
       ) : (
         item.server && <p>{item.server.message}</p>
       )}
-      <p className="text-sm text-muted-foreground">
-        Un résultat ne valide jamais automatiquement une étape ou une compétence.
-      </p>
     </section>
   );
 }
