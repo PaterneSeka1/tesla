@@ -9,13 +9,51 @@ import { Badge } from '@/components/ui/badge';
  * rattraper (obligations sans décision encore exigées), modules reconnus acquis (décision humaine).
  * Un module n'apparaît jamais dans deux catégories.
  */
-export function PathwayModules({ pathway }: { pathway: ScoutPathway }) {
+export function PathwayModules({
+  pathway,
+  compact = false,
+}: {
+  pathway: ScoutPathway;
+  /** Accueil : rattrapages et acquis non vides seulement (l'étape a son propre bloc « À étudier »). */
+  compact?: boolean;
+}) {
   const acquired = pathway.catchUps.filter((obligation) => obligation.decision === 'ACQUIS');
   const toCatchUp = pathway.catchUps.filter(
     (obligation) => obligation.decision === null && obligation.stillRequired,
   );
   const elsewhere = new Set([...acquired, ...toCatchUp].map((obligation) => obligation.module.id));
   const current = pathway.stageModules.filter((module) => !elsewhere.has(module.id));
+  if (compact) {
+    if (toCatchUp.length === 0 && acquired.length === 0) return null;
+    return (
+      <div className="grid gap-3 md:grid-cols-2">
+        {toCatchUp.length > 0 && (
+          <ModuleGroup
+            icon={Undo2}
+            title="Modules à rattraper"
+            empty=""
+            items={toCatchUp.map((obligation) => ({
+              id: obligation.id,
+              label: `${obligation.module.code} · ${obligation.module.title}`,
+              badge: obligation.originStage.name,
+            }))}
+          />
+        )}
+        {acquired.length > 0 && (
+          <ModuleGroup
+            icon={CheckCircle2}
+            title="Modules déjà acquis"
+            empty=""
+            items={acquired.map((obligation) => ({
+              id: obligation.id,
+              label: `${obligation.module.code} · ${obligation.module.title}`,
+              badge: null,
+            }))}
+          />
+        )}
+      </div>
+    );
+  }
   return (
     <div className="grid gap-3 md:grid-cols-3">
       <ModuleGroup

@@ -57,9 +57,8 @@ export function PathwaySummary({
           <AlertDescription>
             {audience === 'routier' ? 'Vous avez atteint' : 'Ce routier a atteint'} la limite d’âge
             de la branche
-            {age.branchExitOn ? ` le ${formatCivilDate(age.branchExitOn)}` : ''}. Le dossier, les
-            résultats, les études et les acquis sont conservés ; aucune étape n’est attribuée
-            automatiquement.
+            {age.branchExitOn ? ` le ${formatCivilDate(age.branchExitOn)}` : ''}. Le dossier et les
+            acquis sont conservés.
           </AlertDescription>
         </Alert>
       )}
@@ -71,11 +70,6 @@ export function PathwaySummary({
               {age.age === null ? 'Non renseigné' : `${age.age} ans`}
             </CardTitle>
           </CardHeader>
-          {age.age === null && (
-            <CardContent className="text-sm text-muted-foreground">
-              Date de naissance gérée par l’administration.
-            </CardContent>
-          )}
         </Card>
         <Card>
           <CardHeader>
@@ -84,10 +78,12 @@ export function PathwaySummary({
             </CardDescription>
             <CardTitle className="text-2xl">{pathway.stage?.name ?? 'Non déterminée'}</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            {THEORETICAL_STAGE_REASON_LABELS[age.reason]}
-            {age.period?.endsOn && ` · jusqu’au ${formatCivilDate(age.period.endsOn)} (exclu)`}
-          </CardContent>
+          {/* Étape déterminée : l'échéance est donnée par « Prochaine échéance » ci-dessous. */}
+          {age.reason !== 'REGLE' && (
+            <CardContent className="text-sm text-muted-foreground">
+              {THEORETICAL_STAGE_REASON_LABELS[age.reason]}
+            </CardContent>
+          )}
         </Card>
         <Card>
           <CardHeader>
@@ -98,11 +94,11 @@ export function PathwaySummary({
               {age.daysUntilExit === null ? (exited ? 'Sorti' : '—') : remaining(age.daysUntilExit)}
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            {age.branchExitOn
-              ? `Sortie le ${formatCivilDate(age.branchExitOn)}`
-              : 'Date de sortie non calculable'}
-          </CardContent>
+          {age.branchExitOn && (
+            <CardContent className="text-sm text-muted-foreground">
+              Sortie le {formatCivilDate(age.branchExitOn)}
+            </CardContent>
+          )}
         </Card>
       </div>
       {age.nextMilestone && !exited && (
@@ -116,12 +112,12 @@ export function PathwaySummary({
           </span>
         </p>
       )}
-      <p className="text-xs text-muted-foreground">
-        Calcul au {formatCivilDate(age.referenceDate)}
-        {age.ruleSetVersion ? `, référentiel d’âge ${age.ruleSetVersion}` : ''}. L’étape est
-        calculée automatiquement selon l’âge ; la validation des acquis reste une décision du
-        responsable.
-      </p>
+      {/* Référence du calcul : utile à l'encadrement seulement (vérification du référentiel). */}
+      {audience === 'encadrement' && age.ruleSetVersion && (
+        <p className="text-xs text-muted-foreground">
+          Référentiel d’âge {age.ruleSetVersion}, calcul au {formatCivilDate(age.referenceDate)}.
+        </p>
+      )}
     </div>
   );
 }

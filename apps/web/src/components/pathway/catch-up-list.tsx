@@ -111,10 +111,9 @@ export function CatchUpList({
   }
   return (
     <div className="space-y-3">
-      {deadlineUndetermined && (
+      {deadlineUndetermined && audience === 'encadrement' && (
         <p className="text-sm text-muted-foreground">
-          Aucune durée officielle de rattrapage n’est encore validée : les échéances restent non
-          déterminées (arbitrage du responsable nécessaire).
+          Durée de rattrapage non arbitrée : échéances non déterminées.
         </p>
       )}
       <ul className="stagger space-y-2">
@@ -137,8 +136,8 @@ export function CatchUpList({
                 )}
               </p>
               <p className="text-sm text-muted-foreground">
-                Étape d’origine : {obligation.originStage.name} · Échéance :{' '}
-                {obligation.dueOn ? formatCivilDate(obligation.dueOn) : 'non déterminée'} ·{' '}
+                {obligation.originStage.name}
+                {obligation.dueOn && ` · avant le ${formatCivilDate(obligation.dueOn)}`} ·{' '}
                 {obligation.studies} étude(s), {obligation.attempts} tentative(s)
                 {obligation.acceptedAttempts > 0 &&
                   `, ${obligation.acceptedAttempts} résultat(s) accepté(s)`}
@@ -150,8 +149,9 @@ export function CatchUpList({
               )}
               {obligation.status === 'A_REEXAMINER' && (
                 <p className="text-sm">
-                  D’après les informations actuelles, l’étape d’origine n’est plus échue : cette
-                  obligation reste enregistrée et attend une décision.
+                  {audience === 'routier'
+                    ? 'En attente d’une décision du responsable.'
+                    : 'L’étape d’origine n’est plus échue d’après les données actuelles : décision attendue.'}
                 </p>
               )}
               {obligation.decisionReason && (

@@ -30,12 +30,9 @@ export function PathwayOverviewPanel() {
       <h2 id="parcours-communaute" className="text-lg font-semibold">
         Parcours de la communauté
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Figure
-          label="Effectif actif"
-          value={d.activeMembers}
-          hint={`${d.exitedMembers} sorti(s) de la branche`}
-        />
+      {/* L'effectif actif figure déjà dans « En chiffres » : seules les sorties sont ajoutées. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {d.exitedMembers > 0 && <Figure label="Sortis de la branche" value={d.exitedMembers} />}
         <Figure
           label="Rattrapages ouverts"
           value={d.catchUps.open}
@@ -45,7 +42,7 @@ export function PathwayOverviewPanel() {
         <Figure
           label="Dates de naissance manquantes"
           value={d.missingBirthDate}
-          hint="Empêchent le calcul de l’étape théorique et de la sortie."
+          hint="Empêchent le calcul de l’étape et de la sortie."
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-2">

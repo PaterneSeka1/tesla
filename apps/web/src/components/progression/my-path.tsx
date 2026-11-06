@@ -2,10 +2,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { PROGRESSION_STAGES, STUDY_MODE_LABELS } from '@tesla/shared';
-import { BookOpen, CalendarCheck, CalendarDays, History, Medal } from 'lucide-react';
+import { BookOpen, CalendarCheck, CalendarDays, Medal } from 'lucide-react';
 import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { PageHeading } from '@/components/page-heading';
+import { MyPathwayOverview } from '@/components/pathway/my-pathway';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Stepper } from '@/components/stepper';
 import { Badge } from '@/components/ui/badge';
@@ -64,35 +65,16 @@ export function MyPath({ competenciesOnly = false }: { competenciesOnly?: boolea
   const current = STAGE_STEPS.findIndex((step) => step.key === d.scout.stage?.code);
   return (
     <>
-      <PageHeading title={title} description="Un acquis n’est jamais validé automatiquement." />
+      <PageHeading title={title} />
 
+      {/* Étape calculée selon l'âge (D173) : frise, puis synthèse et modules du parcours. */}
       {!competenciesOnly && (
-        <section
-          aria-labelledby="official-stage"
-          className="space-y-4 rounded-xl border bg-card p-4 sm:p-5"
-        >
-          <div className="space-y-0.5">
-            <h2 id="official-stage" className="text-base font-semibold">
-              Étape officielle
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {[
-                d.scout.stage
-                  ? d.scout.stageSince
-                    ? `${d.scout.stage.name} depuis le ${formatDate(d.scout.stageSince)}`
-                    : d.scout.stage.name
-                  : 'Étape non renseignée',
-                d.scout.team?.name ?? 'Sans équipe',
-              ].join(' · ')}
-            </p>
-          </div>
-          <Stepper
-            label="Étapes de la Route"
-            steps={STAGE_STEPS}
-            current={current}
-            currentLabel="Décidée par le responsable"
-          />
-        </section>
+        <>
+          <section aria-label="Étapes de la Route" className="rounded-xl border bg-card p-4 sm:p-5">
+            <Stepper label="Étapes de la Route" steps={STAGE_STEPS} current={current} />
+          </section>
+          <MyPathwayOverview />
+        </>
       )}
 
       <SectionCard title="Référentiel de mon étape">
@@ -124,7 +106,7 @@ export function MyPath({ competenciesOnly = false }: { competenciesOnly?: boolea
         )}
       </SectionCard>
 
-      <SectionCard title="Compétences officiellement validées">
+      <SectionCard title="Compétences validées">
         {d.acquired.length === 0 ? (
           <EmptyState icon={Medal} title="Aucune compétence encore validée." />
         ) : (
@@ -147,21 +129,6 @@ export function MyPath({ competenciesOnly = false }: { competenciesOnly?: boolea
 
       {!competenciesOnly && (
         <>
-          <SectionCard title="Historique des étapes">
-            {d.stageChanges.length === 0 ? (
-              <EmptyState icon={History} title="Aucun changement enregistré." />
-            ) : (
-              <ol className="space-y-2 border-l-2 border-tesla-sable pl-4 text-sm">
-                {d.stageChanges.map((s) => (
-                  <li key={s.id}>
-                    <span className="text-muted-foreground">{formatDate(s.effectiveOn)}</span> ·{' '}
-                    {s.from?.name ?? 'Sans étape'} → {s.to?.name ?? 'Sans étape'}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </SectionCard>
-
           <SectionCard title="Modules étudiés">
             {d.moduleStudies.length === 0 ? (
               <EmptyState icon={BookOpen} title="Aucune étude enregistrée." />
@@ -208,6 +175,20 @@ export function MyPath({ competenciesOnly = false }: { competenciesOnly?: boolea
               <Button disabled={busy || !modules.data}>Déclarer mon étude</Button>
             </form>
           </SectionCard>
+
+          {/* Décisions d'étape antérieures à D173 : affichées seulement s'il en existe. */}
+          {d.stageChanges.length > 0 && (
+            <SectionCard title="Historique des étapes">
+              <ol className="space-y-2 border-l-2 border-tesla-sable pl-4 text-sm">
+                {d.stageChanges.map((s) => (
+                  <li key={s.id}>
+                    <span className="text-muted-foreground">{formatDate(s.effectiveOn)}</span> ·{' '}
+                    {s.from?.name ?? 'Sans étape'} → {s.to?.name ?? 'Sans étape'}
+                  </li>
+                ))}
+              </ol>
+            </SectionCard>
+          )}
         </>
       )}
     </>

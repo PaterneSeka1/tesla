@@ -14,13 +14,10 @@ export function Stepper({
   label,
   steps,
   current,
-  currentLabel,
 }: {
   label: string;
   steps: readonly Step[];
   current: number;
-  /** Mention sous l'étape courante (« Étape officielle »). */
-  currentLabel?: string;
 }) {
   return (
     <ol aria-label={label} className="flex flex-col gap-3 sm:flex-row sm:gap-0">
@@ -63,9 +60,6 @@ export function Stepper({
               >
                 {step.label}
               </span>
-              {state === 'current' && currentLabel && (
-                <span className="block text-xs text-muted-foreground">{currentLabel}</span>
-              )}
               <span className="sr-only">
                 {state === 'done' ? ' (franchie)' : state === 'next' ? ' (à venir)' : ''}
               </span>
