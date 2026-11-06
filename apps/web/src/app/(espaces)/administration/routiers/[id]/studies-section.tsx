@@ -72,10 +72,7 @@ export function StudiesSection({ progression }: { progression: ScoutProgression 
       <Card>
         <CardHeader>
           <CardTitle>Modules étudiés</CardTitle>
-          <CardDescription>
-            Lecture, cours papier ou formation collective. Étudier un module ne signifie pas qu’il
-            est maîtrisé.
-          </CardDescription>
+          <CardDescription>Étudier un module ne signifie pas qu’il est maîtrisé.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {progression.moduleStudies.length === 0 ? (

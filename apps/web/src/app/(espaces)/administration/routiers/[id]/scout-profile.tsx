@@ -59,14 +59,6 @@ export function ScoutProfileView() {
             ) : (
               <Badge variant="outline">Désactivé</Badge>
             )}
-            {scout.hasAccount ? (
-              <Badge variant="secondary">Avec compte</Badge>
-            ) : (
-              <Badge variant="outline">Sans compte</Badge>
-            )}
-            <Badge variant={scout.stage ? 'accent' : 'outline'}>
-              {scout.stage?.name ?? 'Étape non déterminée'}
-            </Badge>
           </div>
         </div>
         {isResponsable && (
@@ -111,10 +103,7 @@ export function ScoutProfileView() {
             </Detail>
             <Detail label="Étape actuelle">
               {scout.stage ? (
-                <>
-                  {scout.stage.name}
-                  <span className="block text-xs text-muted-foreground">Déterminée par l’âge</span>
-                </>
+                scout.stage.name
               ) : (
                 <Missing>
                   Étape non déterminée
@@ -153,7 +142,7 @@ export function ScoutProfileView() {
                   </span>
                 </>
               ) : (
-                'Aucun compte : suivi assuré par l’encadrement'
+                'Aucun compte'
               )}
             </Detail>
             <Detail label="Fiche créée le">{formatDate(scout.createdAt)}</Detail>

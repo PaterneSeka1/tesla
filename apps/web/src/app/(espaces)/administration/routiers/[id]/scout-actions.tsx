@@ -68,11 +68,12 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
           title={scout.team ? 'Changer d’équipe' : 'Affecter à une équipe'}
           description={
             <>
-              <p>
-                {scout.team
-                  ? `L’affectation à « ${scout.team.name} » sera clôturée aujourd’hui et conservée dans l’historique.`
-                  : `${name} n’a actuellement aucune équipe.`}
-              </p>
+              {scout.team && (
+                <p>
+                  L’affectation à « {scout.team.name} » sera clôturée aujourd’hui et conservée dans
+                  l’historique.
+                </p>
+              )}
               <FormField id="assign-team" label="Nouvelle équipe" required>
                 <NativeSelect
                   id="assign-team"
@@ -122,8 +123,7 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
           title="Retirer de l’équipe ?"
           description={
             <p>
-              {name} sera retiré de « {scout.team.name} » et restera sans équipe. L’affectation est
-              clôturée, pas supprimée.
+              {name} sera retiré de « {scout.team.name} ». L’affectation reste dans l’historique.
             </p>
           }
           confirmLabel="Retirer"
@@ -145,10 +145,7 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
           title="Créer le compte de ce routier"
           description={
             <>
-              <p>
-                Un compte routier sera créé et rattaché à cette fiche, qui garde son historique. Un
-                lien d’activation à usage unique vous sera remis pour {name}.
-              </p>
+              <p>Un lien d’activation à usage unique vous sera remis pour {name}.</p>
               <FormField id="new-account-email" label="Adresse e-mail du routier" required>
                 <Input
                   id="new-account-email"
@@ -199,9 +196,8 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
           description={
             <>
               <p>
-                Le compte routier indiqué sera lié à cette fiche. La fiche, son historique et ses
-                résultats sont conservés ; aucun nouveau profil n’est créé. Vérifiez qu’il s’agit
-                bien de {name}.
+                Vérifiez que ce compte est bien celui de {name}. L’historique de la fiche est
+                conservé.
               </p>
               <FormField id="link-email" label="Adresse e-mail du compte routier" required>
                 <Input

@@ -6,7 +6,7 @@ import { CatchUpList } from '@/components/pathway/catch-up-list';
 import { PathwayModules } from '@/components/pathway/pathway-modules';
 import { PathwaySummary } from '@/components/pathway/pathway-summary';
 import { QueryError, TableSkeleton } from '@/components/query-state';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { scoutPathwayQueryOptions } from '@/lib/api/pathway';
 import { userCan } from '@/lib/navigation';
 
@@ -17,9 +17,6 @@ export function PathwaySection({ scoutId, user }: { scoutId: string; user: Sessi
     <Card>
       <CardHeader>
         <CardTitle>Âge, parcours et rattrapages</CardTitle>
-        <CardDescription>
-          L’étape est calculée automatiquement selon l’âge ; les rattrapages se décident ici.
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {query.isPending && <TableSkeleton rows={3} />}

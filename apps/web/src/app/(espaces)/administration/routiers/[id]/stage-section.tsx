@@ -56,7 +56,7 @@ export function StageSection({ progression }: { progression: ScoutProgression })
         <CardTitle>Étape actuelle</CardTitle>
         <CardDescription>
           {scout.stage
-            ? `${scout.stage.name}${scout.stageSince ? ` depuis le ${formatDate(scout.stageSince)}` : ''} · déterminée par l’âge`
+            ? `${scout.stage.name}${scout.stageSince ? ` depuis le ${formatDate(scout.stageSince)}` : ''}`
             : 'Étape non déterminée'}
         </CardDescription>
       </CardHeader>

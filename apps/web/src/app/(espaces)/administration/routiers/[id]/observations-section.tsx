@@ -7,7 +7,7 @@ import {
   OBSERVATION_VISIBILITIES,
   OBSERVATION_VISIBILITY_LABELS,
 } from '@tesla/shared';
-import { Info, MessageSquareText, Pencil } from 'lucide-react';
+import { MessageSquareText, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -15,7 +15,6 @@ import { EmptyState } from '@/components/empty-state';
 import { FormField, fieldA11y } from '@/components/form-field';
 import { Pagination } from '@/components/pagination';
 import { QueryError, TableSkeleton } from '@/components/query-state';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,7 +108,7 @@ function ObservationForm({
         <FormField
           id={`${formId}-category`}
           label="Catégorie"
-          hint="Facultative (libellé libre)."
+          hint="Facultative."
           error={errors.category?.message}
         >
           <Input
@@ -167,17 +166,11 @@ export function ObservationsSection({ scoutId }: { scoutId: string }) {
       <CardHeader>
         <CardTitle>Observations de l’encadrement</CardTitle>
         <CardDescription>
-          Jamais visibles du routier. Modifiables par leur auteur ; chaque version est conservée.
+          Accompagnement seulement : ni validation d’acquis ni changement d’étape. Jamais visibles
+          du routier ; chaque version est conservée.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert variant="info">
-          <Info aria-hidden />
-          <AlertDescription>
-            Une observation est une information d’accompagnement : elle ne vaut ni validation d’un
-            acquis ni changement d’étape, réservés au responsable plein.
-          </AlertDescription>
-        </Alert>
         <ObservationForm scoutId={scoutId} onDone={() => setPage(1)} />
 
         {isPending ? (

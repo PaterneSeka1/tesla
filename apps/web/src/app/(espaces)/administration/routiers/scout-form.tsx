@@ -255,7 +255,7 @@ export function ScoutForm({
         <FormField
           id="birthDate"
           label="Date de naissance"
-          hint="Détermine l’étape, calculée automatiquement selon l’âge."
+          hint="Détermine l’étape."
           error={errors.birthDate?.message}
         >
           <Input
@@ -267,7 +267,7 @@ export function ScoutForm({
         <FormField
           id="joinedAt"
           label="Date d’entrée à la Route"
-          hint="Date réelle d’entrée. Facultative tant qu’elle n’est pas connue."
+          hint="Facultative."
           error={errors.joinedAt?.message}
         >
           <Input
@@ -338,10 +338,7 @@ export function ScoutForm({
           <TriangleAlert aria-hidden />
           <AlertTitle>Homonyme déjà enregistré</AlertTitle>
           <AlertDescription>
-            <p>
-              Un routier portant les mêmes nom et prénoms existe déjà. Vérifiez la liste des
-              routiers avant de confirmer qu’il s’agit bien d’une autre personne.
-            </p>
+            <p>Mêmes nom et prénoms. Confirmez seulement s’il s’agit d’une autre personne.</p>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"

@@ -30,8 +30,7 @@ export function CompetenciesSection({ progression }: { progression: ScoutProgres
             <div className="space-y-1.5">
               <CardTitle>Compétences</CardTitle>
               <CardDescription>
-                « Acquise » uniquement après validation officielle du responsable. Un quiz, une
-                présence ou une étude n’y suffisent jamais.
+                « Acquise » uniquement après validation officielle du responsable.
               </CardDescription>
             </div>
             {scout.isActive && (
@@ -46,11 +45,7 @@ export function CompetenciesSection({ progression }: { progression: ScoutProgres
         </CardHeader>
         <CardContent>
           {progression.competencies.length === 0 ? (
-            <EmptyState
-              icon={BadgeCheck}
-              title="Référentiel vide"
-              description="Aucune compétence active."
-            />
+            <EmptyState icon={BadgeCheck} title="Aucune compétence active" />
           ) : (
             <ul className="divide-y text-sm">
               {progression.competencies.map((item) => (
@@ -92,10 +87,6 @@ export function CompetenciesSection({ progression }: { progression: ScoutProgres
       <Card>
         <CardHeader>
           <CardTitle>Décisions officielles</CardTitle>
-          <CardDescription>
-            Validations et décisions « à retravailler » du responsable. Une décision n’est jamais
-            supprimée : elle peut être révoquée avec motif.
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {progression.validations.length === 0 ? (

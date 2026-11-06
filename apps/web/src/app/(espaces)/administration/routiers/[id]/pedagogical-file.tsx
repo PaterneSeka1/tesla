@@ -97,7 +97,7 @@ function ActivitiesSection({ progression }: { progression: ScoutProgression }) {
         <CardTitle>Présences et participation</CardTitle>
         <CardDescription>
           {attendance.present} présence(s), {attendance.absent} absence(s), {attendance.excused}{' '}
-          absence(s) excusée(s). Sans effet sur les décisions.
+          absence(s) excusée(s).
         </CardDescription>
       </CardHeader>
       <CardContent>
