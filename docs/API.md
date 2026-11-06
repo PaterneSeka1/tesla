@@ -81,11 +81,13 @@ Pagination des listes : `?page=1&pageSize=20` (max. 100) → `{ items, page, pag
 | `PATCH /teams/:id` | responsable | `updateTeamInputSchema` → `teamDetailSchema` |
 | `POST /teams/:id/archive` | responsable | → `201 teamDetailSchema` (affectations ouvertes clôturées) |
 | `GET /scouts?search=&teamId=&stageId=&status=&account=` | chef, responsable | → page de `scoutListItemSchema`. `search` : chaque mot doit correspondre au nom, aux prénoms ou au matricule ; `teamId`/`stageId` : UUID ou `none` ; `status` : `active` (défaut), `inactive`, `all` ; `account` : `with`, `without`, `all` |
-| `POST /scouts` | responsable (+ étape) | `createScoutProfileInputSchema` → `201 scoutDetailSchema`. Aucun compte créé. `409 POSSIBLE_DUPLICATE` si homonyme : renvoyer avec `confirmDuplicate: true` |
-| `GET /scouts/:id` | chef, responsable | → `scoutDetailSchema` (`account.email` réservé au responsable) |
-| `PATCH /scouts/:id` | responsable ; étape : `scout.setStage` | `updateScoutProfileInputSchema` → `scoutDetailSchema` |
-| `POST /scouts/:id/deactivate` · `/activate` | responsable | → `201 scoutDetailSchema` |
-| `POST /scouts/:id/link-account` | responsable | `linkAccountInputSchema { email }` → `201 scoutDetailSchema` |
+| `POST /scouts` | administrateur, plein en fonction | `createScoutProfileInputSchema` (aucun champ d'étape : `422 STAGE_IS_COMPUTED`) → `201 scoutDetailSchema`. Aucun compte créé. `409 POSSIBLE_DUPLICATE` si homonyme : renvoyer avec `confirmDuplicate: true` |
+| `GET /scouts/:id` | encadrement, administrateur | → `scoutDetailSchema` (`account.email` réservé au responsable) |
+| `PATCH /scouts/:id` | administrateur, plein en fonction (revérifié dans la transaction) | `updateScoutProfileInputSchema` → `scoutDetailSchema`. Correction : `reason` + `confirmCorrection` (`422 CORRECTION_REASON_REQUIRED` / `CORRECTION_NOT_CONFIRMED`) ; `422 INVALID_DATE`, `409 MATRICULE_ALREADY_USED`, `409 SCOUT_PROFILE_CHANGED`, `422 STAGE_IS_COMPUTED` |
+| `GET /scouts/:id/birth-date-impact?birthDate=` | administrateur, plein | → `birthDateImpactSchema` (aucune écriture) |
+| `GET /auth/profile` | tout compte | → `myProfileSchema` (lecture seule ; `PATCH /auth/profile` supprimé, D173) |
+| `POST /scouts/:id/deactivate` · `/activate` | administrateur, plein | → `201 scoutDetailSchema` |
+| `POST /scouts/:id/link-account` | administrateur, plein | `linkAccountInputSchema { email }` → `201 scoutDetailSchema` |
 | `GET /scouts/:id/teams/history` | chef, responsable | → `teamAssignmentListSchema` |
 | `POST /scouts/:id/teams/assign` | responsable | `assignTeamBodySchema { teamId, startedAt? }` → `201` historique |
 | `POST /scouts/:id/teams/unassign` | responsable | `unassignTeamBodySchema { endedAt? }` → `201` historique |

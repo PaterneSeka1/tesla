@@ -87,7 +87,8 @@ Toutes les permissions sont vérifiées côté serveur.
 | RM-014 | Désactivation | Un profil désactivé reste consultable avec tout son historique ; son affectation ouverte est clôturée ; il ne peut plus être affecté. Réactivation possible. | Service + `AuditLog` |
 | RM-015 | Archivage d'équipe | Archiver clôt les affectations ouvertes (date, auteur) ; l'équipe et l'historique sont conservés ; une équipe archivée ne reçoit plus de membres et n'est plus modifiable. | Transaction + `AuditLog` |
 | RM-016 | Observations | Information d'accompagnement d'un chef ou du responsable, référencée sur le profil. Ne vaut jamais validation d'acquis ni changement d'étape. Jamais visible des routiers ; niveau `RESPONSABLE` lisible par le responsable et l'auteur seulement. Modifiable par son auteur seul ; chaque version précédente est conservée ; jamais supprimée. | Permissions serveur ; triggers SQL |
-| RM-017 | Changement d'étape | Exclusivement le responsable ; journalisé avec l'étape précédente, la nouvelle et l'auteur ; visible dans l'historique pédagogique. Aucune autre action (observation, tentative) ne modifie l'étape. | `scout.setStage` ; `AuditLog` `scout_profile.stage_changed` |
+| RM-017 | Étape calculée (D173, remplace le changement manuel) | L'étape actuelle découle uniquement de la date de naissance et du référentiel d'âge en vigueur ; personne ne la saisit ni ne la modifie ; donnée ou règle manquante = « Étape non déterminée ». Les anciennes décisions restent dans l'historique, figé. | `computed-stage.ts` ; `STAGE_IS_COMPUTED` ; triggers `scout_profiles_stage_frozen`, `scout_stage_changes_closed` |
+| RM-019 | Données administratives protégées (D173) | Nom, prénoms, matricule, date de naissance, date d'entrée : routiers gérés par l'administrateur ou le plein en fonction, chefs par l'administrateur seul ; jamais par le titulaire. Complétion libre ; correction motivée, confirmée, journalisée (ancienne et nouvelle valeur). | `assertCanAtWrite` ; `scout_profile.completed` / `.corrected` ; `account.updated` |
 | RM-018 | Accès | Toute donnée exige une session valide ; le masquage d'un bouton n'est jamais la seule protection. L'e-mail d'un compte rattaché n'est communiqué qu'au responsable. | Garde globale + `assertCan` |
 
 ### Règles de la phase 2 (modules pédagogiques)
@@ -190,7 +191,7 @@ Détails : [OFFLINE_FIRST.md](OFFLINE_FIRST.md).
 Détails : [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md).
 
 ## Refonte 2026-10-29 — âge, rattrapages, encadrement
-- **Étape théorique** : déterminée par l'âge (date de naissance) et le référentiel d'âge en vigueur, jamais par la date d'entrée ; distincte de l'étape officielle, de la progression pédagogique et du rattrapage. Voir [FEATURES/PROGRESSION_PAR_AGE.md](FEATURES/PROGRESSION_PAR_AGE.md).
+- **Étape** (D173) : déterminée par l'âge (date de naissance) et le référentiel d'âge en vigueur, jamais par la date d'entrée ; seule étape de l'application, calculée, jamais saisie ; distincte de la progression pédagogique et du rattrapage. Voir [FEATURES/PROGRESSION_PAR_AGE.md](FEATURES/PROGRESSION_PAR_AGE.md).
 - **Noviciat** : du 18e anniversaire à un mois calendaire plus tard (règle fournie, à rapprocher du manuel). L'échéance ne valide rien.
 - **Sortie** : le jour du 21e anniversaire, le routier n'est plus membre actif ; historique intégralement conservé ; aucune étape attribuée.
 - **Rattrapage** : modules obligatoires (source officielle exigée) d'étapes dont la période est échue ; acquis seulement par décision humaine. Voir [FEATURES/RATTRAPAGE.md](FEATURES/RATTRAPAGE.md).

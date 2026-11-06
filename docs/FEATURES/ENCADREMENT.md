@@ -30,6 +30,9 @@ Seul un compte **actif de l'encadrement** peut recevoir une fonction : l'adminis
 6. création de la nouvelle fonction ;
 7. journal d'audit `leadership.assigned` (fonction, fonction précédente, personne remplacée) ;
 8. droits recalculés **à la requête suivante** de chacun (garde de session) : l'ancien plein perd immédiatement les décisions officielles, sans nouvelle connexion ; il conserve son compte, ses sessions et l'accès de l'encadrement. Côté web, toute réponse 403 relit la session (menu à jour).
+9. **écritures concurrentes (D173)** : les écritures réservées au plein (fiches routiers, comptes routiers) revérifient compte et désignation **dans leur transaction**, sous le verrou consultatif partagé `leadership_assignments` (la désignation prend le verrou exclusif). Une modification commencée par l'ancien plein avant son remplacement n'est jamais enregistrée après : elle attend la fin de la désignation, relit la fonction et reçoit `403`. Reconduction : nouvelle désignation, droits rétablis dès la requête suivante. Les droits du compte administrateur ne dépendent d'aucune désignation (comptes distincts, D142).
+
+Tests : `apps/api/test/gouvernance-profils.int-spec.ts` (désignation, remplacement, ancienne session, appel direct, reconduction, administrateur, adjoint, concurrence).
 
 Les actions passées de l'ancien plein (publications, décisions, fiches) restent attribuées à son compte : rien n'est supprimé ni réattribué.
 

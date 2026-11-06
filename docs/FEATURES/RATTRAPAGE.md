@@ -1,6 +1,6 @@
 # Rattrapage des modules obligatoires
 
-Décisions : D98, D99. Le rattrapage n'est pas une catégorie de module : c'est une **obligation non acquise** venant d'une étape antérieure.
+Décisions : D98, D99, D173. Le rattrapage n'est pas une catégorie de module : c'est une **obligation non acquise** venant d'une étape antérieure.
 
 ## Origine d'une obligation
 `expectedCatchUps` (calcul pur, `pathway.service.ts`) : modules dont la **version publiée** est `category = ETAPE`, `obligation = OBLIGATOIRE` (ce qui exige une source officielle, contrainte `module_versions_mandatory_source_check`), rattachés à une étape dont la **période théorique est échue** à la date du jour selon le référentiel d'âge. Les modules de l'étape en cours sont « à étudier », pas à rattraper. Une étape sans période validée ne produit aucune obligation : rien n'est présumé.
@@ -14,7 +14,13 @@ Tant que le manuel n'est pas fourni, aucun module n'est marqué obligatoire : au
 - Après la sortie de la branche : aucune nouvelle obligation.
 
 ## Statuts (calculés à la lecture)
-`A_FAIRE`, `EN_COURS` (étude ou tentative), `EN_ATTENTE_VALIDATION` (résultat accepté `VALIDEE` sur une évaluation du module), `EN_RETARD` (échéance dépassée), `ACQUIS` et `NON_APPLICABLE` (**uniquement** par décision humaine). Ni une lecture ni un résultat ne produisent `ACQUIS`.
+`A_FAIRE`, `EN_COURS` (étude ou tentative), `EN_ATTENTE_VALIDATION` (résultat accepté `VALIDEE` sur une évaluation du module), `EN_RETARD` (échéance dépassée), `A_REEXAMINER` (D173 : d'après les données actuelles — date de naissance corrigée, nouveau référentiel — l'étape d'origine n'est plus échue ; l'obligation reste et attend une décision), `ACQUIS` et `NON_APPLICABLE` (**uniquement** par décision humaine). Ni une lecture ni un résultat ne produisent `ACQUIS`.
+
+## Date d'entrée et recalcul (D173)
+- Chaque obligation indique (`arrival`) si l'étape d'origine s'est achevée **avant** l'entrée à la Route, **depuis** l'arrivée, ou si la date d'entrée est inconnue. C'est une information de suivi : une arrivée tardive ne dispense d'aucun module, et un module non étudié n'est jamais présumé acquis ni non applicable.
+- Recalcul : à chaque lecture du parcours, après l'inscription d'un routier et après toute correction de sa date de naissance, par le traitement quotidien ; un module devenu obligatoire ou une évaluation acceptée est pris en compte à la lecture suivante. Création idempotente : aucun doublon, aucune obligation réécrite ni supprimée.
+- Un module acquis (décision `ACQUIS`) n'est jamais réattribué : l'unicité (routier, module) l'interdit.
+- Routier sans compte : mêmes règles ; l'encadrement suit, imprime et saisit les copies papier selon les permissions existantes.
 
 ## Décision
 `POST /catch-ups/:id/decision` (`catchUp.decide` : responsable plein ou délégation) : `ACQUIS` ou `NON_APPLICABLE`, motif obligatoire, confirmation explicite, définitive (trigger), journalisée. Réutilise les mécanismes existants : études (`ModuleStudy`), évaluations, observations, compétences ; aucun second système d'évaluation.

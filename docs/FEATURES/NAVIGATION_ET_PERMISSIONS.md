@@ -14,8 +14,10 @@ Source unique côté web : `apps/web/src/lib/navigation.ts` (tests : `navigation
 | --- | --- |
 | `ROUTIER` | compte routier : parcours personnel, bibliothèque, passation |
 | `ENCADREMENT` | tout membre de l'encadrement (plein, adjoint, assistant, ou sans fonction) : consultation, rédaction, correction, observations, propositions, activités |
-| `OFFICIEL` | **responsable plein en fonction** uniquement : approbations, publication, examen des résultats, déblocages, validations, fiches, équipes, étapes, rattrapages, comptes routiers |
-| `ADMINISTRATEUR` | administrateur de la plateforme : comptes, désignation de l'encadrement ; aucun droit pédagogique |
+| `OFFICIEL` | **responsable plein en fonction** uniquement : approbations, publication, examen des résultats, déblocages, validations, équipes, rattrapages, comptes routiers ; gestion administrative des fiches routiers (avec l'administrateur) |
+| `ADMINISTRATEUR` | administrateur de la plateforme : comptes (dont les chefs), désignation de l'encadrement, **gestion administrative des fiches routiers** (D173 : consultation, inscription, complétion, correction) ; aucun droit pédagogique |
+
+Aucune permission ne permet de choisir une étape : elle est calculée selon l'âge (D173). Les écritures réservées au plein revérifient sa désignation dans leur transaction (`assertCanAtWrite`).
 
 `leadership.read` (composition de l'encadrement) : tout membre connecté. `leadership.manage` : administrateur.
 

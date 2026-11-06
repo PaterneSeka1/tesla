@@ -4,6 +4,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — profils protégés et progression automatique, 2026-11-06
+- L'étape d'un routier est **calculée selon l'âge** et le référentiel en vigueur, partout dans l'application ; le changement manuel d'étape est supprimé (D173). « Étape non déterminée » si une donnée ou une règle manque.
+- Données administratives (nom, prénoms, matricule, date de naissance, date d'entrée) : gérées par l'administrateur ou le responsable plein en fonction pour les routiers, par l'administrateur seul pour les chefs ; correction motivée, confirmée et journalisée ; aperçu des conséquences d'une date de naissance corrigée.
+- Droits du responsable plein revérifiés au moment de chaque écriture : un remplacement concurrent ne peut pas être contourné.
+- « Mon profil » en lecture seule et en sections (identité, informations Route, progression, compte) ; date d'entrée facultative, jamais préremplie.
+- Rattrapages : position par rapport à l'arrivée, statut « À réexaminer » ; modules de l'étape, à rattraper et acquis présentés séparément.
+- Migration additive `20261115090000_computed_stage_admin_profiles`.
+
 ### Ajouté — import Excel du programme annuel, 2026-11-05
 - Import d'un classeur `.xlsx` depuis « Programme annuel » : feuille, colonnes reconnues ou associées à la main, anomalies localisées, prévisualisation sans écriture, rapprochements à décider, séances protégées et absentes signalées, confirmation transactionnelle liée à l'empreinte, historique des imports (D172). Import Markdown conservé en option secondaire.
 - Contenus prévus par catégorie (Novices, Aspirants, Compagnons, Confirmés) pour une même séance ; format, observations, statut et effectif du fichier conservés comme informations.

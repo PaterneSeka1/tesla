@@ -33,14 +33,14 @@ Légende : ✅ implémentée et testée · 🟡 partiellement implémentée · �
 | Fonctionnalité | État | Détail |
 | --- | --- | --- |
 | Liste, recherche par nom, prénoms ou matricule | ✅ | Plusieurs mots combinés ; insensible à la casse. |
-| Filtres équipe (dont « sans équipe »), étape (dont « non renseignée »), statut, compte ; pagination | ✅ | Filtres initialisables par l'URL (liens du tableau de bord). |
-| Inscription sans compte `/administration/routiers/nouveau` | ✅ | Responsable. Aucun champ e-mail ni mot de passe ; matricule, étape et équipe initiale facultatifs. |
+| Filtres équipe (dont « sans équipe »), étape calculée (dont « non déterminée »), statut, compte ; pagination | ✅ | Filtres initialisables par l'URL (liens du tableau de bord). |
+| Inscription sans compte `/administration/routiers/nouveau` | ✅ | Administrateur ou responsable plein en fonction (D173). Aucun champ e-mail ni mot de passe ; matricule, date de naissance, date d'entrée et équipe initiale facultatifs (jamais de valeur fictive) ; **aucune étape saisie**. |
 | Matricule facultatif, unique, normalisé | ✅ | 7 chiffres + 1 lettre ; saisie en minuscules ou avec espaces acceptée. |
 | Prévention des doublons | ✅ | Matricule unique ; homonyme exact → confirmation explicite. Accents non normalisés. |
-| Fiche `/administration/routiers/[id]` | ✅ | Identité, matricule, équipe, étape, statut du compte, historique des équipes, historique pédagogique, observations. |
-| Modification `/administration/routiers/[id]/modifier` | ✅ | Responsable ; changement d'étape journalisé. |
-| Activation / désactivation avec confirmation | ✅ | Responsable ; désactivation = clôture de l'affectation. |
-| Rattachement ultérieur d'un compte existant | ✅ | Responsable, par e-mail, après confirmation. Vérifications : compte existant, rôle routier, ni compte ni profil déjà rattachés. Profil et historique conservés. |
+| Fiche `/administration/routiers/[id]` | ✅ | Identité, matricule, équipe, étape calculée, statut du compte ; données manquantes signalées (« Matricule non renseigné », « Date d'entrée non renseignée », « Étape non déterminée »). Dossier pédagogique pour l'encadrement seulement (jamais l'administrateur). |
+| Complétion / correction `/administration/routiers/[id]/modifier` | ✅ | Administrateur ou plein en fonction (D173). Complétion libre ; correction (valeur présente remplacée ou retirée) : motif, confirmation, ancienne et nouvelle valeurs journalisées ; aperçu des conséquences d'une date de naissance corrigée. Aucun champ d'étape. |
+| Activation / désactivation avec confirmation | ✅ | Administrateur ou plein ; désactivation = clôture de l'affectation. |
+| Rattachement ultérieur d'un compte existant | ✅ | Administrateur ou plein, par e-mail, après confirmation. Vérifications : compte existant, rôle routier, ni compte ni profil déjà rattachés. Profil et historique conservés. |
 | Historique pédagogique | 🟡 | Affiche les tentatives d'évaluation et changements d'étape **réellement enregistrés** ; aucune tentative ne peut encore être créée depuis l'interface (phase 4 bis). |
 | Validation officielle d'acquis | ⬜ | Phase 4 ; aucun écran ne la simule. |
 

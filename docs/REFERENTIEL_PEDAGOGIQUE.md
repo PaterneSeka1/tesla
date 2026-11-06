@@ -22,7 +22,7 @@ Statuts : **Confirmée** (règle fournie ou validée par le responsable) · **Im
 | --- | --- | --- | --- |
 | Étape théorique déterminée par l'âge (date de naissance), jamais par la date d'entrée | Mission 2026-10-29 | Confirmée, implémentée | `computeAgeProgression` (`@tesla/shared/age-progression.ts`), `PathwayService` |
 | Noviciat : du 18e anniversaire à un mois calendaire plus tard (échéance exclue) | Règle fournie par le responsable | Confirmée, implémentée ; à rapprocher du manuel | Référentiel `2026.1` (`age_stage_rules`) |
-| Fin du mois de noviciat sans validation automatique | Mission | Confirmée, implémentée | Aucun service ne modifie `currentStageId` sur calcul |
+| Fin du mois de noviciat sans validation automatique | Mission | Confirmée, implémentée ; **D173** : l'étape suit l'âge | Après l'échéance : étape non déterminée tant qu'aucune période suivante n'est validée |
 | Conséquence pédagogique de l'échéance du noviciat (étape suivante ?) | Manuel : durée d'un mois, sans conséquence automatique | **Bloquée** (à arbitrer, § 5) | Après l'échéance : étape théorique « non déterminée » (`AUCUNE_REGLE`) |
 | Âges de début et de fin d'Apprentissage et de Compagnonnage | Manuel : durées, pas d'âges (§ 5) | **Bloquée** | Configurable par une nouvelle version du référentiel (`POST /age-rules`) |
 | Nature et conditions du Départ routier | Manuel p. 4–5 et 9 : Service puis Envoi, en branche ou en ONG | **Décrite, non codée** (conditions d'accès non définies) | Jamais traité comme une tranche d'âge ; jamais attribué à la sortie |

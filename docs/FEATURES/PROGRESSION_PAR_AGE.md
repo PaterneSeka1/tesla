@@ -1,16 +1,24 @@
 # Progression par l'âge et appartenance à la branche
 
-Décisions : D95, D96, D97, D106. Traçabilité : [REFERENTIEL_PEDAGOGIQUE.md](../REFERENTIEL_PEDAGOGIQUE.md).
+Décisions : D95, D96, D97, D106, **D173**. Traçabilité : [REFERENTIEL_PEDAGOGIQUE.md](../REFERENTIEL_PEDAGOGIQUE.md).
 
-## Quatre notions distinctes
+## Une seule étape, calculée (D173)
 | Notion | Source | Modifiée par |
 | --- | --- | --- |
-| Étape théorique (`theoreticalStage`) | Date de naissance + référentiel d'âge en vigueur | Calcul à la lecture, jamais stockée |
-| Étape officielle (`officialStage` = `ScoutProfile.currentStageId`) | Historique `ScoutStageChange` | Décision du responsable uniquement |
+| **Étape actuelle** (`stage`, `stageReason`) | Date de naissance + référentiel d'âge en vigueur + date civile d'Abidjan | Personne : calcul de l'API à chaque lecture (`apps/api/src/modules/progression/computed-stage.ts`), jamais stockée |
+| Historique des anciennes décisions d'étape | `ScoutStageChange`, `ScoutProfile.currentStageId` / `currentStageSince` | Figé (triggers `scout_stage_changes_closed`, `scout_profiles_stage_frozen`) : consultable, jamais lu pour une décision |
 | Progression pédagogique | Études (`ModuleStudy`), tentatives, compétences validées | Saisies et décisions existantes |
 | Rattrapage (`catchUps`) | Obligations `CatchUpObligation` | Voir [RATTRAPAGE.md](RATTRAPAGE.md) |
 
-L'écart entre étape officielle et théorique (`ALIGNEE`, `EN_AVANCE`, `EN_RETARD`, `INDETERMINE`) est une information d'accompagnement, jamais une décision. La date d'intégration (`joinedAt`) reste l'ancienneté administrative.
+**Pourquoi** : une seule vérité. L'étape affichée sur la fiche, la liste (et son filtre), le parcours, « Mon profil », les statistiques, les équipes, les copies, le catalogue et l'éligibilité aux évaluations provient de la même fonction ; une date de naissance corrigée ou un nouveau référentiel la change partout, immédiatement, sans tâche de synchronisation. Aucune route, permission ni champ ne permet de la choisir (`STAGE_IS_COMPUTED`, 422).
+
+**Étape non déterminée** : date de naissance absente (`DATE_NAISSANCE_MANQUANTE`), aucun référentiel en vigueur (`AUCUN_REFERENTIEL`), âge sans période validée (`AUCUNE_REGLE`) ou sortie de la branche (`SORTI`). Aucune étape de substitution. Avec le référentiel `2026.1`, seule la période du noviciat est connue : **hors de ce mois, l'étape est non déterminée** et seules les évaluations ouvertes par un rattrapage ou un déblocage restent accessibles. Compléter le référentiel est donc un préalable à l'exploitation.
+
+**Date d'entrée** (`joinedAt`, facultative) : ancienneté (« Mon profil ») et position des rattrapages par rapport à l'arrivée ; elle ne détermine jamais l'étape et n'est jamais remplacée par la date du jour.
+
+**Correction de la date de naissance** : motivée, confirmée, journalisée (D173) ; aperçu préalable `GET /scouts/:id/birth-date-impact` (âge, étape, sortie avant / après, rattrapages nouveaux ou à réexaminer). Après enregistrement : étape recalculée à la lecture, plan de rattrapage complété (idempotent), obligations devenues incohérentes signalées « À réexaminer » ; aucune obligation, décision, validation ni historique effacé.
+
+**Données héritées** : les étapes officielles enregistrées avant D173 restent en base et dans l'historique de la fiche (« Décisions antérieures ») ; elles ne sont plus affichées comme étape actuelle. La migration n'attribue aucune étape.
 
 ## Moteur de calcul (`packages/shared/src/age-progression.ts`)
 Fonctions pures, déterministes, sur des dates civiles « AAAA-MM-JJ » :
@@ -33,8 +41,8 @@ Fonctions pures, déterministes, sur des dates civiles « AAAA-MM-JJ » :
 - Effets : évaluations refusées (`SORTI_BRANCHE`), aucune nouvelle obligation de rattrapage ; connexion et consultation conservées (D95, à valider).
 
 ## Écrans
-- Routier : bloc « Mon parcours » sur `/routier` et `/progression` (âge, étapes théorique et officielle, écart, temps restant, prochaine échéance).
-- Encadrement : section « Âge, parcours et rattrapages » de la fiche ; indicateurs « Parcours de la communauté » sur `/encadrement` (`GET /statistics/pathways` : effectif actif, sortis, étapes théoriques, écarts, prochaines sorties par date, rattrapages ouverts / en retard / en attente, dates de naissance manquantes).
+- Routier : bloc « Mon parcours » sur l'accueil et `/progression` (âge, étape actuelle, temps restant, prochaine échéance) puis trois catégories distinctes : **modules de mon étape**, **modules à rattraper**, **modules déjà acquis** ; « Mon profil » (`/compte`, `GET /auth/profile`) : identité, date de naissance, âge, date d'entrée, ancienneté, étape, prochaine transition, sortie prévue, rattrapages — en lecture seule.
+- Encadrement : section « Âge, parcours et rattrapages » de la fiche (mêmes trois catégories) ; indicateurs « Parcours de la communauté » (`GET /statistics/pathways` : effectif actif, sortis, répartition par étape calculée, prochaines sorties, rattrapages ouverts / en retard / en attente, dates de naissance manquantes).
 
 ## Tests
 `apps/api/src/modules/progression/age-progression.spec.ts` (avant 18 ans, jour des 18 ans, premier mois, échéance, fin de mois, 29 février, absence de référentiel, déterminisme, changement de référentiel, veille et jour des 21 ans, alerte) ; `test/refonte.int-spec.ts` (parcours HTTP, référentiel figé, sortie idempotente et historique conservé).
