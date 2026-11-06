@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api/client';
 import { myPathwayQueryOptions } from '@/lib/api/pathway';
 import { CatchUpList } from './catch-up-list';
-import { PathwayModules } from './pathway-modules';
+import { CatchUpLockNotice, PathwayModules } from './pathway-modules';
 import { PathwaySummary } from './pathway-summary';
 
 function NotLinked() {
@@ -67,10 +67,13 @@ export function MyCatchUps() {
     return <QueryError error={query.error} onRetry={() => void query.refetch()} />;
   }
   return (
-    <CatchUpList
-      obligations={query.data.catchUps}
-      deadlineUndetermined={query.data.catchUpDeadlineUndetermined}
-      audience="routier"
-    />
+    <div className="space-y-3">
+      <CatchUpLockNotice pathway={query.data} />
+      <CatchUpList
+        obligations={query.data.catchUps}
+        deadlineUndetermined={query.data.catchUpDeadlineUndetermined}
+        audience="routier"
+      />
+    </div>
   );
 }

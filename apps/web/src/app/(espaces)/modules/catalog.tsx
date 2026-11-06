@@ -2,13 +2,14 @@
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { MODULE_CATEGORIES, MODULE_CATEGORY_LABELS, type ModuleCategory } from '@tesla/shared';
-import { BookOpen, Clock, Search, Sparkles } from 'lucide-react';
+import { BookOpen, Clock, Lock, Search, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useDeferredValue, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { PageHeading } from '@/components/page-heading';
 import { Pagination } from '@/components/pagination';
 import { QueryError, TableSkeleton } from '@/components/query-state';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +21,10 @@ import { formatDuration } from '@/lib/format';
 
 const PAGE_SIZE = 12;
 
-/** Modules publiés, en consultation libre : l'étape n'est qu'une recommandation de lecture. */
+/**
+ * Modules publiés, en consultation libre ; pendant un rattrapage (D177), le routier n'ouvre que ses
+ * modules à rattraper : les autres restent listés mais fermés (contrôle fait par l'API).
+ */
 export function Catalog() {
   const [search, setSearch] = useState('');
   const [stageId, setStageId] = useState('');
@@ -46,7 +50,11 @@ export function Catalog() {
     <>
       <PageHeading
         title="Bibliothèque"
-        description="Tout module publié est accessible, quelle que soit votre étape."
+        description={
+          data?.items.some((module) => module.locked)
+            ? undefined
+            : 'Tout module publié est accessible, quelle que soit votre étape.'
+        }
       />
       <div className="flex flex-wrap gap-2" role="group" aria-label="Catégorie">
         {(['', ...MODULE_CATEGORIES] as const).map((value) => (
@@ -139,47 +147,77 @@ export function Catalog() {
         />
       ) : (
         <>
+          {data.items.some((module) => module.locked) && (
+            <Alert variant="info">
+              <Lock aria-hidden />
+              <AlertDescription>
+                Terminez d’abord vos rattrapages : les autres cours s’ouvriront ensuite.{' '}
+                <Link href="/mes-rattrapages" className="font-medium underline underline-offset-4">
+                  Mes rattrapages
+                </Link>
+              </AlertDescription>
+            </Alert>
+          )}
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {data.items.map((module) => {
               const recommended = data.myStageId !== null && module.stage?.id === data.myStageId;
+              const card = (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {module.locked && (
+                      <Badge variant="outline">
+                        <Lock aria-hidden /> Fermé
+                      </Badge>
+                    )}
+                    {module.stage && (
+                      <Badge variant={recommended ? 'accent' : 'secondary'}>
+                        {recommended && <Sparkles aria-hidden />}
+                        {module.stage.name}
+                        {recommended && ' · votre étape'}
+                      </Badge>
+                    )}
+                    {module.theme && <Badge variant="outline">{module.theme}</Badge>}
+                    {module.obligation === 'OBLIGATOIRE' && (
+                      <Badge variant="default">Obligatoire</Badge>
+                    )}
+                    {!module.official && <Badge variant="outline">Non homologué</Badge>}
+                  </div>
+                  <h3 className="text-lg font-semibold text-tesla-bordeaux group-hover:underline">
+                    {module.title}
+                  </h3>
+                  {module.summary && (
+                    <p className="line-clamp-3 text-sm text-muted-foreground">{module.summary}</p>
+                  )}
+                  <p className="mt-auto flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span>
+                      {module.lessonCount} leçon{module.lessonCount > 1 ? 's' : ''}
+                    </span>
+                    {module.durationMinutes && (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="size-3" aria-hidden />
+                        {formatDuration(module.durationMinutes)}
+                      </span>
+                    )}
+                  </p>
+                </>
+              );
               return (
                 <li key={module.slug}>
-                  <Link
-                    href={`/modules/${module.slug}`}
-                    className="group flex h-full flex-col gap-3 rounded-lg border border-t-4 border-t-tesla-rouge bg-card p-4 transition-colors hover:border-tesla-or focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      {module.stage && (
-                        <Badge variant={recommended ? 'accent' : 'secondary'}>
-                          {recommended && <Sparkles aria-hidden />}
-                          {module.stage.name}
-                          {recommended && ' · votre étape'}
-                        </Badge>
-                      )}
-                      {module.theme && <Badge variant="outline">{module.theme}</Badge>}
-                      {module.obligation === 'OBLIGATOIRE' && (
-                        <Badge variant="default">Obligatoire</Badge>
-                      )}
-                      {!module.official && <Badge variant="outline">Non homologué</Badge>}
+                  {module.locked ? (
+                    <div
+                      aria-disabled="true"
+                      className="flex h-full flex-col gap-3 rounded-lg border border-t-4 border-t-muted bg-muted/40 p-4 opacity-70"
+                    >
+                      {card}
                     </div>
-                    <h3 className="text-lg font-semibold text-tesla-bordeaux group-hover:underline">
-                      {module.title}
-                    </h3>
-                    {module.summary && (
-                      <p className="line-clamp-3 text-sm text-muted-foreground">{module.summary}</p>
-                    )}
-                    <p className="mt-auto flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      <span>
-                        {module.lessonCount} leçon{module.lessonCount > 1 ? 's' : ''}
-                      </span>
-                      {module.durationMinutes && (
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="size-3" aria-hidden />
-                          {formatDuration(module.durationMinutes)}
-                        </span>
-                      )}
-                    </p>
-                  </Link>
+                  ) : (
+                    <Link
+                      href={`/modules/${module.slug}`}
+                      className="group flex h-full flex-col gap-3 rounded-lg border border-t-4 border-t-tesla-rouge bg-card p-4 transition-colors hover:border-tesla-or focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    >
+                      {card}
+                    </Link>
+                  )}
                 </li>
               );
             })}

@@ -34,6 +34,7 @@ interface Values {
   notes: string;
   branchExitAgeYears: string;
   catchUpDelayMonths: string;
+  catchUpDelayDays: string;
   exitAlertMonths: string;
   stages: StageRow[];
 }
@@ -50,6 +51,7 @@ function initialValues(base: AgeRuleSet | null): Values {
     notes: '',
     branchExitAgeYears: text(base?.branchExitAgeYears),
     catchUpDelayMonths: text(base?.catchUpDelayMonths),
+    catchUpDelayDays: text(base?.catchUpDelayDays),
     exitAlertMonths: text(base?.exitAlertMonths),
     stages:
       base?.stages.map((rule) => ({
@@ -70,6 +72,7 @@ function toInput(values: Values): CreateAgeRuleSetInput {
     notes: values.notes.trim() === '' ? null : values.notes,
     branchExitAgeYears: count(values.branchExitAgeYears),
     catchUpDelayMonths: count(values.catchUpDelayMonths),
+    catchUpDelayDays: count(values.catchUpDelayDays),
     exitAlertMonths: count(values.exitAlertMonths),
     stages: values.stages.map((row) => ({
       stageCode: row.stageCode,
@@ -197,6 +200,19 @@ export function AgeRuleSetForm({ base, onDone }: { base: AgeRuleSet | null; onDo
                   min={1}
                   {...fieldA11y('rules-catchup', errors.catchUpDelayMonths?.message)}
                   {...register('catchUpDelayMonths')}
+                />
+              </FormField>
+              <FormField
+                id="rules-catchup-days"
+                label="Délai par étape à rattraper (jours)"
+                error={errors.catchUpDelayDays?.message}
+              >
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  {...fieldA11y('rules-catchup-days', errors.catchUpDelayDays?.message)}
+                  {...register('catchUpDelayDays')}
                 />
               </FormField>
               <FormField

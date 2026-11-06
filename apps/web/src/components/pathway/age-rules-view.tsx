@@ -134,7 +134,11 @@ function RuleSetCard({
           </dd>
           <dt className="text-muted-foreground">Délai de rattrapage</dt>
           <dd>
-            {ruleSet.catchUpDelayMonths ? `${ruleSet.catchUpDelayMonths} mois` : undetermined}
+            {ruleSet.catchUpDelayDays
+              ? `${ruleSet.catchUpDelayDays} jours par étape`
+              : ruleSet.catchUpDelayMonths
+                ? `${ruleSet.catchUpDelayMonths} mois`
+                : undetermined}
           </dd>
           <dt className="text-muted-foreground">Alerte avant la sortie</dt>
           <dd>{ruleSet.exitAlertMonths ? `${ruleSet.exitAlertMonths} mois` : undetermined}</dd>
@@ -162,7 +166,7 @@ function RuleSetCard({
 }
 
 /**
- * Référentiels d'âge versionnés : consultation par l'encadrement ; saisie d'un brouillon et mise en
+ * Référentiels d'âge versionnés : consultation par le responsable plein seul (D176) ; saisie d'un brouillon et mise en
  * vigueur par le responsable plein en fonction (`ageRules.manage`, revérifié par l'API).
  */
 export function AgeRulesView() {

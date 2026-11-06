@@ -163,13 +163,15 @@ async function prepare(
   if (user.role !== 'ADMINISTRATEUR') {
     progress('Bibliothèque des modules…');
     await get(publishedModulesQueryOptions, 'Modules publiés');
-    const modules = await allPages<{ id: string; slug: string }>(
+    const modules = await allPages<{ id: string; slug: string; locked?: boolean }>(
       client,
       (page) => catalogQueryOptions({ search: '', page, pageSize: 12 }),
       'Bibliothèque',
       failures,
     );
     for (const [index, item] of modules.entries()) {
+      // Rattrapage en cours (D177) : un module fermé n'est ni préparé ni consultable hors ligne.
+      if (item.locked) continue;
       progress(`Module ${index + 1}/${modules.length}…`);
       const detail = await get<{ lessons: { id: string }[] }>(
         catalogModuleQueryOptions(item.slug),
@@ -216,7 +218,8 @@ async function prepare(
       'Tableau de bord',
     );
     await get(pathwayOverviewQueryOptions(), 'Parcours');
-    await get(ageRuleSetsQueryOptions, 'Référentiel d’âge');
+    // Règles internes du calcul : responsable plein seulement (D176).
+    if (userCan(user, 'ageRules.read')) await get(ageRuleSetsQueryOptions, 'Référentiel d’âge');
 
     progress('Équipes…');
     await get(activeTeamsQueryOptions, 'Équipes actives');
