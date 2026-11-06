@@ -7,7 +7,7 @@ export const OBSERVATION_VISIBILITIES = ['ENCADREMENT', 'RESPONSABLE'] as const;
 export type ObservationVisibility = (typeof OBSERVATION_VISIBILITIES)[number];
 
 export const OBSERVATION_VISIBILITY_LABELS: Record<ObservationVisibility, string> = {
-  ENCADREMENT: 'Chefs et responsable',
+  ENCADREMENT: 'Tout l’encadrement',
   RESPONSABLE: 'Responsable uniquement',
 };
 
