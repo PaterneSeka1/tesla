@@ -16,7 +16,6 @@ import {
   type PasswordResetRequestInput,
   passwordResetRequestResultSchema,
   revokedSessionsSchema,
-  sessionListSchema,
 } from '@tesla/shared';
 import { z } from 'zod';
 import { apiFetch, apiSend, toQueryString } from './client';
@@ -80,11 +79,6 @@ export const completeAccountCredential = (
 export const requestPasswordReset = (input: PasswordResetRequestInput) =>
   apiSend('POST', '/auth/password-reset/request', passwordResetRequestResultSchema, input);
 
-export const sessionsQueryOptions = queryOptions({
-  queryKey: ['auth', 'sessions'],
-  queryFn: () => apiFetch('/auth/sessions', sessionListSchema),
-});
-
 export const changePassword = (input: ChangePasswordInput) =>
   apiSend('POST', '/auth/password', z.null(), input);
 
@@ -93,9 +87,3 @@ export const myProfileQueryOptions = queryOptions({
   queryKey: ['auth', 'profile'],
   queryFn: () => apiFetch('/auth/profile', myProfileSchema),
 });
-
-export const revokeSession = (id: string) =>
-  apiSend('POST', `/auth/sessions/${id}/revoke`, z.null());
-
-export const revokeOtherSessions = () =>
-  apiSend('POST', '/auth/sessions/revoke-others', revokedSessionsSchema);
