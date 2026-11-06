@@ -112,10 +112,7 @@ function RevisionContent() {
                 title="Approuver cette version ?"
                 description={
                   <>
-                    <p>
-                      La version sera figée jusqu’à sa publication. Elle ne sera visible des
-                      routiers qu’après l’action « Publier ».
-                    </p>
+                    <p>Elle ne sera visible des routiers qu’après sa publication.</p>
                     {pendingNotes > 0 && (
                       <p className="mt-2 font-medium">
                         {pendingNotes} point{pendingNotes > 1 ? 's' : ''} à vérifier ou à compléter
@@ -177,7 +174,7 @@ function RevisionContent() {
                   </Button>
                 }
                 title="Demander des corrections"
-                description={<p>La version retourne à l’équipe de rédaction avec votre motif.</p>}
+                description={<p>La version retourne à la rédaction avec votre motif.</p>}
                 label="Corrections attendues"
                 required
                 confirmLabel="Renvoyer"
@@ -241,16 +238,14 @@ function RevisionContent() {
             )}
           </div>
           {!['SOUMIS', 'APPROUVE'].includes(status) && (
-            <p className="text-sm text-muted-foreground">
-              Aucune décision en attente sur la version {version.version}.
-            </p>
+            <p className="text-sm text-muted-foreground">Aucune décision en attente.</p>
           )}
         </CardContent>
       </Card>
 
       <section aria-labelledby="reviewed-content" className="space-y-3">
         <h3 id="reviewed-content" className="text-lg font-semibold">
-          Contenu exact de la version {version.version}
+          Contenu de la version {version.version}
         </h3>
         <ModuleVersionView version={version} />
       </section>
@@ -262,7 +257,7 @@ function RevisionContent() {
             aria-expanded={showPublished}
             onClick={() => setShowPublished(!showPublished)}
           >
-            {showPublished ? 'Masquer' : 'Afficher'} la version actuellement en ligne (version{' '}
+            {showPublished ? 'Masquer' : 'Afficher'} la version en ligne (version{' '}
             {published.version})
           </Button>
           {showPublished && <ModuleVersionView version={published} />}
@@ -271,7 +266,7 @@ function RevisionContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Historique des versions et des décisions</CardTitle>
+          <CardTitle>Historique</CardTitle>
         </CardHeader>
         <CardContent>
           <ModuleHistory

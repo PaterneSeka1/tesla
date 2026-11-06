@@ -69,7 +69,7 @@ export function CollaboratorsPanel({ module }: { module: EditorModuleDetail }) {
           </li>
         ))}
       </ul>
-      {manage ? (
+      {manage && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex-1 space-y-1">
             <Label htmlFor={`${id}-chef`}>Inviter un membre de l’encadrement</Label>
@@ -103,10 +103,6 @@ export function CollaboratorsPanel({ module }: { module: EditorModuleDetail }) {
             Inviter
           </Button>
         </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Seuls l’auteur du module et le responsable gèrent les collaborateurs.
-        </p>
       )}
     </div>
   );

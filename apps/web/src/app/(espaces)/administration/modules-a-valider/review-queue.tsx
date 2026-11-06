@@ -8,7 +8,6 @@ import { useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/empty-state';
-import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
 import { Tabs } from '@/components/progression/tabs';
 import { PageHeading } from '@/components/page-heading';
 import { QueryError, TableSkeleton } from '@/components/query-state';
@@ -16,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { submissionsQueryOptions } from '@/lib/api/modules';
 import { authorName, formatDateTime, fullName } from '@/lib/format';
-import { cn } from '@/lib/utils';
 
 type Tab = NonNullable<SubmissionListQuery['status']>;
 
@@ -55,15 +53,14 @@ export function ReviewQueue() {
         ) : (
           <ul className="grid gap-3 md:grid-cols-2">
             {data.items.map((item) => (
-              <li key={item.version.id} className={cn('space-y-3 rounded-lg border bg-card p-4')}>
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      {item.code} · version {item.version.version}
-                    </p>
-                    <h3 className="font-semibold text-tesla-bordeaux">{item.version.title}</h3>
-                  </div>
-                  <ModuleStatusBadge status={item.version.status} />
+              <li key={item.version.id} className="space-y-3 rounded-lg border bg-card p-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    {item.code} · version {item.version.version}
+                  </p>
+                  <h3 className="font-semibold break-words text-tesla-bordeaux">
+                    {item.version.title}
+                  </h3>
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
                   <dt className="text-muted-foreground">Auteur</dt>

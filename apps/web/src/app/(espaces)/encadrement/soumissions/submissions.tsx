@@ -45,11 +45,7 @@ export function Submissions() {
           ) : modules.error ? (
             <QueryError error={modules.error} onRetry={() => void modules.refetch()} />
           ) : followed.length === 0 ? (
-            <EmptyState
-              icon={Send}
-              title="Aucune soumission en cours"
-              description="Soumettez un brouillon depuis sa page d’édition."
-            />
+            <EmptyState icon={Send} title="Aucune soumission en cours" />
           ) : (
             <ul className="divide-y">
               {followed.map(({ module, version }) => (

@@ -151,7 +151,7 @@ export function ModuleMetadataForm({
             <Textarea
               rows={3}
               maxLength={2000}
-              {...fieldA11y('module-summary', errors.summary?.message, 'hint')}
+              {...fieldA11y('module-summary', errors.summary?.message)}
               {...register('summary')}
             />
           </FormField>
@@ -159,7 +159,7 @@ export function ModuleMetadataForm({
         <FormField
           id="module-stage"
           label="Étape recommandée"
-          hint="Indication de lecture : tous les routiers peuvent consulter le module."
+          hint="Indicative : le module reste ouvert à tous les routiers."
         >
           <NativeSelect {...fieldA11y('module-stage', undefined, 'hint')} {...register('stageId')}>
             <option value="">Toutes les étapes</option>
@@ -209,7 +209,7 @@ export function ModuleMetadataForm({
           <FormField
             id="module-source"
             label="Source officielle"
-            hint="Document de référence (titre, édition, pages). Vide : contenu éditorial non homologué."
+            hint="Titre, édition, pages. Vide : contenu non homologué."
             error={errors.officialSource?.message}
           >
             <Input
@@ -221,8 +221,8 @@ export function ModuleMetadataForm({
         </div>
         <FormField
           id="module-theme"
-          label="Thème"
-          hint="Libellé libre facultatif (ex. Vie en équipe)."
+          label="Thème (facultatif)"
+          hint="Ex. : Vie en équipe."
           error={errors.theme?.message}
         >
           <Input

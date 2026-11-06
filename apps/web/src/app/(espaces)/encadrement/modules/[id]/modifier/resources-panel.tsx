@@ -237,7 +237,7 @@ export function ResourcesPanel({
                 {fileKind === 'IMAGE'
                   ? 'PNG, JPEG, WebP ou GIF, 5 Mo maximum.'
                   : 'PDF, 20 Mo maximum.'}{' '}
-                Connexion requise ; consultable en ligne uniquement.
+                Non disponible hors ligne.
               </p>
             </div>
           ) : (

@@ -75,7 +75,7 @@ export function LessonsPanel({
         <EmptyState
           icon={BookOpen}
           title="Aucune leçon"
-          description="Un module doit comporter au moins une leçon rédigée avant sa soumission."
+          description={editable ? 'Au moins une leçon est requise pour soumettre.' : undefined}
         />
       ) : (
         <ol className="space-y-3">
@@ -205,7 +205,7 @@ function LessonCard({
       });
       setBase(base + 1);
       setDirty(false);
-      toast.success('Leçon enregistrée', title.trim());
+      toast.success('Leçon enregistrée');
       await queryClient.invalidateQueries({ queryKey: ['modules'] });
     } catch (saveError) {
       if (saveError instanceof ApiError && saveError.code === 'EDIT_CONFLICT') setConflict(true);

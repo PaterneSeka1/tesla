@@ -28,7 +28,7 @@ export function NewModule() {
               try {
                 const created = await createModule(values);
                 await queryClient.invalidateQueries({ queryKey: ['modules'] });
-                toast.success('Brouillon créé', 'Ajoutez maintenant les leçons du module.');
+                toast.success('Brouillon créé');
                 router.push(`/encadrement/modules/${created.id}/modifier`);
               } catch (error) {
                 toast.error(

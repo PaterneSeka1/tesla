@@ -150,10 +150,7 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeading
-          title={review ? 'Tous les modules' : 'Mes modules'}
-          description="Un module regroupe ses versions : seule sa version publiée est visible des routiers."
-        />
+        <PageHeading title={review ? 'Tous les modules' : 'Mes modules'} />
         <Button asChild>
           <Link href="/encadrement/modules/nouveau">
             <Plus aria-hidden />
@@ -396,9 +393,6 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
           </span>
           {chips.length > 0 && (
             <>
-              <span className="text-muted-foreground">
-                · {chips.length} filtre{chips.length > 1 ? 's' : ''}
-              </span>
               <ul className="flex flex-wrap gap-2" aria-label="Filtres actifs">
                 {chips.map((chip) => (
                   <li key={chip.key}>
@@ -443,22 +437,6 @@ export function EditorModuleList({ review = false }: { review?: boolean }) {
           <EmptyState
             icon={FilePenLine}
             title={chips.length > 0 ? 'Aucun module ne correspond' : 'Aucun module'}
-            description={
-              chips.length > 0 ? 'Retirez un filtre ou modifiez la recherche.' : undefined
-            }
-            action={
-              chips.length > 0 ? (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    resetSearch();
-                    navigate({ ...DEFAULT_STATE, sort: state.sort });
-                  }}
-                >
-                  Réinitialiser les filtres
-                </Button>
-              ) : undefined
-            }
           />
         ) : (
           <>

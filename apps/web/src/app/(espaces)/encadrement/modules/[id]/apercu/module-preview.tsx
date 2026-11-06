@@ -47,9 +47,8 @@ export function ModulePreview() {
       <Alert variant="info" className="print:hidden">
         <AlertDescription>
           <p className="flex flex-wrap items-center gap-2">
-            Aperçu de la version {version.data.version} ({moduleQuery.data.code})
-            <ModuleStatusBadge status={version.data.status} />— présentation telle que la verront
-            les routiers après publication.
+            Aperçu de la version {version.data.version}
+            <ModuleStatusBadge status={version.data.status} />
           </p>
         </AlertDescription>
       </Alert>

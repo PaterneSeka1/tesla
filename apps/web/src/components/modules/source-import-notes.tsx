@@ -13,12 +13,11 @@ export function SourceImportNotes({ source }: { source: ModuleSourceImport }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText aria-hidden className="size-5" />
-          Module importé d’une source documentaire
+          Module importé
         </CardTitle>
         <CardDescription>
           {source.sourceKey} · {source.sourceDocument} ({source.sourcePages}) · importé le{' '}
-          {formatDateTime(source.importedAt)}. Notes réservées à la rédaction, jamais visibles des
-          routiers. Le contenu doit être relu, complété puis approuvé avant toute publication.
+          {formatDateTime(source.importedAt)}. Notes invisibles des routiers.
         </CardDescription>
       </CardHeader>
       {source.editorialNotes.length > 0 && (

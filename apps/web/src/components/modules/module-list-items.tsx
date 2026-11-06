@@ -295,7 +295,6 @@ function ModuleActions({
               void act(() => duplicateModule(module.id), {
                 success: 'Module dupliqué',
                 error: 'Duplication impossible',
-                detail: 'La copie est un nouveau brouillon ; l’original est inchangé.',
               })
             }
           >

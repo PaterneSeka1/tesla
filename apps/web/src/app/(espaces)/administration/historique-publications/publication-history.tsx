@@ -43,7 +43,7 @@ export function PublicationHistory() {
       ) : (
         <>
           <Table>
-            <TableCaption>
+            <TableCaption className="sr-only">
               Décisions de publication, de la plus récente à la plus ancienne
             </TableCaption>
             <TableHeader>

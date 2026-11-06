@@ -64,9 +64,6 @@ export function DeleteDraftDialog({
       await queryClient.invalidateQueries({ queryKey: ['modules'] });
       toast.success(
         result.kind === 'MODULE' ? 'Brouillon supprimé' : 'Version de travail abandonnée',
-        result.kind === 'MODULE'
-          ? `« ${check.title} » a été supprimé.`
-          : `La version ${check.publishedVersion} en ligne reste inchangée.`,
       );
       onOpenChange(false);
       onDeleted?.(result.kind);
@@ -142,7 +139,6 @@ export function DeleteDraftDialog({
                           {check.lessonCount > 0
                             ? 'Ses leçons non publiées seront supprimées. '
                             : ''}
-                          Aucun autre module n’est modifié ; la suppression est inscrite au journal.
                         </>
                       )}{' '}
                       Cette action est définitive.

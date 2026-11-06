@@ -16,7 +16,7 @@ import { safeReturnPath } from '@/lib/module-list-params';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   createModuleVersion,
   duplicateModule,
@@ -32,15 +32,13 @@ import { ResourcesPanel } from './resources-panel';
 import { TextsPanel } from './texts-panel';
 
 const STATE_MESSAGES: Partial<Record<EditorModuleDetail['current']['status'], string>> = {
-  SOUMIS: 'Cette version est soumise : elle est figée jusqu’à la décision du responsable.',
-  APPROUVE:
-    'Cette version est approuvée : elle est figée et attend sa publication par le responsable.',
-  A_CORRIGER:
-    'Le responsable a demandé des corrections : reprenez la rédaction pour modifier cette version.',
-  REFUSE: 'Cette version a été refusée. Vous pouvez créer une nouvelle version de travail.',
+  SOUMIS: 'En attente de la décision du responsable.',
+  APPROUVE: 'En attente de publication par le responsable.',
+  A_CORRIGER: 'Corrections demandées : reprenez la rédaction pour modifier cette version.',
+  REFUSE: 'Pour continuer, créez une nouvelle version.',
   PUBLIE:
-    'Cette version est publiée et ne peut plus être modifiée. Créez une nouvelle version : la version publiée restera visible jusqu’à la publication de la suivante.',
-  ARCHIVE: 'Cette version est archivée. Vous pouvez créer une nouvelle version de travail.',
+    'Pour modifier, créez une nouvelle version : celle-ci reste en ligne jusqu’à la publication de la suivante.',
+  ARCHIVE: 'Pour continuer, créez une nouvelle version.',
 };
 
 export function ModuleEditor() {
@@ -96,11 +94,7 @@ export function ModuleEditor() {
                   copyId = copy.id;
                   return copy;
                 },
-                {
-                  success: 'Module dupliqué',
-                  error: 'Duplication impossible',
-                  detail: 'La copie est un nouveau brouillon ; l’original est inchangé.',
-                },
+                { success: 'Module dupliqué', error: 'Duplication impossible' },
               );
               if (ok) router.push(`/encadrement/modules/${copyId}/modifier`);
             }}
@@ -117,12 +111,7 @@ export function ModuleEditor() {
                 </Button>
               }
               title="Supprimer définitivement ce brouillon ?"
-              description={
-                <p>
-                  Ce module ne contient aucun texte et n’a jamais été soumis ni publié. Il sera
-                  supprimé de la plateforme ; la suppression reste tracée dans le journal.
-                </p>
-              }
+              description={<p>Cette action est définitive.</p>}
               label="Motif"
               required
               destructive
@@ -156,7 +145,9 @@ export function ModuleEditor() {
                 void run(() => createModuleVersion(module.id), {
                   success: 'Nouvelle version créée',
                   error: 'Création impossible',
-                  detail: 'La version publiée reste visible jusqu’à la publication de celle-ci.',
+                  detail: module.publishedVersionId
+                    ? 'La version publiée reste visible jusqu’à la publication de celle-ci.'
+                    : undefined,
                 })
               }
             >
@@ -175,8 +166,8 @@ export function ModuleEditor() {
               title="Soumettre à l’approbation ?"
               description={
                 <p>
-                  La version {current.version} sera figée et transmise au responsable plein. Seul le
-                  responsable peut l’approuver et la publier.
+                  La version {current.version} ne sera plus modifiable jusqu’à la décision du
+                  responsable.
                 </p>
               }
               label="Note pour le responsable (facultative)"
@@ -240,7 +231,6 @@ export function ModuleEditor() {
       <Card>
         <CardHeader>
           <CardTitle>Leçons</CardTitle>
-          <CardDescription>Enregistrez chaque leçon avant de la fermer.</CardDescription>
         </CardHeader>
         <CardContent>
           <LessonsPanel module={module} editable={permissions.canEdit} />
