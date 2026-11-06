@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  CATCH_UP_ARRIVAL_LABELS,
   CATCH_UP_DECISIONS,
   CATCH_UP_STATUS_LABELS,
   type CatchUpDecision,
@@ -31,6 +32,7 @@ const STATUS_VARIANT: Record<
   ACQUIS: 'success',
   EN_RETARD: 'destructive',
   NON_APPLICABLE: 'secondary',
+  A_REEXAMINER: 'accent',
 };
 
 const DECISION_LABELS: Record<CatchUpDecision, string> = {
@@ -141,6 +143,17 @@ export function CatchUpList({
                 {obligation.acceptedAttempts > 0 &&
                   `, ${obligation.acceptedAttempts} résultat(s) accepté(s)`}
               </p>
+              {audience === 'encadrement' && obligation.arrival !== 'INCONNUE' && (
+                <p className="text-xs text-muted-foreground">
+                  {CATCH_UP_ARRIVAL_LABELS[obligation.arrival]}
+                </p>
+              )}
+              {obligation.status === 'A_REEXAMINER' && (
+                <p className="text-sm">
+                  D’après les informations actuelles, l’étape d’origine n’est plus échue : cette
+                  obligation reste enregistrée et attend une décision.
+                </p>
+              )}
               {obligation.decisionReason && (
                 <p className="text-sm">
                   Décision : {obligation.decisionReason}

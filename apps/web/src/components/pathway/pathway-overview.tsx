@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { STAGE_GAP_LABELS } from '@tesla/shared';
 import Link from 'next/link';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,7 +51,7 @@ export function PathwayOverviewPanel() {
       <div className="grid gap-3 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Étapes théoriques (âge)</CardTitle>
+            <CardTitle className="text-base">Étapes (calculées selon l’âge)</CardTitle>
             <CardDescription>
               {d.ruleSetVersion
                 ? `Référentiel ${d.ruleSetVersion}`
@@ -61,16 +60,10 @@ export function PathwayOverviewPanel() {
           </CardHeader>
           <CardContent>
             <ul className="space-y-1 text-sm">
-              {d.byTheoreticalStage.map((row) => (
+              {d.byStage.map((row) => (
                 <li key={row.stage?.id ?? 'none'} className="flex justify-between gap-2">
                   <span>{row.stage?.name ?? 'Non déterminée'}</span>
                   <strong>{row.count}</strong>
-                </li>
-              ))}
-              {d.byGap.map((row) => (
-                <li key={row.gap} className="flex justify-between gap-2 text-muted-foreground">
-                  <span>{STAGE_GAP_LABELS[row.gap]}</span>
-                  <span>{row.count}</span>
                 </li>
               ))}
             </ul>

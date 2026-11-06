@@ -2,7 +2,6 @@ import { queryOptions } from '@tanstack/react-query';
 import {
   type AddEvidenceInput,
   type CancelModuleStudyInput,
-  type ChangeStageInput,
   type CompetencyListQuery,
   competencySchema,
   competencyValidationSchema,
@@ -18,7 +17,6 @@ import {
   type RecordModuleStudyInput,
   scoutProgressionSchema,
   scoutTimelineSchema,
-  stageChangeSchema,
   type UpdateCompetencyInput,
 } from '@tesla/shared';
 import { z } from 'zod';
@@ -72,9 +70,6 @@ export const publishedModulesQueryOptions = queryOptions({
   queryFn: () => apiFetch('/progression/published-modules', moduleOptionsSchema),
   staleTime: 5 * 60_000,
 });
-
-export const changeStage = (scoutId: string, input: ChangeStageInput) =>
-  apiSend('POST', `/scouts/${scoutId}/stage-changes`, stageChangeSchema, input);
 
 export const recordModuleStudy = (scoutId: string, input: RecordModuleStudyInput) =>
   apiSend('POST', `/scouts/${scoutId}/module-studies`, moduleStudySchema, input);

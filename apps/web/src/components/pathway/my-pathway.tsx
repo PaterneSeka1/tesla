@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api/client';
 import { myPathwayQueryOptions } from '@/lib/api/pathway';
 import { CatchUpList } from './catch-up-list';
+import { PathwayModules } from './pathway-modules';
 import { PathwaySummary } from './pathway-summary';
 
 function NotLinked() {
@@ -19,7 +20,7 @@ function NotLinked() {
   );
 }
 
-/** Parcours personnel : âge, étape théorique, étape officielle, échéances (tableau de bord, progression). */
+/** Parcours personnel : âge, étape calculée, échéances, modules par catégorie (accueil, progression). */
 export function MyPathwayOverview() {
   const query = useQuery(myPathwayQueryOptions);
   if (query.isPending) return <TableSkeleton rows={2} />;
@@ -34,6 +35,7 @@ export function MyPathwayOverview() {
         Mon parcours
       </h2>
       <PathwaySummary pathway={query.data} audience="routier" />
+      <PathwayModules pathway={query.data} />
       {open > 0 && (
         <Button asChild variant="outline" size="sm">
           <Link href="/mes-rattrapages">

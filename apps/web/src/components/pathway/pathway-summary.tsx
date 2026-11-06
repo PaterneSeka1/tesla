@@ -1,13 +1,12 @@
 'use client';
 
 import {
+  PROGRESSION_STAGES,
   type ScoutPathway,
-  STAGE_GAP_LABELS,
   THEORETICAL_STAGE_REASON_LABELS,
 } from '@tesla/shared';
 import { CalendarClock, Flag, Hourglass, Route } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const formatCivilDate = (value: string) =>
@@ -24,6 +23,9 @@ const MILESTONE_LABELS = {
   SORTIE_BRANCHE: 'Sortie de la branche',
 } as const;
 
+const stageName = (code: string) =>
+  PROGRESSION_STAGES.find((stage) => stage.code === code)?.name ?? code.toLowerCase();
+
 /** Durée restante lisible (années, mois, jours approximés pour l'affichage seulement). */
 function remaining(days: number): string {
   if (days < 31) return `${days} jour${days > 1 ? 's' : ''}`;
@@ -35,8 +37,8 @@ function remaining(days: number): string {
 }
 
 /**
- * Synthèse du parcours : étape théorique (âge), étape officielle (décision), écart, échéances.
- * Les notions restent distinctes : l'âge ne valide jamais une étape.
+ * Synthèse du parcours : âge, étape actuelle calculée par l'API selon l'âge (D173), échéances.
+ * L'étape n'est jamais saisie ; elle ne valide aucun acquis.
  */
 export function PathwaySummary({
   pathway,
@@ -61,7 +63,7 @@ export function PathwaySummary({
           </AlertDescription>
         </Alert>
       )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader>
             <CardDescription>Âge</CardDescription>
@@ -71,34 +73,20 @@ export function PathwaySummary({
           </CardHeader>
           {age.age === null && (
             <CardContent className="text-sm text-muted-foreground">
-              Date de naissance à renseigner par le responsable.
+              Date de naissance gérée par l’administration.
             </CardContent>
           )}
         </Card>
         <Card>
           <CardHeader>
             <CardDescription className="flex items-center gap-1">
-              <Route className="size-4" aria-hidden /> Étape théorique (âge)
+              <Route className="size-4" aria-hidden /> Étape actuelle
             </CardDescription>
-            <CardTitle className="text-2xl">{pathway.theoreticalStage?.name ?? '—'}</CardTitle>
+            <CardTitle className="text-2xl">{pathway.stage?.name ?? 'Non déterminée'}</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             {THEORETICAL_STAGE_REASON_LABELS[age.reason]}
             {age.period?.endsOn && ` · jusqu’au ${formatCivilDate(age.period.endsOn)} (exclu)`}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Étape officiellement validée</CardDescription>
-            <CardTitle className="text-2xl">{pathway.officialStage?.name ?? 'Aucune'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Badge
-              variant={pathway.gap === 'EN_RETARD' ? 'accent' : 'outline'}
-              className="w-auto whitespace-normal"
-            >
-              {STAGE_GAP_LABELS[pathway.gap]}
-            </Badge>
           </CardContent>
         </Card>
         <Card>
@@ -123,16 +111,16 @@ export function PathwaySummary({
           <span>
             Prochaine échéance : {MILESTONE_LABELS[age.nextMilestone.kind]}
             {age.nextMilestone.stageCode
-              ? ` (${age.nextMilestone.stageCode.toLowerCase()})`
-              : ''}{' '}
-            le <strong>{formatCivilDate(age.nextMilestone.date)}</strong>.
+              ? ` (${stageName(age.nextMilestone.stageCode)})`
+              : ''} le <strong>{formatCivilDate(age.nextMilestone.date)}</strong>.
           </span>
         </p>
       )}
       <p className="text-xs text-muted-foreground">
         Calcul au {formatCivilDate(age.referenceDate)}
-        {age.ruleSetVersion ? `, référentiel d’âge ${age.ruleSetVersion}` : ''}. L’étape théorique
-        est une indication : seule une décision du responsable valide une étape.
+        {age.ruleSetVersion ? `, référentiel d’âge ${age.ruleSetVersion}` : ''}. L’étape est
+        calculée automatiquement selon l’âge ; la validation des acquis reste une décision du
+        responsable.
       </p>
     </div>
   );
