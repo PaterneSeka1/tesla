@@ -9,7 +9,7 @@ paths:
 ---
 # Règles pédagogiques (non négociables sans décision du responsable)
 
-1. **Consultation libre** des modules **publiés** par tous les routiers authentifiés. Un brouillon n'est jamais visible des routiers.
+1. **Consultation libre** des modules **publiés** par tous les routiers authentifiés, **sauf rattrapage en cours** (D177) : seuls les modules à rattraper de l'étape en rattrapage restent ouverts. Un brouillon n'est jamais visible des routiers.
 2. **Publication exclusivement après approbation** du responsable pédagogique. Un chef crée et modifie ; il soumet ; seul le responsable approuve ou renvoie avec motif. Toute modification d'un module publié repasse par l'approbation.
 3. **Évaluations contrôlées** : accessibles selon l'étape de progression du routier.
 4. **Exceptions individuelles** : seul le responsable accorde un déblocage, nominatif, motivé, tracé dans l'audit, révocable.
@@ -23,5 +23,6 @@ paths:
 12. Le chef accompagne, il ne surveille pas : pas de classement entre routiers, pas de score arbitraire affiché comme jugement.
 13. **Encadrement (D132)** : « chef » = tout membre de l'encadrement (rôle interne `ENCADREMENT`, adjoint et assistants compris) ; « responsable » = **responsable plein en fonction**, désigné par l'administrateur (aucun mandat, aucune délégation). Ne jamais tester `user.role` ou `leaderFunction` pour un droit : utiliser `assertCan` (API) ou `userCan` (web). Ne jamais afficher un rôle technique ni une permission. Voir `docs/FEATURES/ENCADREMENT.md`.
 14. **Étape calculée selon l'âge (D173)** : l'étape actuelle découle uniquement de la date de naissance et du référentiel d'âge en vigueur, calculée par l'API (`computed-stage.ts`) ; personne ne la saisit ni ne la modifie ; donnée ou règle manquante = « Étape non déterminée », jamais une étape de substitution. L'ancienne étape officielle est un historique figé. Aucune période d'étape, délai de rattrapage ou seuil d'alerte sans source validée : valeur nulle, signalée (`docs/REFERENTIEL_PEDAGOGIQUE.md`).
-15. **Rattrapage** : obligation née d'un module obligatoire (source officielle exigée) d'une étape échue ; acquise seulement par décision humaine ; jamais supprimée.
+15. **Rattrapage** : obligation née d'un module obligatoire (source officielle exigée) d'une étape échue ; acquise seulement par décision humaine ; jamais supprimée. Étapes rattrapées dans l'ordre, 21 jours chacune ; verrou des autres cours calculé par `catch-up-lock.ts` (D177), jamais dans le web seul.
 16. **Sortie à 21 ans** : fin d'appartenance active calculée à la lecture et enregistrée par un traitement idempotent ; rien n'est supprimé ; aucune étape attribuée.
+17. **Exception de secours (D176)** : seul le plein en fonction applique une étape temporaire, motivée, historisée (`stage_overrides`) ; elle ne touche ni l'âge, ni les acquis, ni les rattrapages, ni la sortie ; l'âge ne prouve jamais une cérémonie. Explications du calcul réservées au plein.

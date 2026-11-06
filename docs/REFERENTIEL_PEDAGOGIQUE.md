@@ -1,6 +1,6 @@
 # Référentiel pédagogique et traçabilité des règles
 
-Dernière mise à jour : 2026-10-30 (manuel SAPF-Route versé au dépôt, matrice manuel ↔ moteur, § 5) ; 2026-10-29 (refonte « parcours Route et mandats ») ; 2026-10-30 (mandats supprimés : fonctions désignées par l'administrateur, D132).
+Dernière mise à jour : 2026-11-06 (chronologie Tesla `2026.2`, D176) ; 2026-10-30 (manuel SAPF-Route versé au dépôt, matrice manuel ↔ moteur, § 5) ; 2026-10-29 (refonte « parcours Route et mandats ») ; 2026-10-30 (mandats supprimés : fonctions désignées par l'administrateur, D132).
 
 **Principe** : le manuel SAPF-Route est la référence pédagogique (document d'atelier régional, non présenté comme règlement national tant qu'il n'est pas validé). Aucune règle absente du manuel ou non validée par le responsable n'est codée. Une valeur non arbitrée reste **nulle** (jamais une valeur par défaut) et l'écran l'indique (« non déterminée », « non arbitré »).
 
@@ -23,21 +23,22 @@ Statuts : **Confirmée** (règle fournie ou validée par le responsable) · **Im
 | Étape théorique déterminée par l'âge (date de naissance), jamais par la date d'entrée | Mission 2026-10-29 | Confirmée, implémentée | `computeAgeProgression` (`@tesla/shared/age-progression.ts`), `PathwayService` |
 | Noviciat : du 18e anniversaire à un mois calendaire plus tard (échéance exclue) | Règle fournie par le responsable | Confirmée, implémentée ; à rapprocher du manuel | Référentiel `2026.1` (`age_stage_rules`) |
 | Fin du mois de noviciat sans validation automatique | Mission | Confirmée, implémentée ; **D173** : l'étape suit l'âge | Après l'échéance : étape non déterminée tant qu'aucune période suivante n'est validée |
-| Conséquence pédagogique de l'échéance du noviciat (étape suivante ?) | Manuel : durée d'un mois, sans conséquence automatique | **Bloquée** (à arbitrer, § 5) | Après l'échéance : étape théorique « non déterminée » (`AUCUNE_REGLE`) |
-| Âges de début et de fin d'Apprentissage et de Compagnonnage | Manuel : durées, pas d'âges (§ 5) | **Bloquée** | Configurable par une nouvelle version du référentiel (écran « Référentiel d'âge », responsable plein) |
-| Nature et conditions du Départ routier | Manuel p. 4–5 et 9 : Service puis Envoi, en branche ou en ONG | **Décrite, non codée** (conditions d'accès non définies) | Jamais traité comme une tranche d'âge ; jamais attribué à la sortie |
+| Conséquence pédagogique de l'échéance du noviciat (étape suivante ?) | Chronologie Tesla du 2026-11-06 | Confirmée, implémentée (**D176**) | Apprentissage dès 18 ans + 1 mois, sans validation manuelle (`2026.2`) |
+| Âges de début et de fin d'Apprentissage, de Compagnonnage et de Préparation au Départ routier | Chronologie Tesla du 2026-11-06 (adaptation propre à la communauté, **distincte des durées du manuel**) | Confirmée, implémentée (**D176**) | Référentiel `2026.2` : 18 ans + 1 mois → 19 ans → 20 ans → 21 ans |
+| Nature et conditions du Départ routier | Manuel p. 4–5 et 9 : Service puis Envoi, en branche ou en ONG | **Décrite, non codée** (conditions d'accès non définies) | La période d'âge 20 → 21 ans s'appelle « Préparation au Départ routier » (D176) ; la cérémonie du Départ n'est jamais attribuée par l'âge ni à la sortie |
 | Âge d'entrée dans la branche (avant 18 ans ?) | Manuel p. 2 : « généralement âgés de 18 à 21 ans » | **Bloquée** | Avant 18 ans : « non déterminée » |
 | Sortie de la branche le jour du 21e anniversaire | Règle fournie | Confirmée, implémentée | `branch_exit_age_years = 21`, `MembershipService`, calcul à la lecture |
 | Anniversaire d'une personne née un 29 février | Choix technique | **À valider** (D97) | 1er mars les années non bissextiles (`LEAP_DAY_ANNIVERSARY`) |
 | Mois calendaire depuis un 29/30/31 | Choix technique | **À valider** (D97) | Ramené au dernier jour du mois (31 janvier + 1 mois = 28 ou 29 février) |
 | Date civile de référence | Mission | Confirmée, implémentée | `Africa/Abidjan` (`civilDateAt`) |
 | Modules obligatoires par étape | Le manuel n'en définit aucun | **Bloquée** | Champ `obligation = OBLIGATOIRE` exigeant une source officielle (CHECK) ; aucun module ainsi marqué |
-| Délai de rattrapage | Non défini | **Bloquée** | `catch_up_delay_months` nul → échéance « non déterminée » |
+| Délai de rattrapage | « Environ 2 à 3 semaines par étape » (responsable, 2026-11-06) | Confirmée, implémentée (**D177**) ; 21 jours retenus, à confirmer | `catch_up_delay_days = 21` (`2026.2`), étapes enchaînées, autres cours fermés pendant le rattrapage |
 | Rattrapage plafonné à la sortie | Mission | Confirmée, implémentée | `catchUpDueOn` |
 | Accès aux évaluations d'une étape antérieure au titre d'un rattrapage | Mission (« lorsque les règles l'autorisent ») | **À valider** (D98) | Statut `ELIGIBLE_RATTRAPAGE` si obligation ouverte |
 | Seuil d'alerte avant 21 ans | Non défini | **Bloquée** | `exit_alert_months` nul → liste par date, sans alerte |
 | Droits d'un routier sorti de la branche | Non défini | **À valider** (D95) | Connexion et consultation conservées ; évaluations refusées (`SORTI_BRANCHE`) |
 | Validation officielle exclusivement humaine | RM / `.claude/rules/pedagogy.md` | Confirmée, implémentée | Décisions motivées, journalisées ; aucun calcul ne valide |
+| Correction exceptionnelle et temporaire de l'étape | Demande du responsable du 2026-11-06 | Confirmée, implémentée (**D176**) | Plein en fonction seul, motivée, historisée, jamais au-delà de la veille du 21e anniversaire (`stage_overrides`) |
 | Un seul responsable plein à un instant donné | Mission | Confirmée, implémentée | Index unique partiel `leadership_assignments_one_plein` ; remplacement confirmé et atomique (D132) |
 | Désignation du plein, de l'adjoint et des assistants | Décision du 2026-10-30 | Confirmée, implémentée | Par l'administrateur, sans année scoute, sans reconduction (D132) ; mandats annuels supprimés |
 | Autorité qui nomme le plein | Non définie | **À valider** (D101) | Texte libre obligatoire ; consigné par l'administration technique ; auto-nomination refusée |

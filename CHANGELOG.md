@@ -4,6 +4,21 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — rattrapages par étape et verrou des cours, 2026-11-06 (D177)
+- Délai de rattrapage de 21 jours par étape (référentiel `2026.2`, colonne `catch_up_delay_days`, migration `20261117090000_catch_up_delay_days`) ; étapes rattrapées dans l'ordre du parcours.
+- Pendant un rattrapage, le routier n'ouvre que ses modules à rattraper : autres cours, fichiers, études et évaluations fermés (sauf dérogation du responsable) ; bandeau d'échéance sur « Mes rattrapages », le parcours et la bibliothèque.
+- Écran « Référentiel d'âge » : délai par étape en jours.
+
+### Ajouté — progression automatique et exception de secours, 2026-11-06 (D176)
+- Référentiel d'âge `2026.2` : Noviciat (18 ans → 18 ans + 1 mois), Apprentissage (→ 19 ans), Compagnonnage (19 → 20 ans), Préparation au Départ routier (20 → 21 ans), sortie le jour du 21e anniversaire. `2026.1` conservé.
+- Correction exceptionnelle et temporaire de l'étape par le responsable plein (fiche routier, section « Supervision de la progression ») : aperçu, motif, dates, confirmation, levée motivée, historique ; migration `20261116090000_stage_overrides`.
+- Échéances de rattrapage jamais rétroactives (arrivée, publication du module, mise en vigueur du référentiel).
+
+### Modifié — confidentialité de la progression, 2026-11-06 (D176)
+- Référentiel d'âge et explications du calcul réservés au responsable plein (menu, API, préparation hors ligne) ; version du référentiel et motifs détaillés des rattrapages retirés des réponses des autres profils.
+- Étape `DEPART_ROUTIER` affichée « Préparation au Départ routier ».
+- Un routier sorti de la branche ne déclare plus d'étude ; seules les études antérieures à la sortie restent enregistrables par l'encadrement.
+
 ### Modifié — sobriété de l'interface, 2026-11-06
 - « Mon profil » : identité, progression et connexion regroupées ; section « Sessions ouvertes » retirée de l'interface (sécurité des sessions inchangée côté API) ; plus de titre en double sur mobile (D174).
 - Fiche médicale : mentions « facultatif » et textes répétés supprimés ; champs affichés directement ; confidentialité en une phrase.

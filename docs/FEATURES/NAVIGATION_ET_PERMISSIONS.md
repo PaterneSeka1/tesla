@@ -54,7 +54,7 @@ Règle la plus précise (exacte, puis préfixe le plus long). Un chemin sans rè
 | `/evaluations` | `evaluation.take` |
 | `/progression`, `/mes-resultats`, `/mes-rattrapages`, `/mes-competences`, `/mes-activites` | `progression.readOwn` |
 | `/encadrement/*` | `module.write` ; `/encadrement/evaluations` : `evaluation.write` ; `…/papier` : `attempt.preparePaper` ; `/encadrement/corrections` : `attempt.record` |
-| `/administration/*` | `scout.read` ; statistiques `statistics.read` ; activités `activity.read` ; présences `attendance.record` ; compétences et validations `competency.read` ; référentiel d'âge `ageRules.read` ; comptes `account.read` |
+| `/administration/*` | `scout.read` ; statistiques `statistics.read` ; activités `activity.read` ; présences `attendance.record` ; compétences et validations `competency.read` ; référentiel d'âge `ageRules.read` (responsable plein seul, D176) ; supervision de la progression et exception de secours `progression.supervise` (plein seul, section de la fiche routier) ; comptes `account.read` |
 | `/administration/{modules-a-valider, modules, historique-publications}` | `module.review` |
 | `/administration/evaluations` | `evaluation.review` |
 | `/administration/evaluations-a-valider` | `attempt.decide` |
