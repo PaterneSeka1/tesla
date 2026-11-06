@@ -14,11 +14,10 @@ import { computeEligibility } from './eligibility.js';
 import { questionInclude } from './evaluation-common.js';
 import {
   effectiveMembership,
-  loadRuleSetRow,
   stillRequiredModuleWhere,
   todayCivil,
-  toSnapshot,
 } from '../progression/age-rules.js';
+import { computedStageIdOf, loadStageContext } from '../progression/computed-stage.js';
 
 export type VersionQuestion = Prisma.EvaluationQuestionGetPayload<{
   include: typeof questionInclude;
@@ -179,7 +178,6 @@ export async function loadEligibility(
     profile: {
       id: string;
       isActive: boolean;
-      currentStageId: string | null;
       birthDate: Date | null;
       membershipStatus: 'ACTIF' | 'SORTI';
     } | null;
@@ -189,10 +187,9 @@ export async function loadEligibility(
   },
 ): Promise<Eligibility> {
   const { profile } = input;
-  const rules = profile ? await loadRuleSetRow(tx, todayCivil(input.now)) : null;
-  const membership = profile
-    ? effectiveMembership(profile, rules && toSnapshot(rules), todayCivil(input.now))
-    : undefined;
+  const context = profile ? await loadStageContext(tx, todayCivil(input.now)) : null;
+  const membership =
+    profile && context ? effectiveMembership(profile, context.rules, context.today) : undefined;
   const openCatchUp =
     profile && input.evaluation.moduleId
       ? (await tx.catchUpObligation.count({
@@ -217,7 +214,10 @@ export async function loadEligibility(
       })
     : [];
   return computeEligibility({
-    profile,
+    profile: profile && {
+      isActive: profile.isActive,
+      stageId: context ? computedStageIdOf(profile, context) : null,
+    },
     membership,
     openCatchUp,
     evaluationStageId: input.evaluation.stageId,

@@ -9,6 +9,7 @@ import { type Actor } from '../../common/actor.js';
 import { assertCan } from '../../common/permissions.js';
 import { parseId } from '../../common/validation.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { loadStageContext, withComputedStage } from '../progression/computed-stage.js';
 import { toStageSummary } from '../scouts/presenters.js';
 import { evaluationNotFound } from './evaluation-common.js';
 
@@ -48,10 +49,15 @@ export class EvaluationResultsService {
     );
     const participantIds = new Set(finished.map((attempt) => attempt.scoutProfileId));
 
-    const concernedRows = await this.prisma.scoutProfile.findMany({
-      where: { isActive: true, membershipStatus: 'ACTIF', currentStageId: evaluation.stageId },
-      select: { id: true },
-    });
+    // Concernés : routiers actifs dont l'étape calculée selon l'âge est celle de l'évaluation (D173).
+    const concernedRows = withComputedStage(
+      await this.prisma.scoutProfile.findMany({
+        where: { isActive: true, membershipStatus: 'ACTIF' },
+        select: { id: true, birthDate: true, membershipStatus: true },
+      }),
+      await loadStageContext(this.prisma),
+      evaluation.stageId,
+    );
     const notParticipated = concernedRows.filter((row) => !participantIds.has(row.id)).length;
 
     // Version détaillée : la publiée, sinon celle de la copie terminée la plus récente.

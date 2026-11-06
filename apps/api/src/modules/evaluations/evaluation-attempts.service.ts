@@ -47,7 +47,7 @@ import {
   toUserSummary,
   userSummarySelect,
 } from '../scouts/presenters.js';
-import { scoutProfileNotFound } from '../scouts/scout-profiles.service.js';
+import { scoutProfileNotFound } from '../scouts/presenters.js';
 import { LoginRateLimiter } from '../auth/login-rate-limiter.js';
 import { TeamsService } from '../scouts/teams.service.js';
 import {
@@ -58,6 +58,11 @@ import {
   upsertAnswers,
   type VersionQuestion,
 } from './attempt-answers.js';
+import {
+  computedStageOf,
+  loadStageContext,
+  type StageContext,
+} from '../progression/computed-stage.js';
 import { issueAttemptCode } from './attempt-code.js';
 import { assertTransition } from './attempt-workflow.js';
 import {
@@ -72,7 +77,6 @@ import {
 const listInclude = {
   scoutProfile: {
     include: {
-      currentStage: true,
       teamAssignments: { where: { endedAt: null }, include: { team: true }, take: 1 },
     },
   },
@@ -226,12 +230,12 @@ export class EvaluationAttemptsService {
     const profiles = await this.prisma.scoutProfile.findMany({
       where: { isActive: true },
       include: {
-        currentStage: true,
         teamAssignments: { where: { endedAt: null }, include: { team: true }, take: 1 },
       },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
     const now = new Date();
+    const context = await loadStageContext(this.prisma);
     const candidates: DistributionCandidate[] = [];
     for (const profile of profiles) {
       const eligibility = await loadEligibility(this.prisma, {
@@ -255,7 +259,7 @@ export class EvaluationAttemptsService {
           lastName: profile.lastName,
           matricule: profile.matricule,
           hasAccount: profile.userId !== null,
-          stage: toStageSummary(profile.currentStage),
+          stage: toStageSummary(computedStageOf(profile, context).stage),
           team: team && { id: team.id, name: team.name },
         },
         eligibility: eligibility.status,
@@ -508,7 +512,13 @@ export class EvaluationAttemptsService {
       }),
     ]);
     const answerKey = can(actor, 'attempt.answerKey');
-    return { items: rows.map((row) => toListItem(row, answerKey)), page, pageSize, total };
+    const context = await loadStageContext(this.prisma);
+    return {
+      items: rows.map((row) => toListItem(row, answerKey, context)),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   /** File d'examen du responsable : résultats corrigés soumis, les plus anciens d'abord. */
@@ -534,7 +544,13 @@ export class EvaluationAttemptsService {
     if (!attempt) throw attemptNotFound();
     const questions = await loadVersionQuestions(this.prisma, attempt.evaluationVersionId);
     const teamAtPreparation = await this.teams.teamAt(attempt.scoutProfileId, attempt.createdAt);
-    return toDetail(attempt, questions, teamAtPreparation, can(actor, 'attempt.answerKey'));
+    return toDetail(
+      attempt,
+      questions,
+      teamAtPreparation,
+      can(actor, 'attempt.answerKey'),
+      await loadStageContext(this.prisma),
+    );
   }
 
   /**
@@ -1087,7 +1103,8 @@ async function lockAttempt(
   return tx.evaluationAttempt.findUniqueOrThrow({ where: { id: rows[0]!.id } });
 }
 
-function scoutRef(profile: ListRow['scoutProfile']) {
+/** Routier d'une copie, avec son étape actuelle calculée selon l'âge (D173). */
+function scoutRef(profile: ListRow['scoutProfile'], context: StageContext) {
   const team = profile.teamAssignments[0]?.team ?? null;
   return {
     id: profile.id,
@@ -1095,7 +1112,7 @@ function scoutRef(profile: ListRow['scoutProfile']) {
     lastName: profile.lastName,
     matricule: profile.matricule,
     hasAccount: profile.userId !== null,
-    stage: toStageSummary(profile.currentStage),
+    stage: toStageSummary(computedStageOf(profile, context).stage),
     team: team && { id: team.id, name: team.name },
   };
 }
@@ -1108,14 +1125,14 @@ function scoresVisible(status: AttemptStatus, answerKey: boolean): boolean {
   return answerKey || status === 'VALIDEE';
 }
 
-function toListItem(row: ListRow, answerKey: boolean): CorrectionListItem {
+function toListItem(row: ListRow, answerKey: boolean, context: StageContext): CorrectionListItem {
   const scores = scoresVisible(row.status, answerKey);
   return {
     id: row.id,
     code: row.code,
     mode: row.mode,
     status: row.status,
-    scout: scoutRef(row.scoutProfile),
+    scout: scoutRef(row.scoutProfile, context),
     evaluation: {
       id: row.evaluation.id,
       code: formatEvaluationCode(row.evaluation.number),
@@ -1139,6 +1156,7 @@ function toDetail(
   questions: VersionQuestion[],
   teamAtPreparation: { id: string; name: string } | null,
   answerKey: boolean,
+  context: StageContext,
 ): CorrectionDetail {
   const answers = new Map(row.attemptAnswers.map((answer) => [answer.questionId, answer]));
   const totalPoints = roundPoints(questions.reduce((sum, q) => sum + Number(q.points), 0));
@@ -1151,7 +1169,7 @@ function toDetail(
     status: row.status,
     correctionRevision: row.correctionRevision,
     scout: {
-      ...scoutRef(row.scoutProfile),
+      ...scoutRef(row.scoutProfile, context),
       isActive: row.scoutProfile.isActive,
       teamAtPreparation: teamAtPreparation && {
         id: teamAtPreparation.id,

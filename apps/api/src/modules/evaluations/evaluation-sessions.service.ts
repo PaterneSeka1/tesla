@@ -24,7 +24,7 @@ import { parseInput } from '../../common/validation.js';
 import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { toStageSummary } from '../scouts/presenters.js';
-import { scoutProfileNotFound } from '../scouts/scout-profiles.service.js';
+import { scoutProfileNotFound } from '../scouts/presenters.js';
 import { issueAttemptCode } from './attempt-code.js';
 import {
   gradeObjectiveQuestions,
@@ -42,11 +42,10 @@ import {
 } from './evaluation-common.js';
 import {
   effectiveMembership,
-  loadRuleSetRow,
   stillRequiredModuleWhere,
   todayCivil,
-  toSnapshot,
 } from '../progression/age-rules.js';
+import { computedStageIdOf, loadStageContext } from '../progression/computed-stage.js';
 
 const availableInclude = {
   stage: true,
@@ -125,10 +124,18 @@ export class EvaluationSessionsService {
         ])
       : [[], [], []];
     const now = new Date();
-    const rules = subject?.profile ? await loadRuleSetRow(this.prisma, todayCivil(now)) : null;
-    const membership = subject?.profile
-      ? effectiveMembership(subject.profile, rules && toSnapshot(rules), todayCivil(now))
-      : undefined;
+    const context = subject?.profile ? await loadStageContext(this.prisma, todayCivil(now)) : null;
+    const membership =
+      subject?.profile && context
+        ? effectiveMembership(subject.profile, context.rules, context.today)
+        : undefined;
+    // Étape calculée selon l'âge (D173), une fois pour toutes les évaluations de la page.
+    const profile = subject?.profile
+      ? {
+          isActive: subject.profile.isActive,
+          stageId: context ? computedStageIdOf(subject.profile, context) : null,
+        }
+      : null;
     const catchUpModules = new Set(catchUps.map((obligation) => obligation.moduleId));
     return {
       items: rows.map((row) =>
@@ -136,7 +143,7 @@ export class EvaluationSessionsService {
           row,
           subject &&
             computeEligibility({
-              profile: subject.profile,
+              profile,
               membership,
               openCatchUp: row.moduleId !== null && catchUpModules.has(row.moduleId),
               evaluationStageId: row.stageId,
@@ -429,7 +436,6 @@ export class EvaluationSessionsService {
     profile: {
       id: string;
       isActive: boolean;
-      currentStageId: string | null;
       birthDate: Date | null;
       membershipStatus: 'ACTIF' | 'SORTI';
     } | null;

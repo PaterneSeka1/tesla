@@ -4,7 +4,7 @@ const NOW = new Date('2027-01-10T10:00:00Z');
 const STAGE = 'stage-noviciat';
 
 const facts = (overrides: Partial<EligibilityFacts> = {}): EligibilityFacts => ({
-  profile: { isActive: true, currentStageId: STAGE },
+  profile: { isActive: true, stageId: STAGE },
   evaluationStageId: STAGE,
   maxAttempts: null,
   attempts: [],
@@ -83,14 +83,14 @@ describe('Éligibilité aux évaluations', () => {
 
   it('refuse un compte sans profil et un profil inactif', () => {
     expect(computeEligibility(facts({ profile: null })).status).toBe('SANS_PROFIL');
-    expect(
-      computeEligibility(facts({ profile: { isActive: false, currentStageId: STAGE } })).status,
-    ).toBe('PROFIL_INACTIF');
+    expect(computeEligibility(facts({ profile: { isActive: false, stageId: STAGE } })).status).toBe(
+      'PROFIL_INACTIF',
+    );
   });
 });
 
 describe('Éligibilité : appartenance à la branche et rattrapage (refonte)', () => {
-  const otherStage = { profile: { isActive: true, currentStageId: 'stage-apprentissage' } };
+  const otherStage = { profile: { isActive: true, stageId: 'stage-apprentissage' } };
 
   it('limite d’âge atteinte : refusée, même à l’étape ou avec une dérogation', () => {
     expect(computeEligibility(facts({ membership: 'SORTI' }))).toMatchObject({

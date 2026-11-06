@@ -8,10 +8,11 @@ import {
 /**
  * Éligibilité pédagogique à une évaluation (RM-009, RM-EVAL-002), identique avec ou sans compte.
  * Règle provisoire, à confirmer par le responsable (docs/DECISIONS.md) : l'évaluation doit relever
- * de l'étape courante du routier. Hors de ce cas, seule une dérogation active du responsable l'autorise.
+ * de l'étape actuelle du routier, **calculée selon l'âge** (D173). Une étape non déterminée n'ouvre
+ * aucune évaluation d'étape ; seuls un rattrapage ouvert ou une dérogation active l'autorisent alors.
  */
-export function isStageEligible(currentStageId: string | null, evaluationStageId: string): boolean {
-  return currentStageId !== null && currentStageId === evaluationStageId;
+export function isStageEligible(stageId: string | null, evaluationStageId: string): boolean {
+  return stageId !== null && stageId === evaluationStageId;
 }
 
 export function isWaiverActive(
@@ -22,8 +23,11 @@ export function isWaiverActive(
 }
 
 export interface EligibilityFacts {
-  /** Profil routier ; null pour un compte routier sans profil rattaché. */
-  profile: { isActive: boolean; currentStageId: string | null } | null;
+  /**
+   * Profil routier ; null pour un compte routier sans profil rattaché. `stageId` : étape calculée
+   * selon l'âge par l'API (jamais l'ancienne étape officielle enregistrée).
+   */
+  profile: { isActive: boolean; stageId: string | null } | null;
   /** Appartenance effective à la branche (sortie à l'âge limite, D95) ; ACTIF si inconnue. */
   membership?: 'ACTIF' | 'SORTI';
   /** Obligation de rattrapage ouverte sur le module de l'évaluation (D98). */
@@ -68,7 +72,7 @@ export function computeEligibility(facts: EligibilityFacts): Eligibility {
   if (facts.membership === 'SORTI') return { ...base, status: 'SORTI_BRANCHE', allowed: false };
 
   let waiver: Eligibility['waiver'] = null;
-  const stageEligible = isStageEligible(facts.profile.currentStageId, facts.evaluationStageId);
+  const stageEligible = isStageEligible(facts.profile.stageId, facts.evaluationStageId);
   const catchUp = !stageEligible && facts.openCatchUp === true;
   if (!stageEligible && !catchUp) {
     const active = [...facts.waivers]

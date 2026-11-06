@@ -20,7 +20,7 @@ import { parseInput } from '../../common/validation.js';
 import { type EvaluationWaiver, type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { toUserSummary, userSummarySelect } from '../scouts/presenters.js';
-import { scoutProfileNotFound } from '../scouts/scout-profiles.service.js';
+import { scoutProfileNotFound } from '../scouts/presenters.js';
 import { isWaiverActive } from './eligibility.js';
 import { formatEvaluationCode } from './evaluation-common.js';
 
