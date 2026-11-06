@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -19,13 +19,12 @@ import {
   passwordResetRequestInputSchema,
   type PasswordResetRequestResult,
   passwordResetRequestResultSchema,
-  type MeResponse,
-  meResponseSchema,
   type RevokedSessions,
   revokedSessionsSchema,
   type SessionList,
   sessionListSchema,
-  updateProfileInputSchema,
+  type MyProfile,
+  myProfileSchema,
   verifyAccountCredentialInputSchema,
 } from '@tesla/shared';
 import { openApiSchema } from '../../common/openapi.js';
@@ -192,18 +191,16 @@ export class AccountSelfController {
     return this.self.changePassword(request.actor!.userId, request.sessionId!, body);
   }
 
-  @Patch('profile')
+  @Get('profile')
   @ApiCookieAuth()
-  @ApiOperation({ summary: 'Modifier son nom affiché' })
-  @ApiBody({ schema: openApiSchema(updateProfileInputSchema, 'input') })
-  @ApiOkResponse({ schema: openApiSchema(meResponseSchema) })
-  async updateProfile(
-    @Body() body: unknown,
-    @Req() request: AuthenticatedRequest,
-  ): Promise<MeResponse> {
-    const userId = request.actor!.userId;
-    await this.self.updateProfile(userId, body);
-    return { user: await this.auth.currentUser(userId) };
+  @ApiOperation({
+    summary: 'Mon profil (lecture seule)',
+    description:
+      'Identité et données administratives gérées par l’administration ; âge, ancienneté, étape et échéances calculés par l’API (D173). Aucune modification par le titulaire.',
+  })
+  @ApiOkResponse({ schema: openApiSchema(myProfileSchema) })
+  profile(@Req() request: AuthenticatedRequest): Promise<MyProfile> {
+    return this.self.profile(request.actor!);
   }
 
   @Get('sessions')

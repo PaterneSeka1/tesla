@@ -6,6 +6,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   type Account,
@@ -37,6 +38,7 @@ import { type Env } from '../../config/env.js';
 import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CODE_MAX_FAILURES, LoginRateLimiter } from '../auth/login-rate-limiter.js';
+import { assertCanAtWrite } from '../auth/write-authority.js';
 import { hashPassword } from '../auth/password.js';
 import { generateSessionToken, hashSessionToken } from '../auth/session-token.js';
 import { AccountMailer } from './account-mailer.js';
@@ -211,6 +213,8 @@ export class AccountsService {
     if (data.scoutProfileId) assertCan(actor, 'scout.linkAccount');
     try {
       const created = await this.prisma.$transaction(async (tx) => {
+        // Responsable plein : désignation revérifiée au moment de l'écriture (D173).
+        await assertCanAtWrite(tx, actor, 'account.manage');
         const user = await tx.user.create({
           data: {
             email: data.email,
@@ -281,8 +285,19 @@ export class AccountsService {
     const data = parseInput(updateAccountInputSchema, input);
     try {
       return await this.prisma.$transaction(async (tx) => {
+        await assertCanAtWrite(tx, actor, 'account.manage');
         const before = await this.findInScope(actor, id, tx);
-        const row = await tx.user.update({ where: { id }, data, select: accountSelect });
+        const { reason, ...fields } = data;
+        const renamed = (['firstName', 'lastName'] as const).filter(
+          (field) => fields[field] !== undefined && fields[field] !== before[field],
+        );
+        if (renamed.length > 0 && !reason) {
+          throw new UnprocessableEntityException({
+            code: 'CORRECTION_REASON_REQUIRED',
+            message: 'Le nom et le prénom sont des informations protégées : indiquez le motif.',
+          });
+        }
+        const row = await tx.user.update({ where: { id }, data: fields, select: accountSelect });
         await tx.auditLog.create({
           data: {
             actorId: actor.userId,
@@ -290,8 +305,16 @@ export class AccountsService {
             entityType: 'User',
             entityId: id,
             metadata: {
-              fields: Object.keys(data),
-              ...(data.email && data.email !== before.email && { previousEmail: before.email }),
+              fields: Object.keys(fields),
+              ...(fields.email && fields.email !== before.email && { previousEmail: before.email }),
+              ...(renamed.length > 0 && {
+                reason: reason ?? null,
+                changes: renamed.map((field) => ({
+                  field,
+                  previous: before[field],
+                  next: fields[field] ?? null,
+                })),
+              }),
             },
           },
         });
