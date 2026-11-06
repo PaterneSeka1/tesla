@@ -83,6 +83,25 @@ export const editorModulesQueryOptions = (query: EditorModuleListQuery) =>
     queryFn: () => apiFetch(`/editor/modules${toQueryString({ ...query })}`, editorPageSchema),
   });
 
+/**
+ * Tous les modules visibles par l'éditeur (pages successives de 100, le maximum de l'API) : pour
+ * les suivis qui filtrent côté client (soumissions), sans troncature au-delà de la première page.
+ */
+export const allEditorModulesQueryOptions = queryOptions({
+  queryKey: ['modules', 'editor', 'list', 'all-pages'],
+  queryFn: async () => {
+    const items: z.infer<typeof editorPageSchema>['items'] = [];
+    for (let page = 1; ; page += 1) {
+      const result = await apiFetch(
+        `/editor/modules${toQueryString({ status: 'all', page, pageSize: 100 })}`,
+        editorPageSchema,
+      );
+      items.push(...result.items);
+      if (result.items.length === 0 || items.length >= result.total) return items;
+    }
+  },
+});
+
 export const editorModuleStatsQueryOptions = queryOptions({
   queryKey: ['modules', 'editor', 'stats'],
   queryFn: () => apiFetch('/editor/module-stats', editorModuleStatsSchema),

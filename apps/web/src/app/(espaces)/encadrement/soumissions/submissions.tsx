@@ -9,22 +9,20 @@ import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
 import { PageHeading } from '@/components/page-heading';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { editorActivityQueryOptions, editorModulesQueryOptions } from '@/lib/api/modules';
+import { allEditorModulesQueryOptions, editorActivityQueryOptions } from '@/lib/api/modules';
 import { authorName, formatDateTime } from '@/lib/format';
 
 const FOLLOWED: ModuleVersionStatus[] = ['A_CORRIGER', 'SOUMIS', 'APPROUVE', 'REFUSE'];
 
 /** Suivi des soumissions : versions en attente, à corriger, approuvées ou refusées, et retours du responsable. */
 export function Submissions() {
-  const modules = useQuery(editorModulesQueryOptions({ status: 'all', pageSize: 100 }));
+  const modules = useQuery(allEditorModulesQueryOptions);
   const activity = useQuery(editorActivityQueryOptions);
 
-  const followed =
-    modules.data?.items
-      .map((module) => ({ module, version: module.working ?? module.latest }))
-      .filter(({ version }) => FOLLOWED.includes(version.status))
-      .sort((a, b) => FOLLOWED.indexOf(a.version.status) - FOLLOWED.indexOf(b.version.status)) ??
-    [];
+  const followed = (modules.data ?? [])
+    .map((module) => ({ module, version: module.working ?? module.latest }))
+    .filter(({ version }) => FOLLOWED.includes(version.status))
+    .sort((a, b) => FOLLOWED.indexOf(a.version.status) - FOLLOWED.indexOf(b.version.status));
   const feedback =
     activity.data?.items.filter((event) =>
       ['CORRECTIONS_DEMANDEES', 'REFUSEE', 'APPROUVEE', 'PUBLIEE', 'ARCHIVEE'].includes(
