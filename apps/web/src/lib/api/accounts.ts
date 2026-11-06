@@ -11,13 +11,12 @@ import {
   type CompleteAccountTokenInput,
   type CreateAccountInput,
   type DeactivateAccountInput,
-  meResponseSchema,
+  myProfileSchema,
   paginatedSchema,
   type PasswordResetRequestInput,
   passwordResetRequestResultSchema,
   revokedSessionsSchema,
   sessionListSchema,
-  type UpdateProfileInput,
 } from '@tesla/shared';
 import { z } from 'zod';
 import { apiFetch, apiSend, toQueryString } from './client';
@@ -89,8 +88,11 @@ export const sessionsQueryOptions = queryOptions({
 export const changePassword = (input: ChangePasswordInput) =>
   apiSend('POST', '/auth/password', z.null(), input);
 
-export const updateProfile = (input: UpdateProfileInput) =>
-  apiSend('PATCH', '/auth/profile', meResponseSchema, input);
+/** « Mon profil » : lecture seule, valeurs calculées par l'API (D173). */
+export const myProfileQueryOptions = queryOptions({
+  queryKey: ['auth', 'profile'],
+  queryFn: () => apiFetch('/auth/profile', myProfileSchema),
+});
 
 export const revokeSession = (id: string) =>
   apiSend('POST', `/auth/sessions/${id}/revoke`, z.null());
