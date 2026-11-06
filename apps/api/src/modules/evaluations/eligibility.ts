@@ -32,6 +32,11 @@ export interface EligibilityFacts {
   membership?: 'ACTIF' | 'SORTI';
   /** Obligation de rattrapage ouverte sur le module de l'évaluation (D98). */
   openCatchUp?: boolean;
+  /**
+   * Évaluation fermée par le verrou des rattrapages (D177) : une étape antérieure reste à rattraper
+   * et l'évaluation ne porte pas sur un de ses modules. Seule une dérogation active la rouvre.
+   */
+  lockedByCatchUp?: boolean;
   evaluationStageId: string;
   maxAttempts: number | null;
   /** Tentatives du routier pour cette évaluation (tous statuts). */
@@ -49,8 +54,8 @@ export interface EligibilityFacts {
 
 /**
  * Décision d'éligibilité calculée côté serveur, dans la transaction qui crée la tentative.
- * Ordre : profil, appartenance à la branche, étape (ou rattrapage ouvert, ou dérogation active la plus
- * récente), limite de tentatives non annulées.
+ * Ordre : profil, appartenance à la branche, verrou des rattrapages (D177), étape (ou rattrapage
+ * ouvert, ou dérogation active la plus récente), limite de tentatives non annulées.
  * Une dérogation lève la condition d'étape, jamais la limite de tentatives. Une tentative ouverte
  * est signalée (à reprendre) sans rendre le routier inéligible.
  */
@@ -72,18 +77,23 @@ export function computeEligibility(facts: EligibilityFacts): Eligibility {
   if (facts.membership === 'SORTI') return { ...base, status: 'SORTI_BRANCHE', allowed: false };
 
   let waiver: Eligibility['waiver'] = null;
+  const active = [...facts.waivers]
+    .sort((a, b) => b.grantedAt.getTime() - a.grantedAt.getTime())
+    .find((candidate) => isWaiverActive(candidate, facts.now));
+  const useWaiver = (row: NonNullable<typeof active>): Eligibility['waiver'] => ({
+    id: row.id,
+    reason: row.reason,
+    expiresAt: row.expiresAt?.toISOString() ?? null,
+  });
+  if (facts.lockedByCatchUp) {
+    if (!active) return { ...base, status: 'VERROUILLE_RATTRAPAGE', allowed: false };
+    waiver = useWaiver(active);
+  }
   const stageEligible = isStageEligible(facts.profile.stageId, facts.evaluationStageId);
   const catchUp = !stageEligible && facts.openCatchUp === true;
-  if (!stageEligible && !catchUp) {
-    const active = [...facts.waivers]
-      .sort((a, b) => b.grantedAt.getTime() - a.grantedAt.getTime())
-      .find((candidate) => isWaiverActive(candidate, facts.now));
+  if (!waiver && !stageEligible && !catchUp) {
     if (!active) return { ...base, status: 'ETAPE_NON_CORRESPONDANTE', allowed: false };
-    waiver = {
-      id: active.id,
-      reason: active.reason,
-      expiresAt: active.expiresAt?.toISOString() ?? null,
-    };
+    waiver = useWaiver(active);
   }
   // Une tentative ouverte se reprend : elle ne compte pas contre la limite pour l'accès.
   if (!open && facts.maxAttempts !== null && attemptsUsed >= facts.maxAttempts) {

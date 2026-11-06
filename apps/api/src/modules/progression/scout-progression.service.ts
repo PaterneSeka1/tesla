@@ -50,6 +50,7 @@ import {
   validationInclude,
   moduleRefSelect,
 } from './progression-common.js';
+import { isModuleLocked, loadCatchUpLock } from './catch-up-lock.js';
 import { computedStageOf, loadStageContext } from './computed-stage.js';
 
 const toNumber = (value: { toNumber(): number } | null) =>
@@ -85,6 +86,12 @@ export class ScoutProgressionService {
     }
     const profile = await this.prisma.scoutProfile.findUnique({ where: { id: scoutProfileId } });
     if (!profile) throw scoutProfileNotFound();
+    // Archives : une étude antérieure à la sortie de la branche reste enregistrable (D176).
+    const exitOn = computedStageOf(profile, await loadStageContext(this.prisma)).normalProgression
+      .branchExitOn;
+    if (exitOn && data.studiedOn >= exitOn) {
+      throw scoutExited();
+    }
     if (data.activityId) {
       const activity = await this.prisma.activity.findUnique({ where: { id: data.activityId } });
       if (!activity) {
@@ -111,6 +118,19 @@ export class ScoutProgressionService {
     const data = parseInput(declareModuleStudyInputSchema, input);
     const profile = await this.prisma.scoutProfile.findUnique({ where: { userId: actor.userId } });
     if (!profile) throw scoutProfileNotLinked();
+    // Sortie de la branche (21e anniversaire), calculée à la lecture : plus de nouvelle étude.
+    const context = await loadStageContext(this.prisma);
+    if (computedStageOf(profile, context).reason === 'SORTI') {
+      throw scoutExited();
+    }
+    // Rattrapage en cours (D177) : seuls les modules à rattraper peuvent être déclarés étudiés.
+    const lock = await loadCatchUpLock(this.prisma, profile, context);
+    if (isModuleLocked(lock, data.moduleId)) {
+      throw new ForbiddenException({
+        code: 'CATCH_UP_LOCKED',
+        message: 'Terminez d’abord vos rattrapages.',
+      });
+    }
     return this.createStudy({
       scoutProfileId: profile.id,
       moduleId: data.moduleId,
@@ -641,4 +661,12 @@ export class ScoutProgressionService {
     });
     return modules.map(toModuleRef);
   }
+}
+
+/** Routier sorti de la branche (21e anniversaire) : aucune nouvelle activité de parcours (D176). */
+function scoutExited(): UnprocessableEntityException {
+  return new UnprocessableEntityException({
+    code: 'SORTI_BRANCHE',
+    message: 'Ce routier est sorti de la branche Route.',
+  });
 }

@@ -23,6 +23,7 @@ const module: PrintableModule = {
   category: 'ETAPE',
   obligation: null,
   official: false,
+  locked: false,
   durationMinutes: null,
   lessonCount: 2,
   publishedAt: '2026-10-30T10:00:00.000Z',

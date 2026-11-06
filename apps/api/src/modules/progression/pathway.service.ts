@@ -11,8 +11,10 @@ import {
   type AgeRuleSetList,
   type AgeRuleSetSnapshot,
   type CatchUpArrival,
-  catchUpDueOn,
+  catchUpStageSchedule,
+  catchUpReferenceDate,
   catchUpStatus,
+  civilDateAt,
   compareCivilDates,
   type CreateAgeRuleSetInput,
   createAgeRuleSetInputSchema,
@@ -24,7 +26,7 @@ import {
   stagePeriods,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
-import { assertCan } from '../../common/permissions.js';
+import { assertCan, can } from '../../common/permissions.js';
 import { assertCanAtWrite } from '../auth/write-authority.js';
 import { isUniqueViolation } from '../../common/prisma-errors.js';
 import { parseInput } from '../../common/validation.js';
@@ -41,6 +43,7 @@ import {
   todayCivil,
   toSnapshot,
 } from './age-rules.js';
+import { endedStages, isModuleLocked, loadCatchUpLock, toCatchUpLock } from './catch-up-lock.js';
 import { computedStageOf, loadStageContext, type StageContext } from './computed-stage.js';
 import {
   moduleRefSelect,
@@ -74,7 +77,12 @@ interface MandatoryModule {
   moduleId: string;
   stageId: string;
   stageCode: string;
+  /** Date civile de publication de la version obligatoire (nulle si inconnue). */
+  publishedOn?: string | null;
 }
+
+/** Motif présenté à qui ne supervise pas la progression : aucune règle interne (D176). */
+const PUBLIC_CATCH_UP_REASON = 'Module obligatoire d’une étape antérieure.';
 
 /**
  * Obligations attendues (calcul pur) : modules obligatoires publiés des étapes dont la période
@@ -97,22 +105,6 @@ export function expectedCatchUps(
   return mandatory
     .filter((module) => ended.has(module.stageCode))
     .map((module) => ({ module, endedOn: ended.get(module.stageCode)! }));
-}
-
-/** Étapes dont la période est échue à la date de référence, avec leur date d'échéance. */
-function endedStages(
-  birthDate: string | null,
-  rules: AgeRuleSetSnapshot | null,
-  referenceDate: string,
-): Map<string, string> {
-  if (!birthDate || !rules) return new Map();
-  return new Map(
-    stagePeriods(birthDate, rules)
-      .filter(
-        (period) => period.endsOn !== null && compareCivilDates(period.endsOn, referenceDate) <= 0,
-      )
-      .map((period) => [period.stageCode, period.endsOn!]),
-  );
 }
 
 /**
@@ -172,6 +164,7 @@ export class PathwayService {
             notes: data.notes ?? null,
             branchExitAgeYears: data.branchExitAgeYears,
             catchUpDelayMonths: data.catchUpDelayMonths,
+            catchUpDelayDays: data.catchUpDelayDays ?? null,
             exitAlertMonths: data.exitAlertMonths,
             stages: {
               create: data.stages.map((rule) => ({
@@ -267,7 +260,7 @@ export class PathwayService {
       include: profileInclude,
     });
     if (!profile) throw scoutProfileNotFound();
-    return this.build(profile);
+    return this.build(profile, can(actor, 'progression.supervise'));
   }
 
   async myPathway(actor: Actor): Promise<ScoutPathway> {
@@ -277,7 +270,7 @@ export class PathwayService {
       include: profileInclude,
     });
     if (!profile) throw scoutProfileNotLinked();
-    return this.build(profile);
+    return this.build(profile, false);
   }
 
   /** Recalcul idempotent du plan de rattrapage (lecture, traitement quotidien, inscription). */
@@ -285,13 +278,20 @@ export class PathwayService {
     const profile = await this.prisma.scoutProfile.findUnique({ where: { id: profileId } });
     if (!profile) return 0;
     const rules = await loadRuleSetRow(this.prisma, today);
-    return this.sync(profile, rules, today);
+    const stages = await this.prisma.progressionStage.findMany();
+    return this.sync(profile, rules, today, stages);
   }
 
   private async sync(
-    profile: { id: string; birthDate: Date | null; membershipStatus: 'ACTIF' | 'SORTI' },
+    profile: {
+      id: string;
+      birthDate: Date | null;
+      joinedAt: Date | null;
+      membershipStatus: 'ACTIF' | 'SORTI';
+    },
     rules: RuleSetRow | null,
     today: string,
+    stages: readonly { code: string; position: number }[],
   ): Promise<number> {
     if (!profile.birthDate || !rules) return 0;
     const snapshot = toSnapshot(rules);
@@ -305,15 +305,63 @@ export class PathwayService {
       await this.mandatoryModules(),
     );
     if (expected.length === 0) return 0;
+    const existing = await this.prisma.catchUpObligation.findMany({
+      where: { scoutProfileId: profile.id },
+      select: {
+        moduleId: true,
+        decision: true,
+        dueOn: true,
+        originStage: { select: { code: true } },
+      },
+    });
+    const known = new Set(existing.map((row) => row.moduleId));
+    // Délai jamais rétroactif : arrivée, publication ou référentiel postérieurs (D176).
+    const referenceOf = (item: (typeof expected)[number]) =>
+      catchUpReferenceDate({
+        stageEndedOn: item.endedOn,
+        joinedOn: profile.joinedAt && iso(profile.joinedAt),
+        createdOn: today,
+        modulePublishedOn: item.module.publishedOn ?? null,
+        ruleSetEffectiveFrom: rules.effectiveFrom && iso(rules.effectiveFrom),
+      });
+    // Étapes à rattraper dans l'ordre du parcours, chacune avec son délai, à la suite de la
+    // précédente (D177) ; une échéance déjà enregistrée pour une étape est conservée.
+    const fresh = expected.filter((item) => !known.has(item.module.moduleId));
+    if (fresh.length === 0) return 0;
+    const position = (code: string) => stages.find((stage) => stage.code === code)?.position ?? 0;
+    const stageCodes = [
+      ...new Set([
+        ...fresh.map((item) => item.module.stageCode),
+        ...existing.filter((row) => row.decision === null).map((row) => row.originStage.code),
+      ]),
+    ].sort((a, b) => position(a) - position(b));
+    const schedule = catchUpStageSchedule(
+      stageCodes.map((code) => {
+        const references = expected
+          .filter((item) => item.module.stageCode === code)
+          .map(referenceOf);
+        const existingDue = existing
+          .filter((row) => row.decision === null && row.originStage.code === code && row.dueOn)
+          .map((row) => iso(row.dueOn!))
+          .sort(compareCivilDates)[0];
+        return {
+          stageCode: code,
+          reference: references.sort(compareCivilDates).at(-1) ?? today,
+          existingDueOn: existingDue ?? null,
+        };
+      }),
+      snapshot,
+      progression.branchExitOn,
+    );
     const { count } = await this.prisma.catchUpObligation.createMany({
-      data: expected.map(({ module, endedOn }) => ({
+      data: fresh.map(({ module, endedOn }) => ({
         scoutProfileId: profile.id,
         moduleId: module.moduleId,
         originStageId: module.stageId,
         ruleSetId: rules.id,
         reason: `Module obligatoire de l’étape ${module.stageCode} (période théorique échue le ${endedOn}, référentiel ${rules.version}).`,
         dueOn: (() => {
-          const due = catchUpDueOn(today, snapshot.catchUpDelayMonths, progression.branchExitOn);
+          const due = schedule.get(module.stageCode) ?? null;
           return due ? toDate(due) : null;
         })(),
       })),
@@ -328,7 +376,9 @@ export class PathwayService {
       where: stillRequiredModuleWhere,
       select: {
         id: true,
-        publishedVersion: { select: { stageId: true, stage: { select: { code: true } } } },
+        publishedVersion: {
+          select: { stageId: true, publishedAt: true, stage: { select: { code: true } } },
+        },
       },
     });
     return rows.flatMap((row) =>
@@ -338,6 +388,9 @@ export class PathwayService {
               moduleId: row.id,
               stageId: row.publishedVersion.stageId,
               stageCode: row.publishedVersion.stage.code,
+              publishedOn: row.publishedVersion.publishedAt
+                ? civilDateAt(row.publishedVersion.publishedAt)
+                : null,
             },
           ]
         : [],
@@ -377,10 +430,16 @@ export class PathwayService {
     };
   }
 
-  private async build(profile: ProfileRow): Promise<ScoutPathway> {
+  /**
+   * Parcours : étape **appliquée** (âge ou exception de secours, D176), calendrier cohérent avec
+   * elle, modules de cette étape, rattrapages (toujours issus du calcul normal par l'âge : une
+   * exception n'en efface aucun). `supervise` : détails internes (référentiel, motifs détaillés)
+   * réservés au responsable plein ; les autres profils n'en reçoivent pas.
+   */
+  private async build(profile: ProfileRow, supervise: boolean): Promise<ScoutPathway> {
     const context = await loadStageContext(this.prisma);
     const { today, ruleSet: rules, rules: snapshot } = context;
-    await this.sync(profile, rules, today);
+    await this.sync(profile, rules, today, context.stages);
     const computed = computedStageOf(profile, context);
     const age = computed.progression;
     const stage = computed.stage;
@@ -393,6 +452,7 @@ export class PathwayService {
       this.mandatoryModules(),
     ]);
     const moduleIds = obligations.map((row) => row.moduleId);
+    const lock = await loadCatchUpLock(this.prisma, profile, context);
 
     const [studies, attempts, stageModules] = await Promise.all([
       this.prisma.moduleStudy.groupBy({
@@ -434,12 +494,13 @@ export class PathwayService {
         stillRequired: stillRequired.has(row.moduleId),
         stillDue: ended.has(row.originStage.code),
         arrival: catchUpArrival(ended.get(row.originStage.code), joinedAt),
+        blocking: lock.blockingModuleIds.has(row.moduleId),
       }),
     );
 
     return {
       scout: toScoutRef(profile),
-      age,
+      age: supervise ? age : { ...age, ruleSetVersion: null },
       stage: toStageSummary(stage),
       membership: {
         status: effectiveMembership(profile, snapshot, today),
@@ -450,8 +511,16 @@ export class PathwayService {
         obligation: row.publishedVersion?.obligation ?? null,
         officialSource: row.publishedVersion?.officialSource ?? null,
         studied: (studiedCount.get(row.id) ?? 0) > 0,
+        locked: isModuleLocked(lock, row.id),
       })),
-      catchUps,
+      catchUps: supervise
+        ? catchUps
+        : catchUps.map((row) => ({
+            ...row,
+            ruleSetVersion: null,
+            reason: PUBLIC_CATCH_UP_REASON,
+          })),
+      catchUpLock: toCatchUpLock(lock),
       catchUpDeadlineUndetermined: catchUps.some(
         (obligation) => obligation.decision === null && obligation.dueOn === null,
       ),
@@ -516,7 +585,8 @@ export class PathwayService {
     }
     return {
       referenceDate: today,
-      ruleSetVersion: rules?.version ?? null,
+      // Version du référentiel : détail interne réservé au responsable plein (D176).
+      ruleSetVersion: can(actor, 'progression.supervise') ? (rules?.version ?? null) : null,
       activeMembers: active,
       exitedMembers: exited,
       missingBirthDate: profiles.filter((profile) => !profile.birthDate).length,
@@ -591,6 +661,7 @@ export class PathwayService {
         stillRequired: true,
         stillDue: true,
         arrival: 'INCONNUE',
+        blocking: false,
       });
     });
   }
@@ -606,6 +677,7 @@ function toObligation(
     stillRequired: boolean;
     stillDue: boolean;
     arrival: CatchUpArrival;
+    blocking: boolean;
   },
 ): CatchUpObligation {
   const dueOn = row.dueOn ? iso(row.dueOn) : null;
@@ -628,6 +700,7 @@ function toObligation(
     stillRequired: facts.stillRequired,
     stillDue: facts.stillDue,
     arrival: facts.arrival,
+    blocking: facts.blocking,
   };
 }
 
@@ -641,6 +714,7 @@ function toAgeRuleSet(row: RuleSetRow): AgeRuleSet {
     notes: row.notes,
     branchExitAgeYears: row.branchExitAgeYears,
     catchUpDelayMonths: row.catchUpDelayMonths,
+    catchUpDelayDays: row.catchUpDelayDays,
     exitAlertMonths: row.exitAlertMonths,
     stages: [...row.stages]
       .sort((a, b) => a.stage.position - b.stage.position)

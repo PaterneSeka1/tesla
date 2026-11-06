@@ -16,6 +16,8 @@ import { type Actor } from '../../common/actor.js';
 import { assertCan, can } from '../../common/permissions.js';
 import { parseInput } from '../../common/validation.js';
 import { type StoredFile } from '../../generated/prisma/client.js';
+import { isModuleLocked, loadActorCatchUpLock } from '../progression/catch-up-lock.js';
+import { loadStageContext } from '../progression/computed-stage.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { StoredFilesService } from '../../storage/stored-files.service.js';
 import { resolveAccess } from './module-common.js';
@@ -115,8 +117,18 @@ export class ModuleFilesService {
         version: { select: { moduleId: true, module: { select: { publishedVersionId: true } } } },
       },
     });
-    if (references.some((ref) => ref.version.module.publishedVersionId === ref.versionId))
-      return true;
+    const published = references.filter(
+      (ref) => ref.version.module.publishedVersionId === ref.versionId,
+    );
+    if (published.length > 0) {
+      // Rattrapage en cours (D177) : fichiers des seuls modules ouverts au routier.
+      const lock = await loadActorCatchUpLock(
+        this.prisma,
+        actor,
+        await loadStageContext(this.prisma),
+      );
+      return published.some((ref) => !isModuleLocked(lock, ref.version.moduleId));
+    }
     if (!can(actor, 'module.write')) return false;
     // Rédaction : module propriétaire du fichier ou module qui le référence (versions de travail).
     const moduleIds = new Set([file.moduleId, ...references.map((ref) => ref.version.moduleId)]);

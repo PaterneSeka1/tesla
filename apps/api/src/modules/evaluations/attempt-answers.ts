@@ -17,6 +17,7 @@ import {
   stillRequiredModuleWhere,
   todayCivil,
 } from '../progression/age-rules.js';
+import { isModuleLocked, loadCatchUpLock } from '../progression/catch-up-lock.js';
 import { computedStageIdOf, loadStageContext } from '../progression/computed-stage.js';
 
 export type VersionQuestion = Prisma.EvaluationQuestionGetPayload<{
@@ -181,7 +182,7 @@ export async function loadEligibility(
       birthDate: Date | null;
       membershipStatus: 'ACTIF' | 'SORTI';
     } | null;
-    evaluation: { id: string; stageId: string; moduleId?: string | null };
+    evaluation: { id: string; stageId: string; moduleId: string | null };
     maxAttempts: number | null;
     now: Date;
   },
@@ -201,6 +202,7 @@ export async function loadEligibility(
           },
         })) > 0
       : false;
+  const lock = profile && context ? await loadCatchUpLock(tx, profile, context) : null;
   // Requêtes successives : une transaction interactive n'exécute qu'une requête à la fois.
   const attempts = profile
     ? await tx.evaluationAttempt.findMany({
@@ -220,6 +222,7 @@ export async function loadEligibility(
     },
     membership,
     openCatchUp,
+    lockedByCatchUp: lock ? isModuleLocked(lock, input.evaluation.moduleId ?? null) : false,
     evaluationStageId: input.evaluation.stageId,
     maxAttempts: input.maxAttempts,
     attempts,

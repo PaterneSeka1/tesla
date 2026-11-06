@@ -45,6 +45,7 @@ import {
   stillRequiredModuleWhere,
   todayCivil,
 } from '../progression/age-rules.js';
+import { isModuleLocked, loadCatchUpLock } from '../progression/catch-up-lock.js';
 import { computedStageIdOf, loadStageContext } from '../progression/computed-stage.js';
 
 const availableInclude = {
@@ -137,6 +138,10 @@ export class EvaluationSessionsService {
         }
       : null;
     const catchUpModules = new Set(catchUps.map((obligation) => obligation.moduleId));
+    const lock =
+      subject?.profile && context
+        ? await loadCatchUpLock(this.prisma, subject.profile, context)
+        : null;
     return {
       items: rows.map((row) =>
         toAvailable(
@@ -146,6 +151,7 @@ export class EvaluationSessionsService {
               profile,
               membership,
               openCatchUp: row.moduleId !== null && catchUpModules.has(row.moduleId),
+              lockedByCatchUp: lock ? isModuleLocked(lock, row.moduleId) : false,
               evaluationStageId: row.stageId,
               maxAttempts: row.publishedVersion!.maxAttempts,
               attempts: attempts.filter((attempt) => attempt.evaluationId === row.id),
