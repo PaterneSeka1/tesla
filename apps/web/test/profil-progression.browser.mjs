@@ -68,9 +68,25 @@ for (const width of WIDTHS) {
   const { context, page } = await session(ROUTIER, width);
   await page.goto(`${origin}/compte`);
   await page.getByText('Identité', { exact: true }).waitFor();
-  for (const title of ['Informations personnelles et Route', 'Progression', 'Compte']) {
-    await page.getByText(title, { exact: true }).first().waitFor();
+  for (const title of ['Progression', 'Connexion', 'Fiche médicale']) {
+    await page.getByRole('heading', { name: title }).first().waitFor();
   }
+  // Sessions non listées (sécurité conservée côté API) ; aucune mention « facultatif ».
+  assert.equal(await page.getByText('Sessions ouvertes').count(), 0);
+  assert.equal(await page.getByText(/facultati/i).count(), 0);
+  // Fiche médicale : champs lisibles et utilisables, aucun squelette après chargement.
+  await page.getByLabel('Allergies déclarées').waitFor();
+  assert.equal(await page.locator('[aria-busy="true"]').count(), 0);
+  // Un seul titre « Mon profil » visible (l'en-tête mobile porte déjà le titre).
+  const visibleTitles = await page
+    .locator('header, main')
+    .getByText('Mon profil', { exact: true })
+    .evaluateAll(
+      (nodes) =>
+        nodes.filter((node) => node.checkVisibility() && node.getBoundingClientRect().width > 1)
+          .length,
+    );
+  assert.equal(visibleTitles, 1, `titre « Mon profil » en double à ${width} px`);
   await page.getByText('Noviciat').first().waitFor();
   await page.getByText('0000123A').waitFor();
   // Aucune zone de saisie pour l'identité (le seul formulaire est le mot de passe).
