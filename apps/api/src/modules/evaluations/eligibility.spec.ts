@@ -119,4 +119,24 @@ describe('Éligibilité : appartenance à la branche et rattrapage (refonte)', (
       computeEligibility(facts({ ...otherStage, openCatchUp: true, maxAttempts: 1, attempts })),
     ).toMatchObject({ status: 'LIMITE_ATTEINTE', allowed: false });
   });
+
+  it('verrou des rattrapages (D177) : évaluation de l’étape fermée, dérogation seule la rouvre', () => {
+    expect(computeEligibility(facts({ lockedByCatchUp: true }))).toMatchObject({
+      status: 'VERROUILLE_RATTRAPAGE',
+      allowed: false,
+    });
+    expect(computeEligibility(facts({ lockedByCatchUp: true, waivers: [waiver()] }))).toMatchObject(
+      { status: 'ELIGIBLE_DEROGATION', allowed: true },
+    );
+    // Dérogation révoquée : toujours fermée.
+    expect(
+      computeEligibility(
+        facts({ lockedByCatchUp: true, waivers: [waiver({ revokedAt: new Date('2027-01-05') })] }),
+      ),
+    ).toMatchObject({ status: 'VERROUILLE_RATTRAPAGE' });
+    // Routier sorti : la sortie prime.
+    expect(computeEligibility(facts({ lockedByCatchUp: true, membership: 'SORTI' })).status).toBe(
+      'SORTI_BRANCHE',
+    );
+  });
 });

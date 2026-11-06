@@ -27,7 +27,7 @@ export function createTestPrisma(): PrismaService {
 /** Vide la base de test (TRUNCATE ne déclenche pas les triggers de ligne) et recharge les étapes. */
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(`TRUNCATE
-    medical_records, leadership_assignments, delegations, leadership_mandates, scout_years, catch_up_obligations, route_membership_events,
+    medical_records, stage_overrides, leadership_assignments, delegations, leadership_mandates, scout_years, catch_up_obligations, route_membership_events,
     age_stage_rules, age_rule_sets,
     competency_evidences, competency_proposal_events, competency_validations, competency_proposals,
     competency_modules, activity_competencies, competencies,
