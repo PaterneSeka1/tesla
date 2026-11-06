@@ -174,7 +174,7 @@ try {
   );
   check('17–18. fermeture puis réouverture sans réseau : réponses conservées');
   await page.getByRole('button', { name: 'Remettre localement' }).click();
-  await page.getByText(/En attente de synchronisation\. Aucun résultat officiel/).waitFor();
+  await page.getByText('En attente de synchronisation.', { exact: true }).waitFor();
   await visibleText('1 modification en attente').waitFor();
   check('remise locale immuable, « 1 modification en attente »');
 
@@ -230,17 +230,20 @@ try {
   check('8. équipes et membres consultés sans réseau');
 
   await page.goto(`${origin}/administration/activites/${fixture.activityId}`);
+  // Fiche en onglets depuis D172 : les présences ont leur propre onglet.
+  await page.getByRole('tab', { name: 'Présences' }).click();
   await page.getByRole('heading', { name: 'Présences' }).waitFor();
-  const rows = page.locator('label', { hasText: 'Routier Alpha' });
-  await rows.locator('select').selectOption('PRESENT');
+  const alpha = page.getByLabel(/ALPHA Routier/);
+  await alpha.selectOption('PRESENT');
   await page.getByRole('button', { name: 'Enregistrer les présences' }).click();
   await visibleText('Enregistré sur cet appareil').waitFor();
   await visibleText('1 modification en attente').waitFor();
   check('13. présence saisie sans réseau, enregistrée comme modification en attente');
 
   await page.reload();
+  await page.getByRole('tab', { name: 'Présences' }).click();
   await page.getByRole('heading', { name: 'Présences' }).waitFor();
-  assert.equal(await rows.locator('select').inputValue(), 'PRESENT');
+  assert.equal(await alpha.inputValue(), 'PRESENT');
   check('affichage provisoire conservé après rechargement hors ligne');
 
   // Modification concurrente côté serveur par un autre membre (session Node distincte).
@@ -259,6 +262,8 @@ try {
   const sheet = await (await other('GET', `/activities/${fixture.activityId}/attendance`)).json();
   assert.equal(sheet.entries.find((e) => e.scout.id === fixture.scouts[0]).status, 'ABSENT');
   await page.getByRole('button', { name: 'Abandonner' }).click();
+  // Abandon définitif : confirmation explicite dans la boîte de dialogue.
+  await page.getByRole('dialog').getByRole('button', { name: 'Abandonner' }).click();
   await page.getByText('Tout est synchronisé.').waitFor();
   check('21. conflit résolu explicitement (abandon confirmé de la saisie locale)');
 
