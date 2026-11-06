@@ -47,10 +47,7 @@ export function TeamDetailView() {
       await archiveTeam(team.id);
       await queryClient.invalidateQueries({ queryKey: ['teams'] });
       await queryClient.invalidateQueries({ queryKey: ['scouts'] });
-      toast.success(
-        'Équipe archivée',
-        'Les affectations en cours ont été clôturées ; l’historique est conservé.',
-      );
+      toast.success('Équipe archivée');
       return true;
     } catch (archiveError) {
       toast.error(
@@ -76,7 +73,7 @@ export function TeamDetailView() {
               <Badge variant="success">Active</Badge>
             )}
           </div>
-          <p className="text-muted-foreground">{team.description ?? 'Aucune description.'}</p>
+          {team.description && <p className="text-muted-foreground">{team.description}</p>}
           <p className="text-xs text-muted-foreground">
             Créée le {formatDate(team.createdAt)}
             {team.archivedAt && ` · archivée le ${formatDate(team.archivedAt)}`}
@@ -98,14 +95,13 @@ export function TeamDetailView() {
               title={`Archiver l’équipe « ${team.name} » ?`}
               description={
                 <>
+                  {team.memberCount > 0 && (
+                    <p>
+                      {`${team.memberCount} routier${team.memberCount > 1 ? 's seront retirés' : ' sera retiré'} de l’équipe (affectation clôturée à la date du jour).`}
+                    </p>
+                  )}
                   <p>
-                    {team.memberCount > 0
-                      ? `${team.memberCount} routier${team.memberCount > 1 ? 's seront retirés' : ' sera retiré'} de l’équipe (affectation clôturée à la date du jour).`
-                      : 'L’équipe ne compte actuellement aucun membre.'}
-                  </p>
-                  <p>
-                    L’historique des affectations est conservé. Une équipe archivée ne peut plus
-                    recevoir de membres.
+                    Une équipe archivée ne peut plus recevoir de membres. L’historique est conservé.
                   </p>
                 </>
               }
@@ -140,11 +136,7 @@ export function TeamDetailView() {
           <EmptyState
             icon={Users}
             title="Aucun membre"
-            description={
-              archived
-                ? 'Équipe archivée : consultez l’historique depuis la fiche de chaque routier.'
-                : 'Affectez des routiers depuis leur fiche.'
-            }
+            description={archived ? undefined : 'Affectez des routiers depuis leur fiche.'}
           />
         ) : (
           <Table>
@@ -170,7 +162,7 @@ export function TeamDetailView() {
                   </TableCell>
                   <TableCell className="font-mono">{member.matricule ?? '—'}</TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    {member.stage?.name ?? 'Non renseignée'}
+                    {member.stage?.name ?? 'Non déterminée'}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">{formatDate(member.since)}</TableCell>
                 </TableRow>
