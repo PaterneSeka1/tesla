@@ -474,15 +474,15 @@ function ExcelImport({ programmeId, title }: { programmeId: string; title: strin
             </div>
           ) : (
             <p role="status" className="text-sm font-medium">
-              Import enregistré. Les séances apparaissent dans le calendrier ci-dessus.
+              Import enregistré.
             </p>
           )}
         </>
       )}
-      {!report && !error && (
+      {!report && !error && busy && (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <FileSpreadsheet aria-hidden className="size-4" />
-          {busy ? 'Analyse du classeur…' : 'Aucun fichier sélectionné.'}
+          Analyse du classeur…
         </p>
       )}
     </div>
@@ -724,7 +724,7 @@ function MarkdownImport({ programmeId }: { programmeId: string }) {
   };
   return (
     <Disclosure
-      title="Importer un tableau Markdown (option secondaire)"
+      title="Importer un tableau Markdown"
       summary="Ancien format texte, prévisualisé avant tout enregistrement."
     >
       <p className="text-sm text-muted-foreground">

@@ -66,16 +66,13 @@ export function AnnualProgramme() {
 
   return (
     <>
-      <PageHeading
-        title="Programme annuel"
-        description="Aucune séance n’est générée automatiquement."
-      />
+      <PageHeading title="Programme annuel" />
       {programmes.isPending ? (
         <TableSkeleton rows={4} />
       ) : programmes.isError ? (
         <QueryError error={programmes.error} onRetry={() => void programmes.refetch()} />
       ) : !programme ? (
-        <EmptyState icon={CalendarDays} title="Aucun programme configuré." />
+        <EmptyState icon={CalendarDays} title="Aucun programme configuré" />
       ) : (
         <>
           {programmes.data.items.length > 1 && (
@@ -239,8 +236,8 @@ function ProgrammeSessions({ programme }: { programme: Programme }) {
         {items.length === 0 ? (
           <EmptyState
             icon={CalendarDays}
-            title="Aucune séance dans ce programme."
-            description="Les séances s’ajoutent depuis « Activités » ou par import du programme Excel approuvé."
+            title="Aucune séance"
+            description="Ajoutez-les depuis « Activités » ou par import."
           />
         ) : (
           <Tabs
@@ -413,10 +410,7 @@ function CategoryCorrespondence() {
   const action = usePedagogyAction();
   const canConfigure = userCan(user, 'programme.configure');
   return (
-    <Disclosure
-      title="Correspondance catégories et étapes"
-      summary="Confirmée par le responsable ; aucune durée ni promotion automatique."
-    >
+    <Disclosure title="Correspondance catégories et étapes" summary="Aucune promotion automatique.">
       {categories.isPending ? (
         <TableSkeleton rows={3} />
       ) : categories.isError ? (

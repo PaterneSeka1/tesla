@@ -78,7 +78,7 @@ function AttendanceEditor({ sheet }: { sheet: AttendanceSheet }) {
           </Alert>
         )}
         {sheet.entries.length === 0 ? (
-          <EmptyState icon={Users} title="Aucun routier à afficher." />
+          <EmptyState icon={Users} title="Aucun routier" />
         ) : (
           <>
             <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-live="polite">
@@ -314,7 +314,6 @@ export function ActivityDetail({ id }: { id: string }) {
         {tab === 'prevu' && (
           <div className="space-y-5">
             <dl className="grid gap-4 sm:grid-cols-2">
-              <Field label="Temps commun / objectif" value={activity.title} />
               <Field label="Format prévu" value={activity.plannedFormat} />
               <Field label="Responsable prévu" value={activity.leaderLabel} />
               <Field label="Lieu prévu" value={activity.plannedLocation} />
@@ -380,7 +379,7 @@ export function ActivityDetail({ id }: { id: string }) {
             {!realisation ? (
               <EmptyState
                 icon={ClipboardList}
-                title="Aucune réalisation enregistrée."
+                title="Aucune réalisation enregistrée"
                 description="Changez le statut puis complétez le compte rendu ci-dessous."
               />
             ) : (
@@ -492,7 +491,7 @@ export function ActivityDetail({ id }: { id: string }) {
                       ? `${activity.sourceAttendanceCount} (fichier du programme)`
                       : null,
                     recorded > 0
-                      ? `${counts.present} présent(s), ${counts.absent} absent(s), ${counts.excused} excusé(s) — saisie nominative`
+                      ? `${counts.present} présent(s), ${counts.absent} absent(s), ${counts.excused} excusé(s)`
                       : null,
                   ],
                   ['Observations', activity.planningNotes, activity.observations],
