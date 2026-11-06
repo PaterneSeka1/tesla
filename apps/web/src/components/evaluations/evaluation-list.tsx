@@ -54,12 +54,7 @@ export function EvaluationList({ review = false }: { review?: boolean }) {
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeading
-          title={review ? 'Toutes les évaluations' : 'Évaluations'}
-          description={
-            review ? undefined : 'Visible des routiers après publication par le responsable.'
-          }
-        />
+        <PageHeading title={review ? 'Toutes les évaluations' : 'Évaluations'} />
         <div className="flex flex-wrap gap-2">
           {!review && (
             <Button asChild variant="outline">
@@ -114,7 +109,7 @@ export function EvaluationList({ review = false }: { review?: boolean }) {
             }}
           >
             <option value="all">Tous</option>
-            <option value="working">En cours (brouillon → approuvé)</option>
+            <option value="working">En cours</option>
             <option value="published">Publiés</option>
             {EVALUATION_VERSION_STATUSES.map((value) => (
               <option key={value} value={value}>

@@ -29,7 +29,7 @@ import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   addQuestion,
   createEvaluationVersion,
@@ -46,15 +46,11 @@ import { formatPoints } from '@/lib/format';
 type Status = EditorEvaluationDetail['current']['status'];
 
 const STATE_MESSAGES: Partial<Record<Status, string>> = {
-  SOUMIS: 'Ce questionnaire est soumis : il est figé jusqu’à la décision du responsable.',
-  APPROUVE:
-    'Ce questionnaire est approuvé : il est figé et attend sa publication par le responsable.',
-  A_CORRIGER:
-    'Le responsable a demandé des modifications : reprenez la rédaction pour modifier cette version.',
-  REFUSE: 'Cette version a été refusée. Vous pouvez créer une nouvelle version de travail.',
-  PUBLIE:
-    'Cette version est publiée et ne peut plus être modifiée. Créez une nouvelle version : elle devra être approuvée à son tour, les tentatives existantes restent liées à leur version.',
-  ARCHIVE: 'Cette version est archivée. Vous pouvez créer une nouvelle version de travail.',
+  SOUMIS: 'En attente de la décision du responsable.',
+  APPROUVE: 'En attente de publication par le responsable.',
+  A_CORRIGER: 'Modifications demandées : reprenez la rédaction.',
+  REFUSE: 'Version refusée.',
+  PUBLIE: 'Pour modifier, créez une nouvelle version : elle devra être approuvée à son tour.',
 };
 
 export function EvaluationEditor() {
@@ -154,10 +150,7 @@ export function EvaluationEditor() {
               }
               title="Soumettre le questionnaire ?"
               description={
-                <p>
-                  La version {current.version} sera figée et transmise au responsable plein, seul
-                  habilité à l’approuver et à la publier.
-                </p>
+                <p>La version {current.version} sera figée et transmise au responsable.</p>
               }
               label="Note pour le responsable (facultative)"
               confirmLabel="Soumettre"
@@ -218,14 +211,11 @@ export function EvaluationEditor() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Questions, bonnes réponses et barèmes</CardTitle>
-          <CardDescription>
-            Les bonnes réponses et barèmes ne sont jamais transmis au routier avant la correction.
-          </CardDescription>
+          <CardTitle>Questions et barèmes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {current.questions.length === 0 && !adding && (
-            <p className="text-sm text-muted-foreground">Aucune question pour l’instant.</p>
+            <p className="text-sm text-muted-foreground">Aucune question.</p>
           )}
           <QuestionList
             questions={current.questions}

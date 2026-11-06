@@ -111,13 +111,14 @@ export function CorrectionWorkspace({
         <Card>
           <CardHeader>
             <CardTitle>Copie</CardTitle>
-            <CardDescription>
-              {data.status === 'EN_COURS'
-                ? 'Le routier n’a pas encore remis ses réponses.'
-                : data.transmittedAt && !data.answerKey && data.status === 'A_CORRIGER'
-                  ? `Transmise pour correction le ${formatDateTime(data.transmittedAt)}${data.transmittedBy ? ` par ${data.transmittedBy.firstName} ${data.transmittedBy.lastName}` : ''}. La correction est réservée au responsable plein.`
-                  : 'Copie en lecture seule.'}
-            </CardDescription>
+            {(data.status === 'EN_COURS' ||
+              (data.transmittedAt && !data.answerKey && data.status === 'A_CORRIGER')) && (
+              <CardDescription>
+                {data.status === 'EN_COURS'
+                  ? 'Le routier n’a pas encore remis ses réponses.'
+                  : `Transmise pour correction le ${formatDateTime(data.transmittedAt!)}${data.transmittedBy ? ` par ${data.transmittedBy.firstName} ${data.transmittedBy.lastName}` : ''}. La correction est réservée au responsable plein.`}
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent>{data.status !== 'EN_COURS' && <CopyAnswers copy={data} />}</CardContent>
         </Card>
@@ -145,8 +146,8 @@ function PaperDocuments({ copy }: { copy: CorrectionDetail }) {
       <CardHeader>
         <CardTitle>Documents A4</CardTitle>
         <CardDescription>
-          Réimprimer ne crée jamais de nouvelle tentative : le code {copy.code} reste le même.
-          {copy.answerKey && ' Le corrigé et la grille sont confidentiels.'}
+          Réimprimer ne crée pas de nouvelle tentative.
+          {copy.answerKey && ' Corrigé et grille confidentiels.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
@@ -256,16 +257,8 @@ function CorrectionForm({ copy }: { copy: CorrectionDetail }) {
     await run(
       () => saveCorrection(copy.code, input),
       grader
-        ? {
-            success: 'Correction enregistrée',
-            error: 'Enregistrement impossible',
-            detail: 'Brouillon : le résultat n’est visible du routier qu’après publication.',
-          }
-        : {
-            success: 'Saisie enregistrée',
-            error: 'Enregistrement impossible',
-            detail: 'Saisie provisoire : vous pourrez la reprendre avant de la transmettre.',
-          },
+        ? { success: 'Correction enregistrée', error: 'Enregistrement impossible' }
+        : { success: 'Saisie enregistrée', error: 'Enregistrement impossible' },
     );
   };
 
@@ -284,8 +277,7 @@ function CorrectionForm({ copy }: { copy: CorrectionDetail }) {
         <Alert variant="info">
           <AlertTitle>Copie soumise au responsable</AlertTitle>
           <AlertDescription>
-            Toute reprise de la correction est tracée et exige un motif ; la copie revient alors à
-            l’état « À corriger ».
+            Toute reprise exige un motif et renvoie la copie à l’état « À corriger ».
           </AlertDescription>
         </Alert>
       )}
@@ -300,10 +292,10 @@ function CorrectionForm({ copy }: { copy: CorrectionDetail }) {
           </CardTitle>
           <CardDescription>
             {!grader
-              ? 'Reportez fidèlement les réponses de la feuille, y compris les questions sans réponse. La saisie n’est pas une correction.'
+              ? 'Reportez les réponses de la feuille, y compris les questions sans réponse.'
               : paper
-                ? 'Reportez les réponses de la feuille : les questions à choix sont corrigées automatiquement à l’enregistrement.'
-                : 'Les questions à choix ont été corrigées automatiquement ; notez les réponses rédigées.'}
+                ? 'Les questions à choix sont corrigées automatiquement à l’enregistrement.'
+                : 'Notez les réponses rédigées ; les questions à choix sont corrigées automatiquement.'}
           </CardDescription>
           {paper && (
             <p className="text-sm font-medium" aria-live="polite">
@@ -503,10 +495,7 @@ function CorrectionForm({ copy }: { copy: CorrectionDetail }) {
                     ` ; sans réponse : ${unanswered.map((index) => `Q${index + 1}`).join(', ')}`}
                   .
                 </p>
-                <p>
-                  La saisie sera close : seul le responsable plein pourra ensuite modifier cette
-                  copie et la corriger.
-                </p>
+                <p>La saisie sera close : seul le responsable plein pourra modifier la copie.</p>
               </div>
             }
             confirmLabel="Transmettre"
@@ -527,13 +516,7 @@ function CorrectionForm({ copy }: { copy: CorrectionDetail }) {
               </Button>
             }
             title="Valider la note finale ?"
-            description={
-              <p>
-                Le score est figé ; toute reprise sera motivée et tracée. Il restera à publier le
-                résultat. Cette note ne vaut ni validation officielle d’un acquis ni passage
-                d’étape.
-              </p>
-            }
+            description={<p>Le score sera figé ; il restera à publier le résultat.</p>}
             confirmLabel="Valider la note"
             onConfirm={() =>
               run(() => submitCorrection(copy.code, copy.correctionRevision), {
@@ -552,12 +535,7 @@ function CorrectionForm({ copy }: { copy: CorrectionDetail }) {
               </Button>
             }
             title="Annuler cette tentative ?"
-            description={
-              <p>
-                La tentative {copy.code} reste dans l’historique avec son code, qui ne sera jamais
-                réutilisé.
-              </p>
-            }
+            description={<p>La tentative {copy.code} restera dans l’historique.</p>}
             label="Motif"
             required
             destructive
@@ -594,11 +572,7 @@ function PublishResult({ copy }: { copy: CorrectionDetail }) {
     <Alert variant="info">
       <CheckCheck aria-hidden />
       <AlertTitle>Note validée</AlertTitle>
-      <AlertDescription className="space-y-3">
-        <p>
-          Publier rend le résultat visible dans l’historique du routier (et dans son espace s’il a
-          un compte). Aucune étape n’est modifiée.
-        </p>
+      <AlertDescription>
         <ConfirmDialog
           trigger={
             <Button type="button" size="sm">
@@ -634,8 +608,7 @@ function SwitchToPaper({ copy }: { copy: CorrectionDetail }) {
       <CardHeader>
         <CardTitle>Problème de téléphone ?</CardTitle>
         <CardDescription>
-          Le routier peut terminer sur papier. Les réponses déjà enregistrées restent dans
-          l’historique de cette tentative ; une seule copie sera notée.
+          Le routier peut terminer sur papier ; une seule copie sera notée.
         </CardDescription>
       </CardHeader>
       <CardContent>

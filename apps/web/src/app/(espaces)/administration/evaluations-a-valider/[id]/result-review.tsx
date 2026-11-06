@@ -37,8 +37,8 @@ export function ResultReview() {
           <Alert variant="info">
             <CircleAlert aria-hidden />
             <AlertDescription>
-              Accepter ce résultat ne valide pas officiellement un acquis et ne change pas l’étape
-              du routier. La validation officielle reste un acte séparé du responsable.
+              Accepter ce résultat ne valide aucun acquis : la validation officielle reste un acte
+              séparé.
             </AlertDescription>
           </Alert>
           {data.status === 'SOUMISE' && (

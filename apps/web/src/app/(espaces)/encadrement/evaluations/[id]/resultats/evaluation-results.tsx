@@ -40,11 +40,7 @@ export function EvaluationResultsView() {
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
 
   const facts = [
-    {
-      label: 'Routiers concernés',
-      value: data.concerned,
-      hint: `Étape ${data.evaluation.stage.name}`,
-    },
+    { label: 'Routiers concernés', value: data.concerned },
     { label: 'Ont participé', value: data.participants },
     { label: 'N’ont pas participé', value: data.notParticipated },
     { label: 'Copies remises', value: data.finishedAttempts },
@@ -113,7 +109,7 @@ export function EvaluationResultsView() {
         </CardHeader>
         <CardContent>
           {data.attempts.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="Aucune copie remise pour l’instant." />
+            <EmptyState icon={ClipboardList} title="Aucune copie remise" />
           ) : (
             <Table>
               <TableHeader>

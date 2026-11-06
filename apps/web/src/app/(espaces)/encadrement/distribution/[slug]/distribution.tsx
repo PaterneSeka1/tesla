@@ -101,9 +101,6 @@ export function Distribution() {
         <Card>
           <CardHeader>
             <CardTitle>Cours</CardTitle>
-            <CardDescription>
-              Un seul fichier, identique pour tous : imprimez-le autant de fois que nécessaire.
-            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Button asChild>
@@ -216,10 +213,7 @@ function Recipients({ evaluationId }: { evaluationId: string }) {
         <CardTitle>
           {data.evaluation.title} · v{data.evaluation.version}
         </CardTitle>
-        <CardDescription>
-          Une copie individuelle par routier, avec son code unique. Le corrigé n’est jamais imprimé
-          sur les copies.
-        </CardDescription>
+        <CardDescription>Une copie par routier, avec son code unique.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -458,7 +452,7 @@ function BatchResult({
         </AlertTitle>
         <AlertDescription>
           {created} nouvelle{created > 1 ? 's' : ''}, {reused} réutilisée
-          {reused > 1 ? 's' : ''} (même code, aucune nouvelle tentative)
+          {reused > 1 ? 's' : ''} (même code)
           {skipped.length > 0 && `, ${skipped.length} non préparée${skipped.length > 1 ? 's' : ''}`}
           .
         </AlertDescription>

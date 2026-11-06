@@ -67,7 +67,7 @@ export function CorrectionQueue() {
         title={grader ? 'Copies à corriger' : 'Copies'}
         description={
           grader
-            ? 'Une note n’est jamais une validation officielle.'
+            ? undefined
             : 'Saisie des réponses papier ; la correction est réservée au responsable plein.'
         }
       />

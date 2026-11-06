@@ -72,8 +72,7 @@ export function CopyHeader({ copy }: { copy: CorrectionDetail }) {
         <Alert variant="info">
           <CircleAlert aria-hidden />
           <AlertDescription>
-            Copie liée à la version {copy.version.version} du questionnaire, qui n’est plus la
-            version publiée : elle est corrigée selon sa propre version.
+            Copie liée à la version {copy.version.version}, qui n’est plus la version publiée.
           </AlertDescription>
         </Alert>
       )}

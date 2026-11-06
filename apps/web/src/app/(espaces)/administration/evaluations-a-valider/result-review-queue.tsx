@@ -30,10 +30,7 @@ export function ResultReviewQueue() {
 
   return (
     <RequirePermission user={user} permission="attempt.decide">
-      <PageHeading
-        title="Résultats à examiner"
-        description="Accepter un résultat ne valide aucun acquis et ne change pas l’étape du routier."
-      />
+      <PageHeading title="Résultats à examiner" />
       <div className="max-w-md space-y-1">
         <Label htmlFor="pending-search">Rechercher</Label>
         <div className="relative">

@@ -251,7 +251,7 @@ export function QuestionForm({
               <FormField
                 id={`${id}-accepted`}
                 label="Variantes acceptées (une par ligne)"
-                hint="Correction automatique si la réponse correspond à une variante (majuscules et espaces ignorés, accents conservés). Sinon, un chef note la réponse. Vide : correction humaine."
+                hint="Majuscules et espaces ignorés, accents conservés. Sans variante correspondante, un chef note la réponse."
                 error={message}
               >
                 <LinesTextarea
@@ -270,7 +270,7 @@ export function QuestionForm({
         <FormField
           id={`${id}-expected`}
           label="Réponse ou éléments de réponse attendus"
-          hint="Visible des chefs et du responsable uniquement (corrigé)."
+          hint="Jamais affichée au routier."
           error={errors.expectedAnswer?.message}
         >
           <Textarea

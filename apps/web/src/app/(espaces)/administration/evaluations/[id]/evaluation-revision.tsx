@@ -14,7 +14,7 @@ import { ModuleHistory } from '@/components/modules/module-history';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   approveEvaluation,
   archiveEvaluation,
@@ -73,9 +73,7 @@ export function EvaluationRevision() {
                         </Button>
                       }
                       title="Approuver ce questionnaire ?"
-                      description={
-                        <p>La version reste figée ; elle sera disponible après publication.</p>
-                      }
+                      description={<p>Il restera à publier le questionnaire.</p>}
                       label="Commentaire (facultatif)"
                       confirmLabel="Approuver"
                       onConfirm={(comment) =>
@@ -167,7 +165,7 @@ export function EvaluationRevision() {
                           Archiver
                         </Button>
                       }
-                      title="Retirer ce questionnaire ?"
+                      title="Archiver ce questionnaire ?"
                       description={
                         <p>Plus aucune nouvelle tentative ; l’historique est conservé.</p>
                       }
@@ -199,11 +197,7 @@ export function EvaluationRevision() {
               )}
               <Card>
                 <CardHeader>
-                  <CardTitle>Contenu soumis (corrigé compris)</CardTitle>
-                  <CardDescription>
-                    Exactement ce qui sera passé par les routiers et imprimé ; aucun seuil de
-                    réussite n’est appliqué.
-                  </CardDescription>
+                  <CardTitle>Questions et corrigé</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <QuestionList questions={current.questions} showKey />

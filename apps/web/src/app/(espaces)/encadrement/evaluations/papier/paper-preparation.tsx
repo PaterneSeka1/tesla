@@ -1,7 +1,7 @@
 'use client';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ELIGIBILITY_LABELS, normalizeAttemptCode } from '@tesla/shared';
+import { normalizeAttemptCode } from '@tesla/shared';
 import { Printer, Search, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -15,7 +15,7 @@ import { PageHeading } from '@/components/page-heading';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -81,17 +81,11 @@ export function PaperPreparation() {
   return (
     <>
       <BackLink href="/encadrement/evaluations">Évaluations</BackLink>
-      <PageHeading
-        title="Évaluation papier"
-        description="Avec ou sans compte : mêmes règles d’éligibilité qu’en ligne."
-      />
+      <PageHeading title="Évaluation papier" />
 
       <Card>
         <CardHeader>
           <CardTitle>Retrouver une tentative</CardTitle>
-          <CardDescription>
-            Saisissez le code imprimé sur la feuille (NT-AAAA-NNNNNN).
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -103,7 +97,7 @@ export function PaperPreparation() {
             }}
           >
             <div className="space-y-1">
-              <Label htmlFor={`${id}-code`}>Code de tentative</Label>
+              <Label htmlFor={`${id}-code`}>Code imprimé sur la feuille</Label>
               <Input
                 id={`${id}-code`}
                 className="w-56 font-mono uppercase"
@@ -139,11 +133,7 @@ export function PaperPreparation() {
           ) : scouts.error ? (
             <QueryError error={scouts.error} onRetry={() => void scouts.refetch()} />
           ) : scouts.data.items.length === 0 ? (
-            <EmptyState
-              icon={UserRound}
-              title="Aucun routier"
-              description="Modifiez la recherche."
-            />
+            <EmptyState icon={UserRound} title="Aucun routier" />
           ) : (
             <ul className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Routier">
               {scouts.data.items.map((scout) => (
@@ -184,11 +174,9 @@ export function PaperPreparation() {
       {scoutId && (
         <Card>
           <CardHeader>
-            <CardTitle>2. Évaluation publiée</CardTitle>
-            <CardDescription>
-              Éligibilité de {selectedScout ? fullName(selectedScout) : 'ce routier'} : étape
-              actuelle ou déblocage actif.
-            </CardDescription>
+            <CardTitle>
+              2. Évaluation{selectedScout && ` pour ${fullName(selectedScout)}`}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {evaluations.isPending ? (
@@ -196,11 +184,7 @@ export function PaperPreparation() {
             ) : evaluations.error ? (
               <QueryError error={evaluations.error} onRetry={() => void evaluations.refetch()} />
             ) : evaluations.data.items.length === 0 ? (
-              <EmptyState
-                icon={Printer}
-                title="Aucune évaluation publiée"
-                description="Seule une évaluation publiée peut être imprimée."
-              />
+              <EmptyState icon={Printer} title="Aucune évaluation publiée" />
             ) : (
               <ul className="space-y-2" role="radiogroup" aria-label="Évaluation">
                 {evaluations.data.items.map((item) => {
@@ -228,7 +212,7 @@ export function PaperPreparation() {
                         </span>
                         <span className="block text-xs text-muted-foreground">
                           {item.code} · version {item.version} · {item.stage.name} ·{' '}
-                          {item.questionCount} questions
+                          {item.questionCount} question{item.questionCount > 1 ? 's' : ''}
                         </span>
                         {eligibility.openAttempt && (
                           <span className="mt-1 block text-xs">
@@ -238,8 +222,8 @@ export function PaperPreparation() {
                         )}
                         {eligibility.status === 'LIMITE_ATTEINTE' && (
                           <span className="mt-1 block text-xs">
-                            {ELIGIBILITY_LABELS.LIMITE_ATTEINTE} ({eligibility.attemptsUsed} /{' '}
-                            {eligibility.maxAttempts}).
+                            {eligibility.attemptsUsed} / {eligibility.maxAttempts} tentatives
+                            utilisées.
                           </span>
                         )}
                       </button>
@@ -256,10 +240,6 @@ export function PaperPreparation() {
         <Card>
           <CardHeader>
             <CardTitle>3. Créer la tentative et imprimer</CardTitle>
-            <CardDescription>
-              Un code unique sera attribué, puis le questionnaire, le corrigé et la grille seront
-              téléchargeables.
-            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
@@ -282,7 +262,7 @@ export function PaperPreparation() {
       <section aria-labelledby={`${id}-recent`} className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 id={`${id}-recent`} className="text-lg font-semibold">
-            Feuilles préparées, en attente de saisie
+            Feuilles à saisir
           </h3>
           <Button asChild variant="link">
             <Link href="/encadrement/corrections">Toutes les copies</Link>
