@@ -9,7 +9,7 @@ Ce dépôt est **Nikola Tesla Académie** : monorepo npm workspaces (Next.js + N
 - Aucune règle pédagogique inventée : publication après approbation du responsable, validation des acquis exclusivement humaine (voir [docs/BUSINESS_RULES.md](docs/BUSINESS_RULES.md)).
 - Le profil routier (`ScoutProfile`) existe sans compte ; toute donnée pédagogique le référence. Ne jamais créer de second profil lors du rattachement d'un compte.
 - Matricule : chaîne facultative, unique, normalisée, jamais générée. Code de tentative `NT-AAAA-NNNNNN` : émis côté serveur uniquement, immuable, jamais réutilisé, jamais traité comme un secret.
-- Une tentative (papier ou numérique) ne modifie jamais automatiquement l'étape d'un routier ; seul le responsable décide et valide.
+- L'étape d'un routier est calculée par l'API selon l'âge (D173) : jamais saisie, jamais modifiée par une tentative ni par une personne. Données administratives (nom, matricule, dates) : administrateur ou plein en fonction, correction motivée et journalisée ; seul le responsable valide les acquis.
 - Modules : un chef rédige et soumet, seul le responsable approuve et publie ; une version hors brouillon n'est jamais modifiée (nouvelle version) ; contenu des leçons en JSON validé par `lessonDocumentSchema`, rendu sans `dangerouslySetInnerHTML`.
 - Évaluations : même workflow que les modules ; le corrigé (`isCorrect`, barèmes, critères) n'est jamais envoyé au routier ni imprimé sur sa feuille ; aucune correction automatique du texte libre ; un score ne valide jamais une étape.
 - Tests d'intégration sur base dédiée `*_test` uniquement (`npm run test:int -w @tesla/api`) ; jamais `migrate reset` ni `db push` sur une base contenant des données.
