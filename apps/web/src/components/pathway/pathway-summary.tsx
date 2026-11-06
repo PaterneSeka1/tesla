@@ -8,6 +8,7 @@ import {
 import { CalendarClock, Flag, Hourglass, Route } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 export const formatCivilDate = (value: string) =>
   new Date(`${value}T00:00:00Z`).toLocaleDateString('fr-FR', {
@@ -62,7 +63,12 @@ export function PathwaySummary({
           </AlertDescription>
         </Alert>
       )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div
+        className={cn(
+          'grid grid-cols-1 gap-3',
+          audience === 'routier' ? 'sm:grid-cols-3' : 'sm:grid-cols-2',
+        )}
+      >
         <Card>
           <CardHeader>
             <CardDescription>Âge</CardDescription>
@@ -71,20 +77,23 @@ export function PathwaySummary({
             </CardTitle>
           </CardHeader>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription className="flex items-center gap-1">
-              <Route className="size-4" aria-hidden /> Étape actuelle
-            </CardDescription>
-            <CardTitle className="text-2xl">{pathway.stage?.name ?? 'Non déterminée'}</CardTitle>
-          </CardHeader>
-          {/* Étape déterminée : l'échéance est donnée par « Prochaine échéance » ci-dessous. */}
-          {age.reason !== 'REGLE' && (
-            <CardContent className="text-sm text-muted-foreground">
-              {THEORETICAL_STAGE_REASON_LABELS[age.reason]}
-            </CardContent>
-          )}
-        </Card>
+        {/* Sur la fiche, l'étape figure déjà dans « Informations ». */}
+        {audience === 'routier' && (
+          <Card>
+            <CardHeader>
+              <CardDescription className="flex items-center gap-1">
+                <Route className="size-4" aria-hidden /> Étape actuelle
+              </CardDescription>
+              <CardTitle className="text-2xl">{pathway.stage?.name ?? 'Non déterminée'}</CardTitle>
+            </CardHeader>
+            {/* Étape déterminée : l'échéance est donnée par « Prochaine échéance » ci-dessous. */}
+            {age.reason !== 'REGLE' && (
+              <CardContent className="text-sm text-muted-foreground">
+                {THEORETICAL_STAGE_REASON_LABELS[age.reason]}
+              </CardContent>
+            )}
+          </Card>
+        )}
         <Card>
           <CardHeader>
             <CardDescription className="flex items-center gap-1">

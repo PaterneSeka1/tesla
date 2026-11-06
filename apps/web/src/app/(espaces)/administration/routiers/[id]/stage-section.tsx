@@ -4,7 +4,7 @@ import { type ScoutProgression, STAGE_CHANGE_KIND_LABELS, type StageChange } fro
 import { Flag } from 'lucide-react';
 import { EmptyState } from '@/components/empty-state';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate, formatDateTime, fullName } from '@/lib/format';
 
 function StageHistory({ changes }: { changes: StageChange[] }) {
@@ -45,27 +45,18 @@ function StageHistory({ changes }: { changes: StageChange[] }) {
 }
 
 /**
- * Étape actuelle, calculée par l'API selon l'âge (D173) : aucune saisie ni décision possible ici.
- * Les décisions d'étape enregistrées avant le calcul automatique restent consultables.
+ * Décisions d'étape enregistrées avant le calcul automatique (D173), en lecture seule. L'étape
+ * actuelle, calculée selon l'âge, figure dans la carte « Informations » de la fiche.
  */
 export function StageSection({ progression }: { progression: ScoutProgression }) {
-  const { scout } = progression;
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Étape actuelle</CardTitle>
-        <CardDescription>
-          {scout.stage
-            ? `${scout.stage.name}${scout.stageSince ? ` depuis le ${formatDate(scout.stageSince)}` : ''}`
-            : 'Étape non déterminée'}
-        </CardDescription>
+        <CardTitle>Décisions d’étape antérieures</CardTitle>
       </CardHeader>
-      {progression.stageChanges.length > 0 && (
-        <CardContent className="space-y-2">
-          <h3 className="text-sm font-semibold">Décisions antérieures (historique)</h3>
-          <StageHistory changes={progression.stageChanges} />
-        </CardContent>
-      )}
+      <CardContent>
+        <StageHistory changes={progression.stageChanges} />
+      </CardContent>
     </Card>
   );
 }

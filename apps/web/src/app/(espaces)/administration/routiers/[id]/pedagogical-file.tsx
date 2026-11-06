@@ -26,7 +26,6 @@ import { StudiesSection } from './studies-section';
 import { TeamHistory } from './team-history';
 
 const TABS = [
-  { key: 'progression', label: 'Progression' },
   { key: 'competences', label: 'Compétences' },
   { key: 'formations', label: 'Formations' },
   { key: 'evaluations', label: 'Évaluations' },
@@ -170,7 +169,7 @@ function TimelineSection({ scoutId }: { scoutId: string }) {
 
 /** Dossier pédagogique complet du routier, avec ou sans compte. */
 export function PedagogicalFile({ scoutId }: { scoutId: string }) {
-  const [tab, setTab] = useState('progression');
+  const [tab, setTab] = useState('competences');
   const { data, error, isPending, refetch } = useQuery(scoutProgressionQueryOptions(scoutId));
 
   return (
@@ -181,13 +180,17 @@ export function PedagogicalFile({ scoutId }: { scoutId: string }) {
         <div className="grid gap-6 xl:grid-cols-2">
           <TimelineSection scoutId={scoutId} />
           <TeamHistory scoutId={scoutId} />
+          {/* Décisions d'étape antérieures à D173 : seulement s'il en existe. */}
+          {data && data.stageChanges.length > 0 && (
+            <div className="xl:col-span-2">
+              <StageSection progression={data} />
+            </div>
+          )}
         </div>
       ) : isPending ? (
         <TableSkeleton rows={4} />
       ) : error ? (
         <QueryError error={error} onRetry={() => void refetch()} />
-      ) : tab === 'progression' ? (
-        <StageSection progression={data} />
       ) : tab === 'competences' ? (
         <CompetenciesSection progression={data} />
       ) : tab === 'formations' ? (
