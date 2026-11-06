@@ -32,7 +32,7 @@ Fonctions pures, déterministes, sur des dates civiles « AAAA-MM-JJ » :
 - Version, source, notes, âge de sortie, délai de rattrapage, seuil d'alerte (nuls tant que non arbitrés), périodes par étape (années révolues + mois) avec leur source.
 - Référentiel applicable à une date : le plus récent `EN_VIGUEUR` dont `effective_from` ≤ date. Un référentiel en vigueur est **figé** (trigger) : une évolution crée une nouvelle version, les calculs antérieurs restent reproductibles.
 - Version initiale `2026.1` (seed, en vigueur au 2026-10-29) : **uniquement** noviciat 18 ans → 18 ans + 1 mois et sortie à 21 ans.
-- API : `GET /age-rules` (encadrement), `POST /age-rules` (brouillon), `POST /age-rules/:id/activate` (permission `ageRules.manage`, confirmation explicite). Écran : `/administration/referentiel-age` (consultation).
+- API : `GET /age-rules` (encadrement), `POST /age-rules` (brouillon), `POST /age-rules/:id/activate` (permission `ageRules.manage`, confirmation explicite). Écran : `/administration/referentiel-age` — consultation par l'encadrement ; saisie d'un brouillon (prérempli depuis le référentiel applicable, notes non recopiées) et mise en vigueur (date choisie, confirmation) par le plein en fonction (D175). Périodes contrôlées : une par étape, fin après début, aucun chevauchement, début avant la sortie (`400 VALIDATION_ERROR`).
 
 ## Sortie de la branche (21 ans)
 - Le jour du 21e anniversaire, le routier n'est plus membre actif : `effectiveMembership` le considère `SORTI` **dès la lecture**, même si le traitement n'a pas tourné.

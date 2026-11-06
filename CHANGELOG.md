@@ -14,6 +14,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 - Fiche routier : étape affichée une seule fois ; ancien historique d'étape regroupé dans « Historique ».
 - Évaluation : « Voir ma copie » remplace un libellé d'état sur le bouton principal.
 
+### Ajouté — saisie du référentiel d'âge, 2026-11-06
+- Écran « Référentiel d'âge » : le responsable plein crée un brouillon (prérempli depuis la version applicable) puis le met en vigueur avec une date et une confirmation explicites ; l'étape de chaque routier est alors recalculée (D175).
+- Périodes contrôlées : une par étape, fin après début, aucun chevauchement, début avant la sortie de la branche.
+- Droits du plein revérifiés au moment de l'écriture, comme pour les autres décisions officielles.
+
 ### Corrigé — interface, 2026-11-06
 - « Soumissions » : toutes les versions suivies sont listées (plus de troncature à 100 modules).
 

@@ -302,7 +302,7 @@ Les routes de progression, compétences, propositions, études, programmes, acti
 | Méthode et route | Permission | Objet |
 | --- | --- | --- |
 | `GET /age-rules` | `ageRules.read` | Référentiels d'âge (version applicable et historique) |
-| `POST /age-rules`, `POST /age-rules/:id/activate` | `ageRules.manage` | Créer un brouillon ; mettre en vigueur (`confirm: true`, référentiel figé) |
+| `POST /age-rules`, `POST /age-rules/:id/activate` | `ageRules.manage` (revérifiée à l'écriture, D175) | Créer un brouillon (périodes cohérentes, sinon `400 VALIDATION_ERROR`) ; mettre en vigueur (`confirm: true`, référentiel figé) |
 | `GET /scouts/:id/pathway` | `catchUp.read` | Parcours : âge, étapes théorique et officielle, écart, échéances, appartenance, modules de l'étape, rattrapages (synchronisation idempotente) |
 | `GET /me/pathway` | `progression.readOwn` | Mon parcours (routier) |
 | `GET /statistics/pathways?teamId=` | `statistics.read` | Indicateurs de parcours |
