@@ -85,7 +85,7 @@ Migration additive `20261118090000_offline_devices` (table + contrainte `octet_l
 
 - Unitaires : `vault-crypto.test.ts` (mot de passe juste/faux, liaison au coffre, reprotection par la clé d'appareil, clé étrangère, altération).
 - Intégration : `offline-devices.int-spec.ts` (clé de 32 octets non mise en cache, isolation entre comptes, retrait 410, limite, changement de mot de passe ailleurs : ancienne session refusée, nouvelle connexion acceptée).
-- Navigateur : `apps/web/test/offline-auth.browser.mjs` (17 contrôles, voir [UX_ACCEPTANCE_TESTS.md](../quality/UX_ACCEPTANCE_TESTS.md)) ; `offline-first.browser.mjs` et `catalogue-lecture.browser.mjs` adaptés au mot de passe.
+- Navigateur : `apps/web/test/offline-auth.browser.mjs` (17 contrôles, voir [UX_ACCEPTANCE_TESTS.md](../QUALITY/UX_ACCEPTANCE_TESTS.md)) ; `offline-first.browser.mjs` et `catalogue-lecture.browser.mjs` adaptés au mot de passe.
 
 ## 9. Limites connues
 
