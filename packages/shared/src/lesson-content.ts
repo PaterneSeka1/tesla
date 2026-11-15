@@ -16,14 +16,47 @@ export function isSafeLinkHref(href: string): boolean {
   }
 }
 
-/** Images : URL https externe uniquement (aucun fichier stocké sur le serveur). */
+/**
+ * Image envoyée depuis l'appareil d'un rédacteur (stockage objet, D143) : chemin interne du relais
+ * même origine, jamais une URL signée. Le serveur contrôle l'accès à chaque lecture.
+ */
+const LESSON_FILE_IMAGE = /^\/api\/v1\/module-files\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+
+/** Chemin interne d'une image de leçon stockée par Tesla. */
+export function lessonFileImageSrc(fileId: string): string {
+  return `/api/v1/module-files/${fileId}`;
+}
+
+/** Identifiant du fichier stocké par Tesla, ou null pour une image externe. */
+export function lessonImageFileId(src: string): string | null {
+  return LESSON_FILE_IMAGE.exec(src)?.[1] ?? null;
+}
+
+/** Images : URL https externe, ou image stockée par Tesla (chemin interne strict). */
 export function isSafeImageSrc(src: string): boolean {
+  if (lessonImageFileId(src)) return true;
   try {
     return new URL(src).protocol === 'https:';
   } catch {
     return false;
   }
 }
+
+/**
+ * Blocs pédagogiques (lot 1 de la refonte) : un titre de niveau 3 reconnu suivi de son contenu
+ * jusqu'au titre suivant. Aucun nœud nouveau : stockage, API, PDF et hors ligne inchangés ; le
+ * rendu web les affiche en encadré. « Référence » est une ligne « Référence : … » regroupée en pied
+ * de leçon.
+ */
+export const PEDAGOGICAL_BLOCKS = [
+  { key: 'objectif', title: 'Objectifs', hint: 'Ce que le routier doit apprendre.' },
+  { key: 'retenir', title: 'À retenir', hint: 'Une notion essentielle.' },
+  { key: 'exemple', title: 'Exemple', hint: 'Une situation concrète.' },
+  { key: 'pratique', title: 'Activité pratique', hint: 'Une action à réaliser.' },
+  { key: 'reflexion', title: 'Question de réflexion', hint: 'Une réflexion personnelle ou collective.' },
+  { key: 'reference', title: 'Référence', hint: 'Une source ou un document officiel.' },
+] as const;
+export type PedagogicalBlockKey = (typeof PEDAGOGICAL_BLOCKS)[number]['key'];
 
 export type LessonMark =
   | { type: 'bold' }
@@ -104,7 +137,7 @@ const blockSchema: z.ZodType<LessonBlock> = z.lazy(() =>
       type: z.literal('image'),
       attrs: z.object({
         src: z.string().max(2000).refine(isSafeImageSrc, {
-          message: 'Image non autorisée : adresse https:// requise.',
+          message: 'Image non autorisée : adresse https:// ou image envoyée depuis l’appareil.',
         }),
         alt: z.string().max(300).nullable().optional(),
       }),

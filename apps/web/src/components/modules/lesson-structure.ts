@@ -1,4 +1,4 @@
-import { type LessonBlock, type LessonInline } from '@tesla/shared';
+import { type LessonBlock, type LessonInline, PEDAGOGICAL_BLOCKS } from '@tesla/shared';
 
 /** Rubriques pédagogiques rendues en encadré (titre de niveau 3 exact, insensible à la casse). */
 const CALLOUTS: Record<string, CalloutVariant> = {
@@ -14,6 +14,13 @@ const CALLOUTS: Record<string, CalloutVariant> = {
   'exemple (illustratif)': 'exemple',
   'exemples d’entreprise (proposition pédagogique)': 'exemple',
   'précautions particulières': 'vigilance',
+  // Blocs insérés depuis l'éditeur (PEDAGOGICAL_BLOCKS) ; « Référence » est une ligne de pied.
+  ...Object.fromEntries(
+    PEDAGOGICAL_BLOCKS.filter((block) => block.key !== 'reference').map((block) => [
+      block.title.toLocaleLowerCase('fr'),
+      block.key === 'objectif' ? 'objectifs' : block.key,
+    ]),
+  ),
 };
 export type CalloutVariant =
   'objectifs' | 'retenir' | 'reflexion' | 'pratique' | 'exemple' | 'vigilance';

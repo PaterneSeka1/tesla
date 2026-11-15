@@ -1,9 +1,11 @@
 import {
   catalogLessonSchema,
   catalogModuleDetailSchema,
+  lessonImageFileId,
   type OfflineModulePackage,
   offlineModulePackageSchema,
 } from '@tesla/shared';
+import { resolveImageSrc } from '@/lib/api/assets';
 import { apiFetch, withStrictReads } from '@/lib/api/client';
 import { dbDelete } from './db';
 import { assertOnlineOwner, ownerId, readRecord, recordIds, writeRecord } from './vault';
@@ -37,8 +39,10 @@ export function imageSources(value: unknown): string[] {
   return [...urls];
 }
 async function boundedImage(url: string) {
-  const response = await fetch(url, {
-    credentials: 'omit',
+  // Image stockée par Tesla : lecture contrôlée par la session (cookie), puis URL signée courte.
+  const internal = lessonImageFileId(url) !== null;
+  const response = await fetch(internal ? resolveImageSrc(url) : url, {
+    credentials: internal ? 'include' : 'omit',
     referrerPolicy: 'no-referrer',
     signal: AbortSignal.timeout(20_000),
   });

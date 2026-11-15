@@ -7,6 +7,7 @@ import {
   CSRF_HEADER,
   editorModuleDetailSchema,
   type EditorModuleDetail,
+  lessonFileImageSrc,
   offlineModulePackageSchema,
   storedFileSchema,
   uploadTicketSchema,
@@ -126,6 +127,8 @@ describe('Fichiers des modules (intégration PostgreSQL, stockage simulé)', () 
       get: (path: string) => agent.get(`/api/v1${path}`),
       post: (path: string, body: object = {}) =>
         agent.post(`/api/v1${path}`).set(CSRF_HEADER, '1').send(body),
+      patch: (path: string, body: object = {}) =>
+        agent.patch(`/api/v1${path}`).set(CSRF_HEADER, '1').send(body),
     };
   }
 
@@ -384,6 +387,56 @@ describe('Fichiers des modules (intégration PostgreSQL, stockage simulé)', () 
     expect(createHash('sha256').update(JSON.stringify(pkg.content)).digest('hex')).toBe(pkg.digest);
     // Le paquet ne contient jamais d'URL signée.
     expect(JSON.stringify(pkg)).not.toContain('X-Amz');
+  });
+
+  it('image insérée dans le texte d’une leçon : fichier du module seulement, lisible après publication', async () => {
+    const chef = await loginAs('CHEF');
+    const responsable = await loginAs('RESPONSABLE');
+    const routier = await loginAs('ROUTIER');
+    let module = await createModule(chef);
+    const other = await createModule(chef, 'Autre module');
+    const image = await json((await upload(chef, module)).confirm(), 200, storedFileSchema);
+    const foreign = await json((await upload(chef, other)).confirm(), 200, storedFileSchema);
+    module = await json(
+      chef.post(`/editor/modules/${module.id}/lessons`, {
+        versionId: module.current.id,
+        title: 'Lecture de carte',
+      }),
+      201,
+      editorModuleDetailSchema,
+    );
+    const lesson = module.current.lessons[0]!;
+    const withImage = (fileId: string) => ({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Voici la carte.' }] },
+        { type: 'image', attrs: { src: lessonFileImageSrc(fileId), alt: 'Carte fictive' } },
+      ],
+    });
+    // Fichier d'un autre module : refusé (il deviendrait lisible à la publication).
+    expect(
+      await errorCode(
+        chef.patch(`/editor/lessons/${lesson.id}`, {
+          revision: lesson.revision,
+          content: withImage(foreign.id),
+        }),
+        422,
+      ),
+    ).toBe('FILE_NOT_AVAILABLE');
+    await chef
+      .patch(`/editor/lessons/${lesson.id}`, {
+        revision: lesson.revision,
+        content: withImage(image.id),
+      })
+      .expect(204);
+    // Brouillon : rédacteur seulement.
+    await chef.get(`/module-files/${image.id}`).expect(302);
+    expect(await errorCode(routier.get(`/module-files/${image.id}`), 404)).toBe('FILE_NOT_FOUND');
+    module = await json(chef.get(`/editor/modules/${module.id}`), 200, editorModuleDetailSchema);
+    await publish(chef, responsable, module);
+    await routier.get(`/module-files/${image.id}`).expect(302);
+    // Le fichier de l'autre module (jamais cité) reste inaccessible au routier.
+    expect(await errorCode(routier.get(`/module-files/${foreign.id}`), 404)).toBe('FILE_NOT_FOUND');
   });
 
   it('nouvelle version : la référence est recopiée, l’objet n’est ni dupliqué ni modifiable', async () => {

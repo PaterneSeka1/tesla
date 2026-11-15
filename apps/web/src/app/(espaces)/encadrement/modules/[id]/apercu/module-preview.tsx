@@ -1,8 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Printer } from 'lucide-react';
+import { Monitor, Printer, Smartphone } from 'lucide-react';
 import { useParams, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 import { BackLink } from '@/components/back-link';
 import { safeReturnPath } from '@/lib/module-list-params';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
@@ -11,6 +12,7 @@ import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { editorModuleQueryOptions, moduleVersionQueryOptions } from '@/lib/api/modules';
+import { cn } from '@/lib/utils';
 
 /** Aperçu fidèle d'une version (version de travail par défaut, ou `?version=`). */
 export function ModulePreview() {
@@ -19,6 +21,8 @@ export function ModulePreview() {
   const requested = searchParams.get('version');
   const retour = searchParams.get('retour');
   const moduleQuery = useQuery(editorModuleQueryOptions(id));
+  // Largeur de lecture simulée : ordinateur ou téléphone (360 px), pour contrôler la lisibilité.
+  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
   const versionId = requested ?? moduleQuery.data?.current.id;
   const version = useQuery({
     ...moduleVersionQueryOptions(id, versionId ?? ''),
@@ -39,10 +43,36 @@ export function ModulePreview() {
         >
           Retour à l’édition
         </BackLink>
-        <Button variant="outline" onClick={() => window.print()}>
-          <Printer aria-hidden />
-          Imprimer l’aperçu
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <div
+            role="group"
+            aria-label="Largeur de l’aperçu"
+            className="flex rounded-md border p-0.5"
+          >
+            {(
+              [
+                ['desktop', 'Ordinateur', Monitor],
+                ['mobile', 'Téléphone', Smartphone],
+              ] as const
+            ).map(([value, label, Icon]) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={device === value ? 'default' : 'ghost'}
+                aria-pressed={device === value}
+                onClick={() => setDevice(value)}
+              >
+                <Icon aria-hidden />
+                {label}
+              </Button>
+            ))}
+          </div>
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer aria-hidden />
+            Imprimer l’aperçu
+          </Button>
+        </div>
       </div>
       <Alert variant="info" className="print:hidden">
         <AlertDescription>
@@ -52,7 +82,16 @@ export function ModulePreview() {
           </p>
         </AlertDescription>
       </Alert>
-      <ModuleVersionView version={version.data} />
+      <div
+        className={cn(
+          'mx-auto w-full transition-[max-width] motion-reduce:transition-none',
+          device === 'mobile'
+            ? 'max-w-[360px] rounded-[1.5rem] border-8 border-neutral-200 print:max-w-none print:border-0'
+            : 'max-w-none',
+        )}
+      >
+        <ModuleVersionView version={version.data} />
+      </div>
     </>
   );
 }

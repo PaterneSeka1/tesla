@@ -7,6 +7,7 @@ import {
   type LessonListItem,
 } from '@tesla/shared';
 import { Fragment } from 'react';
+import { resolveImageSrc } from '@/lib/api/assets';
 import { type CalloutVariant, structureLesson } from './lesson-structure';
 
 /**
@@ -114,7 +115,7 @@ function Block({
           {/* Image externe saisie par un rédacteur (hôte non connu à l'avance) : next/image exigerait une liste d'hôtes. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={offlineImages?.[block.attrs.src] ?? block.attrs.src}
+            src={offlineImages?.[block.attrs.src] ?? resolveImageSrc(block.attrs.src)}
             alt={block.attrs.alt ?? ''}
             loading="lazy"
             referrerPolicy="no-referrer"

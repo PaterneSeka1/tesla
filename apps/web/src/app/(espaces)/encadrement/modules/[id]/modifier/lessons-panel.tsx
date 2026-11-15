@@ -1,23 +1,40 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { type EditorModuleDetail, lessonDocumentSchema, type ModuleLesson } from '@tesla/shared';
-import { ArrowDown, ArrowUp, BookOpen, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
+import { type EditorModuleDetail, type ModuleLesson } from '@tesla/shared';
+import {
+  ArrowDown,
+  ArrowUp,
+  BookOpen,
+  Check,
+  CircleAlert,
+  CloudOff,
+  ListOrdered,
+  Loader2,
+  Plus,
+  Trash2,
+} from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { LessonContent } from '@/components/modules/lesson-content';
 import { LessonEditor } from '@/components/modules/lesson-editor';
+import { type AutosaveStatus, useLessonAutosave } from '@/components/modules/use-lesson-autosave';
 import { useModuleAction } from '@/components/modules/use-module-action';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/toaster';
-import { ApiError } from '@/lib/api/client';
-import { addLesson, deleteLesson, reorderLessons, updateLesson } from '@/lib/api/modules';
+import { addLesson, deleteLesson, reorderLessons } from '@/lib/api/modules';
 import { formatDateTime, formatDuration, fullName } from '@/lib/format';
+import { readLessonDraft } from '@/lib/lesson-drafts';
+import { cn } from '@/lib/utils';
 
-/** Leçons ordonnées de la version de travail ; une seule leçon ouverte en édition à la fois. */
+/**
+ * Espace de rédaction des leçons (refonte lot 1) : navigation ordonnée des leçons et zone de
+ * rédaction. Chaque leçon s'enregistre automatiquement ; la leçon ouverte est dans l'adresse
+ * (`?lecon=`), ce qui permet d'y revenir depuis la vérification.
+ */
 export function LessonsPanel({
   module,
   editable,
@@ -26,28 +43,35 @@ export function LessonsPanel({
   editable: boolean;
 }) {
   const run = useModuleAction();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const lessons = module.current.lessons;
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [dirty, setDirty] = useState<Set<string>>(new Set());
+  const requested = params.get('lecon');
+  const selected = lessons.find((lesson) => lesson.id === requested) ?? lessons[0] ?? null;
+  const [status, setStatus] = useState<AutosaveStatus>('saved');
+  const [navOpen, setNavOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const newTitleId = useId();
+  const navId = useId();
 
-  // Avertit avant de quitter la page si une leçon n'est pas enregistrée.
+  const select = useCallback(
+    (lessonId: string) => {
+      const next = new URLSearchParams(params.toString());
+      next.set('lecon', lessonId);
+      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+      setNavOpen(false);
+    },
+    [params, pathname, router],
+  );
+
+  // Avertit avant de quitter la page si une saisie n'est pas confirmée par le serveur.
   useEffect(() => {
-    if (dirty.size === 0) return;
+    if (status === 'saved') return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
-
-  const setLessonDirty = (id: string, value: boolean) =>
-    setDirty((current) => {
-      if (current.has(id) === value) return current;
-      const next = new Set(current);
-      if (value) next.add(id);
-      else next.delete(id);
-      return next;
-    });
+  }, [status]);
 
   const move = (index: number, offset: -1 | 1) => {
     const ids = lessons.map((lesson) => lesson.id);
@@ -62,315 +86,431 @@ export function LessonsPanel({
   const create = async () => {
     const title = newTitle.trim();
     if (!title) return;
+    pendingSelectLast.current = lessons.length;
     const ok = await run(() => addLesson(module.id, { versionId: module.current.id, title }), {
       success: 'Leçon ajoutée',
       error: 'Ajout impossible',
     });
     if (ok) setNewTitle('');
+    else pendingSelectLast.current = null;
   };
+  // Après un ajout, la nouvelle leçon (dernière position) est ouverte dès qu'elle est chargée.
+  const pendingSelectLast = useRef<number | null>(null);
+  useEffect(() => {
+    const previousCount = pendingSelectLast.current;
+    if (previousCount === null || lessons.length <= previousCount) return;
+    pendingSelectLast.current = null;
+    select(lessons[lessons.length - 1]!.id);
+  }, [lessons, select]);
 
-  return (
-    <div className="space-y-3">
-      {lessons.length === 0 ? (
+  const addForm = editable && (
+    <div className="space-y-2 border-t pt-3">
+      <Label htmlFor={newTitleId}>Nouvelle leçon</Label>
+      <Input
+        id={newTitleId}
+        maxLength={150}
+        placeholder="Titre de la leçon"
+        value={newTitle}
+        onChange={(event) => setNewTitle(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            void create();
+          }
+        }}
+      />
+      <Button
+        type="button"
+        className="w-full"
+        onClick={() => void create()}
+        disabled={!newTitle.trim()}
+      >
+        <Plus aria-hidden />
+        Ajouter la leçon
+      </Button>
+    </div>
+  );
+
+  if (lessons.length === 0) {
+    return (
+      <div className="space-y-4">
         <EmptyState
           icon={BookOpen}
           title="Aucune leçon"
-          description={editable ? 'Au moins une leçon est requise pour soumettre.' : undefined}
+          description={
+            editable
+              ? 'Ajoutez une première leçon : elle s’enregistre automatiquement pendant la rédaction.'
+              : undefined
+          }
         />
-      ) : (
-        <ol className="space-y-3">
-          {lessons.map((lesson, index) => (
-            <li key={lesson.id}>
-              <LessonCard
-                lesson={lesson}
-                index={index}
-                total={lessons.length}
-                editable={editable}
-                open={openId === lesson.id}
-                onToggle={() => setOpenId(openId === lesson.id ? null : lesson.id)}
-                onMove={(offset) => move(index, offset)}
-                onDirtyChange={(value) => setLessonDirty(lesson.id, value)}
-              />
+        {editable && <div className="mx-auto max-w-md">{addForm}</div>}
+      </div>
+    );
+  }
+
+  const selectedIndex = selected ? lessons.indexOf(selected) : -1;
+  const nav = (
+    <nav aria-label="Leçons du module" className="space-y-3">
+      <ol className="space-y-1">
+        {lessons.map((lesson, index) => {
+          const current = lesson.id === selected?.id;
+          const pending = current ? status !== 'saved' : readLessonDraft(lesson.id) !== null;
+          return (
+            <li key={lesson.id} className="group flex items-center gap-1">
+              <button
+                type="button"
+                aria-current={current ? 'true' : undefined}
+                onClick={() => select(lesson.id)}
+                onKeyDown={(event) => {
+                  if (!editable || !event.altKey) return;
+                  if (event.key === 'ArrowUp' && index > 0) {
+                    event.preventDefault();
+                    move(index, -1);
+                  }
+                  if (event.key === 'ArrowDown' && index < lessons.length - 1) {
+                    event.preventDefault();
+                    move(index, 1);
+                  }
+                }}
+                className={cn(
+                  'flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+                  current && 'bg-tesla-sable/60 font-medium text-tesla-bordeaux',
+                )}
+              >
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-semibold text-tesla-bordeaux ring-1 ring-tesla-or/50">
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{lesson.title}</span>
+                {pending && (
+                  <span
+                    className="size-2 shrink-0 rounded-full bg-tesla-rouge"
+                    title="Modification non encore confirmée par le serveur"
+                  >
+                    <span className="sr-only"> — modification non synchronisée</span>
+                  </span>
+                )}
+              </button>
+              {editable && (
+                <span className="flex shrink-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label={`Monter la leçon ${index + 1}`}
+                    disabled={index === 0}
+                    onClick={() => move(index, -1)}
+                  >
+                    <ArrowUp aria-hidden />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label={`Descendre la leçon ${index + 1}`}
+                    disabled={index === lessons.length - 1}
+                    onClick={() => move(index, 1)}
+                  >
+                    <ArrowDown aria-hidden />
+                  </Button>
+                </span>
+              )}
             </li>
-          ))}
-        </ol>
-      )}
+          );
+        })}
+      </ol>
       {editable && (
-        <div className="flex flex-col gap-2 rounded-lg border border-dashed p-3 sm:flex-row sm:items-end">
-          <div className="flex-1 space-y-1">
-            <Label htmlFor={newTitleId}>Nouvelle leçon</Label>
-            <Input
-              id={newTitleId}
-              maxLength={150}
-              placeholder="Titre de la leçon"
-              value={newTitle}
-              onChange={(event) => setNewTitle(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  void create();
-                }
-              }}
-            />
+        <p className="text-xs text-muted-foreground">
+          Astuce : Alt + flèche haut/bas déplace la leçon sélectionnée.
+        </p>
+      )}
+      {addForm}
+    </nav>
+  );
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
+      {/* Petit écran : la liste des leçons est un panneau repliable au-dessus de la rédaction. */}
+      <div className="lg:hidden">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full justify-between"
+          aria-expanded={navOpen}
+          aria-controls={navId}
+          onClick={() => setNavOpen((open) => !open)}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <ListOrdered aria-hidden />
+            <span className="truncate">
+              Leçon {selectedIndex + 1} sur {lessons.length} · {selected?.title}
+            </span>
+          </span>
+          <span className="text-xs text-muted-foreground">{navOpen ? 'Fermer' : 'Changer'}</span>
+        </Button>
+        {navOpen && (
+          <div id={navId} className="mt-2 rounded-lg border bg-card p-3">
+            {nav}
           </div>
-          <Button type="button" onClick={() => void create()} disabled={!newTitle.trim()}>
-            <Plus aria-hidden />
-            Ajouter la leçon
-          </Button>
+        )}
+      </div>
+      <aside className="hidden lg:block">
+        <div className="sticky top-20 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-lg border bg-card p-3">
+          {nav}
         </div>
+      </aside>
+      {selected && (
+        <LessonPane
+          key={selected.id}
+          moduleId={module.id}
+          lesson={selected}
+          index={selectedIndex}
+          editable={editable}
+          onStatus={setStatus}
+          onDeleted={() => {
+            const neighbour = lessons[selectedIndex + 1] ?? lessons[selectedIndex - 1];
+            if (neighbour) select(neighbour.id);
+          }}
+        />
       )}
     </div>
   );
 }
 
-function LessonCard({
+const STATUS_LABELS: Record<AutosaveStatus, string> = {
+  saved: 'Enregistré',
+  dirty: 'Modifications en cours…',
+  saving: 'Enregistrement…',
+  offline: 'Hors connexion — conservé sur cet appareil, envoi au retour du réseau',
+  error: 'Échec de l’enregistrement — conservé sur cet appareil',
+  invalid: 'À corriger avant enregistrement',
+  conflict: 'Conflit : la leçon a été modifiée par une autre personne',
+};
+
+function SaveIndicator({ status, savedAt }: { status: AutosaveStatus; savedAt: number | null }) {
+  const Icon =
+    status === 'saved'
+      ? Check
+      : status === 'saving' || status === 'dirty'
+        ? Loader2
+        : status === 'offline'
+          ? CloudOff
+          : CircleAlert;
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      className={cn(
+        'flex items-center gap-1.5 text-sm',
+        status === 'saved' && 'text-emerald-700',
+        (status === 'saving' || status === 'dirty') && 'text-muted-foreground',
+        (status === 'offline' || status === 'error' || status === 'invalid') && 'text-amber-800',
+        status === 'conflict' && 'text-destructive',
+      )}
+    >
+      <Icon
+        aria-hidden
+        className={cn('size-4 shrink-0', status === 'saving' && 'motion-safe:animate-spin')}
+      />
+      <span>
+        {STATUS_LABELS[status]}
+        {status === 'saved' && savedAt
+          ? ` à ${new Date(savedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+          : ''}
+      </span>
+    </p>
+  );
+}
+
+function LessonPane({
+  moduleId,
   lesson,
   index,
-  total,
   editable,
-  open,
-  onToggle,
-  onMove,
-  onDirtyChange,
+  onStatus,
+  onDeleted,
 }: {
+  moduleId: string;
   lesson: ModuleLesson;
   index: number;
-  total: number;
   editable: boolean;
-  open: boolean;
-  onToggle: () => void;
-  onMove: (offset: -1 | 1) => void;
-  onDirtyChange: (dirty: boolean) => void;
+  onStatus: (status: AutosaveStatus) => void;
+  onDeleted: () => void;
 }) {
-  const toast = useToast();
   const queryClient = useQueryClient();
   const run = useModuleAction();
   const id = useId();
-  // Révision sur laquelle repose la saisie locale (contrôle de concurrence optimiste).
-  const [base, setBase] = useState(lesson.revision);
-  const [title, setTitle] = useState(lesson.title);
-  const [duration, setDuration] = useState(
-    lesson.durationMinutes ? String(lesson.durationMinutes) : '',
+  const refresh = useCallback(
+    () => void queryClient.invalidateQueries({ queryKey: ['modules'] }),
+    [queryClient],
   );
-  const [content, setContent] = useState<unknown>(lesson.content);
-  const [editorKey, setEditorKey] = useState(0);
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [conflict, setConflict] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const autosave = useLessonAutosave(lesson, {
+    editable,
+    onSaved: refresh,
+    onConflict: refresh,
+  });
+  const { status, values } = autosave;
 
-  const reset = () => {
-    setBase(lesson.revision);
-    setTitle(lesson.title);
-    setDuration(lesson.durationMinutes ? String(lesson.durationMinutes) : '');
-    setContent(lesson.content);
-    setEditorKey((key) => key + 1);
-    setDirty(false);
-    setConflict(false);
-    setError(null);
-  };
+  useEffect(() => onStatus(status), [status, onStatus]);
+  useEffect(() => () => onStatus('saved'), [onStatus]);
 
-  // Leçon modifiée par une autre personne et aucune saisie locale : affichage de la version du serveur.
-  if (!dirty && lesson.revision !== base) reset();
-
-  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
-
-  const markDirty = () => {
-    setDirty(true);
-    setError(null);
-  };
-
-  const save = async () => {
-    const parsed = lessonDocumentSchema.safeParse(content);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Contenu invalide.');
-      return;
-    }
-    const minutes = duration.trim() === '' ? null : Number(duration);
-    if (minutes !== null && (!Number.isInteger(minutes) || minutes < 1 || minutes > 6000)) {
-      setError('Durée : nombre entier de minutes entre 1 et 6 000.');
-      return;
-    }
-    if (!title.trim()) {
-      setError('Le titre est requis.');
-      return;
-    }
-    setSaving(true);
-    try {
-      await updateLesson(lesson.id, {
-        revision: base,
-        title: title.trim(),
-        durationMinutes: minutes,
-        content: parsed.data,
-      });
-      setBase(base + 1);
-      setDirty(false);
-      toast.success('Leçon enregistrée');
-      await queryClient.invalidateQueries({ queryKey: ['modules'] });
-    } catch (saveError) {
-      if (saveError instanceof ApiError && saveError.code === 'EDIT_CONFLICT') setConflict(true);
-      else setError(saveError instanceof Error ? saveError.message : 'Enregistrement impossible.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const remove = () =>
-    run(() => deleteLesson(lesson.id, lesson.revision), {
+  const remove = async () => {
+    const ok = await run(() => deleteLesson(lesson.id, lesson.revision), {
       success: 'Leçon supprimée',
       error: 'Suppression impossible',
     });
+    if (ok) onDeleted();
+    return ok;
+  };
+
+  if (!editable) {
+    return (
+      <article className="min-w-0 space-y-3 rounded-lg border bg-card p-4">
+        <header>
+          <p className="text-sm text-muted-foreground">Leçon {index + 1}</p>
+          <h3 className="text-xl font-semibold text-tesla-bordeaux">{lesson.title}</h3>
+          {lesson.durationMinutes ? (
+            <p className="text-sm text-muted-foreground">
+              {formatDuration(lesson.durationMinutes)}
+            </p>
+          ) : null}
+        </header>
+        <LessonContent document={lesson.content} />
+      </article>
+    );
+  }
 
   return (
-    <article className="rounded-lg border bg-card">
-      <header className="flex flex-wrap items-center gap-2 p-3">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-tesla-sable text-sm font-semibold text-tesla-bordeaux">
-          {index + 1}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h4 className="truncate font-medium">{lesson.title}</h4>
-          <p className="text-xs text-muted-foreground">
-            {lesson.durationMinutes ? `${formatDuration(lesson.durationMinutes)} · ` : ''}
-            Modifiée le {formatDateTime(lesson.updatedAt)}
-            {lesson.updatedBy && ` par ${fullName(lesson.updatedBy)}`}
-            {dirty && <span className="ml-2 font-medium text-tesla-rouge">· non enregistrée</span>}
-          </p>
-        </div>
-        {editable && (
-          <div className="flex gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              aria-label={`Monter la leçon ${index + 1}`}
-              disabled={index === 0}
-              onClick={() => onMove(-1)}
-            >
-              <ArrowUp aria-hidden />
+    <article className="min-w-0 space-y-3" aria-labelledby={`${id}-heading`}>
+      <h3 id={`${id}-heading`} className="sr-only">
+        Leçon {index + 1} : {values.title || lesson.title}
+      </h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SaveIndicator status={status} savedAt={autosave.savedAt} />
+        <div className="flex flex-wrap gap-2">
+          {(status === 'offline' || status === 'error') && (
+            <Button type="button" size="sm" variant="outline" onClick={autosave.saveNow}>
+              Réessayer maintenant
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              aria-label={`Descendre la leçon ${index + 1}`}
-              disabled={index === total - 1}
-              onClick={() => onMove(1)}
-            >
-              <ArrowDown aria-hidden />
-            </Button>
-          </div>
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          aria-expanded={open}
-          aria-controls={`${id}-body`}
-          disabled={open && dirty}
-          title={open && dirty ? 'Enregistrez ou annulez vos modifications' : undefined}
-          onClick={onToggle}
-        >
-          {open ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
-          {open ? 'Fermer' : editable ? 'Modifier' : 'Lire'}
-        </Button>
-      </header>
-
-      {open && (
-        <div id={`${id}-body`} className="space-y-3 border-t p-3">
-          {conflict && (
-            <div
-              role="alert"
-              className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
-            >
-              <p>
-                Cette leçon a été modifiée par une autre personne pendant votre saisie. Vos
-                modifications n’ont pas été enregistrées.
-              </p>
-              <Button type="button" size="sm" variant="outline" onClick={reset}>
-                Charger la version enregistrée (vos modifications seront perdues)
+          )}
+          <ConfirmDialog
+            trigger={
+              <Button type="button" size="sm" variant="ghost" className="text-destructive">
+                <Trash2 aria-hidden />
+                Supprimer la leçon
               </Button>
-            </div>
-          )}
-          {editable ? (
-            <>
-              <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
-                <div className="space-y-1">
-                  <Label htmlFor={`${id}-title`}>Titre de la leçon</Label>
-                  <Input
-                    id={`${id}-title`}
-                    maxLength={150}
-                    value={title}
-                    onChange={(event) => {
-                      setTitle(event.target.value);
-                      markDirty();
-                    }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor={`${id}-duration`}>Durée (minutes)</Label>
-                  <Input
-                    id={`${id}-duration`}
-                    inputMode="numeric"
-                    value={duration}
-                    onChange={(event) => {
-                      setDuration(event.target.value);
-                      markDirty();
-                    }}
-                  />
-                </div>
-              </div>
-              <LessonEditor
-                key={editorKey}
-                value={lesson.content}
-                label={`Contenu de la leçon ${lesson.title}`}
-                onChange={(document) => {
-                  setContent(document);
-                  markDirty();
-                }}
-              />
-              {error && (
-                <p role="alert" className="text-sm text-destructive">
-                  {error}
+            }
+            title="Supprimer cette leçon ?"
+            description={
+              <p>
+                La leçon « {lesson.title} » et ses ressources seront retirées de ce brouillon. Les
+                versions déjà publiées ne sont pas touchées.
+              </p>
+            }
+            confirmLabel="Supprimer"
+            destructive
+            onConfirm={remove}
+          />
+        </div>
+      </div>
+
+      {autosave.restored && status !== 'conflict' && (
+        <p
+          role="status"
+          className="rounded-md border border-tesla-or/50 bg-tesla-sable/40 px-3 py-2 text-sm"
+        >
+          Modifications non envoyées retrouvées sur cet appareil : elles sont reprises et
+          enregistrées.
+        </p>
+      )}
+      {status === 'conflict' && (
+        <div
+          role="alert"
+          className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+        >
+          <p>
+            Cette leçon a été modifiée par une autre personne (ou sur un autre appareil) pendant
+            votre saisie. Votre version est conservée sur cet appareil ; rien n’a été remplacé.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <ConfirmDialog
+              trigger={
+                <Button type="button" size="sm">
+                  Garder ma version
+                </Button>
+              }
+              title="Remplacer la version enregistrée ?"
+              description={
+                <p>
+                  La version enregistrée par l’autre personne sera remplacée par la vôtre. Consultez
+                  l’aperçu avant de confirmer si vous avez un doute.
                 </p>
-              )}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  onClick={() => void save()}
-                  disabled={!dirty || saving || conflict}
-                >
-                  {saving ? 'Enregistrement…' : 'Enregistrer la leçon'}
+              }
+              confirmLabel="Garder ma version"
+              onConfirm={async () => {
+                autosave.keepMine();
+                return true;
+              }}
+            />
+            <ConfirmDialog
+              trigger={
+                <Button type="button" size="sm" variant="outline">
+                  Reprendre la version enregistrée
                 </Button>
-                <Button type="button" variant="outline" onClick={reset} disabled={!dirty || saving}>
-                  Annuler les modifications
-                </Button>
-                <ConfirmDialog
-                  trigger={
-                    <Button type="button" variant="ghost" className="text-destructive sm:ml-auto">
-                      <Trash2 aria-hidden />
-                      Supprimer
-                    </Button>
-                  }
-                  title="Supprimer cette leçon ?"
-                  description={
-                    <p>
-                      La leçon « {lesson.title} » et ses ressources seront retirées de ce brouillon.
-                      Les versions déjà publiées ne sont pas touchées.
-                    </p>
-                  }
-                  confirmLabel="Supprimer"
-                  destructive
-                  onConfirm={remove}
-                />
-              </div>
-            </>
-          ) : (
-            <LessonContent document={lesson.content} />
-          )}
+              }
+              title="Abandonner votre saisie ?"
+              description={<p>Vos modifications non enregistrées seront perdues.</p>}
+              confirmLabel="Abandonner ma saisie"
+              destructive
+              onConfirm={async () => {
+                autosave.takeServer();
+                return true;
+              }}
+            />
+          </div>
         </div>
       )}
+      {autosave.message && status !== 'conflict' && (
+        <p role="alert" className="text-sm text-destructive">
+          {autosave.message}
+        </p>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
+        <div className="space-y-1">
+          <Label htmlFor={`${id}-title`}>Titre de la leçon {index + 1}</Label>
+          <Input
+            id={`${id}-title`}
+            maxLength={150}
+            className="text-base font-medium"
+            value={values.title}
+            onChange={(event) => autosave.change({ title: event.target.value })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${id}-duration`}>Durée (minutes)</Label>
+          <Input
+            id={`${id}-duration`}
+            inputMode="numeric"
+            value={values.duration}
+            onChange={(event) => autosave.change({ duration: event.target.value })}
+          />
+        </div>
+      </div>
+      <LessonEditor
+        key={autosave.editorKey}
+        value={values.content as ModuleLesson['content']}
+        moduleId={moduleId}
+        className="min-h-[50vh]"
+        label={`Contenu de la leçon ${values.title || lesson.title}`}
+        onChange={(document) => autosave.change({ content: document })}
+      />
+      <p className="text-xs text-muted-foreground">
+        Modifiée le {formatDateTime(lesson.updatedAt)}
+        {lesson.updatedBy && ` par ${fullName(lesson.updatedBy)}`}. Enregistrement automatique après
+        une courte pause dans la saisie.
+      </p>
     </article>
   );
 }

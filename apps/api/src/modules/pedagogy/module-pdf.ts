@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import {
   isSafeLinkHref,
+  lessonImageFileId,
   type LessonBlock,
   type LessonInline,
   type PrintableModule,
@@ -301,7 +302,8 @@ function blockNode(doc: Doc, block: LessonBlock, indent: number): void {
         .fontSize(9)
         .text(
           clean(
-            `[Illustration${block.attrs.alt ? ` : ${block.attrs.alt}` : ''}] ${block.attrs.src}`,
+            // Image stockée par Tesla : le chemin interne n'a pas de sens sur papier.
+            `[Illustration${block.attrs.alt ? ` : ${block.attrs.alt}` : ''}]${lessonImageFileId(block.attrs.src) ? '' : ` ${block.attrs.src}`}`,
           ),
           x,
           doc.y,

@@ -22,6 +22,7 @@ import {
   type EditorModuleStats,
   emptyLessonDocument,
   isLessonDocumentEmpty,
+  lessonImageFileId,
   type ModuleActivityItem,
   type ModuleVersionDetail,
   type Paginated,
@@ -593,6 +594,9 @@ export class ModuleEditorService {
       const { moduleId, versionId } = await this.lessonContext(tx, actor, lessonId);
       const locked = await lockVersion(tx, moduleId, versionId, 'SHARE');
       if (locked.status !== 'BROUILLON') throw versionNotEditable(locked.status);
+      if (fields.content !== undefined) {
+        await assertLessonImages(tx, moduleId, lessonId, fields.content);
+      }
       const { count } = await tx.moduleLesson.updateMany({
         where: { id: lessonId, revision },
         data: {
@@ -1087,6 +1091,57 @@ async function assertResourceFile(
       message: 'Le type du fichier ne correspond pas au type de ressource choisi.',
     });
   }
+}
+
+/**
+ * Images envoyées depuis l'appareil et insérées dans le texte d'une leçon : chaque fichier cité doit
+ * être une image vérifiée de ce module, ou figurer déjà dans la leçon (copie par nouvelle version ou
+ * duplication). Empêche de citer le fichier d'un autre module pour le rendre lisible à la publication.
+ */
+async function assertLessonImages(
+  tx: Prisma.TransactionClient,
+  moduleId: string,
+  lessonId: string,
+  content: unknown,
+): Promise<void> {
+  const cited = lessonFileIds(content);
+  if (cited.size === 0) return;
+  const previous = await tx.moduleLesson.findUnique({
+    where: { id: lessonId },
+    select: { content: true },
+  });
+  const kept = lessonFileIds(previous?.content);
+  const fresh = [...cited].filter((id) => !kept.has(id));
+  if (fresh.length === 0) return;
+  const files = await tx.storedFile.findMany({
+    where: { id: { in: fresh }, moduleId, category: 'MODULE_RESOURCE', status: 'VALIDE' },
+    select: { id: true, mimeType: true },
+  });
+  const valid = files.filter(
+    (file) => resourceKindForMime(file.mimeType as StoredFileMimeType) === 'IMAGE',
+  );
+  if (valid.length !== fresh.length) {
+    throw new UnprocessableEntityException({
+      code: 'FILE_NOT_AVAILABLE',
+      message: 'Une image de la leçon est introuvable ou non vérifiée. Envoyez-la de nouveau.',
+    });
+  }
+}
+
+/** Identifiants des images stockées par Tesla citées dans un contenu de leçon. */
+function lessonFileIds(content: unknown): Set<string> {
+  const ids = new Set<string>();
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== 'object') return;
+    const n = node as { type?: unknown; attrs?: { src?: unknown }; content?: unknown };
+    if (n.type === 'image' && typeof n.attrs?.src === 'string') {
+      const id = lessonImageFileId(n.attrs.src);
+      if (id) ids.add(id);
+    }
+    if (Array.isArray(n.content)) n.content.forEach(walk);
+  };
+  walk(content);
+  return ids;
 }
 
 /** Date de dernière activité du module (tri des listes). */

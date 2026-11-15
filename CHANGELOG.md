@@ -4,6 +4,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — refonte de l'éditeur pédagogique, 2026-11-15 (D178, D179)
+- Éditeur de module en sections libres : Présentation (informations complémentaires repliées), Contenu, Vérification (points bloquants, conseils, accès direct), Soumission (récapitulatif, conséquences) ; action principale selon la situation.
+- Espace de rédaction à deux zones (liste des leçons et rédaction ; panneau repliable sur mobile), réorganisation au clavier.
+- Enregistrement automatique des leçons avec brouillon local, états (enregistré, hors connexion, échec, conflit) et reprise après fermeture ; conflit jamais résolu sans décision.
+- Blocs pédagogiques (Objectifs, À retenir, Exemple, Activité pratique, Question de réflexion, Référence).
+- Image de leçon depuis l'appareil (format, taille, aperçu, description obligatoire) ; lecture ouverte après publication.
+- Aperçu ordinateur / téléphone ; motif de correction affiché pendant toute la reprise.
+
 ### Ajouté — rattrapages par étape et verrou des cours, 2026-11-06 (D177)
 - Délai de rattrapage de 21 jours par étape (référentiel `2026.2`, colonne `catch_up_delay_days`, migration `20261117090000_catch_up_delay_days`) ; étapes rattrapées dans l'ordre du parcours.
 - Pendant un rattrapage, le routier n'ouvre que ses modules à rattraper : autres cours, fichiers, études et évaluations fermés (sauf dérogation du responsable) ; bandeau d'échéance sur « Mes rattrapages », le parcours et la bibliothèque.

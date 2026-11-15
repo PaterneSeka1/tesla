@@ -1,6 +1,13 @@
 'use client';
 
-import { isSafeImageSrc, isSafeLinkHref, type LessonDocument } from '@tesla/shared';
+import {
+  isSafeImageSrc,
+  isSafeLinkHref,
+  type LessonDocument,
+  lessonFileImageSrc,
+  PEDAGOGICAL_BLOCKS,
+  type PedagogicalBlockKey,
+} from '@tesla/shared';
 import Image from '@tiptap/extension-image';
 import { type Editor, EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -15,34 +22,71 @@ import {
   ListOrdered,
   type LucideIcon,
   Minus,
+  Ellipsis,
   Quote,
+  SquareStack,
   Redo2,
   Strikethrough,
   Underline,
   Undo2,
   Unlink,
 } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { resolveImageSrc } from '@/lib/api/assets';
+import { uploadModuleFile } from '@/lib/api/files';
+import { MAX_ASSET_BYTES } from '@/lib/offline/downloads';
 import { cn } from '@/lib/utils';
+
+/**
+ * Image Tiptap dont l'adresse d'affichage est résolue (image stockée par Tesla) ; le document
+ * conserve l'adresse enregistrée (`attrs.src`), jamais l'adresse résolue.
+ */
+const LessonImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      src: {
+        default: null,
+        renderHTML: (attributes: { src?: string | null }) =>
+          attributes.src ? { src: resolveImageSrc(attributes.src) } : {},
+      },
+    };
+  },
+});
+
+/** Formats d'image acceptés depuis l'appareil (liste blanche du stockage, sans SVG). */
+const DEVICE_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 
 /**
  * Éditeur de contenu de leçon (Tiptap). Le document produit est du JSON structuré ; l'API le
  * valide par liste blanche avant stockage. Pas de bloc de code, pas de HTML brut, pas d'image
- * intégrée en base64 : les images sont des adresses https externes.
+ * intégrée en base64 : une image est une adresse https externe ou un fichier envoyé depuis
+ * l'appareil (stockage contrôlé, `moduleId` requis).
  */
 export function LessonEditor({
   value,
   onChange,
   label,
   editable = true,
+  moduleId,
+  className,
 }: {
   value: LessonDocument;
   onChange: (document: unknown) => void;
   label: string;
   editable?: boolean;
+  moduleId?: string;
+  className?: string;
 }) {
   const editor = useEditor({
     immediatelyRender: false,
@@ -60,13 +104,15 @@ export function LessonEditor({
           HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' },
         },
       }),
-      Image.configure({ inline: false, allowBase64: false }),
+      LessonImage.configure({ inline: false, allowBase64: false }),
     ],
     content: value,
     editorProps: {
       attributes: {
-        class:
-          'lesson-content min-h-48 space-y-3 rounded-b-md border border-t-0 bg-white px-4 py-3 leading-relaxed focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40',
+        class: cn(
+          'lesson-content min-h-48 space-y-3 rounded-b-md border border-t-0 bg-white px-4 py-3 text-base leading-relaxed focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 [&_img]:max-h-80 [&_img]:max-w-full [&_img]:rounded-md',
+          className,
+        ),
         'aria-label': label,
         'aria-multiline': 'true',
         role: 'textbox',
@@ -80,13 +126,13 @@ export function LessonEditor({
   }
   return (
     <div>
-      {editable && <Toolbar editor={editor} />}
+      {editable && <Toolbar editor={editor} moduleId={moduleId} />}
       <EditorContent editor={editor} />
     </div>
   );
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({ editor, moduleId }: { editor: Editor; moduleId?: string }) {
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -107,11 +153,30 @@ function Toolbar({ editor }: { editor: Editor }) {
   const [panel, setPanel] = useState<'link' | 'image' | null>(null);
   const chain = () => editor.chain().focus();
 
+  const insertBlock = (key: PedagogicalBlockKey) => {
+    const block = PEDAGOGICAL_BLOCKS.find((b) => b.key === key)!;
+    if (key === 'reference') {
+      chain()
+        .insertContent({ type: 'paragraph', content: [{ type: 'text', text: 'Référence : ' }] })
+        .run();
+      return;
+    }
+    chain()
+      .insertContent([
+        { type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: block.title }] },
+        { type: 'paragraph' },
+      ])
+      .run();
+  };
+
+  // `secondary` : regroupés dans « Plus » sur petit écran.
   const tools: {
     label: string;
     icon: LucideIcon;
     active?: boolean;
     disabled?: boolean;
+    secondary?: boolean;
+    shortcut?: string;
     run: () => void;
   }[] = [
     {
@@ -126,23 +191,33 @@ function Toolbar({ editor }: { editor: Editor }) {
       active: state.h3,
       run: () => chain().toggleHeading({ level: 3 }).run(),
     },
-    { label: 'Gras', icon: Bold, active: state.bold, run: () => chain().toggleBold().run() },
+    {
+      label: 'Gras',
+      icon: Bold,
+      active: state.bold,
+      shortcut: 'Ctrl+B',
+      run: () => chain().toggleBold().run(),
+    },
     {
       label: 'Italique',
       icon: Italic,
       active: state.italic,
+      shortcut: 'Ctrl+I',
       run: () => chain().toggleItalic().run(),
     },
     {
       label: 'Souligné',
       icon: Underline,
       active: state.underline,
+      secondary: true,
+      shortcut: 'Ctrl+U',
       run: () => chain().toggleUnderline().run(),
     },
     {
       label: 'Barré',
       icon: Strikethrough,
       active: state.strike,
+      secondary: true,
       run: () => chain().toggleStrike().run(),
     },
     {
@@ -155,15 +230,22 @@ function Toolbar({ editor }: { editor: Editor }) {
       label: 'Liste numérotée',
       icon: ListOrdered,
       active: state.ordered,
+      secondary: true,
       run: () => chain().toggleOrderedList().run(),
     },
     {
       label: 'Citation',
       icon: Quote,
       active: state.quote,
+      secondary: true,
       run: () => chain().toggleBlockquote().run(),
     },
-    { label: 'Séparateur', icon: Minus, run: () => chain().setHorizontalRule().run() },
+    {
+      label: 'Séparateur',
+      icon: Minus,
+      secondary: true,
+      run: () => chain().setHorizontalRule().run(),
+    },
     {
       label: state.link ? 'Retirer le lien' : 'Lien',
       icon: state.link ? Unlink : Link2,
@@ -177,29 +259,108 @@ function Toolbar({ editor }: { editor: Editor }) {
       active: panel === 'image',
       run: () => setPanel(panel === 'image' ? null : 'image'),
     },
-    { label: 'Annuler', icon: Undo2, disabled: !state.canUndo, run: () => chain().undo().run() },
-    { label: 'Rétablir', icon: Redo2, disabled: !state.canRedo, run: () => chain().redo().run() },
+    {
+      label: 'Défaire',
+      icon: Undo2,
+      disabled: !state.canUndo,
+      shortcut: 'Ctrl+Z',
+      run: () => chain().undo().run(),
+    },
+    {
+      label: 'Refaire',
+      icon: Redo2,
+      disabled: !state.canRedo,
+      shortcut: 'Ctrl+Maj+Z',
+      run: () => chain().redo().run(),
+    },
   ];
+  const secondary = tools.filter((tool) => tool.secondary);
 
   return (
     <div className="rounded-t-md border bg-muted/50">
-      <div role="toolbar" aria-label="Mise en forme" className="flex flex-wrap gap-0.5 p-1">
-        {tools.map(({ label, icon: Icon, active, disabled, run }) => (
-          <Button
-            key={label}
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={cn('size-8', active && 'bg-tesla-sable text-tesla-bordeaux')}
-            aria-label={label}
-            title={label}
-            aria-pressed={active}
-            disabled={disabled}
-            onClick={run}
+      <div
+        role="toolbar"
+        aria-label="Mise en forme"
+        className="flex flex-wrap items-center gap-0.5 p-1"
+      >
+        {tools.map(
+          ({ label, icon: Icon, active, disabled, secondary: isSecondary, shortcut, run }) => (
+            <Button
+              key={label}
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'size-9 sm:size-8',
+                isSecondary && 'hidden sm:inline-flex',
+                active && 'bg-tesla-sable text-tesla-bordeaux',
+              )}
+              aria-label={label}
+              title={shortcut ? `${label} (${shortcut})` : label}
+              aria-pressed={active}
+              disabled={disabled}
+              onClick={run}
+            >
+              <Icon aria-hidden />
+            </Button>
+          ),
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9 sm:hidden"
+              aria-label="Plus d’options de mise en forme"
+            >
+              <Ellipsis aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            // Le focus revient dans le texte (et non sur le bouton du menu) pour continuer la saisie.
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              editor.commands.focus();
+            }}
           >
-            <Icon aria-hidden />
-          </Button>
-        ))}
+            {secondary.map(({ label, icon: Icon, run }) => (
+              <DropdownMenuItem key={label} onSelect={run}>
+                <Icon aria-hidden />
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="sm" className="ml-auto h-9 sm:h-8">
+              <SquareStack aria-hidden />
+              Bloc pédagogique
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            // Le focus revient dans le texte (et non sur le bouton du menu) pour continuer la saisie.
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              editor.commands.focus();
+            }}
+          >
+            <DropdownMenuLabel>Insérer un bloc</DropdownMenuLabel>
+            {PEDAGOGICAL_BLOCKS.map((block) => (
+              <DropdownMenuItem
+                key={block.key}
+                onSelect={() => insertBlock(block.key)}
+                className="flex-col items-start gap-0"
+              >
+                <span className="font-medium">{block.title}</span>
+                <span className="text-xs text-muted-foreground">{block.hint}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {panel === 'link' && (
         <UrlForm
@@ -214,9 +375,19 @@ function Toolbar({ editor }: { editor: Editor }) {
           onCancel={() => setPanel(null)}
         />
       )}
+      {panel === 'image' && moduleId && (
+        <DeviceImageForm
+          moduleId={moduleId}
+          onInsert={(src, alt) => {
+            chain().setImage({ src, alt }).run();
+            setPanel(null);
+          }}
+          onCancel={() => setPanel(null)}
+        />
+      )}
       {panel === 'image' && (
         <UrlForm
-          label="Adresse de l’image"
+          label={moduleId ? 'Ou adresse web de l’image' : 'Adresse de l’image'}
           placeholder="https://…/image.jpg"
           withAlt
           validate={isSafeImageSrc}
@@ -314,6 +485,142 @@ function UrlForm({
         <Button type="button" size="sm" variant="outline" onClick={onCancel}>
           Annuler
         </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Image envoyée depuis l'appareil : format et taille contrôlés avant l'envoi (3 Mo au plus pour
+ * rester téléchargeable hors ligne), aperçu local, description obligatoire, envoi direct au
+ * stockage puis vérification par le serveur. Réseau requis (aucune file d'attente de fichiers).
+ */
+function DeviceImageForm({
+  moduleId,
+  onInsert,
+  onCancel,
+}: {
+  moduleId: string;
+  onInsert: (src: string, alt: string) => void;
+  onCancel: () => void;
+}) {
+  const id = useId();
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [alt, setAlt] = useState('');
+  const [progress, setProgress] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Aperçu local (adresse blob:) libéré au remplacement du fichier et à la fermeture.
+  const previewRef = useRef<string | null>(null);
+  const setLocalPreview = (next: File | null) => {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = next ? URL.createObjectURL(next) : null;
+    setPreview(previewRef.current);
+  };
+  useEffect(
+    () => () => {
+      if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    },
+    [],
+  );
+
+  const choose = (selected: File | undefined) => {
+    setError(null);
+    setFile(null);
+    setLocalPreview(null);
+    if (!selected) return;
+    if (!DEVICE_IMAGE_TYPES.includes(selected.type)) {
+      setError('Format non accepté : PNG, JPEG, WebP ou GIF.');
+      return;
+    }
+    if (selected.size > MAX_ASSET_BYTES) {
+      setError('Image trop lourde : 3 Mo au maximum. Réduisez-la avant de l’envoyer.');
+      return;
+    }
+    setFile(selected);
+    setLocalPreview(selected);
+  };
+
+  const send = async () => {
+    if (!file) return;
+    if (!alt.trim()) {
+      setError('Décrivez l’image en quelques mots (lue par les lecteurs d’écran).');
+      return;
+    }
+    setError(null);
+    try {
+      const stored = await uploadModuleFile(moduleId, file, setProgress);
+      onInsert(lessonFileImageSrc(stored.id), alt.trim());
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : 'Envoi impossible.');
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  return (
+    <div className="grid gap-3 border-t p-2 sm:grid-cols-[auto_1fr]">
+      <div className="flex size-24 items-center justify-center overflow-hidden rounded-md border bg-white text-xs text-muted-foreground">
+        {preview ? (
+          // Aperçu local (adresse blob:) avant envoi.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview} alt="" className="max-h-full max-w-full object-contain" />
+        ) : (
+          'Aperçu'
+        )}
+      </div>
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <Label htmlFor={`${id}-file`}>Image depuis l’appareil</Label>
+          <Input
+            id={`${id}-file`}
+            type="file"
+            accept={DEVICE_IMAGE_TYPES.join(',')}
+            disabled={progress !== null}
+            onChange={(event) => choose(event.target.files?.[0])}
+          />
+          <p className="text-xs text-muted-foreground">PNG, JPEG, WebP ou GIF, 3 Mo au maximum.</p>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${id}-alt`}>Description de l’image</Label>
+          <Input
+            id={`${id}-alt`}
+            maxLength={300}
+            value={alt}
+            disabled={progress !== null}
+            onChange={(event) => setAlt(event.target.value)}
+          />
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            disabled={!file || progress !== null}
+            onClick={() => void send()}
+          >
+            {progress ?? 'Envoyer et insérer'}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={progress !== null}
+            onClick={onCancel}
+          >
+            Annuler
+          </Button>
+          {progress && (
+            <span role="status" className="text-sm text-muted-foreground">
+              {progress}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

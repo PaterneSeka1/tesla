@@ -3,6 +3,8 @@ import {
   createResourceInputSchema,
   isLessonDocumentEmpty,
   lessonDocumentSchema,
+  lessonFileImageSrc,
+  lessonImageFileId,
   MODULE_RESOURCE_KINDS,
   MODULE_VERSION_ACTIONS,
   MODULE_VERSION_STATUSES,
@@ -46,6 +48,21 @@ describe('Workflow de publication', () => {
 describe('Contenu de leçon (liste blanche)', () => {
   const doc = (content: unknown[]) => ({ type: 'doc', content });
   const text = (value: string, marks?: unknown[]) => ({ type: 'text', text: value, marks });
+
+  it('images : https externe ou chemin interne strict d’un fichier Tesla, rien d’autre', () => {
+    const image = (src: string) =>
+      lessonDocumentSchema.safeParse(doc([{ type: 'image', attrs: { src, alt: 'x' } }])).success;
+    const id = '0b6f3c1e-8a2d-4f6b-9c1d-2e3f4a5b6c7d';
+    expect(image(lessonFileImageSrc(id))).toBe(true);
+    expect(lessonImageFileId(lessonFileImageSrc(id))).toBe(id);
+    expect(image('https://example.org/a.png')).toBe(true);
+    expect(image(`/api/v1/module-files/${id}/../../users`)).toBe(false);
+    expect(image(`/api/v1/module-files/${id}?x=1`)).toBe(false);
+    expect(image('/api/v1/users/me')).toBe(false);
+    expect(image(`//evil.example/api/v1/module-files/${id}`)).toBe(false);
+    expect(image('http://example.org/a.png')).toBe(false);
+    expect(image('data:image/png;base64,AAAA')).toBe(false);
+  });
 
   it('accepte titres, paragraphes, listes, citations, liens et images https', () => {
     const result = lessonDocumentSchema.safeParse(

@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  lessonFileImageSrc,
   type RequestModuleFileUploadInput,
   requestModuleFileUploadInputSchema,
   type StoredFile as StoredFileDto,
@@ -117,21 +118,35 @@ export class ModuleFilesService {
         version: { select: { moduleId: true, module: { select: { publishedVersionId: true } } } },
       },
     });
-    const published = references.filter(
-      (ref) => ref.version.module.publishedVersionId === ref.versionId,
-    );
-    if (published.length > 0) {
+    // Images insérées dans le texte d'une leçon (contrôlées à l'enregistrement de la leçon).
+    const inLessons = await this.prisma.$queryRaw<{ moduleId: string; published: boolean }[]>`
+      SELECT v.module_id AS "moduleId", (m.published_version_id = v.id) AS "published"
+      FROM module_lessons l
+      JOIN module_versions v ON v.id = l.version_id
+      JOIN pedagogical_modules m ON m.id = v.module_id
+      WHERE strpos(l.content::text, ${`"${lessonFileImageSrc(file.id)}"`}) > 0`;
+    const publishedModules = [
+      ...references
+        .filter((ref) => ref.version.module.publishedVersionId === ref.versionId)
+        .map((ref) => ref.version.moduleId),
+      ...inLessons.filter((row) => row.published).map((row) => row.moduleId),
+    ];
+    if (publishedModules.length > 0) {
       // Rattrapage en cours (D177) : fichiers des seuls modules ouverts au routier.
       const lock = await loadActorCatchUpLock(
         this.prisma,
         actor,
         await loadStageContext(this.prisma),
       );
-      return published.some((ref) => !isModuleLocked(lock, ref.version.moduleId));
+      if (publishedModules.some((moduleId) => !isModuleLocked(lock, moduleId))) return true;
     }
     if (!can(actor, 'module.write')) return false;
     // Rédaction : module propriétaire du fichier ou module qui le référence (versions de travail).
-    const moduleIds = new Set([file.moduleId, ...references.map((ref) => ref.version.moduleId)]);
+    const moduleIds = new Set([
+      file.moduleId,
+      ...references.map((ref) => ref.version.moduleId),
+      ...inLessons.map((row) => row.moduleId),
+    ]);
     for (const moduleId of moduleIds) {
       if (!moduleId) continue;
       try {

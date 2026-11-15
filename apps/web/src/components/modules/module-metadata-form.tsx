@@ -170,78 +170,6 @@ export function ModuleMetadataForm({
             ))}
           </NativeSelect>
         </FormField>
-        <FormField
-          id="module-category"
-          label="Catégorie"
-          hint="Découverte (toutes étapes), parcours d’étape ou complémentaire."
-        >
-          <NativeSelect
-            {...fieldA11y('module-category', undefined, 'hint')}
-            {...register('category')}
-          >
-            <option value="">À classer</option>
-            {MODULE_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {MODULE_CATEGORY_LABELS[category]}
-              </option>
-            ))}
-          </NativeSelect>
-        </FormField>
-        <FormField
-          id="module-obligation"
-          label="Caractère obligatoire"
-          hint="« Obligatoire » exige un module d’étape et une source officielle."
-          error={errors.obligation?.message}
-        >
-          <NativeSelect
-            {...fieldA11y('module-obligation', errors.obligation?.message, 'hint')}
-            {...register('obligation')}
-          >
-            <option value="">Non précisé</option>
-            {MODULE_OBLIGATIONS.map((obligation) => (
-              <option key={obligation} value={obligation}>
-                {MODULE_OBLIGATION_LABELS[obligation]}
-              </option>
-            ))}
-          </NativeSelect>
-        </FormField>
-        <div className="md:col-span-2">
-          <FormField
-            id="module-source"
-            label="Source officielle"
-            hint="Titre, édition, pages. Vide : contenu non homologué."
-            error={errors.officialSource?.message}
-          >
-            <Input
-              maxLength={500}
-              {...fieldA11y('module-source', errors.officialSource?.message, 'hint')}
-              {...register('officialSource')}
-            />
-          </FormField>
-        </div>
-        <FormField
-          id="module-theme"
-          label="Thème (facultatif)"
-          hint="Ex. : Vie en équipe."
-          error={errors.theme?.message}
-        >
-          <Input
-            maxLength={80}
-            {...fieldA11y('module-theme', errors.theme?.message, 'hint')}
-            {...register('theme')}
-          />
-        </FormField>
-        <FormField
-          id="module-duration"
-          label="Durée indicative (minutes)"
-          error={errors.durationMinutes?.message}
-        >
-          <Input
-            inputMode="numeric"
-            {...fieldA11y('module-duration', errors.durationMinutes?.message)}
-            {...register('durationMinutes')}
-          />
-        </FormField>
         <div className="md:col-span-2">
           <FormField
             id="module-objectives"
@@ -256,20 +184,113 @@ export function ModuleMetadataForm({
             />
           </FormField>
         </div>
-        <div className="md:col-span-2">
-          <FormField
-            id="module-prerequisites"
-            label="Prérequis"
-            error={errors.prerequisites?.message}
-          >
-            <Textarea
-              rows={2}
-              maxLength={2000}
-              {...fieldA11y('module-prerequisites', errors.prerequisites?.message)}
-              {...register('prerequisites')}
-            />
-          </FormField>
-        </div>
+        <details
+          className="group rounded-lg border md:col-span-2"
+          open={
+            !!(
+              errors.obligation ||
+              errors.officialSource ||
+              errors.theme ||
+              errors.durationMinutes ||
+              errors.prerequisites
+            ) || undefined
+          }
+        >
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 font-medium hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+            Informations complémentaires
+            <span className="text-sm font-normal text-muted-foreground">
+              Catégorie, caractère obligatoire, source, thème, durée, prérequis
+            </span>
+          </summary>
+          <div className="grid gap-4 border-t p-3 md:grid-cols-2">
+            <FormField
+              id="module-category"
+              label="Catégorie"
+              hint="Découverte (toutes étapes), parcours d’étape ou complémentaire."
+            >
+              <NativeSelect
+                {...fieldA11y('module-category', undefined, 'hint')}
+                {...register('category')}
+              >
+                <option value="">À classer</option>
+                {MODULE_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {MODULE_CATEGORY_LABELS[category]}
+                  </option>
+                ))}
+              </NativeSelect>
+            </FormField>
+            <FormField
+              id="module-obligation"
+              label="Caractère obligatoire"
+              hint="« Obligatoire » exige un module d’étape et une source officielle."
+              error={errors.obligation?.message}
+            >
+              <NativeSelect
+                {...fieldA11y('module-obligation', errors.obligation?.message, 'hint')}
+                {...register('obligation')}
+              >
+                <option value="">Non précisé</option>
+                {MODULE_OBLIGATIONS.map((obligation) => (
+                  <option key={obligation} value={obligation}>
+                    {MODULE_OBLIGATION_LABELS[obligation]}
+                  </option>
+                ))}
+              </NativeSelect>
+            </FormField>
+            <div className="md:col-span-2">
+              <FormField
+                id="module-source"
+                label="Source officielle"
+                hint="Titre, édition, pages. Vide : contenu non homologué."
+                error={errors.officialSource?.message}
+              >
+                <Input
+                  maxLength={500}
+                  {...fieldA11y('module-source', errors.officialSource?.message, 'hint')}
+                  {...register('officialSource')}
+                />
+              </FormField>
+            </div>
+            <FormField
+              id="module-theme"
+              label="Thème (facultatif)"
+              hint="Ex. : Vie en équipe."
+              error={errors.theme?.message}
+            >
+              <Input
+                maxLength={80}
+                {...fieldA11y('module-theme', errors.theme?.message, 'hint')}
+                {...register('theme')}
+              />
+            </FormField>
+            <FormField
+              id="module-duration"
+              label="Durée indicative (minutes)"
+              error={errors.durationMinutes?.message}
+            >
+              <Input
+                inputMode="numeric"
+                {...fieldA11y('module-duration', errors.durationMinutes?.message)}
+                {...register('durationMinutes')}
+              />
+            </FormField>
+            <div className="md:col-span-2">
+              <FormField
+                id="module-prerequisites"
+                label="Prérequis"
+                error={errors.prerequisites?.message}
+              >
+                <Textarea
+                  rows={2}
+                  maxLength={2000}
+                  {...fieldA11y('module-prerequisites', errors.prerequisites?.message)}
+                  {...register('prerequisites')}
+                />
+              </FormField>
+            </div>
+          </div>
+        </details>
       </fieldset>
       {!disabled && (
         <div className="flex flex-wrap items-center gap-3">
