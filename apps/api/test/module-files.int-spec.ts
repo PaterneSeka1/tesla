@@ -413,6 +413,17 @@ describe('Fichiers des modules (intégration PostgreSQL, stockage simulé)', () 
         { type: 'image', attrs: { src: lessonFileImageSrc(fileId), alt: 'Carte fictive' } },
       ],
     });
+    // Création d'une leçon citant le fichier d'un autre module : refusée aussi.
+    expect(
+      await errorCode(
+        chef.post(`/editor/modules/${module.id}/lessons`, {
+          versionId: module.current.id,
+          title: 'Contournement',
+          content: withImage(foreign.id),
+        }),
+        422,
+      ),
+    ).toBe('FILE_NOT_AVAILABLE');
     // Fichier d'un autre module : refusé (il deviendrait lisible à la publication).
     expect(
       await errorCode(

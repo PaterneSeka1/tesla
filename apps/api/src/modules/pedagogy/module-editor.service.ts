@@ -571,6 +571,7 @@ export class ModuleEditorService {
           message: '200 leçons au maximum par module.',
         });
       }
+      if (data.content) await assertLessonImages(tx, moduleId, null, data.content);
       const lesson = await tx.moduleLesson.create({
         data: {
           versionId: data.versionId,
@@ -1101,15 +1102,14 @@ async function assertResourceFile(
 async function assertLessonImages(
   tx: Prisma.TransactionClient,
   moduleId: string,
-  lessonId: string,
+  lessonId: string | null,
   content: unknown,
 ): Promise<void> {
   const cited = lessonFileIds(content);
   if (cited.size === 0) return;
-  const previous = await tx.moduleLesson.findUnique({
-    where: { id: lessonId },
-    select: { content: true },
-  });
+  const previous = lessonId
+    ? await tx.moduleLesson.findUnique({ where: { id: lessonId }, select: { content: true } })
+    : null;
   const kept = lessonFileIds(previous?.content);
   const fresh = [...cited].filter((id) => !kept.has(id));
   if (fresh.length === 0) return;
