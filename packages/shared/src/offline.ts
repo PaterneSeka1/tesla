@@ -71,3 +71,35 @@ export const OPERATION_ERROR_CODES = {
   reused: 'OPERATION_ID_REUSED',
   unconfirmed: 'OPERATION_UNCONFIRMED',
 } as const;
+
+// ─── Appareils préparés et mot de passe unique hors ligne (refonte lot 3, D180) ───────────────
+
+/** Appareils actifs au plus par compte (protection contre l'accumulation de clés). */
+export const OFFLINE_DEVICE_MAX_ACTIVE = 10;
+
+/** Enregistrement d'un appareil : simple libellé lisible (« Chrome sur Android »), jamais secret. */
+export const registerOfflineDeviceInputSchema = z.object({
+  label: z.string().trim().min(1, { error: 'Libellé requis.' }).max(80),
+});
+export type RegisterOfflineDeviceInput = z.infer<typeof registerOfflineDeviceInputSchema>;
+
+/**
+ * Clé d'appareil (32 octets, base64) remise au seul titulaire connecté : elle protège une copie de la
+ * clé du coffre local pour le reprotéger après un changement de mot de passe. Jamais mise en cache.
+ */
+export const offlineDeviceKeySchema = z.object({
+  deviceId: z.uuid(),
+  key: z.string().regex(/^[A-Za-z0-9+/]{43}=$/),
+});
+export type OfflineDeviceKey = z.infer<typeof offlineDeviceKeySchema>;
+
+export const offlineDeviceSchema = z.object({
+  id: z.uuid(),
+  label: z.string(),
+  createdAt: z.iso.datetime(),
+  lastSeenAt: z.iso.datetime(),
+  revokedAt: z.iso.datetime().nullable(),
+});
+export type OfflineDevice = z.infer<typeof offlineDeviceSchema>;
+export const offlineDeviceListSchema = z.object({ items: z.array(offlineDeviceSchema) });
+export type OfflineDeviceList = z.infer<typeof offlineDeviceListSchema>;

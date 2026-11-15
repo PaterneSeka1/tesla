@@ -44,10 +44,11 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sessions      Session[]
-  scoutProfile  ScoutProfile?
-  medicalRecord MedicalRecord?
-  auditLogs     AuditLog[]
+  sessions       Session[]
+  offlineDevices OfflineDevice[]
+  scoutProfile   ScoutProfile?
+  medicalRecord  MedicalRecord?
+  auditLogs      AuditLog[]
 
   teamAssignmentsMade  TeamAssignment[]           @relation("TeamAssignmentAssignedBy")
   teamAssignmentsEnded TeamAssignment[]           @relation("TeamAssignmentEndedBy")
@@ -144,6 +145,26 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+/// Appareil préparé pour l'usage hors connexion (refonte lot 3, D180). `keyMaterial` est une clé
+/// aléatoire de 32 octets qui protège une copie de la clé du coffre local de l'appareil ; elle n'est
+/// remise qu'au titulaire connecté (session valide) pour reprotéger ce coffre après un changement ou
+/// une réinitialisation du mot de passe. Jamais un mot de passe, jamais une clé de session.
+/// Révocation : `revokedAt` (appareil perdu) ; la clé n'est alors plus jamais remise.
+model OfflineDevice {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  label       String    @db.VarChar(80)
+  keyMaterial Bytes     @map("key_material")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("offline_devices")
 }
 
 /// Profil routier : référence métier (identité, matricule, équipe, progression, résultats).
@@ -1744,23 +1765,23 @@ model RouteMembershipEvent {
 /// Au plus une exception non levée par période (exclusion `stage_overrides_no_overlap`). Ne modifie
 /// jamais l'étape normale calculée selon l'âge ni la sortie de la branche.
 model StageOverride {
-  id                String    @id @default(uuid(7)) @db.Uuid
-  scoutProfileId    String    @map("scout_profile_id") @db.Uuid
+  id              String    @id @default(uuid(7)) @db.Uuid
+  scoutProfileId  String    @map("scout_profile_id") @db.Uuid
   /// Étape appliquée pendant l'exception.
-  stageId           String    @map("stage_id") @db.Uuid
+  stageId         String    @map("stage_id") @db.Uuid
   /// Étape normalement calculée au moment de la demande (nulle = non déterminée).
-  computedStageId   String?   @map("computed_stage_id") @db.Uuid
+  computedStageId String?   @map("computed_stage_id") @db.Uuid
   /// Version du référentiel d'âge appliquée au moment de la demande.
-  ruleSetVersion    String?   @map("rule_set_version")
-  reason            String
+  ruleSetVersion  String?   @map("rule_set_version")
+  reason          String
   /// Premier et dernier jour d'application (inclus).
-  startsOn          DateTime  @map("starts_on") @db.Date
-  endsOn            DateTime  @map("ends_on") @db.Date
-  createdById       String    @map("created_by_id") @db.Uuid
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  liftedAt          DateTime? @map("lifted_at") @db.Timestamptz(3)
-  liftedById        String?   @map("lifted_by_id") @db.Uuid
-  liftReason        String?   @map("lift_reason")
+  startsOn        DateTime  @map("starts_on") @db.Date
+  endsOn          DateTime  @map("ends_on") @db.Date
+  createdById     String    @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  liftedAt        DateTime? @map("lifted_at") @db.Timestamptz(3)
+  liftedById      String?   @map("lifted_by_id") @db.Uuid
+  liftReason      String?   @map("lift_reason")
 
   scoutProfile  ScoutProfile      @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
   stage         ProgressionStage  @relation("StageOverrideStage", fields: [stageId], references: [id], onDelete: Restrict)
