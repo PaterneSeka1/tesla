@@ -15,7 +15,6 @@ const origin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
 const api = process.env.API_ORIGIN ?? 'http://localhost:4000/api/v1';
 const profile = process.env.PROFILE_DIR;
 const PASSWORD = 'phrase-fictive-recette-phase5';
-const PHRASE = 'phrase-locale-fictive-de-recette';
 const viewport = { width: Number(process.env.VIEWPORT_WIDTH ?? 390), height: 844 };
 
 await rm(profile, { recursive: true, force: true });
@@ -72,8 +71,9 @@ async function login(email) {
 }
 async function prepareDevice() {
   await page.goto(`${origin}/appareil`);
-  await page.getByLabel('Phrase de déverrouillage locale').fill(PHRASE);
-  await page.getByRole('button', { name: /Activer sur cet appareil|Déverrouiller/ }).click();
+  // Mot de passe unique (D180) : le mot de passe du compte protège l'appareil ; la préparation
+  // démarre aussitôt après la création du coffre.
+  await page.getByLabel('Mot de passe', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Préparer cet appareil' }).click();
   await page
     .getByText(/Prêt pour une utilisation sans connexion\.|Préparation incomplète/)

@@ -4,6 +4,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — mot de passe unique hors connexion, 2026-11-15 (D180)
+- Le mot de passe du compte ouvre les données préparées sur l'appareil, en ligne comme hors connexion : plus de phrase locale. Case « Utiliser aussi cet appareil sans connexion » à la connexion.
+- Changement ou réinitialisation du mot de passe : données de l'appareil reprotégées à la connexion suivante, sans perte ; conversion unique des anciens coffres à phrase.
+- « Cet appareil » : liste des appareils préparés, retrait d'un appareil perdu (données illisibles à sa reconnexion), effacement expliqué.
+- Hors connexion : un seul champ « Mot de passe » (« Vous utilisez Nikola Tesla Académie hors ligne. »), attente croissante après des échecs ; verrouillage après 2 h d'inactivité, verrouillage manuel durable.
+- API : `/auth/offline-devices` (migration additive `20261118090000_offline_devices`).
+
 ### Ajouté — refonte de l'éditeur pédagogique, 2026-11-15 (D178, D179)
 - Éditeur de module en sections libres : Présentation (informations complémentaires repliées), Contenu, Vérification (points bloquants, conseils, accès direct), Soumission (récapitulatif, conséquences) ; action principale selon la situation.
 - Espace de rédaction à deux zones (liste des leçons et rédaction ; panneau repliable sur mobile), réorganisation au clavier.

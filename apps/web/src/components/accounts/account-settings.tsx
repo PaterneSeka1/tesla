@@ -26,6 +26,7 @@ import { useToast } from '@/components/ui/toaster';
 import { changePassword, myProfileQueryOptions } from '@/lib/api/accounts';
 import { userCan } from '@/lib/navigation';
 import { formatDate } from '@/lib/format';
+import { reprotectAfterPasswordChange } from '@/lib/offline/vault';
 
 /**
  * Mon profil (D173) : identité, informations Route et progression en lecture seule (gérées par
@@ -250,8 +251,21 @@ function ConnectionCard() {
   const onSubmit = async (values: PasswordValues) => {
     try {
       await changePassword(values);
+      // Mot de passe unique (D180) : les données de cet appareil sont aussitôt protégées par le
+      // nouveau mot de passe ; l'ancien ne les ouvre plus. Les autres appareils le seront à leur
+      // prochaine connexion.
+      const reprotected = await reprotectAfterPasswordChange(
+        user,
+        values.currentPassword,
+        values.newPassword,
+      ).catch(() => false);
       reset();
-      toast.success('Mot de passe modifié', 'Vos autres appareils ont été déconnectés.');
+      toast.success(
+        'Mot de passe modifié',
+        reprotected
+          ? 'Vos autres appareils ont été déconnectés. Utilisez ce nouveau mot de passe, en ligne comme hors connexion.'
+          : 'Vos autres appareils ont été déconnectés.',
+      );
     } catch (error) {
       toast.error('Modification impossible', error instanceof Error ? error.message : undefined);
     }

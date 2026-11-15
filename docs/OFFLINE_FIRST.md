@@ -70,7 +70,7 @@ Aucun changement de schéma IndexedDB (aucune migration à risque) : les nouvell
 | Magasin | Clé | Contenu |
 | --- | --- | --- |
 | `settings` | `vault` | En-tête historique (phase 5) : toujours accepté pour le compte qui l'a créé |
-| `settings` | `vault:<userId>` | En-tête du coffre d'un compte : sel, bloc de contrôle chiffré (D111) |
+| `settings` | `vault:<userId>` | En-tête du coffre d'un compte : format 3 (D180) — sel, itérations, clé de données encapsulée par le mot de passe et par la clé d'appareil, bloc de contrôle ; format antérieur (D111) : sel et bloc de contrôle |
 | `settings` | `session` | Déverrouillage en cours : compte et clé AES **non exportable**, expiration (12 h) |
 | `records` | `<owner>:identity` | Utilisateur vérifié par le serveur et date de vérification (D112) |
 | `records` | `<owner>:q:<chemin>` | Copie d'une réponse GET (paramètres triés), date, opérations appliquées |
@@ -81,14 +81,14 @@ Aucun changement de schéma IndexedDB (aucune migration à risque) : les nouvell
 
 - Listage par préfixe sans lecture ni déchiffrement (`getAllKeys` sur un intervalle).
 - Concurrence entre onglets : révision vérifiée dans la transaction (opérations, tentatives, modules) ; les copies de lecture sont simplement remplacées.
-- **Jamais stockés** : session, mot de passe, phrase locale, réservations brutes hors paquet, corrigés, barèmes, corrections, revues de résultats, PDF (liste d'exclusion de `repository.ts`).
+- **Jamais stockés** : session, mot de passe, clé d'appareil, réservations brutes hors paquet, corrigés, barèmes, corrections, revues de résultats, PDF (liste d'exclusion de `repository.ts`).
 - Périmètre : chaque compte ne télécharge que ce que l'API lui renvoie (permissions serveur) ; un routier ne reçoit aucune fiche.
 
 ## 5. Coffre, identité locale et sécurité (D111, D112)
 
-- **Un coffre par compte** sur l'appareil, déverrouillé par une phrase locale (12 caractères minimum, distincte du mot de passe, jamais transmise ; PBKDF2-SHA-256 600 000 itérations, AES-GCM 256, clé d'enregistrement liée comme donnée authentifiée). Ouvert à tous les rôles.
-- Hors connexion, la phrase est essayée sur les coffres présents : aucune liste de comptes n'est affichée. Jamais de nouveau coffre par-dessus des données existantes d'un compte.
-- **Déverrouillage conservé 12 h** dans IndexedDB (clé non exportable) pour permettre rechargements, navigation et réouverture sans ressaisie ; supprimé au verrouillage, à la déconnexion et au changement de compte. Pendant cette période, quiconque utilise le profil du navigateur peut lire les données : verrouiller avant de prêter l'appareil.
+- **Mot de passe unique (D180, remplace la phrase locale de D111)** : un coffre par compte, dont la clé de données aléatoire est protégée par le **mot de passe du compte** (PBKDF2-SHA-256 600 000 itérations, sel par appareil) et par une **clé d'appareil** remise par le serveur à une session valide (ouverture automatique en ligne, reprotection après changement ou réinitialisation du mot de passe, retrait d'un appareil perdu). Détails, parcours et modèle de menace : [architecture/OFFLINE_AUTH.md](architecture/OFFLINE_AUTH.md). Les anciens coffres à phrase restent lisibles et sont convertis une fois.
+- Hors connexion, le mot de passe est essayé sur les coffres présents : aucune liste de comptes n'est affichée. Jamais de nouveau coffre par-dessus des données existantes d'un compte.
+- **Déverrouillage conservé 12 h au plus, verrouillage après 2 h sans activité** (clé non exportable) ; supprimé au verrouillage, à la déconnexion et au changement de compte. Pendant cette période, quiconque utilise le profil du navigateur peut lire les données : verrouiller avant de prêter l'appareil.
 - **Identité locale** : enregistrée à chaque vérification serveur (`/auth/me`, connexion, déverrouillage en ligne). Utilisée **uniquement sans réseau** et pendant **14 jours** au plus (`OFFLINE_ACCESS_MAX_DAYS`, à valider) ; horloge antérieure à la vérification → refus. Au-delà, les données restent chiffrées mais ne sont plus affichées.
 - **Droits et changement de responsable (D133)** : les fonctions n'ont plus de date de fin ; l'identité locale (≤ 14 jours) ne sert qu'à l'affichage et à la préparation d'écritures différables, jamais de preuve d'autorisation. Au retour du réseau, `/auth/me` est relu (permissions à jour, informations locales remplacées) puis chaque opération est revérifiée par le serveur. Une opération que la personne n'est plus habilitée à faire (ex. ancien plein remplacé pendant qu'il était hors ligne) reçoit `403` → `REJETE` : elle reste visible sur l'appareil, rien n'est supprimé silencieusement ni appliqué. Toute réponse `403` en ligne relit aussi la session.
 - Une identité locale ne crée **jamais** de session serveur ni de droit : l'interface masque seulement ; chaque opération est revérifiée à la réception (session, permissions effectives du jour, règles métier).
@@ -98,7 +98,7 @@ Aucun changement de schéma IndexedDB (aucune migration à risque) : les nouvell
 ## 6. Préparation de l'appareil (D115)
 
 Page **Cet appareil** (menu utilisateur) :
-1. Connexion en ligne ; 2. activation ou déverrouillage du coffre ; 3–5. « Préparer cet appareil » : données autorisées par rôle (via les requêtes des écrans : tableaux de bord, bibliothèque et toutes les leçons, parcours, évaluations disponibles, routiers et fiches, équipes, activités et feuilles de présence, programme, compétences, responsables), puis pages de l'application et segments RSC (service worker) ; 6. vérification ; 7. « Prêt pour une utilisation sans connexion » **seulement si** aucune donnée ni page indispensable ne manque, sinon « Préparation incomplète » avec le détail.
+1. Connexion en ligne (case « Utiliser aussi cet appareil sans connexion », ou « Préparer cet appareil » avec le mot de passe habituel) ; 2. création du coffre et enregistrement de l'appareil ; 3–5. « Préparer cet appareil » : données autorisées par rôle (via les requêtes des écrans : tableaux de bord, bibliothèque et toutes les leçons, parcours, évaluations disponibles, routiers et fiches, équipes, activités et feuilles de présence, programme, compétences, responsables), puis pages de l'application et segments RSC (service worker) ; 6. vérification ; 7. « Prêt pour une utilisation sans connexion » **seulement si** aucune donnée ni page indispensable ne manque, sinon « Préparation incomplète » avec le détail.
 
 - « Vérifier » contrôle sans réseau que les pages préparées sont toujours présentes (éviction).
 - Partiel : images des modules (« Télécharger avec les images »), recherches et filtres autres que les vues par défaut, pages jamais visitées ni préparées.

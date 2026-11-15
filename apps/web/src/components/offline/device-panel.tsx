@@ -1,9 +1,11 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { catalogModuleDetailSchema } from '@tesla/shared';
+import { catalogModuleDetailSchema, offlineDeviceListSchema } from '@tesla/shared';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { z } from 'zod';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeading } from '@/components/page-heading';
@@ -11,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { meQueryOptions } from '@/lib/api/auth';
 import { formatBytes } from '@/lib/format';
-import { apiFetch } from '@/lib/api/client';
+import { apiFetch, apiSend } from '@/lib/api/client';
 import {
   type LocalAttempt,
   listAttempts,
@@ -39,14 +41,17 @@ import {
 } from '@/lib/offline/preparation';
 import {
   acknowledgeEviction,
+  currentDeviceId,
   ensureVaultRestored,
-  hasVaultFor,
   localRecordCount,
   lockVault,
   ownerId,
   resetVault,
   vaultEvicted,
+  type VaultState,
+  vaultStateFor,
 } from '@/lib/offline/vault';
+import { DeviceSetup } from './device-setup';
 import { DeviceUnlock } from './device-unlock';
 import { useDeviceState } from './use-device-state';
 
@@ -62,7 +67,10 @@ export function DevicePanel() {
   const local = useQuery(meQueryOptions).data?.local === true;
   const queryClient = useQueryClient();
   const device = useDeviceState();
-  const [exists, setExists] = useState(true);
+  const [vaultState, setVaultState] = useState<VaultState | null>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const autoPrepare = useSearchParams().get('preparer') === '1';
+  const autoPrepared = useRef(false);
   const [report, setReport] = useState<PreparationReport | null>(null);
   const [operations, setOperations] = useState<LocalOperation[]>([]);
   const [attempts, setAttempts] = useState<LocalAttempt[]>([]);
@@ -77,7 +85,8 @@ export function DevicePanel() {
 
   const refresh = useCallback(async () => {
     await ensureVaultRestored();
-    setExists(await hasVaultFor(user.id));
+    setVaultState(await vaultStateFor(user.id));
+    setDeviceId(await currentDeviceId(user.id));
     setEvicted(await vaultEvicted(user.id));
     setPersisted((await navigator.storage?.persisted?.()) ?? null);
     const estimate = await navigator.storage?.estimate?.();
@@ -133,6 +142,15 @@ export function DevicePanel() {
           : 'Préparation incomplète : voir le détail ci-dessous.',
       );
     });
+
+  // Arrivée depuis la connexion avec « Utiliser aussi cet appareil sans connexion » : préparation.
+  useEffect(() => {
+    if (!autoPrepare || !unlocked || autoPrepared.current || !device.online || local) return;
+    autoPrepared.current = true;
+    void prepare();
+    // `prepare` dépend de l'état courant ; un seul déclenchement par visite.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrepare, unlocked, device.online, local]);
 
   const verify = () =>
     run(async () => {
@@ -190,11 +208,44 @@ export function DevicePanel() {
       {!unlocked ? (
         <Card>
           <CardHeader>
-            <CardTitle>{exists ? 'Déverrouiller' : 'Utiliser Tesla sans connexion'}</CardTitle>
+            <CardTitle>
+              {local
+                ? 'Ouvrir mon espace hors ligne'
+                : vaultState === 'none'
+                  ? 'Utiliser Tesla sans connexion'
+                  : vaultState === 'revoked'
+                    ? 'Appareil retiré de votre compte'
+                    : 'Données de cet appareil'}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <DeviceUnlock user={local ? undefined : user} create={!exists && !local} />
-            {exists && !local && <ForgottenPhrase onReset={() => void refresh()} />}
+            {local ? (
+              <DeviceUnlock />
+            ) : (
+              vaultState && (
+                <>
+                  {vaultState === 'revoked' && (
+                    <p className="text-sm">
+                      Cet appareil a été retiré de votre compte : les données qu’il conservait ne
+                      sont plus lisibles. Effacez-les pour pouvoir le préparer de nouveau.
+                    </p>
+                  )}
+                  <DeviceSetup
+                    user={user}
+                    state={vaultState}
+                    onReady={(created) => {
+                      void refresh().then(() => created && void prepare());
+                    }}
+                  />
+                  {(vaultState === 'legacy' || vaultState === 'revoked') && (
+                    <ForgottenSecret
+                      legacy={vaultState === 'legacy'}
+                      onReset={() => void refresh()}
+                    />
+                  )}
+                </>
+              )
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -234,7 +285,7 @@ export function DevicePanel() {
                     Vérifier
                   </Button>
                 )}
-                <Button variant="outline" onClick={() => lockVault()}>
+                <Button variant="outline" onClick={() => lockVault(true, true)}>
                   Verrouiller
                 </Button>
               </div>
@@ -439,8 +490,9 @@ export function DevicePanel() {
             <p>Le navigateur peut effacer ces données s’il manque d’espace.</p>
           )}
           <p>
-            Données chiffrées avec votre phrase locale, jamais transmise. Déverrouillage de 12
-            heures au plus : verrouillez avant de prêter l’appareil.
+            Données chiffrées sur cet appareil et protégées par votre mot de passe habituel (jamais
+            conservé). Verrouillage après 2 heures sans activité et au plus tard après 12 heures ;
+            verrouillez avant de prêter l’appareil.
           </p>
           <p>
             Sans connexion pendant 14 jours, les données ne sont plus affichées. N’effacez pas les
@@ -467,15 +519,86 @@ export function DevicePanel() {
           )}
         </CardContent>
       </Card>
+
+      {!local && device.online && <PreparedDevices currentId={deviceId} />}
     </>
   );
 }
 
 /**
- * Phrase locale oubliée : seule issue, effacer les données de ce compte sur l'appareil (elles sont
- * illisibles sans la phrase). Confirmation explicite, le nombre de données perdues est annoncé.
+ * Appareils préparés du compte (D180) : retirer un appareil perdu, prêté ou remplacé. Ses données
+ * deviennent illisibles dès qu'il se reconnecte ; ses autres protections restent celles du mot de
+ * passe tant qu'il reste hors connexion (limite documentée).
  */
-function ForgottenPhrase({ onReset }: { onReset: () => void }) {
+function PreparedDevices({ currentId }: { currentId: string | null }) {
+  const devices = useQuery({
+    queryKey: ['auth', 'offline-devices'],
+    queryFn: () => apiFetch('/auth/offline-devices', offlineDeviceListSchema),
+  });
+  const queryClient = useQueryClient();
+  const active = devices.data?.items.filter((item) => !item.revokedAt) ?? [];
+  if (!devices.data || active.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Appareils préparés ({active.length})</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        <ul className="divide-y rounded-md border">
+          {active.map((item) => (
+            <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+              <span>
+                <span className="font-medium">{item.label}</span>
+                {item.id === currentId && (
+                  <span className="ml-2 rounded-full bg-tesla-sable px-2 py-0.5 text-xs">
+                    cet appareil
+                  </span>
+                )}
+                <span className="block text-muted-foreground">
+                  Préparé le {dateTime(item.createdAt)} · vu le {dateTime(item.lastSeenAt)}
+                </span>
+              </span>
+              <ConfirmDialog
+                trigger={
+                  <Button size="sm" variant="outline">
+                    Retirer
+                  </Button>
+                }
+                title="Retirer cet appareil ?"
+                description={
+                  <>
+                    <p>
+                      « {item.label} » ne pourra plus ouvrir vos données. Dès sa prochaine connexion
+                      à Internet, ses données locales deviendront illisibles, y compris les
+                      modifications qu’il n’aurait pas synchronisées.
+                    </p>
+                    <p>
+                      Tant qu’il reste hors connexion, il ne peut pas l’apprendre : en cas de perte,
+                      changez aussi votre mot de passe.
+                    </p>
+                  </>
+                }
+                confirmLabel="Retirer l’appareil"
+                destructive
+                onConfirm={async () => {
+                  await apiSend('POST', `/auth/offline-devices/${item.id}/revoke`, z.null());
+                  await queryClient.invalidateQueries({ queryKey: ['auth', 'offline-devices'] });
+                  return true;
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Ancienne phrase oubliée ou appareil retiré : seule issue, effacer les données de ce compte sur
+ * l'appareil (illisibles). Confirmation explicite, le nombre de données perdues est annoncé.
+ */
+function ForgottenSecret({ legacy, onReset }: { legacy: boolean; onReset: () => void }) {
   const user = useSessionUser();
   const [count, setCount] = useState<number | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -491,14 +614,17 @@ function ForgottenPhrase({ onReset }: { onReset: () => void }) {
             .catch(() => setError('Lecture du stockage local impossible.'))
         }
       >
-        Phrase oubliée ?
+        {legacy ? 'Ancienne phrase oubliée ?' : 'Effacer les données de cet appareil'}
       </Button>
     );
   return (
     <div className="space-y-2 rounded-md border border-destructive p-3 text-sm">
       <p>
-        La phrase locale ne peut pas être récupérée. Pour réutiliser cet appareil sans connexion, il
-        faut effacer vos données locales ({count} élément{count > 1 ? 's' : ''} chiffré
+        {legacy
+          ? 'L’ancienne phrase locale ne peut pas être récupérée. '
+          : 'Les données de cet appareil ne sont plus lisibles. '}
+        Pour réutiliser cet appareil sans connexion, il faut effacer vos données locales ({count}{' '}
+        élément{count > 1 ? 's' : ''} chiffré
         {count > 1 ? 's' : ''}), y compris les modifications et copies d’évaluation qui n’auraient
         pas été synchronisées. Les données déjà enregistrées sur le serveur ne sont pas touchées.
       </p>

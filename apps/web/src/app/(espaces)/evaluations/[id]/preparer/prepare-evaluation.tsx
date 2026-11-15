@@ -5,12 +5,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { BackLink } from '@/components/back-link';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { DeviceSetup } from '@/components/offline/device-setup';
 import { DeviceUnlock } from '@/components/offline/device-unlock';
 import { PageHeading } from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
 import { meQueryOptions } from '@/lib/api/auth';
 import { prepareEvaluation } from '@/lib/offline/attempts';
-import { ensureVaultRestored, hasVaultFor, ownerId } from '@/lib/offline/vault';
+import { ensureVaultRestored, ownerId, type VaultState, vaultStateFor } from '@/lib/offline/vault';
 
 /**
  * Préparation en ligne d'une passation sans connexion : le serveur vérifie éligibilité, déblocage
@@ -23,14 +24,14 @@ export function PrepareEvaluation() {
   const local = useQuery(meQueryOptions).data?.local;
   const router = useRouter();
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
-  const [exists, setExists] = useState(false);
+  const [state, setState] = useState<VaultState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
     const refresh = () => {
       void ensureVaultRestored()
         .then(async () => {
-          setExists(await hasVaultFor(user.id));
+          setState(await vaultStateFor(user.id));
           setUnlocked(ownerId() === user.id);
         })
         .catch(() => setUnlocked(false));
@@ -47,7 +48,19 @@ export function PrepareEvaluation() {
         Une tentative est réservée 24 heures : vos réponses doivent être synchronisées dans ce
         délai. Le questionnaire est conservé chiffré sur cet appareil.
       </p>
-      {unlocked === false && <DeviceUnlock user={user} create={!exists} />}
+      {unlocked === false &&
+        (local ? (
+          <DeviceUnlock />
+        ) : (
+          state &&
+          state !== 'revoked' && (
+            <DeviceSetup
+              user={user}
+              state={state}
+              onReady={() => setUnlocked(ownerId() === user.id)}
+            />
+          )
+        ))}
       {unlocked && (
         <Button
           disabled={busy || local}

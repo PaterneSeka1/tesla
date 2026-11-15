@@ -16,13 +16,29 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DeviceUnlock } from '@/components/offline/device-unlock';
 import { login, meQueryOptions } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
-import { confirmServerUser, lockVault, vaultExists } from '@/lib/offline/vault';
+import {
+  confirmServerUser,
+  type LoginVaultResult,
+  lockVault,
+  openVaultAfterLogin,
+  vaultExists,
+} from '@/lib/offline/vault';
 import { resolvePostLoginPath } from '@/lib/navigation';
 
 const loginSchema = z.object({
   email: z.email({ error: 'Adresse e-mail invalide.' }),
   password: z.string().min(1, { error: 'Le mot de passe est requis.' }),
+  /** Préparer cet appareil pour l'usage sans connexion (appareil personnel). */
+  offline: z.boolean().optional(),
 });
+
+/** Situations du coffre local qui demandent une explication sur « Cet appareil ». */
+const DEVICE_NOTICES: Partial<Record<LoginVaultResult, string>> = {
+  created: '/appareil?preparer=1',
+  legacy: '/appareil',
+  revoked: '/appareil',
+  unrecoverable: '/appareil',
+};
 
 type LoginValues = z.infer<typeof loginSchema>;
 
@@ -39,13 +55,28 @@ export function LoginForm() {
   // Chaque échec rejoue la secousse de l'alerte (clé React).
   const [failures, setFailures] = useState(0);
   const session = useQuery(meQueryOptions);
+  const [offlineVault, setOfflineVault] = useState<boolean | null>(null);
+  const sessionOffline = session.error instanceof ApiError && session.error.status === 0;
+  useEffect(() => {
+    if (!sessionOffline) return;
+    let active = true;
+    void vaultExists()
+      .then((exists) => active && setOfflineVault(exists))
+      .catch(() => active && setOfflineVault(false));
+    return () => {
+      active = false;
+    };
+  }, [sessionOffline]);
   const requested = searchParams.get('suivant');
 
   // Session confirmée seulement : une donnée ancienne conservée après un refus (401) ne compte pas.
   const signedIn = session.status === 'success' ? session.data : undefined;
+  // Connexion faite depuis ce formulaire : la redirection est décidée par `onSubmit` (« Cet
+  // appareil » le cas échéant), pas par cet effet.
+  const [submitted, setSubmitted] = useState(false);
   useEffect(() => {
-    if (signedIn) router.replace(resolvePostLoginPath(signedIn.user, requested));
-  }, [signedIn, requested, router]);
+    if (signedIn && !submitted) router.replace(resolvePostLoginPath(signedIn.user, requested));
+  }, [signedIn, submitted, requested, router]);
   const {
     register,
     handleSubmit,
@@ -55,12 +86,26 @@ export function LoginForm() {
   const onSubmit = async (values: LoginValues) => {
     setServerError(null);
     try {
-      const me = await login(values);
+      const me = await login({ email: values.email, password: values.password });
       // Coffre d'un autre compte encore ouvert sur cet appareil : verrouillé avant toute lecture.
       await confirmServerUser(me.user).catch(() => lockVault());
+      // Mot de passe unique (D180) : le mot de passe que le serveur vient de vérifier ouvre (ou
+      // reprotège après un changement) les données de cet appareil ; il n'est conservé nulle part.
+      // Un échec local n'empêche jamais la connexion.
+      let target: string | undefined;
+      try {
+        const vault = await openVaultAfterLogin(me.user, values.password, {
+          prepare: values.offline === true,
+        });
+        target = DEVICE_NOTICES[vault];
+      } catch {
+        // Préparation demandée mais impossible (stockage, limite d'appareils) : explication sur la page.
+        if (values.offline) target = '/appareil';
+      }
+      setSubmitted(true);
       queryClient.clear();
       queryClient.setQueryData(meQueryOptions.queryKey, me);
-      router.replace(resolvePostLoginPath(me.user, requested));
+      router.replace(target ?? resolvePostLoginPath(me.user, requested));
     } catch (error) {
       setServerError(error instanceof Error ? error.message : 'Connexion impossible.');
       setFailures((count) => count + 1);
@@ -78,9 +123,35 @@ export function LoginForm() {
   }
 
   const offline = session.error instanceof ApiError && session.error.status === 0;
+  // Sans réseau sur un appareil préparé : seul le déverrouillage local a un sens (un seul champ
+  // « Mot de passe », jamais deux).
+  if (offline && offlineVault === true) {
+    return (
+      <section className="space-y-4" aria-label="Hors connexion">
+        <DeviceUnlock />
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => void session.refetch()}
+          disabled={session.isFetching}
+        >
+          Réessayer la connexion à Internet
+        </Button>
+      </section>
+    );
+  }
   return (
     <>
-      {offline && <OfflineUnlock />}
+      {offline && offlineVault === false && (
+        <Alert className="mb-4">
+          <CircleAlert aria-hidden />
+          <AlertDescription>
+            Pas de connexion à Internet. Cet appareil n’a pas été préparé pour une utilisation sans
+            connexion : connectez-vous dès que le réseau revient.
+          </AlertDescription>
+        </Alert>
+      )}
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <FormField id="email" label="Adresse e-mail" error={errors.email?.message}>
           <Input
@@ -97,6 +168,19 @@ export function LoginForm() {
             {...register('password')}
           />
         </FormField>
+        <label className="flex min-h-11 items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1 size-4 accent-tesla-rouge"
+            {...register('offline')}
+          />
+          <span>
+            Utiliser aussi cet appareil sans connexion
+            <span className="block text-muted-foreground">
+              Appareil personnel uniquement. Le même mot de passe ouvrira vos contenus hors ligne.
+            </span>
+          </span>
+        </label>
         {serverError && (
           <Alert
             key={failures}
@@ -119,24 +203,5 @@ export function LoginForm() {
         </Button>
       </form>
     </>
-  );
-}
-
-/** Sans réseau : ouverture de l'application avec les données déjà préparées sur cet appareil. */
-function OfflineUnlock() {
-  const [exists, setExists] = useState(false);
-  useEffect(() => {
-    vaultExists()
-      .then(setExists)
-      .catch(() => setExists(false));
-  }, []);
-  if (!exists) return null;
-  return (
-    <section className="mb-6 space-y-2 rounded-lg border p-4" aria-labelledby="offline-unlock">
-      <h2 id="offline-unlock" className="font-semibold">
-        Hors connexion
-      </h2>
-      <DeviceUnlock />
-    </section>
   );
 }

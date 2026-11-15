@@ -5,7 +5,7 @@ import { meQueryOptions } from '@/lib/api/auth';
 import { listAttempts, syncAttempts } from '@/lib/offline/attempts';
 import { listOperations, pruneSynchronized, syncOperations } from '@/lib/offline/operations';
 import { clearLocalFreshness } from '@/lib/offline/repository';
-import { ensureVaultRestored, ownerId } from '@/lib/offline/vault';
+import { ensureVaultRestored, ownerId, recordVaultActivity } from '@/lib/offline/vault';
 
 const MAX_AUTOMATIC_RETRIES = 6;
 
@@ -69,6 +69,12 @@ export function OfflineRuntime() {
     const visible = () => {
       if (document.visibilityState === 'visible') connected();
     };
+    // Activité de la personne : repousse le verrouillage pour inactivité (écriture limitée à 1/min).
+    const active = () => {
+      void recordVaultActivity().catch(() => {});
+    };
+    window.addEventListener('pointerdown', active, { passive: true });
+    window.addEventListener('keydown', active, { passive: true });
     window.addEventListener('online', reconnected);
     window.addEventListener('offline-vault-change', connected);
     window.addEventListener('offline-data-change', changed);
@@ -77,6 +83,8 @@ export function OfflineRuntime() {
     return () => {
       disposed = true;
       clearTimeout(timer);
+      window.removeEventListener('pointerdown', active);
+      window.removeEventListener('keydown', active);
       window.removeEventListener('online', reconnected);
       window.removeEventListener('offline-vault-change', connected);
       window.removeEventListener('offline-data-change', changed);
