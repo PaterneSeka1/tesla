@@ -1,11 +1,37 @@
 'use client';
 
-import { CircleAlert, CircleCheck, X } from 'lucide-react';
+import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react';
 import { Toast } from 'radix-ui';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-type ToastVariant = 'success' | 'error';
+type ToastVariant = 'success' | 'info' | 'warning' | 'error';
+
+/** Durée d'affichage : une erreur reste plus longtemps pour être lue (fermeture manuelle possible). */
+const DURATION: Record<ToastVariant, number> = {
+  success: 5000,
+  info: 6000,
+  warning: 8000,
+  error: 10000,
+};
+const STYLE: Record<ToastVariant, { border: string; icon: React.ReactNode }> = {
+  success: {
+    border: 'border-emerald-300',
+    icon: <CircleCheck className="mt-0.5 size-5 text-emerald-700" aria-hidden />,
+  },
+  info: {
+    border: 'border-tesla-or/60',
+    icon: <Info className="mt-0.5 size-5 text-tesla-bordeaux" aria-hidden />,
+  },
+  warning: {
+    border: 'border-amber-400',
+    icon: <TriangleAlert className="mt-0.5 size-5 text-amber-700" aria-hidden />,
+  },
+  error: {
+    border: 'border-destructive/40',
+    icon: <CircleAlert className="mt-0.5 size-5 text-destructive" aria-hidden />,
+  },
+};
 
 interface ToastItem {
   id: number;
@@ -16,11 +42,24 @@ interface ToastItem {
 
 const ToastContext = React.createContext<((toast: Omit<ToastItem, 'id'>) => void) | null>(null);
 
-/** Notifications de succès ou d'erreur (annoncées aux lecteurs d'écran). */
+/**
+ * Notifications (succès, information, avertissement, erreur), annoncées aux lecteurs d'écran.
+ * Une notification identique déjà affichée n'est pas répétée ; animation désactivée si la personne
+ * réduit les animations (`motion-safe`).
+ */
 export function Toaster({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<ToastItem[]>([]);
   const push = React.useCallback((toast: Omit<ToastItem, 'id'>) => {
-    setToasts((current) => [...current, { ...toast, id: Date.now() + Math.random() }]);
+    setToasts((current) =>
+      current.some(
+        (item) =>
+          item.title === toast.title &&
+          item.description === toast.description &&
+          item.variant === toast.variant,
+      )
+        ? current
+        : [...current, { ...toast, id: Date.now() + Math.random() }],
+    );
   }, []);
 
   return (
@@ -30,21 +69,20 @@ export function Toaster({ children }: { children: React.ReactNode }) {
         {toasts.map((toast) => (
           <Toast.Root
             key={toast.id}
-            type={toast.variant === 'error' ? 'foreground' : 'background'}
+            type={
+              toast.variant === 'error' || toast.variant === 'warning' ? 'foreground' : 'background'
+            }
+            duration={DURATION[toast.variant]}
             onOpenChange={(open) => {
               if (!open) setToasts((current) => current.filter((item) => item.id !== toast.id));
             }}
             className={cn(
               'grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-lg border bg-card p-4 shadow-lg',
-              'data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4',
-              toast.variant === 'error' ? 'border-destructive/40' : 'border-emerald-300',
+              'motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:slide-in-from-bottom-4',
+              STYLE[toast.variant].border,
             )}
           >
-            {toast.variant === 'error' ? (
-              <CircleAlert className="mt-0.5 size-5 text-destructive" aria-hidden />
-            ) : (
-              <CircleCheck className="mt-0.5 size-5 text-emerald-700" aria-hidden />
-            )}
+            {STYLE[toast.variant].icon}
             <div className="space-y-1">
               <Toast.Title className="text-sm font-semibold">{toast.title}</Toast.Title>
               {toast.description && (
@@ -72,6 +110,9 @@ export function useToast() {
     () => ({
       success: (title: string, description?: string) =>
         push({ title, description, variant: 'success' }),
+      info: (title: string, description?: string) => push({ title, description, variant: 'info' }),
+      warning: (title: string, description?: string) =>
+        push({ title, description, variant: 'warning' }),
       error: (title: string, description?: string) =>
         push({ title, description, variant: 'error' }),
     }),
