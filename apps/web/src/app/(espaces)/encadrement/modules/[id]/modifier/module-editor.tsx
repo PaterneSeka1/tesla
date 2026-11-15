@@ -204,7 +204,7 @@ export function ModuleEditor() {
               module.publishedVersionId !== current.id &&
               ' · une version est en ligne'}
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight break-words text-tesla-bordeaux">
+          <h1 className="text-2xl font-semibold tracking-tight wrap-break-word text-tesla-bordeaux">
             {current.title}
           </h1>
           <ModuleStatusBadge status={current.status} />
@@ -567,7 +567,7 @@ function SubmissionSection({
           <h2 className="font-semibold">Récapitulatif</h2>
           <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
             <dt className="text-muted-foreground">Module</dt>
-            <dd className="break-words">{current.title}</dd>
+            <dd className="wrap-break-word">{current.title}</dd>
             <dt className="text-muted-foreground">Version</dt>
             <dd>{current.version}</dd>
             <dt className="text-muted-foreground">Étape recommandée</dt>
