@@ -232,6 +232,27 @@ detail = await editorDetail(page, created.id);
 assert.equal(detail.current.status, 'SOUMIS');
 check('soumission : récapitulatif, conséquences, envoi');
 
+// 13 bis. Retour du responsable : motif en tête, reprise, motif toujours visible pendant la reprise.
+const reviewer = await browser.newContext({ locale: 'fr-FR' });
+const responsable = await login(reviewer, 'responsable-offline@recette.test');
+assert.equal(
+  (
+    await send(responsable, 'POST', `/admin/modules/${created.id}/request-changes`, {
+      versionId: detail.current.id,
+      comment: 'Préciser la déclinaison locale.',
+    })
+  ).status(),
+  204,
+);
+await reviewer.close();
+await page.goto(editorUrl);
+await page.getByText('Corrections demandées sur la version 1').waitFor();
+await page.getByText('Préciser la déclinaison locale.').waitFor();
+await page.getByRole('button', { name: 'Reprendre la rédaction' }).first().click();
+await page.getByText('Corrections à apporter (version 1)').waitFor();
+assert.ok(await page.getByText('Préciser la déclinaison locale.').isVisible());
+check('corrections demandées : motif affiché, puis rappelé pendant la reprise');
+
 // 14. Petit écran : panneau des leçons, aucun débordement horizontal.
 const mobile = await browser.newContext({
   viewport: { width: 360, height: 760 },

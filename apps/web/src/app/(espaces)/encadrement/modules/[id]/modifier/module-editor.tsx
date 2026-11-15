@@ -3,7 +3,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { type EditorModuleDetail, MODULE_VERSION_ACTION_LABELS } from '@tesla/shared';
 import {
-  CircleAlert,
   CircleCheck,
   Copy,
   Ellipsis,
@@ -21,6 +20,7 @@ import { useId, useRef, useState } from 'react';
 import { BackLink } from '@/components/back-link';
 import { Disclosure } from '@/components/disclosure';
 import { CommentDialog } from '@/components/modules/comment-dialog';
+import { CorrectionNotice, correctionState } from '@/components/modules/correction-notice';
 import { ModuleHistory } from '@/components/modules/module-history';
 import { ModuleMetadataForm } from '@/components/modules/module-metadata-form';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
@@ -45,7 +45,7 @@ import {
   submitModule,
   updateModuleVersion,
 } from '@/lib/api/modules';
-import { formatDateTime, formatDuration, fullName } from '@/lib/format';
+import { formatDuration } from '@/lib/format';
 import { readLessonDraft } from '@/lib/lesson-drafts';
 import { safeReturnPath } from '@/lib/module-list-params';
 import { moduleReadiness, type ReadinessItem } from '@/lib/module-readiness';
@@ -257,10 +257,16 @@ export function ModuleEditor() {
         </div>
       </div>
 
-      {current.status === 'A_CORRIGER' || current.status === 'REFUSE' ? (
-        <CorrectionNotice module={module} onResume={primaryAction} />
-      ) : correctionsInProgress(module) ? (
-        <CorrectionNotice module={module} onResume={null} inProgress />
+      {correctionState(current.status, current.id, module.events) ? (
+        <CorrectionNotice
+          status={current.status}
+          version={current.version}
+          versionId={current.id}
+          events={module.events}
+          action={
+            current.status === 'A_CORRIGER' || current.status === 'REFUSE' ? primaryAction : null
+          }
+        />
       ) : (
         STATE_MESSAGES[current.status] && (
           <Alert variant="info">
@@ -437,71 +443,6 @@ export function ModuleEditor() {
         )}
       </div>
     </>
-  );
-}
-
-/**
- * Rédaction reprise après une demande de corrections : le dernier événement de la version est une
- * reprise précédée de la demande (les événements sont du plus récent au plus ancien).
- */
-function correctionsInProgress(module: EditorModuleDetail) {
-  if (module.current.status !== 'BROUILLON') return false;
-  const events = module.events.filter((event) => event.versionId === module.current.id);
-  return events[0]?.action === 'REPRISE' && events[1]?.action === 'CORRECTIONS_DEMANDEES';
-}
-
-/** Retour du responsable mis en avant : motif, version, auteur, date et action à faire. */
-function CorrectionNotice({
-  module,
-  onResume,
-  inProgress = false,
-}: {
-  module: EditorModuleDetail;
-  onResume: React.ReactNode;
-  inProgress?: boolean;
-}) {
-  const { current } = module;
-  const decision = module.events.find(
-    (event) =>
-      event.versionId === current.id &&
-      (event.action === 'CORRECTIONS_DEMANDEES' || event.action === 'REFUSEE'),
-  );
-  return (
-    <Alert variant={inProgress ? 'info' : 'destructive'}>
-      <CircleAlert aria-hidden />
-      <AlertTitle>
-        {inProgress
-          ? `Corrections à apporter (version ${current.version})`
-          : current.status === 'A_CORRIGER'
-            ? `Corrections demandées sur la version ${current.version}`
-            : `Version ${current.version} refusée`}
-      </AlertTitle>
-      <AlertDescription>
-        <div className="space-y-2">
-          {decision?.comment ? (
-            <blockquote className="border-l-2 border-destructive/50 pl-3 whitespace-pre-line text-foreground">
-              {decision.comment}
-            </blockquote>
-          ) : (
-            <p>Aucun motif détaillé n’a été saisi.</p>
-          )}
-          {decision && (
-            <p className="text-xs">
-              {decision.actor ? `${fullName(decision.actor)}, ` : ''}le{' '}
-              {formatDateTime(decision.createdAt)}
-            </p>
-          )}
-          <p>
-            {inProgress
-              ? 'Une fois les corrections faites, vérifiez le module puis envoyez-le de nouveau pour validation.'
-              : current.status === 'A_CORRIGER'
-                ? 'Reprenez la rédaction, corrigez les points signalés puis envoyez de nouveau pour validation.'
-                : 'Pour continuer, créez une nouvelle version à partir de celle-ci.'}
-          </p>
-          {onResume}
-        </div>
-      </AlertDescription>
-    </Alert>
   );
 }
 

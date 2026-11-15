@@ -12,6 +12,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 - Image de leçon depuis l'appareil (format, taille, aperçu, description obligatoire) ; lecture ouverte après publication.
 - Aperçu ordinateur / téléphone ; motif de correction affiché pendant toute la reprise.
 
+### Modifié — publication et évaluations, 2026-11-15
+- Retour du responsable (motif, version, auteur, date, action) mutualisé pour les modules et les questionnaires, rappelé pendant la reprise de rédaction (`CorrectionNotice`).
+- « Soumettre » devient « Envoyer pour validation » ; le questionnaire affiche un récapitulatif (questions, points) et les conséquences avant l'envoi ; « Demander les corrections » remplace « Renvoyer ».
+
 ### Ajouté — rattrapages par étape et verrou des cours, 2026-11-06 (D177)
 - Délai de rattrapage de 21 jours par étape (référentiel `2026.2`, colonne `catch_up_delay_days`, migration `20261117090000_catch_up_delay_days`) ; étapes rattrapées dans l'ordre du parcours.
 - Pendant un rattrapage, le routier n'ouvre que ses modules à rattraper : autres cours, fichiers, études et évaluations fermés (sauf dérogation du responsable) ; bandeau d'échéance sur « Mes rattrapages », le parcours et la bibliothèque.

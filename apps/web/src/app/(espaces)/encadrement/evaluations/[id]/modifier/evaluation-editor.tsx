@@ -24,6 +24,7 @@ import { QuestionForm } from '@/components/evaluations/question-form';
 import { QuestionList } from '@/components/evaluations/question-list';
 import { useEvaluationAction } from '@/components/evaluations/use-evaluation-action';
 import { CommentDialog } from '@/components/modules/comment-dialog';
+import { CorrectionNotice, correctionState } from '@/components/modules/correction-notice';
 import { ModuleHistory } from '@/components/modules/module-history';
 import { ModuleStatusBadge } from '@/components/modules/module-status-badge';
 import { QueryError, TableSkeleton } from '@/components/query-state';
@@ -46,8 +47,8 @@ import { formatPoints } from '@/lib/format';
 type Status = EditorEvaluationDetail['current']['status'];
 
 const STATE_MESSAGES: Partial<Record<Status, string>> = {
-  SOUMIS: 'En attente de la décision du responsable.',
-  APPROUVE: 'En attente de publication par le responsable.',
+  SOUMIS: 'Envoyé pour validation : en attente de la décision du responsable.',
+  APPROUVE: 'Approuvé : en attente de publication par le responsable.',
   A_CORRIGER: 'Modifications demandées : reprenez la rédaction.',
   REFUSE: 'Version refusée.',
   PUBLIE: 'Pour modifier, créez une nouvelle version : elle devra être approuvée à son tour.',
@@ -143,17 +144,33 @@ export function EvaluationEditor() {
           {editable && (
             <CommentDialog
               trigger={
-                <Button disabled={current.questionCount === 0}>
+                <Button
+                  disabled={current.questionCount === 0}
+                  title={
+                    current.questionCount === 0
+                      ? 'Ajoutez au moins une question avant l’envoi.'
+                      : undefined
+                  }
+                >
                   <Send aria-hidden />
-                  Soumettre
+                  Envoyer pour validation
                 </Button>
               }
-              title="Soumettre le questionnaire ?"
+              title="Envoyer le questionnaire pour validation ?"
               description={
-                <p>La version {current.version} sera figée et transmise au responsable.</p>
+                <>
+                  <p>
+                    Version {current.version} : {current.questionCount} question
+                    {current.questionCount > 1 ? 's' : ''}, {formatPoints(current.totalPoints)}.
+                  </p>
+                  <p>
+                    Le responsable l’examinera ; elle ne sera plus modifiable jusqu’à sa décision.
+                    Les routiers n’y ont accès qu’après publication, selon leur progression.
+                  </p>
+                </>
               }
               label="Note pour le responsable (facultative)"
-              confirmLabel="Soumettre"
+              confirmLabel="Envoyer pour validation"
               onConfirm={(note) =>
                 run(
                   () =>
@@ -162,7 +179,7 @@ export function EvaluationEditor() {
                       revision: current.revision,
                       note,
                     }),
-                  { success: 'Questionnaire soumis', error: 'Soumission impossible' },
+                  { success: 'Questionnaire envoyé pour validation', error: 'Envoi impossible' },
                 )
               }
             />
@@ -170,18 +187,43 @@ export function EvaluationEditor() {
         </div>
       </div>
 
-      {STATE_MESSAGES[current.status] && (
-        <Alert variant={current.status === 'A_CORRIGER' ? 'destructive' : 'info'}>
-          <CircleAlert aria-hidden />
-          <AlertTitle>{STATE_MESSAGES[current.status]}</AlertTitle>
-          {lastDecision && (
-            <AlertDescription>
-              <p>
-                {MODULE_VERSION_ACTION_LABELS[lastDecision.action]} : « {lastDecision.comment} »
-              </p>
-            </AlertDescription>
-          )}
-        </Alert>
+      {correctionState(current.status, current.id, evaluation.events) ? (
+        <CorrectionNotice
+          status={current.status}
+          version={current.version}
+          versionId={current.id}
+          events={evaluation.events}
+          noun="le questionnaire"
+          action={
+            current.status === 'A_CORRIGER' ? (
+              <Button
+                onClick={() =>
+                  void run(() => resumeEvaluation(evaluation.id, current.id), {
+                    success: 'Rédaction reprise',
+                    error: 'Reprise impossible',
+                  })
+                }
+              >
+                <RotateCcw aria-hidden />
+                Reprendre la rédaction
+              </Button>
+            ) : null
+          }
+        />
+      ) : (
+        STATE_MESSAGES[current.status] && (
+          <Alert variant="info">
+            <CircleAlert aria-hidden />
+            <AlertTitle>{STATE_MESSAGES[current.status]}</AlertTitle>
+            {lastDecision && (
+              <AlertDescription>
+                <p>
+                  {MODULE_VERSION_ACTION_LABELS[lastDecision.action]} : « {lastDecision.comment} »
+                </p>
+              </AlertDescription>
+            )}
+          </Alert>
+        )
       )}
 
       <Card>

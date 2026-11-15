@@ -177,7 +177,7 @@ function RevisionContent() {
                 description={<p>La version retourne à la rédaction avec votre motif.</p>}
                 label="Corrections attendues"
                 required
-                confirmLabel="Renvoyer"
+                confirmLabel="Demander les corrections"
                 onConfirm={(comment) =>
                   run(() => requestModuleChanges(module.id, { versionId, comment }), {
                     success: 'Corrections demandées',
