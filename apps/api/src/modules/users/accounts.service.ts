@@ -121,11 +121,14 @@ export class AccountsService {
     @Inject(ENV) private readonly env: Env,
   ) {}
 
-  /** Rôles qu'un acteur peut gérer : tous pour l'administration technique, `ROUTIER` sinon. */
+  /**
+   * Rôles qu'un acteur peut gérer : tous pour l'administration technique ; comptes d'apprenants
+   * (routiers et adultes, D185) pour le responsable plein.
+   */
   private manageableRoles(actor: Actor): readonly Role[] {
     return actor.role === 'ADMINISTRATEUR'
-      ? ['ROUTIER', 'ENCADREMENT', 'ADMINISTRATEUR']
-      : ['ROUTIER'];
+      ? ['ROUTIER', 'ADULTE', 'ENCADREMENT', 'ADMINISTRATEUR']
+      : ['ROUTIER', 'ADULTE'];
   }
 
   private assertScope(actor: Actor, role: string): void {
@@ -225,13 +228,28 @@ export class AccountsService {
           select: { id: true },
         });
         if (data.scoutProfileId) {
+          // Compte et fiche du même type (D185) : routier ↔ routier, adulte ↔ adulte.
           const { count } = await tx.scoutProfile.updateMany({
-            where: { id: data.scoutProfileId, userId: null },
+            where: {
+              id: data.scoutProfileId,
+              userId: null,
+              kind: data.role === 'ADULTE' ? 'ADULTE' : 'ROUTIER',
+            },
             data: { userId: user.id },
           });
           if (count === 0) {
-            const exists = await tx.scoutProfile.count({ where: { id: data.scoutProfileId } });
-            throw exists
+            const existing = await tx.scoutProfile.findUnique({
+              where: { id: data.scoutProfileId },
+              select: { kind: true, userId: true },
+            });
+            if (existing && existing.kind !== data.role) {
+              throw new ConflictException({
+                code: 'PROFILE_KIND_MISMATCH',
+                message:
+                  'Le type du compte (routier ou adulte) doit correspondre à celui de la fiche.',
+              });
+            }
+            throw existing
               ? new ConflictException({
                   code: 'PROFILE_ALREADY_LINKED',
                   message: 'Cette fiche est déjà rattachée à un compte.',

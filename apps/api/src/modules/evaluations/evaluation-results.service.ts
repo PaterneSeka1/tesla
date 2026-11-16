@@ -52,7 +52,7 @@ export class EvaluationResultsService {
     // Concernés : routiers actifs dont l'étape calculée selon l'âge est celle de l'évaluation (D173).
     const concernedRows = withComputedStage(
       await this.prisma.scoutProfile.findMany({
-        where: { isActive: true, membershipStatus: 'ACTIF' },
+        where: { kind: 'ROUTIER', isActive: true, membershipStatus: 'ACTIF' },
         select: { id: true, birthDate: true, membershipStatus: true },
       }),
       await loadStageContext(this.prisma),

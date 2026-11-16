@@ -27,6 +27,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { computedStageOf, loadStageContext } from '../progression/computed-stage.js';
 import { toStageSummary, toTeamResponse, toUserSummary, userSummarySelect } from './presenters.js';
 import { scoutProfileNotFound } from './presenters.js';
+import { assertRouteProfile } from './route-profile.js';
 
 const openAssignmentsCount = {
   _count: { select: { assignments: { where: { endedAt: null } } } },
@@ -226,6 +227,8 @@ export class TeamsService {
   async assign(actor: Actor, input: AssignTeamInput): Promise<TeamAssignment> {
     assertCan(actor, 'team.assign');
     const data = parseInput(assignTeamInputSchema, input);
+    // Équipes de la Route : pas pour un apprenant adulte (D185).
+    await assertRouteProfile(this.prisma, data.scoutProfileId);
     const startedAt = data.startedAt ? new Date(data.startedAt) : new Date();
 
     return this.prisma.$transaction(async (tx) => {

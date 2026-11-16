@@ -94,7 +94,8 @@ export class AccountSelfService {
       lastName: scout?.lastName ?? user.lastName,
       email: user.email,
       leaderFunction: actor.leaderFunction,
-      scout: scout && (await this.scoutPart(scout, context)),
+      // Partie Route (étape, équipe, ancienneté, rattrapages) : routiers seulement (D185).
+      scout: scout?.kind === 'ROUTIER' ? await this.scoutPart(scout, context) : null,
     };
   }
 

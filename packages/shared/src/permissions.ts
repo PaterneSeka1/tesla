@@ -2,12 +2,13 @@ import { type LeaderFunction, type Role } from './roles.js';
 
 /**
  * Niveaux d'habilitation, internes au serveur et jamais affichés (D132) :
- * - `ROUTIER`, `ENCADREMENT`, `ADMINISTRATEUR` : rôle d'accès du compte ;
+ * - `ROUTIER`, `ADULTE`, `ENCADREMENT`, `ADMINISTRATEUR` : rôle d'accès du compte (`ADULTE` : apprenant
+ *   adulte, D185) ;
  * - `OFFICIEL` : décision officielle, réservée au responsable plein en fonction.
  * Le rôle `ENCADREMENT` seul n'accorde jamais une permission `OFFICIEL` ; l'adjoint et les
  * assistants ont les permissions de l'encadrement. Aucune délégation, aucun mandat.
  */
-export type AccessLevel = 'ROUTIER' | 'ENCADREMENT' | 'OFFICIEL' | 'ADMINISTRATEUR';
+export type AccessLevel = 'ROUTIER' | 'ADULTE' | 'ENCADREMENT' | 'OFFICIEL' | 'ADMINISTRATEUR';
 
 const ENCADREMENT = ['ENCADREMENT'] as const;
 const OFFICIEL = ['OFFICIEL'] as const;
@@ -66,13 +67,16 @@ export const PERMISSIONS = {
   /** Dérogations (RM-009). */
   'waiver.manage': OFFICIEL,
   /** Bibliothèque : tout utilisateur pédagogique lit les modules publiés, sans condition d'étape. */
-  'module.read': ['ROUTIER', 'ENCADREMENT'],
+  'module.read': ['ROUTIER', 'ADULTE', 'ENCADREMENT'],
   'module.write': ENCADREMENT,
   'module.writeAny': OFFICIEL,
   /** Approuver, demander des corrections, refuser, publier, archiver. */
   'module.review': OFFICIEL,
-  'evaluation.read': ['ROUTIER', 'ENCADREMENT'],
-  'evaluation.take': ['ROUTIER'],
+  'evaluation.read': ['ROUTIER', 'ADULTE', 'ENCADREMENT'],
+  /** Passer une évaluation : routier (selon son étape) ou adulte (toute évaluation publiée, D185). */
+  'evaluation.take': ['ROUTIER', 'ADULTE'],
+  /** Ses propres résultats (« Mes résultats »), distincts du parcours Route (D185). */
+  'results.readOwn': ['ROUTIER', 'ADULTE'],
   'evaluation.write': ENCADREMENT,
   'evaluation.writeAny': OFFICIEL,
   'evaluation.review': OFFICIEL,
@@ -110,7 +114,7 @@ export const PERMISSIONS = {
   /** Appliquer les sorties de branche échues (traitement idempotent, aussi exécuté par la tâche quotidienne). */
   'membership.apply': OFFICIEL,
   /** Composition actuelle de l'encadrement (noms et fonctions) : tout membre connecté. */
-  'leadership.read': ['ROUTIER', 'ENCADREMENT', 'ADMINISTRATEUR'],
+  'leadership.read': ['ROUTIER', 'ADULTE', 'ENCADREMENT', 'ADMINISTRATEUR'],
   /**
    * Désigner le responsable plein, l'adjoint et les assistants, mettre fin à une fonction, consulter
    * l'historique : l'administrateur seul (D132). Jamais le plein pour lui-même.
@@ -118,7 +122,7 @@ export const PERMISSIONS = {
   'leadership.manage': ['ADMINISTRATEUR'],
   /**
    * Comptes (D119, à confirmer) : l'administrateur gère tous les comptes ; le responsable plein
-   * couvre les seuls comptes routiers (périmètre vérifié par le service).
+   * couvre les seuls comptes routiers et adultes (périmètre vérifié par le service, D185).
    */
   /**
    * Fiche médicale personnelle (D135, D142) : chaque routier et membre de l'encadrement gère la
@@ -147,6 +151,7 @@ export function hasPermission(authority: Authority, permission: Permission): boo
   return levels.some((level) => {
     switch (level) {
       case 'ROUTIER':
+      case 'ADULTE':
       case 'ENCADREMENT':
       case 'ADMINISTRATEUR':
         return role === level;

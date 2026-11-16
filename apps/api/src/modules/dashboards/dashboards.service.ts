@@ -85,7 +85,8 @@ export class DashboardsService {
     const { stages } = context;
     const [rawProfiles, competencyCount, validations, proposals, activities, studies] =
       await Promise.all([
-        this.prisma.scoutProfile.findMany({ include: scoutRefInclude }),
+        // Statistiques de la Route : routiers seulement (D185).
+        this.prisma.scoutProfile.findMany({ where: { kind: 'ROUTIER' }, include: scoutRefInclude }),
         this.prisma.competency.count({ where: { isActive: true } }),
         this.prisma.competencyValidation.findMany({
           where: { revokedAt: null },
@@ -281,7 +282,7 @@ export class DashboardsService {
     const context = await loadStageContext(this.prisma);
     const [profiles, toRework, attendances] = await Promise.all([
       this.prisma.scoutProfile.findMany({
-        where: { isActive: true },
+        where: { kind: 'ROUTIER', isActive: true },
         include: scoutRefInclude,
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
       }),
@@ -617,7 +618,7 @@ export class DashboardsService {
       tasks,
       year,
     ] = await Promise.all([
-      this.prisma.scoutProfile.count({ where: { isActive: true } }),
+      this.prisma.scoutProfile.count({ where: { kind: 'ROUTIER', isActive: true } }),
       this.upcomingActivities(),
       this.prisma.activity.findMany({
         where: attendanceMissingWhere(today),

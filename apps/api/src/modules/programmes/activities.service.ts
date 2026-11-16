@@ -522,6 +522,8 @@ export class ActivitiesService {
       }),
       this.prisma.scoutProfile.findMany({
         where: {
+          // Présences : activités de la Route, routiers seulement (D185).
+          kind: 'ROUTIER',
           OR: [{ isActive: true }, { attendances: { some: { activityId: id } } }],
           ...(teamId && { teamAssignments: { some: { teamId, endedAt: null } } }),
         },
@@ -578,7 +580,7 @@ export class ActivitiesService {
       const scoutIds = entries.map((entry) => entry.scoutProfileId);
       const [scouts, existing] = await Promise.all([
         tx.scoutProfile.findMany({
-          where: { id: { in: scoutIds } },
+          where: { id: { in: scoutIds }, kind: 'ROUTIER' },
           select: { id: true, isActive: true },
         }),
         tx.activityAttendance.findMany({

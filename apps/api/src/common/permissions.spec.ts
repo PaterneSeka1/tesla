@@ -17,7 +17,36 @@ const routier = {
   leaderFunction: null,
 } as const;
 
+const adulte = {
+  userId: 'adulte',
+  role: 'ADULTE',
+  leaderFunction: null,
+} as const;
+
 describe('Permissions', () => {
+  it('apprenant adulte (D185) : cours, évaluations, ses résultats ; rien de la Route', () => {
+    for (const permission of [
+      'module.read',
+      'evaluation.read',
+      'evaluation.take',
+      'results.readOwn',
+    ] as const) {
+      expect(can(adulte, permission), permission).toBe(true);
+    }
+    for (const permission of [
+      'progression.readOwn',
+      'moduleStudy.declare',
+      'medicalRecord.own',
+      'scout.read',
+      'attempt.record',
+      'statistics.read',
+    ] as const) {
+      expect(can(adulte, permission), permission).toBe(false);
+    }
+    // « Mes résultats » reste ouvert aux routiers.
+    expect(can(routier, 'results.readOwn')).toBe(true);
+  });
+
   it('seul le responsable décide d’un résultat et accorde une dérogation', () => {
     expect(can(responsable, 'attempt.decide')).toBe(true);
     expect(can(chef, 'attempt.decide')).toBe(false);

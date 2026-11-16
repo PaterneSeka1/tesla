@@ -23,6 +23,7 @@ import { toUserSummary, userSummarySelect } from '../scouts/presenters.js';
 import { scoutProfileNotFound } from '../scouts/presenters.js';
 import { isWaiverActive } from './eligibility.js';
 import { formatEvaluationCode } from './evaluation-common.js';
+import { assertRouteProfile } from '../scouts/route-profile.js';
 
 const waiverInclude = {
   scoutProfile: {
@@ -105,6 +106,8 @@ export class EvaluationWaiversService {
   async grant(actor: Actor, input: GrantWaiverInput): Promise<EvaluationWaiver> {
     assertCan(actor, 'waiver.manage');
     const data = parseInput(grantWaiverInputSchema, input);
+    // Un adulte (D185) accède déjà à toute évaluation publiée : aucune dérogation.
+    await assertRouteProfile(this.prisma, data.scoutProfileId);
     const now = new Date();
     const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
     if (expiresAt && expiresAt <= now) {

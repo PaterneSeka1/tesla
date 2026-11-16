@@ -22,6 +22,7 @@ import { type Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { toIsoDate, toUserSummary, userSummarySelect } from './presenters.js';
 import { scoutProfileNotFound } from './presenters.js';
+import { assertRouteProfile } from './route-profile.js';
 
 const withAuthor = { author: userSummarySelect } as const;
 
@@ -82,6 +83,8 @@ export class ObservationsService {
     assertCan(actor, 'observation.create');
     const data = parseInput(createObservationInputSchema, input);
     await this.assertScoutExists(scoutProfileId);
+    // Observations d'accompagnement de la Route : pas pour un apprenant adulte (D185).
+    await assertRouteProfile(this.prisma, scoutProfileId);
     const observation = await this.prisma.scoutObservation.create({
       data: {
         scoutProfileId,

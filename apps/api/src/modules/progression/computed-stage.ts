@@ -4,6 +4,7 @@ import {
   type AgeProgression,
   type AgeRuleSetSnapshot,
   compareCivilDates,
+  type LearnerKind,
   type MembershipStatus,
   type TheoreticalStageReason,
 } from '@tesla/shared';
@@ -101,6 +102,8 @@ export interface StageSubject {
   id: string | null;
   birthDate: Date | null;
   membershipStatus?: MembershipStatus;
+  /** Apprenant adulte (D185) : jamais d'étape ; absent = routier. */
+  kind?: LearnerKind;
 }
 
 /**
@@ -110,6 +113,19 @@ export interface StageSubject {
  */
 export function computedStageOf(profile: StageSubject, context: StageContext): ComputedStage {
   const normal = ageProgressionOf(profile, context.rules, context.today);
+  // Apprenant adulte (D185) : hors progression de la Route, ni étape, ni exception, ni sortie.
+  if (profile.kind === 'ADULTE') {
+    const adult = { ...normal, reason: 'ADULTE' as const, membership: null };
+    return {
+      stage: null,
+      reason: 'ADULTE',
+      progression: adult,
+      computedStage: null,
+      computedReason: 'ADULTE',
+      normalProgression: adult,
+      override: null,
+    };
+  }
   const exited = profile.membershipStatus === 'SORTI' || normal.membership === 'SORTI';
   // Une sortie enregistrée fait foi, même si une correction ultérieure la rendrait plus tardive.
   if (exited) {

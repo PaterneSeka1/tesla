@@ -25,6 +25,8 @@ enum Role {
   RESPONSABLE
   ENCADREMENT
   ADMINISTRATEUR
+  /// Apprenant adulte (D185), rattaché à une fiche `ADULTE`.
+  ADULTE
 }
 
 /// Compte utilisateur. Un compte n'est jamais supprimé : il est désactivé (isActive = false).
@@ -169,6 +171,15 @@ model OfflineDevice {
   @@map("offline_devices")
 }
 
+/// Type de fiche d'apprenant (D185), même liste que `LEARNER_KINDS` de @tesla/shared. Fixé à
+/// l'inscription. Une fiche ADULTE n'a ni étape, ni matricule, ni dates Route
+/// (`scout_profiles_adult_fields_check`) et n'entre dans aucune table propre à la Route (trigger
+/// `route_only_scout_profile`) : seules les tentatives d'évaluation lui sont ouvertes.
+enum LearnerKind {
+  ROUTIER
+  ADULTE
+}
+
 /// Sexe d'un routier (D183), même liste que `SCOUT_SEXES` de @tesla/shared.
 enum ScoutSex {
   GARCON
@@ -185,6 +196,8 @@ model ScoutProfile {
   matricule         String?               @unique
   firstName         String                @map("first_name")
   lastName          String                @map("last_name")
+  /// Routier ou adulte (D185), immuable (trigger `scout_profiles_kind_frozen`).
+  kind              LearnerKind           @default(ROUTIER)
   /// Sexe (D183) : choisi à l'inscription ; nul seulement pour une fiche antérieure, jamais déduit.
   sex               ScoutSex?
   /// Seule source de l'étape actuelle, calculée avec le référentiel d'âge en vigueur (D173).
@@ -225,6 +238,7 @@ model ScoutProfile {
 
   @@index([currentStageId])
   @@index([membershipStatus])
+  @@index([kind])
   @@index([isActive])
   @@index([lastName, firstName])
   @@map("scout_profiles")

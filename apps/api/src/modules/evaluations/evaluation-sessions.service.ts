@@ -16,6 +16,7 @@ import {
   type Paginated,
   type SaveAnswersInput,
   saveAnswersInputSchema,
+  type LearnerKind,
 } from '@tesla/shared';
 import { type Actor } from '../../common/actor.js';
 import { assertCan, can } from '../../common/permissions.js';
@@ -135,6 +136,7 @@ export class EvaluationSessionsService {
       ? {
           isActive: subject.profile.isActive,
           stageId: context ? computedStageIdOf(subject.profile, context) : null,
+          kind: subject.profile.kind,
         }
       : null;
     const catchUpModules = new Set(catchUps.map((obligation) => obligation.moduleId));
@@ -444,9 +446,11 @@ export class EvaluationSessionsService {
       isActive: boolean;
       birthDate: Date | null;
       membershipStatus: 'ACTIF' | 'SORTI';
+      kind: LearnerKind;
     } | null;
   } | null> {
-    if (actor.role === 'ROUTIER') {
+    // Apprenant (routier ou adulte, D185) : sa propre fiche ; jamais un test du rôle (D132).
+    if (can(actor, 'evaluation.take')) {
       return {
         profile: await this.prisma.scoutProfile.findUnique({ where: { userId: actor.userId } }),
       };

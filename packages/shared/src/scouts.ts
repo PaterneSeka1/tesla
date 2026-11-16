@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { paginationQuerySchema, searchQuerySchema, userSummarySchema } from './api.js';
 import { THEORETICAL_STAGE_REASONS } from './age-progression.js';
 import { EVALUATION_MODES, ATTEMPT_STATUSES } from './evaluation-enums.js';
+import { LEARNER_KINDS } from './roles.js';
 
 /**
  * Matricule scout (RM-002) : chaîne, jamais un entier (zéros initiaux conservés), jamais généré par l'application.
@@ -68,6 +69,17 @@ export const SCOUT_ADMIN_FIELD_LABELS: Record<ScoutAdminField, string> = {
   joinedAt: 'Date d’entrée à la Route',
 };
 
+/**
+ * Données d'une fiche adulte (D185) : identité seulement. Ni matricule, ni date de naissance, ni date
+ * d'entrée : un adulte n'a ni étape, ni ancienneté à la Route (contrainte SQL
+ * `scout_profiles_adult_fields_check`).
+ */
+export const ADULT_ADMIN_FIELDS = [
+  'lastName',
+  'firstName',
+  'sex',
+] as const satisfies readonly ScoutAdminField[];
+
 /** Motif d'une correction (remplacement ou retrait d'une valeur déjà renseignée), conservé au journal. */
 export const correctionReasonSchema = z
   .string()
@@ -111,6 +123,19 @@ export const createScoutProfileInputSchema = z.object({
 export type CreateScoutProfileInput = z.input<typeof createScoutProfileInputSchema>;
 
 /**
+ * Inscription d'un apprenant adulte (D185), sans compte : nom, prénoms et sexe. Aucune étape, aucune
+ * équipe, aucun parcours antérieur. `confirmDuplicate` : homonyme déjà enregistré.
+ */
+export const createAdultProfileInputSchema = z.object({
+  firstName: personNameSchema,
+  lastName: personNameSchema,
+  sex: scoutSexSchema,
+  confirmDuplicate: z.boolean().optional(),
+});
+
+export type CreateAdultProfileInput = z.input<typeof createAdultProfileInputSchema>;
+
+/**
  * Modification administrative d'une fiche (D173). Renseigner une valeur absente est une
  * **complétion** ; remplacer ou retirer (`null`, chaîne vide pour le matricule) une valeur présente est
  * une **correction** : motif et confirmation exigés par l'API, ancienne et nouvelle valeurs journalisées.
@@ -146,6 +171,8 @@ export const scoutListQuerySchema = paginationQuerySchema.extend({
   stageId: z.union([z.uuid(), z.literal(NONE_FILTER)]).optional(),
   status: z.enum(['active', 'inactive', 'all']).default('active'),
   account: z.enum(['with', 'without', 'all']).default('all'),
+  /** Routiers par défaut : les adultes (D185) ont leur propre liste. */
+  kind: z.enum(LEARNER_KINDS).default('ROUTIER'),
 });
 
 export type ScoutListQuery = z.input<typeof scoutListQuerySchema>;
@@ -263,6 +290,8 @@ export const scoutListItemSchema = z.object({
   lastName: z.string(),
   matricule: z.string().nullable(),
   isActive: z.boolean(),
+  /** Routier ou adulte (D185), fixé à l'inscription. */
+  kind: z.enum(LEARNER_KINDS),
   /** Nulle tant que la date d'entrée n'est pas renseignée. */
   joinedAt: z.iso.date().nullable(),
   /** Étape actuelle, calculée par l'API selon l'âge (D173) ; nulle = « Étape non déterminée ». */

@@ -7,6 +7,7 @@ import {
   gradeShortAnswer,
   isObjectiveQuestion,
   totalScore,
+  type LearnerKind,
 } from '@tesla/shared';
 import { type z } from 'zod';
 import { type Prisma } from '../../generated/prisma/client.js';
@@ -181,6 +182,8 @@ export async function loadEligibility(
       isActive: boolean;
       birthDate: Date | null;
       membershipStatus: 'ACTIF' | 'SORTI';
+      /** Routier ou adulte (D185) : un adulte n'a ni étape, ni rattrapage, ni sortie. */
+      kind: LearnerKind;
     } | null;
     evaluation: { id: string; stageId: string; moduleId: string | null };
     maxAttempts: number | null;
@@ -219,6 +222,7 @@ export async function loadEligibility(
     profile: profile && {
       isActive: profile.isActive,
       stageId: context ? computedStageIdOf(profile, context) : null,
+      kind: profile.kind,
     },
     membership,
     openCatchUp,

@@ -30,7 +30,8 @@ async function main(): Promise<void> {
     const prisma = app.get(PrismaService);
     const pathway = app.get(PathwayService);
     const profiles = await prisma.scoutProfile.findMany({
-      where: { membershipStatus: 'ACTIF' },
+      // Rattrapages : routiers seulement (D185).
+      where: { kind: 'ROUTIER', membershipStatus: 'ACTIF' },
       select: { id: true },
     });
     let created = 0;

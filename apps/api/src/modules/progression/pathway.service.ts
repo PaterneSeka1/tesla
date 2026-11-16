@@ -583,6 +583,7 @@ export class PathwayService {
     const [profiles, allObligations] = await Promise.all([
       this.prisma.scoutProfile.findMany({
         where: {
+          kind: 'ROUTIER',
           isActive: true,
           ...(teamId && { teamAssignments: { some: { teamId, endedAt: null } } }),
         },

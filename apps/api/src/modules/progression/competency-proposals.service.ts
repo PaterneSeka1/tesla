@@ -44,6 +44,7 @@ import {
   validationInclude,
 } from './progression-common.js';
 import { computedStageOf, loadStageContext, type StageContext } from './computed-stage.js';
+import { assertRouteProfile } from '../scouts/route-profile.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -300,6 +301,8 @@ export class CompetencyProposalsService {
   async create(actor: Actor, input: CreateProposalInput): Promise<Proposal> {
     assertCan(actor, 'competency.propose');
     const data = parseInput(createProposalInputSchema, input);
+    // Donnée propre à la Route : refusée pour un apprenant adulte (D185).
+    await assertRouteProfile(this.prisma, data.scoutProfileId);
     try {
       const id = await this.prisma.$transaction(async (tx) => {
         const scout = await tx.scoutProfile.findUnique({ where: { id: data.scoutProfileId } });

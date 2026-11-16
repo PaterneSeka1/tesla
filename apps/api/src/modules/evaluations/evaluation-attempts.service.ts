@@ -227,8 +227,9 @@ export class EvaluationAttemptsService {
     if (!evaluation) throw evaluationNotFound();
     const version = evaluation.publishedVersion;
     if (!version) throw versionNotPublished();
+    // Distribution collective par étape et équipe (D163) : routiers seulement (D185).
     const profiles = await this.prisma.scoutProfile.findMany({
-      where: { isActive: true },
+      where: { kind: 'ROUTIER', isActive: true },
       include: {
         teamAssignments: { where: { endedAt: null }, include: { team: true }, take: 1 },
       },

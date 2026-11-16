@@ -8,7 +8,10 @@ import {
 import {
   type BirthDateImpact,
   birthDateImpactQuerySchema,
+  ADULT_ADMIN_FIELDS,
   type ComputedStageSnapshot,
+  type CreateAdultProfileInput,
+  createAdultProfileInputSchema,
   type CreateScoutProfileInput,
   createScoutProfileInputSchema,
   type LinkAccountInput,
@@ -53,6 +56,7 @@ import {
   diffAdminFields,
   rejectStageInput,
 } from './admin-changes.js';
+import { adultNotInRoute } from './route-profile.js';
 import {
   scoutProfileNotFound,
   toIsoDate,
@@ -85,6 +89,7 @@ function toListItem(profile: ScoutWithRelations, context: StageContext): ScoutLi
     lastName: profile.lastName,
     matricule: profile.matricule,
     isActive: profile.isActive,
+    kind: profile.kind,
     joinedAt: profile.joinedAt && toIsoDate(profile.joinedAt),
     stage: toStageSummary(computed.stage),
     stageReason: computed.reason,
@@ -158,12 +163,13 @@ export class ScoutProfilesService {
    */
   async list(actor: Actor, query: ScoutListQuery): Promise<Paginated<ScoutListItem>> {
     assertCan(actor, 'scout.read');
-    const { page, pageSize, search, teamId, stageId, status, account } = parseInput(
+    const { page, pageSize, search, teamId, stageId, status, account, kind } = parseInput(
       scoutListQuerySchema,
       query,
     );
     const words = search?.split(/\s+/).filter(Boolean) ?? [];
     const where: Prisma.ScoutProfileWhereInput = {
+      kind,
       ...(status !== 'all' && { isActive: status === 'active' }),
       ...(account === 'with' && { userId: { not: null } }),
       ...(account === 'without' && { userId: null }),
@@ -333,6 +339,54 @@ export class ScoutProfilesService {
   }
 
   /**
+   * Inscrit un apprenant adulte (D185), sans compte : nom, prénoms et sexe. Aucune étape, équipe,
+   * date ni rattrapage ; le compte (rôle `ADULTE`) pourra être rattaché plus tard. Mêmes personnes
+   * habilitées que pour un routier (administrateur ou plein en fonction, revérifié à l'écriture).
+   */
+  async createAdult(actor: Actor, input: CreateAdultProfileInput): Promise<ScoutProfile> {
+    assertCan(actor, 'scout.create');
+    rejectStageInput(input);
+    const data = parseInput(createAdultProfileInputSchema, input);
+    return this.prisma.$transaction(async (tx) => {
+      await assertCanAtWrite(tx, actor, 'scout.create');
+      if (!data.confirmDuplicate) {
+        const homonym = await tx.scoutProfile.findFirst({
+          where: {
+            firstName: { equals: data.firstName, mode: 'insensitive' },
+            lastName: { equals: data.lastName, mode: 'insensitive' },
+          },
+          select: { id: true },
+        });
+        if (homonym) {
+          throw new ConflictException({
+            code: 'POSSIBLE_DUPLICATE',
+            message:
+              'Une personne portant ces nom et prénoms existe déjà. Vérifiez avant de confirmer.',
+          });
+        }
+      }
+      const profile = await tx.scoutProfile.create({
+        data: {
+          kind: 'ADULTE',
+          firstName: data.firstName,
+          lastName: data.lastName,
+          sex: data.sex,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId: actor.userId,
+          action: 'scout_profile.created',
+          entityType: 'ScoutProfile',
+          entityId: profile.id,
+          metadata: { kind: 'ADULTE' },
+        },
+      });
+      return profile;
+    });
+  }
+
+  /**
    * Gestion administrative d'une fiche (D173) : complétion libre d'une information absente ;
    * correction (remplacement ou retrait) avec motif et confirmation, ancienne et nouvelle valeurs
    * journalisées. Habilitation revérifiée au moment de l'écriture ; fiche verrouillée. Une
@@ -367,6 +421,15 @@ export class ScoutProfilesService {
         }
         const before = adminSnapshot(previous);
         const changes = diffAdminFields(before, data);
+        // Fiche adulte (D185) : identité seulement ; matricule et dates Route ne s'appliquent pas.
+        if (
+          previous.kind === 'ADULTE' &&
+          changes.some(
+            (change) => !(ADULT_ADMIN_FIELDS as readonly string[]).includes(change.field),
+          )
+        ) {
+          throw adultNotInRoute();
+        }
         if (changes.length === 0) return { profile: previous, changes };
         assertCorrectionJustified(changes, data);
         const next = { ...before, ...Object.fromEntries(changes.map((c) => [c.field, c.next])) };
@@ -490,8 +553,10 @@ export class ScoutProfilesService {
     assertCan(actor, 'scout.setActive');
     return this.prisma.$transaction(async (tx) => {
       await assertCanAtWrite(tx, actor, 'scout.setActive');
-      const rows = await tx.$queryRaw<{ is_active: boolean; has_birth_date: boolean }[]>`
-        SELECT is_active, birth_date IS NOT NULL AS has_birth_date
+      const rows = await tx.$queryRaw<
+        { is_active: boolean; has_birth_date: boolean; kind: 'ROUTIER' | 'ADULTE' }[]
+      >`
+        SELECT is_active, birth_date IS NOT NULL AS has_birth_date, kind::text AS kind
         FROM scout_profiles WHERE id = ${scoutProfileId}::uuid FOR UPDATE`;
       if (rows.length === 0) throw scoutProfileNotFound();
       if (rows[0]!.is_active === active) {
@@ -501,7 +566,10 @@ export class ScoutProfilesService {
         });
       }
       // Invariant (D181) : une fiche sans date de naissance n'est pas réactivée sans étape.
-      if (active && !rows[0]!.has_birth_date) throw admissionRefused('BIRTH_DATE_REQUIRED');
+      // Un adulte (D185) n'a pas d'étape : aucune date de naissance exigée.
+      if (active && rows[0]!.kind === 'ROUTIER' && !rows[0]!.has_birth_date) {
+        throw admissionRefused('BIRTH_DATE_REQUIRED');
+      }
       let closedAssignmentId: string | null = null;
       if (!active) {
         const now = new Date();
@@ -564,7 +632,7 @@ export class ScoutProfilesService {
   }
 
   /**
-   * Rattache un compte routier à un profil existant. Le profil (et tout son historique) est conservé :
+   * Rattache un compte routier (ou adulte, D185) à une fiche existante du même type. Le profil (et tout son historique) est conservé :
    * aucun second profil n'est créé.
    */
   async linkAccount(actor: Actor, scoutProfileId: string, userId: string): Promise<ScoutProfile> {
@@ -581,11 +649,19 @@ export class ScoutProfilesService {
         if (!user) {
           throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'Compte introuvable.' });
         }
-        if (user.role !== 'ROUTIER') {
-          throw new ConflictException({
-            code: 'ACCOUNT_NOT_ROUTIER',
-            message: 'Seul un compte routier peut être rattaché à un profil routier.',
-          });
+        // Compte et fiche du même type (D185) : routier ↔ routier, adulte ↔ adulte.
+        if (user.role !== profile.kind) {
+          throw new ConflictException(
+            profile.kind === 'ADULTE'
+              ? {
+                  code: 'ACCOUNT_NOT_ADULT',
+                  message: 'Seul un compte adulte peut être rattaché à une fiche adulte.',
+                }
+              : {
+                  code: 'ACCOUNT_NOT_ROUTIER',
+                  message: 'Seul un compte routier peut être rattaché à un profil routier.',
+                },
+          );
         }
         // Mise à jour conditionnelle : un rattachement concurrent du même profil échoue au lieu d'écraser le premier.
         const { count } = await tx.scoutProfile.updateMany({

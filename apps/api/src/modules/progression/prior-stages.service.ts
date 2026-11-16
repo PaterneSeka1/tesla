@@ -27,6 +27,7 @@ import {
   recordPriorStages,
   toPriorStage,
 } from './prior-stages-common.js';
+import { assertRouteProfile } from '../scouts/route-profile.js';
 
 // Parcours antérieur reconnu (D181) : étapes accomplies avant l'arrivée sur la plateforme, reconnues
 // par le responsable plein en fonction (`progression.supervise`, revérifiée dans la transaction).
@@ -71,6 +72,7 @@ export class PriorStagesService {
   ): Promise<PriorStageRecognition> {
     assertCan(actor, 'progression.supervise');
     const { expectedUpdatedAt, ...data } = parseInput(recognizePriorStageInputSchema, input);
+    await assertRouteProfile(this.prisma, scoutProfileId);
     let row: RecognitionRow;
     try {
       row = await this.prisma.$transaction(async (tx) => {

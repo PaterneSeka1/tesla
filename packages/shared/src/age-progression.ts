@@ -174,6 +174,8 @@ export const THEORETICAL_STAGE_REASONS = [
   'AUCUN_REFERENTIEL',
   'AUCUNE_REGLE',
   'SORTI',
+  /** Apprenant adulte (D185) : hors progression de la Route, jamais « à régulariser ». */
+  'ADULTE',
 ] as const;
 
 export type TheoreticalStageReason = (typeof THEORETICAL_STAGE_REASONS)[number];
@@ -184,6 +186,7 @@ export const THEORETICAL_STAGE_REASON_LABELS: Record<TheoreticalStageReason, str
   AUCUN_REFERENTIEL: 'Aucun référentiel d’âge en vigueur',
   AUCUNE_REGLE: 'Aucune règle validée pour cet âge',
   SORTI: 'Sorti de la branche (limite d’âge atteinte)',
+  ADULTE: 'Adulte : hors progression de la Route',
 };
 
 /**
@@ -197,6 +200,7 @@ export const STAGE_STATUS_SHORT_LABELS: Record<TheoreticalStageReason, string> =
   AUCUN_REFERENTIEL: 'Étape non déterminée',
   AUCUNE_REGLE: 'Étape non déterminée',
   SORTI: 'Sorti de la branche',
+  ADULTE: 'Adulte',
 };
 
 export const MEMBERSHIP_STATUSES = ['ACTIF', 'SORTI'] as const;

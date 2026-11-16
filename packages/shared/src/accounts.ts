@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { paginationQuerySchema, searchQuerySchema } from './api.js';
-import { ROLES } from './roles.js';
+import { isLearnerRole, ROLES } from './roles.js';
 
 /**
  * Cycle de vie des comptes (D118–D121). Un compte est créé sans mot de passe par une personne
@@ -138,8 +138,8 @@ export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, string> = {
 };
 
 /**
- * Création d'un compte. `scoutProfileId` (compte routier) : rattachement à la fiche existante dans
- * la même transaction ; jamais de second profil.
+ * Création d'un compte. `scoutProfileId` (compte routier ou adulte) : rattachement à la fiche
+ * existante du même type dans la même transaction ; jamais de second profil.
  */
 export const createAccountInputSchema = z
   .object({
@@ -149,8 +149,8 @@ export const createAccountInputSchema = z
     role: z.enum(ROLES),
     scoutProfileId: z.uuid().optional(),
   })
-  .refine((input) => !input.scoutProfileId || input.role === 'ROUTIER', {
-    message: 'Seul un compte routier peut être rattaché à une fiche.',
+  .refine((input) => !input.scoutProfileId || isLearnerRole(input.role), {
+    message: 'Seul un compte routier ou adulte peut être rattaché à une fiche.',
     path: ['scoutProfileId'],
   });
 

@@ -23,6 +23,30 @@ const waiver = (overrides: object = {}) => ({
 });
 
 describe('Éligibilité aux évaluations', () => {
+  it('apprenant adulte (D185) : toute évaluation publiée, seule la limite de tentatives compte', () => {
+    const adult = { isActive: true, stageId: null, kind: 'ADULTE' as const };
+    expect(
+      computeEligibility(
+        facts({
+          profile: adult,
+          evaluationStageId: 'stage-depart',
+          membership: 'SORTI',
+          lockedByCatchUp: true,
+        }),
+      ),
+    ).toMatchObject({ status: 'ELIGIBLE', allowed: true });
+    const used = [
+      { id: 'a1', code: 'NT-2027-000001', mode: 'EN_LIGNE' as const, status: 'VALIDEE' as const },
+    ];
+    expect(
+      computeEligibility(facts({ profile: adult, maxAttempts: 1, attempts: used })),
+    ).toMatchObject({ status: 'LIMITE_ATTEINTE', allowed: false });
+    expect(computeEligibility(facts({ profile: { ...adult, isActive: false } }))).toMatchObject({
+      status: 'PROFIL_INACTIF',
+      allowed: false,
+    });
+  });
+
   it('accessible à l’étape correspondante, sans dérogation', () => {
     expect(computeEligibility(facts())).toMatchObject({ status: 'ELIGIBLE', allowed: true });
   });

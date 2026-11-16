@@ -52,6 +52,7 @@ import {
 } from './progression-common.js';
 import { isModuleLocked, loadCatchUpLock } from './catch-up-lock.js';
 import { computedStageOf, loadStageContext } from './computed-stage.js';
+import { assertRouteProfile } from '../scouts/route-profile.js';
 
 const toNumber = (value: { toNumber(): number } | null) =>
   value === null ? null : value.toNumber();
@@ -78,6 +79,7 @@ export class ScoutProgressionService {
   ): Promise<ModuleStudy> {
     assertCan(actor, 'moduleStudy.record');
     const data = parseInput(recordModuleStudyInputSchema, input);
+    await assertRouteProfile(this.prisma, scoutProfileId);
     if (data.studiedOn > todayIso()) {
       throw new UnprocessableEntityException({
         code: 'STUDY_DATE_IN_FUTURE',

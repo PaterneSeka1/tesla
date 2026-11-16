@@ -49,7 +49,7 @@ export class MembershipService {
     }
     const snapshot = toSnapshot(rules);
     const candidates = await this.prisma.scoutProfile.findMany({
-      where: { membershipStatus: 'ACTIF', birthDate: { not: null } },
+      where: { kind: 'ROUTIER', membershipStatus: 'ACTIF', birthDate: { not: null } },
       select: { id: true, birthDate: true },
     });
     report.examined = candidates.length;

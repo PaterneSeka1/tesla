@@ -50,6 +50,8 @@ export function stageAdmissionIssue(
 ): StageAdmissionIssue | null {
   switch (progression.reason) {
     case 'REGLE':
+    // Adulte (D185) : aucune étape exigée, jamais d'admission refusée.
+    case 'ADULTE':
       return null;
     case 'DATE_NAISSANCE_MANQUANTE':
       return 'BIRTH_DATE_REQUIRED';

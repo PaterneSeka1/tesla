@@ -51,7 +51,7 @@ type Reader = Pick<
 export async function diagnoseStages(db: Reader, today?: string): Promise<StageDiagnosis> {
   const context = await loadStageContext(db, today);
   const profiles = await db.scoutProfile.findMany({
-    where: { isActive: true, membershipStatus: 'ACTIF' },
+    where: { kind: 'ROUTIER', isActive: true, membershipStatus: 'ACTIF' },
     select: { id: true, birthDate: true, membershipStatus: true },
     orderBy: { createdAt: 'asc' },
   });

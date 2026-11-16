@@ -30,6 +30,7 @@ import { assertCanAtWrite } from '../auth/write-authority.js';
 import { toStageSummary, toUserSummary, userSummarySelect } from '../scouts/presenters.js';
 import { computedStageOf, loadStageContext, type StageContext } from './computed-stage.js';
 import { scoutProfileNotFound, scoutRefInclude, toScoutRef } from './progression-common.js';
+import { assertRouteProfile } from '../scouts/route-profile.js';
 
 // Correction exceptionnelle et temporaire de l'étape (procédure de secours, D176). Réservée au
 // responsable plein en fonction (`progression.supervise`, revérifiée dans la transaction). La
@@ -166,6 +167,7 @@ export class StageOverridesService {
   ): Promise<StageOverride> {
     assertCan(actor, 'progression.supervise');
     const data = parseInput(createStageOverrideInputSchema, input);
+    await assertRouteProfile(this.prisma, scoutProfileId);
     try {
       return await this.prisma.$transaction(async (tx) => {
         // Fonction du plein revérifiée au moment de l'écriture (remplacement concurrent : refus).

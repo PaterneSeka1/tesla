@@ -41,7 +41,7 @@ function toSessionUser(
   };
 }
 
-const CURRENT_ROLES = new Set<string>(['ROUTIER', 'ENCADREMENT', 'ADMINISTRATEUR']);
+const CURRENT_ROLES = new Set<string>(['ROUTIER', 'ADULTE', 'ENCADREMENT', 'ADMINISTRATEUR']);
 
 /** Sessions serveur : jeton opaque dans un cookie httpOnly, hash SHA-256 en base, révocables. */
 @Injectable()

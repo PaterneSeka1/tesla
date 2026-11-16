@@ -14,6 +14,8 @@ import {
   birthDateImpactSchema,
   type StagePreview,
   stagePreviewSchema,
+  createAdultProfileInputSchema,
+  type CreateAdultProfileInput,
   createScoutProfileInputSchema,
   linkAccountInputSchema,
   type Paginated,
@@ -78,6 +80,22 @@ export class ScoutsController {
     @Body() body: CreateScoutProfileInput,
   ): Promise<ScoutDetail> {
     const profile = await this.profiles.create(actor, body);
+    return this.profiles.get(actor, profile.id);
+  }
+
+  @Post('adults')
+  @ApiOperation({
+    summary: 'Inscrire un apprenant adulte sans compte (administrateur, responsable plein, D185)',
+    description:
+      'Nom, prénoms et sexe seulement : aucune étape, équipe ni date Route. 409 POSSIBLE_DUPLICATE si un homonyme existe.',
+  })
+  @ApiBody({ schema: openApiSchema(createAdultProfileInputSchema, 'input') })
+  @ApiCreatedResponse({ schema: openApiSchema(scoutDetailSchema) })
+  async createAdult(
+    @CurrentActor() actor: Actor,
+    @Body() body: CreateAdultProfileInput,
+  ): Promise<ScoutDetail> {
+    const profile = await this.profiles.createAdult(actor, body);
     return this.profiles.get(actor, profile.id);
   }
 
