@@ -133,6 +133,28 @@ try {
   check('5. réouverture directe sur le tableau de bord, sans réseau');
   await visibleText('Hors connexion').waitFor();
   check('indicateur discret « Hors connexion »');
+  // Logo chargé sans réseau, en-tête et sidebar dépliée puis repliée. (La coupure émulée ne
+  // s'applique pas aux requêtes du service worker : la perte du logo après expiration des copies
+  // optimisées se vérifie serveur arrêté, voir `logo-hors-ligne.browser.mjs`.)
+  const logoLoaded = () =>
+    page.waitForFunction(
+      () => {
+        const logos = [...document.querySelectorAll('img[alt^="Logo de la Communauté"]')].filter(
+          (img) => img.offsetParent !== null,
+        );
+        return logos.length > 0 && logos.every((img) => img.complete && img.naturalWidth > 0);
+      },
+      null,
+      { timeout: 10_000 },
+    );
+  await logoLoaded();
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await logoLoaded();
+  await page.getByRole('button', { name: 'Replier le menu' }).click();
+  await logoLoaded();
+  await page.getByRole('button', { name: 'Déplier le menu' }).click();
+  await page.setViewportSize(viewport);
+  check('logo affiché hors connexion (en-tête, sidebar dépliée et repliée)');
 
   await go('/modules');
   await page.getByText('Recette hors ligne').first().waitFor();

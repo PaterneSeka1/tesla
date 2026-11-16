@@ -4,6 +4,9 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Corrigé — logo hors connexion, 2026-11-16
+- Le logo s'affiche hors connexion à toutes les tailles (connexion, page de secours, en-tête, menu latéral) : il est servi sous l'adresse préchargée par le service worker au lieu d'une copie optimisée par taille, jamais garantie en cache. Recette `apps/web/test/logo-hors-ligne.browser.mjs`.
+
 ### Modifié — refonte mobile : navigation et leçons, 2026-11-16 (D182)
 - Barre de navigation inférieure pour tous les comptes sur téléphone et tablette (routier : Accueil, Cours, Parcours, Plus ; encadrement : Accueil, Routiers, Cours, Plus) ; menu « Plus » en feuille basse ; menu hamburger supprimé.
 - Sidebar desktop repliable, bouton à côté du logo.
