@@ -1,6 +1,22 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-16 — **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16). Même jour : **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-16 — **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16). Même jour : **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+
+## Installation de l'application (2026-11-16)
+
+Décision D184. Aucun déploiement. Interface web seulement : aucune route API, migration ni permission.
+
+### Réalisé
+- `src/lib/pwa-install.ts` (détection : application installée, iPhone/iPad, navigateur intégré, invitation native ; pages exclues) et `src/components/pwa/install-prompt.tsx` (modale), montée dans le layout racine sous `Suspense` ; script en ligne captant `beforeinstallprompt` avant React.
+- Manifeste : `id: '/'` ; balise `apple-mobile-web-app-capable` (Next 16 ne l'émet plus).
+- Entrée « Installer l'application » dans `UserMenu` (menu « Plus » et barre latérale), navigateur seulement (`useInstallGuide`), qui rouvre l'invitation.
+
+### Vérifications
+- `lint`, `typecheck`, `test` (web : 133, dont 5 pour D184), `build`.
+- Recette `installation-pwa.browser.mjs` : **11/11** (iPhone 13 sous WebKit, image Docker Playwright 1.64.1 ; Pixel 7 et ordinateur sous Chromium, invitation native simulée ; session fictive simulée pour le menu). Captures iPhone SE contrôlées.
+
+### Reste
+- Essai sur iPhone et Android réels, en HTTPS (préproduction) : installation effective, icône, ouverture plein écran.
 
 ## Sexe du routier (2026-11-16)
 

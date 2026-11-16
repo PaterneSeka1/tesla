@@ -4,6 +4,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — installation de l'application, 2026-11-16 (D184)
+- À l'ouverture d'un lien dans le navigateur, une fenêtre propose d'installer l'application : bouton « Installer » sur Android, Chrome et Edge ; étapes « Partager → Sur l'écran d'accueil » sur iPhone et iPad ; ouverture dans Safari ou Chrome depuis le navigateur intégré d'une autre application (Facebook, Instagram…).
+- Entrée « Installer l'application » dans le menu, uniquement dans le navigateur (jamais dans l'application installée).
+- « Plus tard » jusqu'à la fermeture de l'onglet ; « Elle est déjà installée » sur iPhone ; jamais dans l'application installée, sur un lien d'activation ou de réinitialisation, ni pendant une évaluation.
+- iOS : ouverture en plein écran rétablie sur les versions antérieures à 16.4.
+
 ### Ajouté — sexe du routier, 2026-11-16 (D183)
 - Champ « Sexe » (Garçon ou Fille), obligatoire à l'inscription d'un routier, affiché sur sa fiche ; il se corrige avec un motif journalisé et ne se retire pas. Les fiches existantes se complètent depuis « Modifier ».
 - Migration additive `20261120090000_scout_sex`.

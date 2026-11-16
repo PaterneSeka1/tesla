@@ -1,13 +1,14 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Smartphone } from 'lucide-react';
+import { Download, LogOut, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { lockVault } from '@/lib/offline/vault';
 import { listAttempts } from '@/lib/offline/attempts';
 import { listOperations } from '@/lib/offline/operations';
+import { openInstallPrompt, useInstallGuide } from '@/components/pwa/use-install-guide';
 import { logout } from '@/lib/api/auth';
 import { meQueryOptions } from '@/lib/api/auth';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,8 @@ export function UserMenu({
   const queryClient = useQueryClient();
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  // Navigateur seulement, jamais dans l'application installée (D184).
+  const installGuide = useInstallGuide();
 
   if (!data) return null;
 
@@ -56,6 +59,11 @@ export function UserMenu({
   };
 
   const { firstName, lastName } = data.user;
+  const install = () => {
+    onNavigate?.();
+    openInstallPrompt();
+  };
+
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   const light = tone === 'light';
   const itemClass = cn(
@@ -73,6 +81,17 @@ export function UserMenu({
         <Link href="/appareil" className={itemClass} aria-label="Cet appareil" title="Cet appareil">
           <Smartphone className="size-4 shrink-0" aria-hidden />
         </Link>
+        {installGuide && (
+          <button
+            type="button"
+            className={itemClass}
+            onClick={install}
+            aria-label="Installer l’application"
+            title="Installer l’application"
+          >
+            <Download className="size-4 shrink-0" aria-hidden />
+          </button>
+        )}
         <span
           role="img"
           aria-label={`${firstName} ${lastName}`}
@@ -100,6 +119,12 @@ export function UserMenu({
         <Smartphone className="size-4 shrink-0" aria-hidden />
         Cet appareil
       </Link>
+      {installGuide && (
+        <button type="button" className={itemClass} onClick={install}>
+          <Download className="size-4 shrink-0" aria-hidden />
+          Installer l’application
+        </button>
+      )}
       {/* Identité de la personne connectée : nom complet, jamais tronqué ni collé à un bouton. */}
       <div className="flex items-center gap-3 px-3 py-2">
         <span

@@ -179,6 +179,7 @@ Limites connues :
 - Fenêtre résiduelle : arrêt du serveur entre l'effet métier et l'enregistrement de la réponse → `OPERATION_UNCONFIRMED`, vérification humaine.
 - Révocation inconnue tant que l'appareil reste isolé (borne : 14 jours).
 - Après un déploiement, les pages non revisitées restent celles de la version préparée tant que la préparation n'est pas mise à jour.
+- **iPhone et iPad (D184)** : l'application installée depuis Safari (« Sur l'écran d'accueil ») a un stockage séparé de Safari (cookies, IndexedDB) : il faut s'y reconnecter et y préparer l'appareil. Safari ne sait pas si l'application est déjà installée ; l'invitation propose « Elle est déjà installée ».
 
 ## 12 bis. Corrections du 2026-10-30 (préparation à la production)
 
