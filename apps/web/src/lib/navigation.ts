@@ -58,7 +58,8 @@ const ACCESS_RULES: readonly AccessRule[] = [
   { path: '/appareil' },
   { path: '/modules', anyOf: ['module.read'] },
   { path: '/evaluations', anyOf: ['evaluation.take'] },
-  { path: '/mes-resultats', anyOf: OWN },
+  // Routiers et apprenants adultes (D185) : distinct du parcours Route.
+  { path: '/mes-resultats', anyOf: ['results.readOwn'] },
   { path: '/progression', anyOf: OWN },
   { path: '/mes-rattrapages', anyOf: OWN },
   { path: '/mes-competences', anyOf: OWN },
@@ -150,7 +151,8 @@ export interface NavGroup {
 /**
  * Menu unique en rubriques (au plus cinq pour un routier ou un membre de l'encadrement). Chaque page
  * n'apparaît qu'avec sa permission (`navigationFor`) ; une rubrique sans page autorisée disparaît.
- * Routier : Accueil, Cours, Évaluations, Mon parcours, Mon profil. Encadrement : Accueil, Routiers,
+ * Routier : Accueil, Cours, Évaluations, Mon parcours, Mon profil. Adulte (D185) : Accueil, Cours,
+ * Évaluations, Mon parcours (Résultats seulement), Mon profil. Encadrement : Accueil, Routiers,
  * Cours, Évaluations, Mon profil. Administrateur : Accueil, Mon profil, Administration.
  * Règle : aucune entrée vers un écran inexistant ou inaccessible (vérifié par `navigation.test.ts`).
  */
@@ -168,6 +170,12 @@ export const NAVIGATION: readonly NavGroup[] = [
         href: '/administration/routiers',
         label: 'Routiers',
         icon: Users,
+        permission: 'scout.read',
+      },
+      {
+        href: '/administration/adultes',
+        label: 'Adultes',
+        icon: UserRound,
         permission: 'scout.read',
       },
       {
@@ -337,7 +345,7 @@ export const NAVIGATION: readonly NavGroup[] = [
         href: '/mes-resultats',
         label: 'Résultats',
         icon: Trophy,
-        permission: 'progression.readOwn',
+        permission: 'results.readOwn',
       },
       {
         href: '/mes-competences',
@@ -406,6 +414,7 @@ export interface BottomTab extends NavItem {
  * « Plus » (toujours en dernière position, géré par l'interface). Ordre stable, jamais de rôle
  * affiché ; une seule barre, même pour une personne cumulant plusieurs responsabilités.
  * - parcours personnel : Accueil, Cours (bibliothèque), Parcours ;
+ * - apprenant adulte (D185) : Accueil, Cours, Évaluations ;
  * - encadrement : Accueil, Routiers, Cours (gestion pédagogique) ;
  * - administrateur : Accueil, Routiers (fiches, D173), Comptes.
  */
@@ -434,6 +443,14 @@ export function bottomTabsFor(user: NavUser): BottomTab[] {
       tabs.push({ href: '/encadrement/modules', label: 'Cours', icon: BookOpen, group: 'Cours' });
     else if (userCan(user, 'module.read'))
       tabs.push({ href: '/modules', label: 'Cours', icon: BookOpen, group: 'Cours' });
+    // Apprenant adulte (D185) : pas de parcours Route, les évaluations en onglet.
+    if (userCan(user, 'evaluation.take'))
+      tabs.push({
+        href: '/evaluations',
+        label: 'Évaluations',
+        icon: ClipboardCheck,
+        group: 'Évaluations',
+      });
     else if (userCan(user, 'account.read'))
       tabs.push({
         href: '/administration/comptes',

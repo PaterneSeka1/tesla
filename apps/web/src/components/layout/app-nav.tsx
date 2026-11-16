@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
  * uniquement : aucune décision n'est possible hors connexion (D133).
  */
 const OFFLINE_USER: NavUser = {
-  permissions: ['progression.readOwn', 'module.read', 'evaluation.take'],
+  permissions: ['progression.readOwn', 'results.readOwn', 'module.read', 'evaluation.take'],
 };
 
 /**

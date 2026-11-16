@@ -26,7 +26,8 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
   const queryClient = useQueryClient();
   const user = useSessionUser();
   // Équipes : décision du responsable plein ; l'administrateur ne gère que les données administratives.
-  const canAssign = userCan(user, 'team.assign');
+  // Un apprenant adulte (D185) n'a pas d'équipe.
+  const canAssign = scout.kind === 'ROUTIER' && userCan(user, 'team.assign');
   const teams = useQuery({ ...activeTeamsQueryOptions, enabled: canAssign });
   const [teamId, setTeamId] = useState('');
   const [email, setEmail] = useState('');
@@ -167,7 +168,8 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
                     email: newEmail,
                     firstName: scout.firstName,
                     lastName: scout.lastName,
-                    role: 'ROUTIER',
+                    // Compte du même type que la fiche (D185).
+                    role: scout.kind,
                     scoutProfileId: scout.id,
                   })
                 ).link;

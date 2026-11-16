@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { userCan } from '@/lib/navigation';
+import { adultSexLabel } from '../../adultes/adult-form';
 import { PathwaySection } from './pathway-section';
 import { BackLink } from '@/components/back-link';
 import { QueryError, TableSkeleton } from '@/components/query-state';
@@ -53,16 +54,20 @@ export function ScoutProfileView() {
   // Règles du calcul et exception de secours : responsable plein en fonction seulement (D176).
   const supervise = userCan(user, 'progression.supervise');
   const reasonLabels = supervise ? THEORETICAL_STAGE_REASON_LABELS : STAGE_STATUS_SHORT_LABELS;
+  // Apprenant adulte (D185) : identité, compte et évaluations seulement ; rien de la Route.
+  const adult = scout.kind === 'ADULTE';
+  const base = adult ? '/administration/adultes' : '/administration/routiers';
 
   return (
     <>
-      <BackLink href="/administration/routiers">Routiers</BackLink>
+      <BackLink href={base}>{adult ? 'Adultes' : 'Routiers'}</BackLink>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight text-tesla-bordeaux">
             {fullName(scout)}
           </h1>
           <div className="flex flex-wrap gap-2">
+            {adult && <Badge variant="secondary">Adulte</Badge>}
             {scout.isActive ? (
               <Badge variant="success">Actif</Badge>
             ) : (
@@ -74,7 +79,7 @@ export function ScoutProfileView() {
           // Téléphone : boutons compacts côte à côte (la fiche reste visible sans défiler).
           <div className="flex flex-wrap gap-2 max-sm:[&_[data-slot=button]]:h-10 max-sm:[&_[data-slot=button]]:px-3 max-sm:[&_[data-slot=button]]:text-[0.8125rem]">
             <Button asChild variant="outline">
-              <Link href={`/administration/routiers/${scout.id}/modifier`}>
+              <Link href={`${base}/${scout.id}/modifier`}>
                 <Pencil aria-hidden />
                 Compléter ou corriger
               </Link>
@@ -85,7 +90,7 @@ export function ScoutProfileView() {
       </div>
 
       {/* Anomalie (D181) : un routier actif a toujours une étape ; aucune étape de substitution. */}
-      {scout.isActive && !scout.stage && scout.stageReason !== 'SORTI' && (
+      {!adult && scout.isActive && !scout.stage && scout.stageReason !== 'SORTI' && (
         <Alert variant="destructive">
           <TriangleAlert aria-hidden />
           <AlertTitle>Fiche à régulariser : étape actuelle non déterminée</AlertTitle>
@@ -108,55 +113,69 @@ export function ScoutProfileView() {
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-3">
             <Detail label="Nom">{scout.lastName}</Detail>
             <Detail label="Prénoms">{scout.firstName}</Detail>
-            <Detail label="Matricule">
-              {scout.matricule ? (
-                <span className="font-mono">{scout.matricule}</span>
-              ) : (
-                <Missing>Matricule non renseigné</Missing>
-              )}
-            </Detail>
+            {!adult && (
+              <Detail label="Matricule">
+                {scout.matricule ? (
+                  <span className="font-mono">{scout.matricule}</span>
+                ) : (
+                  <Missing>Matricule non renseigné</Missing>
+                )}
+              </Detail>
+            )}
             <Detail label="Sexe">
-              {scout.sex ? SCOUT_SEX_LABELS[scout.sex] : <Missing>Sexe non renseigné</Missing>}
-            </Detail>
-            <Detail label="Équipe actuelle">
-              {scout.team ? (
-                <Link
-                  href={`/administration/equipes/${scout.team.id}`}
-                  className="text-tesla-rouge underline-offset-4 hover:underline"
-                >
-                  {scout.team.name}
-                </Link>
+              {scout.sex ? (
+                adult ? (
+                  adultSexLabel(scout.sex)
+                ) : (
+                  SCOUT_SEX_LABELS[scout.sex]
+                )
               ) : (
-                'Sans équipe'
+                <Missing>Sexe non renseigné</Missing>
               )}
             </Detail>
-            <Detail label="Étape actuelle">
-              {scout.stage ? (
-                scout.stage.name
-              ) : (
-                <Missing>
-                  Étape non déterminée
-                  {/* Le motif « date de naissance manquante » figure déjà sur le champ voisin. */}
-                  {scout.stageReason !== 'DATE_NAISSANCE_MANQUANTE' && (
-                    <span className="block text-xs">{reasonLabels[scout.stageReason]}</span>
+            {!adult && (
+              <>
+                <Detail label="Équipe actuelle">
+                  {scout.team ? (
+                    <Link
+                      href={`/administration/equipes/${scout.team.id}`}
+                      className="text-tesla-rouge underline-offset-4 hover:underline"
+                    >
+                      {scout.team.name}
+                    </Link>
+                  ) : (
+                    'Sans équipe'
                   )}
-                </Missing>
-              )}
-            </Detail>
-            <Detail label="Date d’entrée à la Route">
-              {scout.joinedAt ? (
-                formatDate(scout.joinedAt)
-              ) : (
-                <Missing>Date d’entrée non renseignée</Missing>
-              )}
-            </Detail>
-            <Detail label="Date de naissance">
-              {scout.birthDate ? (
-                formatDate(scout.birthDate)
-              ) : (
-                <Missing>Date de naissance non renseignée</Missing>
-              )}
-            </Detail>
+                </Detail>
+                <Detail label="Étape actuelle">
+                  {scout.stage ? (
+                    scout.stage.name
+                  ) : (
+                    <Missing>
+                      Étape non déterminée
+                      {/* Le motif « date de naissance manquante » figure déjà sur le champ voisin. */}
+                      {scout.stageReason !== 'DATE_NAISSANCE_MANQUANTE' && (
+                        <span className="block text-xs">{reasonLabels[scout.stageReason]}</span>
+                      )}
+                    </Missing>
+                  )}
+                </Detail>
+                <Detail label="Date d’entrée à la Route">
+                  {scout.joinedAt ? (
+                    formatDate(scout.joinedAt)
+                  ) : (
+                    <Missing>Date d’entrée non renseignée</Missing>
+                  )}
+                </Detail>
+                <Detail label="Date de naissance">
+                  {scout.birthDate ? (
+                    formatDate(scout.birthDate)
+                  ) : (
+                    <Missing>Date de naissance non renseignée</Missing>
+                  )}
+                </Detail>
+              </>
+            )}
             <Detail label="Compte">
               {scout.account ? (
                 <>
@@ -177,11 +196,11 @@ export function ScoutProfileView() {
         </CardContent>
       </Card>
 
-      {userCan(user, 'catchUp.read') && <PathwaySection scoutId={scout.id} user={user} />}
+      {!adult && userCan(user, 'catchUp.read') && <PathwaySection scoutId={scout.id} user={user} />}
 
-      {supervise && <StageSupervisionSection scoutId={scout.id} />}
+      {!adult && supervise && <StageSupervisionSection scoutId={scout.id} />}
 
-      {pedagogy && <PedagogicalFile scoutId={scout.id} />}
+      {pedagogy && <PedagogicalFile scoutId={scout.id} evaluationsOnly={adult} />}
     </>
   );
 }

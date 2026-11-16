@@ -31,7 +31,9 @@ const adjoint = persona('ENCADREMENT', 'ADJOINT');
 const assistant = persona('ENCADREMENT', 'ASSISTANT');
 const plein = persona('ENCADREMENT', 'PLEIN');
 const admin = persona('ADMINISTRATEUR');
-const ALL = { routier, encadrant, adjoint, assistant, plein, admin };
+/** Apprenant adulte (D185) : cours, évaluations et résultats, rien de la Route. */
+const adulte = persona('ADULTE');
+const ALL = { routier, adulte, encadrant, adjoint, assistant, plein, admin };
 
 /** Page App Router correspondant au chemin, dans `(espaces)/` ou à la racine. */
 function pageExists(href: string): boolean {
@@ -202,7 +204,7 @@ describe('navigation', () => {
     const groups = navigationFor(admin);
     expect(groups.map((group) => [group.label, group.items.map((item) => item.href)])).toEqual([
       ['Accueil', [HOME_ROUTE]],
-      ['Routiers', ['/administration/routiers']],
+      ['Routiers', ['/administration/routiers', '/administration/adultes']],
       ['Mon profil', ['/compte']],
       ['Administration', ['/administration/comptes', '/communaute']],
     ]);
@@ -243,6 +245,27 @@ describe('navigation', () => {
     expect(rubriques(admin)).toEqual(['Accueil', 'Routiers', 'Mon profil', 'Administration']);
   });
 
+  it('apprenant adulte (D185) : cours, évaluations et résultats, aucun parcours Route', () => {
+    expect(hrefs(adulte)).toEqual([
+      HOME_ROUTE,
+      '/modules',
+      '/evaluations',
+      '/mes-resultats',
+      '/compte',
+      '/communaute',
+    ]);
+    for (const path of ['/progression', '/mes-rattrapages', '/mes-competences', '/mes-activites']) {
+      expect(canAccessPath(adulte, path), path).toBe(false);
+    }
+    expect(canAccessPath(adulte, '/mes-resultats')).toBe(true);
+    expect(canAccessPath(adulte, '/administration/adultes')).toBe(false);
+    expect(bottomTabsFor(adulte).map((tab) => tab.href)).toEqual([
+      HOME_ROUTE,
+      '/modules',
+      '/evaluations',
+    ]);
+  });
+
   it('la rubrique active est celle de la page affichée', () => {
     const groups = navigationFor(plein);
     expect(findActiveGroup(groups, '/administration/modules/abc/revision')?.label).toBe('Cours');
@@ -259,6 +282,7 @@ describe('navigation', () => {
     expect(hrefs(admin)).toEqual([
       HOME_ROUTE,
       '/administration/routiers',
+      '/administration/adultes',
       '/compte',
       '/administration/comptes',
       '/communaute',

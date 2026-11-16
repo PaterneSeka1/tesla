@@ -167,13 +167,27 @@ function TimelineSection({ scoutId }: { scoutId: string }) {
   );
 }
 
-/** Dossier pédagogique complet du routier, avec ou sans compte. */
-export function PedagogicalFile({ scoutId }: { scoutId: string }) {
-  const [tab, setTab] = useState('competences');
+/**
+ * Dossier pédagogique complet du routier, avec ou sans compte. `evaluationsOnly` : apprenant adulte
+ * (D185), qui n'a ni compétences, ni formations, ni activités, ni observations de la Route.
+ */
+export function PedagogicalFile({
+  scoutId,
+  evaluationsOnly = false,
+}: {
+  scoutId: string;
+  evaluationsOnly?: boolean;
+}) {
+  const [tab, setTab] = useState(evaluationsOnly ? 'evaluations' : 'competences');
   const { data, error, isPending, refetch } = useQuery(scoutProgressionQueryOptions(scoutId));
 
   return (
-    <Tabs label="Dossier pédagogique" items={TABS} active={tab} onChange={setTab}>
+    <Tabs
+      label="Dossier pédagogique"
+      items={evaluationsOnly ? TABS.filter((item) => item.key === 'evaluations') : TABS}
+      active={tab}
+      onChange={setTab}
+    >
       {tab === 'observations' ? (
         <ObservationsSection scoutId={scoutId} />
       ) : tab === 'historique' ? (

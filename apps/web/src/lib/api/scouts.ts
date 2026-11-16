@@ -3,6 +3,7 @@ import {
   birthDateImpactSchema,
   type AssignTeamBody,
   type CreateObservationInput,
+  type CreateAdultProfileInput,
   type CreateScoutProfileInput,
   type LinkAccountInput,
   observationSchema,
@@ -90,6 +91,10 @@ export const createScout = (input: CreateScoutProfileInput) =>
         entity: { kind: 'scout', id: crypto.randomUUID() },
         creates: true,
       });
+
+/** Inscription d'un apprenant adulte (D185), en ligne seulement. */
+export const createAdult = (input: CreateAdultProfileInput) =>
+  apiSend('POST', '/scouts/adults', scoutDetailSchema, input);
 
 export const updateScout = (id: string, input: UpdateScoutProfileInput, name = 'Fiche') =>
   apiSend('PATCH', `/scouts/${id}`, scoutDetailSchema, input, {

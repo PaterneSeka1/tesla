@@ -184,12 +184,17 @@ async function prepare(
     }
   }
 
-  if (user.role === 'ROUTIER') {
+  if (userCan(user, 'progression.readOwn')) {
     progress('Parcours personnel…');
     await get(myDashboardQueryOptions, 'Tableau de bord');
     await get(myPathwayQueryOptions, 'Parcours');
     await get(myProgressionQueryOptions, 'Progression');
     await get(myActivitiesQueryOptions, 'Activités');
+  }
+
+  // Routier ou apprenant adulte (D185) : résultats et évaluations accessibles.
+  if (userCan(user, 'evaluation.take')) {
+    progress('Évaluations…');
     await get(myAttemptsQueryOptions({ page: 1, pageSize: 10 }), 'Résultats');
     const evaluations = await allPages<{ id: string }>(
       client,

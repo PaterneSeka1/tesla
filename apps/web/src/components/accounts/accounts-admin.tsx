@@ -8,6 +8,7 @@ import {
   type AccountLink,
   type AccountStatus,
   type Role,
+  isLearnerRole,
   ROLE_LABELS,
 } from '@tesla/shared';
 import { KeyRound, LogOut, Plus, Power, Search, UserRound } from 'lucide-react';
@@ -71,7 +72,9 @@ export function AccountsAdmin() {
   const deferredSearch = useDeferredValue(search.trim());
   const canManage = userCan(user, 'account.manage');
   const roles: Role[] =
-    user.role === 'ADMINISTRATEUR' ? ['ROUTIER', 'ENCADREMENT', 'ADMINISTRATEUR'] : ['ROUTIER'];
+    user.role === 'ADMINISTRATEUR'
+      ? ['ROUTIER', 'ADULTE', 'ENCADREMENT', 'ADMINISTRATEUR']
+      : ['ROUTIER', 'ADULTE'];
 
   const { data, error, isPending, refetch } = useQuery({
     ...accountsQueryOptions({
@@ -184,7 +187,7 @@ export function AccountsAdmin() {
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     {ROLE_LABELS[account.role]}
-                    {account.role === 'ROUTIER' && !account.scoutProfileId && (
+                    {isLearnerRole(account.role) && !account.scoutProfileId && (
                       <p className="text-xs text-muted-foreground">Sans fiche rattachée</p>
                     )}
                   </TableCell>

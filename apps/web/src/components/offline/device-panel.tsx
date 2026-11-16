@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { useSessionUser } from '@/components/auth/session-gate';
+import { userCan } from '@/lib/navigation';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { PageHeading } from '@/components/page-heading';
 import { Button } from '@/components/ui/button';
@@ -365,7 +366,7 @@ export function DevicePanel() {
             </CardContent>
           </Card>
 
-          {(user.role === 'ROUTIER' || attempts.length > 0) && (
+          {(userCan(user, 'evaluation.take') || attempts.length > 0) && (
             <Card>
               <CardHeader>
                 <CardTitle>Évaluations sur cet appareil</CardTitle>
