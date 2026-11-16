@@ -1,6 +1,26 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-16 — **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16). Même jour : **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-16 — **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+
+## Apprenants adultes (2026-11-16)
+
+Branche `feat/apprenants-adultes` (non poussée). Décision D185. Migration additive `20261121090000_learner_kind_adults` appliquée sur la base jetable `tesla_test` seulement. Aucun déploiement.
+
+### Réalisé
+- Modèle : `LearnerKind` (`ROUTIER`, `ADULTE`) sur `scout_profiles`, rôle `ADULTE` ; contrainte `scout_profiles_adult_fields_check` (ni matricule ni dates), trigger `scout_profiles_kind_frozen`, trigger `route_only_scout_profile` sur les 12 tables propres à la Route.
+- Calcul central : motif d'étape `ADULTE` (`computedStageOf`), éligibilité sans condition d'étape (`computeEligibility`, `loadEligibility`), `subject()` par permission (`evaluation.take`) et non plus par rôle.
+- Permissions : `ADULTE` = `module.read`, `evaluation.read`, `evaluation.take`, `results.readOwn` (nouvelle, aussi routiers), `leadership.read`.
+- API : `POST /scouts/adults`, liste `?kind=ADULTE`, champs Route refusés (`ADULT_NOT_IN_ROUTE`), comptes du même type que la fiche, plein habilité aux comptes adultes, « Mon profil » sans partie Route ; refus explicites (équipe, observation, étude, compétence, exception, parcours antérieur, dérogation) ; populations Route filtrées (statistiques, tableaux de bord, présences, distribution collective, résultats « concernés », tâche quotidienne, sortie, diagnostic).
+- Web : page « Adultes » (liste, inscription, fiche réduite, modification), accueil et onglets de l'adulte, « Mes résultats » sur `results.readOwn`, comptes, préparation hors ligne et appareil par permission.
+
+### Vérifications
+- `lint`, `typecheck`, `build` ; tests unitaires API 301, web 139 ; intégration complète sur `tesla_test` : 191 réussis, 1 ignoré (dont `apprenants-adultes.int-spec.ts`, 3 scénarios).
+- Captures WebKit (iPhone, session simulée) : accueil de l'adulte, formulaire « Nouvel adulte ».
+
+### Reste
+- Appliquer les migrations `scout_sex` et `learner_kind_adults` sur `tesla` (`npm run db:deploy`).
+- Recette navigateur complète (passation par un adulte, correction, résultat) ; pas de compte adulte de démonstration dans le seed.
+- À confirmer : observations refusées aux adultes ; accès des adultes à la composition de l'encadrement.
 
 ## Installation de l'application (2026-11-16)
 

@@ -4,6 +4,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — apprenants adultes, 2026-11-16 (D185)
+- Page « Adultes » (encadrement et administrateur) : liste, inscription (nom, prénoms, sexe) par l'administrateur ou le plein, fiche réduite (identité, compte, évaluations) et correction motivée.
+- Compte « Adulte (apprenant) » créé par invitation et rattaché à la fiche adulte ; le plein gère aussi ces comptes.
+- Un adulte lit les cours et passe toutes les évaluations publiées, sans condition d'étape ; ses copies sont corrigées et ses résultats publiés comme ceux des routiers ; accueil, onglets (Accueil, Cours, Évaluations) et « Mes résultats » dédiés.
+- Aucune donnée de la Route pour un adulte (étape, équipe, rattrapage, acquis, dérogation, observation, sortie) ; exclu des listes et statistiques des routiers.
+- Migration additive `20261121090000_learner_kind_adults` (type de fiche, rôle, contrainte et déclencheurs de protection).
+
 ### Ajouté — installation de l'application, 2026-11-16 (D184)
 - À l'ouverture d'un lien dans le navigateur, une fenêtre propose d'installer l'application : bouton « Installer » sur Android, Chrome et Edge ; étapes « Partager → Sur l'écran d'accueil » sur iPhone et iPad ; ouverture dans Safari ou Chrome depuis le navigateur intégré d'une autre application (Facebook, Instagram…).
 - Entrée « Installer l'application » dans le menu, uniquement dans le navigateur (jamais dans l'application installée).
