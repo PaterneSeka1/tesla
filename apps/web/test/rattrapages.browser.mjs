@@ -1,5 +1,6 @@
 /**
- * Recette navigateur des rattrapages par étape et du verrou des autres cours (D177).
+ * Recette navigateur des rattrapages par étape (D177) ; lecture des cours toujours libre, seules les
+ * évaluations des autres modules attendent la fin du rattrapage (D181).
  * Base « _test » isolée préparée par `apps/api/test/progression-browser-fixture.mts` (comptes fictifs).
  *   PLAYWRIGHT_MODULE=…/playwright-core/index.mjs CHROMIUM_PATH=… SHOTS_DIR=… \
  *   node apps/web/test/rattrapages.browser.mjs
@@ -66,41 +67,43 @@ for (const width of [360, 1440]) {
     .waitFor();
   await noHorizontalScroll(page, `/mes-rattrapages ${width}`);
   await shot(page, `rattrapages-${width}`);
-  // Catalogue : seul le module de l'étape en cours de rattrapage est ouvert.
+  // Catalogue (D181) : tous les cours restent ouverts ; les autres évaluations attendent.
   await page.goto(`${origin}/modules`);
-  await page.getByText('Terminez d’abord vos rattrapages').waitFor();
-  assert.equal(await page.getByRole('link', { name: /Accueil fictif/ }).count(), 1);
-  for (const title of ['Engagement fictif', 'Service fictif', 'Culture fictive']) {
-    await page.getByText(title).waitFor();
-    assert.equal(await page.getByRole('link', { name: new RegExp(title) }).count(), 0, title);
+  await page.getByText('Tous les cours restent consultables').waitFor();
+  for (const title of [
+    'Accueil fictif',
+    'Engagement fictif',
+    'Service fictif',
+    'Culture fictive',
+  ]) {
+    assert.equal(await page.getByRole('link', { name: new RegExp(title) }).count(), 1, title);
   }
+  await page.getByText('Évaluation après rattrapage').first().waitFor();
   await noHorizontalScroll(page, `/modules ${width}`);
   await shot(page, `catalogue-verrouille-${width}`);
   await context.close();
 }
 check(
-  'routier arrivé à 20 ans : Noviciat à rattraper en 21 jours, autres cours fermés (360, 1440 px)',
+  'routier arrivé à 20 ans : Noviciat à rattraper en 21 jours, cours ouverts, évaluations en attente (360, 1440 px)',
 );
 
 {
   const { context, page } = await session('retard', 1280);
-  // Accès direct : refusé par l'API et affiché comme tel.
+  // Accès direct : lecture libre (D181), aucune étude créée.
   const response = await page.request.get(`${api}/modules/service-fictif`);
-  assert.equal(response.status(), 403);
-  assert.equal((await response.json()).code, 'CATCH_UP_LOCKED');
+  assert.equal(response.status(), 200);
   await page.goto(`${origin}/modules/service-fictif`);
-  await page
-    .getByText(/Terminez d’abord vos rattrapages/)
-    .first()
-    .waitFor();
+  await page.getByRole('heading', { name: 'Service fictif' }).first().waitFor();
   await page.goto(`${origin}/modules/accueil-fictif`);
   await page.getByRole('heading', { name: 'Accueil fictif' }).first().waitFor();
-  check('routier : module fermé refusé (403 CATCH_UP_LOCKED), module à rattraper ouvert');
+  check('routier : tout module publié se lit pendant un rattrapage (D181)');
 
   await page.goto(`${origin}/progression`);
   await page.getByText('Préparation au Départ routier').first().waitFor();
-  await page.getByText('Fermé').first().waitFor();
-  check('routier : étape normale conservée (aucune rétrogradation), modules de l’étape fermés');
+  await page.getByText('Évaluation après rattrapage').first().waitFor();
+  check(
+    'routier : étape normale conservée (aucune rétrogradation), évaluations de l’étape en attente',
+  );
   await context.close();
 }
 

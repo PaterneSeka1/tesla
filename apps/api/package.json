@@ -22,6 +22,7 @@
     "db:studio": "prisma studio",
     "jobs:daily": "node dist/jobs/daily.js",
     "admin:create": "node dist/jobs/create-admin.js",
+    "diagnose:stages": "node dist/jobs/diagnose-stages.js",
     "pedagogy:release": "tsx prisma/seeds/mise-en-service.ts",
     "pedagogy:audit": "tsx prisma/seeds/audit-pedagogique.ts"
   },

@@ -2,7 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { STAGE_STATUS_SHORT_LABELS, THEORETICAL_STAGE_REASON_LABELS } from '@tesla/shared';
-import { Pencil } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Pencil, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSessionUser } from '@/components/auth/session-gate';
@@ -77,6 +78,22 @@ export function ScoutProfileView() {
           </div>
         )}
       </div>
+
+      {/* Anomalie (D181) : un routier actif a toujours une étape ; aucune étape de substitution. */}
+      {scout.isActive && !scout.stage && scout.stageReason !== 'SORTI' && (
+        <Alert variant="destructive">
+          <TriangleAlert aria-hidden />
+          <AlertTitle>Fiche à régulariser : étape actuelle non déterminée</AlertTitle>
+          <AlertDescription>
+            {scout.stageReason === 'DATE_NAISSANCE_MANQUANTE'
+              ? 'La date de naissance manque : elle seule permet de déterminer l’étape.'
+              : reasonLabels[scout.stageReason]}
+            {isResponsable
+              ? ' Complétez ou corrigez la fiche.'
+              : ' L’administrateur ou le responsable plein doit régulariser la fiche.'}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>

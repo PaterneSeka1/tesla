@@ -18,7 +18,9 @@ import { hashPassword } from '../src/modules/auth/password.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   birthDateIsoForStage,
+  birthDateForStage,
   createTestPrisma,
+  installTestAgeRules,
   resetDatabase,
   testDatabaseUrl,
 } from './int-database.js';
@@ -66,6 +68,7 @@ describe('Gouvernance des profils et progression automatique (D173, intégration
 
   beforeEach(async () => {
     await resetDatabase(prisma);
+    await installTestAgeRules(prisma);
   });
 
   async function login(role: 'ROUTIER' | 'ENCADREMENT' | 'ADMINISTRATEUR') {
@@ -106,6 +109,8 @@ describe('Gouvernance des profils et progression automatique (D173, intégration
   const scoutBody = (n: number, extra: object = {}) => ({
     firstName: 'Routier',
     lastName: `Fictif${n}`,
+    // Date de naissance obligatoire (D181) : compagnonnage selon le référentiel fictif.
+    birthDate: birthDateForStage('COMPAGNONNAGE').toISOString().slice(0, 10),
     ...extra,
   });
 
@@ -160,7 +165,7 @@ describe('Gouvernance des profils et progression automatique (D173, intégration
       data: { endedAt: new Date(), endReason: 'Fin fictive (tests)' },
     });
     await admin
-      .patch(`/scouts/${scout.id}`, { birthDate: '2008-05-10', matricule: '0000042B' })
+      .patch(`/scouts/${scout.id}`, { joinedAt: '2026-09-05', matricule: '0000042B' })
       .expect(200);
     // Le dossier pédagogique reste hors de portée de l'administrateur.
     expect(await errorCode(admin.get(`/scouts/${scout.id}/progression`), 403)).toBe('FORBIDDEN');
@@ -229,14 +234,15 @@ describe('Gouvernance des profils et progression automatique (D173, intégration
 
   it('profils protégés : pré-inscription incomplète, complétion, correction motivée, matricule unique', async () => {
     const { pleinA } = await community();
-    // Pré-inscription sans date d'entrée ni de naissance : aucune valeur fictive.
+    // D181 : sans date de naissance, l'étape est indéterminable ; inscription refusée.
+    await pleinA.post('/scouts', { firstName: 'Routier', lastName: 'SansDate' }).expect(400);
+    // Inscription sans date d'entrée ni matricule : aucune valeur fictive ; étape calculée.
     const scout = await json(pleinA.post('/scouts', scoutBody(1)), 201, scoutDetailSchema);
     expect(scout).toMatchObject({
       joinedAt: null,
-      birthDate: null,
       matricule: null,
-      stage: null,
-      stageReason: 'DATE_NAISSANCE_MANQUANTE',
+      stage: { code: 'COMPAGNONNAGE' },
+      stageReason: 'REGLE',
     });
     // Complétion : sans motif. Zéros initiaux conservés.
     await pleinA
@@ -263,7 +269,12 @@ describe('Gouvernance des profils et progression automatique (D173, intégration
     // Dates incohérentes refusées.
     expect(
       await errorCode(
-        pleinA.patch(`/scouts/${other.id}`, { birthDate: '2026-09-10', joinedAt: '2026-09-05' }),
+        pleinA.patch(`/scouts/${other.id}`, {
+          birthDate: '2026-09-10',
+          joinedAt: '2026-09-05',
+          reason: 'Correction fictive incohérente.',
+          confirmCorrection: true,
+        }),
         422,
       ),
     ).toBe('INVALID_DATE');

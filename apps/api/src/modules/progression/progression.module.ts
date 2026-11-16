@@ -13,6 +13,8 @@ import {
   ProgressionController,
   ScoutProgressionController,
 } from './progression.controller.js';
+import { PriorStagesController } from './prior-stages.controller.js';
+import { PriorStagesService } from './prior-stages.service.js';
 import { ProgressionService } from './progression.service.js';
 import { ScoutProgressionService } from './scout-progression.service.js';
 import { StageOverridesController } from './stage-overrides.controller.js';
@@ -33,6 +35,7 @@ import { StageOverridesService } from './stage-overrides.service.js';
     CompetencyValidationsController,
     PathwayController,
     StageOverridesController,
+    PriorStagesController,
   ],
   providers: [
     ProgressionService,
@@ -42,6 +45,7 @@ import { StageOverridesService } from './stage-overrides.service.js';
     PathwayService,
     MembershipService,
     StageOverridesService,
+    PriorStagesService,
   ],
   exports: [PathwayService, MembershipService],
 })

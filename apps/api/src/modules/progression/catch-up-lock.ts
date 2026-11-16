@@ -8,9 +8,11 @@ import { type Prisma, type ProgressionStage } from '../../generated/prisma/clien
 import { computedStageOf, type StageContext } from './computed-stage.js';
 
 // Verrou des rattrapages (D177), calculé à chaque lecture, sans tâche planifiée : tant qu'une étape
-// antérieure reste à rattraper, le routier n'accède qu'aux modules à rattraper de cette étape (et
-// des étapes déjà rattrapées, ainsi qu'aux textes qu'ils citent) ; les autres cours et évaluations
-// sont fermés. Les étapes se rattrapent dans l'ordre du parcours. Une obligation cesse de retenir
+// antérieure reste à rattraper, le routier n'évalue et ne déclare étudiés que les modules à
+// rattraper de cette étape (et des étapes déjà rattrapées, ainsi que les textes qu'ils citent) ;
+// les autres évaluations sont fermées. **La lecture des cours publiés reste toujours libre (D181)** :
+// ce verrou n'est jamais appliqué au catalogue, aux leçons, aux fichiers ni au paquet hors ligne.
+// Une étape reconnue au titre du parcours antérieur ne retient pas le routier (D181). Les étapes se rattrapent dans l'ordre du parcours. Une obligation cesse de retenir
 // le routier dès qu'un résultat est accepté (décision du responsable sur l'évaluation) ou qu'une
 // décision humaine (acquis, non applicable) est prise ; elle n'est jamais supprimée.
 
@@ -18,8 +20,27 @@ const iso = (date: Date): string => date.toISOString().slice(0, 10);
 
 type LockReader = Pick<
   Prisma.TransactionClient,
-  'catchUpObligation' | 'evaluationAttempt' | 'moduleTextLink' | 'scoutProfile'
+  | 'catchUpObligation'
+  | 'evaluationAttempt'
+  | 'moduleTextLink'
+  | 'scoutProfile'
+  | 'priorStageRecognition'
 >;
+
+/**
+ * Étapes reconnues au titre du parcours antérieur (D181), non révoquées : leurs rattrapages ne
+ * retiennent plus le routier et ne sont plus créés. Aucun module n'est pour autant déclaré acquis.
+ */
+export async function loadRecognizedStageIds(
+  db: Pick<Prisma.TransactionClient, 'priorStageRecognition'>,
+  scoutProfileId: string,
+): Promise<Set<string>> {
+  const rows = await db.priorStageRecognition.findMany({
+    where: { scoutProfileId, revokedAt: null },
+    select: { stageId: true },
+  });
+  return new Set(rows.map((row) => row.stageId));
+}
 
 /** Étapes dont la période est échue à la date de référence, avec leur date d'échéance. */
 export function endedStages(
@@ -115,8 +136,13 @@ export async function loadCatchUpLock(
     context.rules,
     context.today,
   );
+  const recognized = await loadRecognizedStageIds(db, profile.id);
   const candidates = obligations.filter(
-    (row) => row.decision === null && stillRequired(row) && ended.has(row.originStage.code),
+    (row) =>
+      row.decision === null &&
+      stillRequired(row) &&
+      ended.has(row.originStage.code) &&
+      !recognized.has(row.originStage.id),
   );
   if (candidates.length === 0) return NO_LOCK;
   const accepted = await db.evaluationAttempt.findMany({

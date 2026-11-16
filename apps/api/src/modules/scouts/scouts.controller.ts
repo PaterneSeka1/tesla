@@ -12,6 +12,8 @@ import {
   assignTeamBodySchema,
   type BirthDateImpact,
   birthDateImpactSchema,
+  type StagePreview,
+  stagePreviewSchema,
   createScoutProfileInputSchema,
   linkAccountInputSchema,
   type Paginated,
@@ -77,6 +79,18 @@ export class ScoutsController {
   ): Promise<ScoutDetail> {
     const profile = await this.profiles.create(actor, body);
     return this.profiles.get(actor, profile.id);
+  }
+
+  @Get('stage-preview')
+  @ApiOperation({
+    summary: 'Étape proposée par l’API pour une date de naissance, avant inscription (D181)',
+    description:
+      'Aucune écriture. `issue` non nul : l’inscription comme routier actif sera refusée (422 avec ce code).',
+  })
+  @ApiQuery({ name: 'birthDate', required: true, description: 'AAAA-MM-JJ' })
+  @ApiOkResponse({ schema: openApiSchema(stagePreviewSchema) })
+  stagePreview(@CurrentActor() actor: Actor, @Query() query: unknown): Promise<StagePreview> {
+    return this.profiles.stagePreview(actor, query);
   }
 
   @Get(':id')

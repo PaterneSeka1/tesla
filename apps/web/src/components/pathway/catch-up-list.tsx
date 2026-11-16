@@ -33,6 +33,7 @@ const STATUS_VARIANT: Record<
   EN_RETARD: 'destructive',
   NON_APPLICABLE: 'secondary',
   A_REEXAMINER: 'accent',
+  PARCOURS_ANTERIEUR: 'secondary',
 };
 
 const DECISION_LABELS: Record<CatchUpDecision, string> = {

@@ -24,7 +24,9 @@ import { hashPassword } from '../src/modules/auth/password.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   birthDateIsoForStage,
+  birthDateForStage,
   createTestPrisma,
+  installTestAgeRules,
   grantPersona,
   personaRole,
   resetDatabase,
@@ -80,6 +82,7 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
 
   beforeEach(async () => {
     await resetDatabase(prisma);
+    await installTestAgeRules(prisma);
   });
 
   /** Compte fictif avec adresse unique (le limiteur de connexion est partagé entre les tests). */
@@ -131,6 +134,8 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
     firstName: 'Routier',
     lastName: `Fictif${n}`,
     joinedAt: '2026-10-01',
+    // Date de naissance obligatoire (D181) : compagnonnage selon le référentiel fictif.
+    birthDate: birthDateForStage('COMPAGNONNAGE').toISOString().slice(0, 10),
     ...extra,
   });
 
@@ -472,9 +477,15 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
         ),
       ).toBe('STAGE_IS_COMPUTED');
       await responsable.post(`/scouts/${scout.id}/stage-changes`, {}).expect(404);
-      // Sans date de naissance : étape non déterminée, jamais une étape de substitution.
-      const unknown = await createScout(responsable, 3);
-      expect(unknown).toMatchObject({ stage: null, stageReason: 'DATE_NAISSANCE_MANQUANTE' });
+      // Fiche historique sans date de naissance (antérieure à D181) : étape non déterminée,
+      // jamais une étape de substitution. L'API refuse d'en créer de nouvelles.
+      await responsable.post('/scouts', scoutBody(3, { birthDate: undefined })).expect(400);
+      const unknown = await prisma.scoutProfile.create({
+        data: { firstName: 'Routier', lastName: 'Historique' },
+      });
+      expect(
+        await json(responsable.get(`/scouts/${unknown.id}`), 200, scoutDetailSchema),
+      ).toMatchObject({ stage: null, stageReason: 'DATE_NAISSANCE_MANQUANTE' });
       const stored = await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } });
       expect(stored.currentStageId).toBeNull();
       // Filtre par étape calculée.

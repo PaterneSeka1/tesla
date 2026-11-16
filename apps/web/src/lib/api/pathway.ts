@@ -9,6 +9,10 @@ import {
   type CreateStageOverrideInput,
   type LiftStageOverrideInput,
   pathwayOverviewSchema,
+  priorStageListSchema,
+  priorStageRecognitionSchema,
+  type RecognizePriorStageInput,
+  type RevokePriorStageInput,
   type PreviewStageOverrideInput,
   scoutPathwaySchema,
   stageOverridePreviewSchema,
@@ -69,3 +73,18 @@ export const createStageOverride = (scoutId: string, input: CreateStageOverrideI
 
 export const liftStageOverride = (overrideId: string, input: LiftStageOverrideInput) =>
   apiSend('POST', `/stage-overrides/${overrideId}/lift`, stageOverrideSchema, input);
+
+// Parcours antérieur reconnu (D181) : lecture par l'encadrement ; reconnaissance et révocation par
+// le responsable plein, en ligne seulement (décisions officielles, jamais mises en file).
+
+export const priorStagesQueryOptions = (scoutId: string) =>
+  queryOptions({
+    queryKey: ['pathway', 'prior-stages', scoutId],
+    queryFn: () => apiFetch(`/scouts/${scoutId}/prior-stages`, priorStageListSchema),
+  });
+
+export const recognizePriorStage = (scoutId: string, input: RecognizePriorStageInput) =>
+  apiSend('POST', `/scouts/${scoutId}/prior-stages`, priorStageRecognitionSchema, input);
+
+export const revokePriorStage = (recognitionId: string, input: RevokePriorStageInput) =>
+  apiSend('POST', `/prior-stages/${recognitionId}/revoke`, priorStageRecognitionSchema, input);

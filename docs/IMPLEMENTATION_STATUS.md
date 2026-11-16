@@ -1,9 +1,31 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-15 — **refonte UX : éditeur pédagogique, enregistrement automatique, mot de passe unique hors connexion** (D178–D180), voir [§ Refonte UX](#refonte-ux-2026-11-15).
+Dernière mise à jour : 2026-11-16 — **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
 
 
 
+
+## Parcours officiel (2026-11-16)
+
+Branche `feat/parcours-anterieur-progression` (depuis `main` 23b1331, **non commitée, non poussée**). Décision D181. Migration additive `20261119090000_prior_stage_recognitions` appliquée sur la base jetable `tesla_parcours_test` seulement. Aucun déploiement ; base `tesla` et production intouchées (lecture seule pour l'audit). Audit : [QUALITY/AUDIT_PARCOURS_ROUTIERS_2026-11-16.md](QUALITY/AUDIT_PARCOURS_ROUTIERS_2026-11-16.md) ; fonctionnel : [FEATURES/PARCOURS_ANTERIEUR.md](FEATURES/PARCOURS_ANTERIEUR.md).
+
+### Réalisé
+- Invariant « routier actif = une étape » : date de naissance obligatoire, refus explicite si l'étape est indéterminable (inscription, correction, réactivation), aperçu serveur `GET /scouts/stage-preview`, trigger SQL contre le retrait de la date.
+- Parcours antérieur : `prior_stage_recognitions` (plein seul, historisé, révocable), à l'inscription et depuis la fiche ; rattrapages de l'étape reconnue non créés et non bloquants, aucun acquis fabriqué.
+- Parcours : frise `timeline` (reconnue / période terminée / en cours / à venir), `priorStages`, indicateurs séparés côté routier ; panneau « Parcours antérieur » de la fiche.
+- Lecture libre de tous les cours publiés (catalogue, leçons, impression, PDF, fichiers, hors ligne) ; verrou D177 limité aux évaluations et déclarations d'étude.
+- Fiches sans étape signalées « À régulariser » ; diagnostic en lecture seule `npm run diagnose:stages -w @tesla/api`.
+
+### Vérifications (2026-11-16, local)
+- `npm run lint`, `npm run typecheck`, `npm run build` : réussis ; `npm run format:check` : 3 avertissements **préexistants** sur `main` (fichiers non modifiés).
+- `npm run test` : API **297**, web **112** réussis.
+- Intégration (`tesla_parcours_test`, `NODE_ENV=test`) : 25 fichiers, **188 réussis**, 1 ignoré (classeur réel absent, préexistant), dont `parcours-anterieur.int-spec.ts` 5/5. Fixtures adaptées (inscription sans date de naissance désormais refusée). `prisma migrate diff` : aucune dérive.
+- Recettes Chromium (API et web compilés, fixture fictive) : `parcours-anterieur.browser.mjs` **15/15** (360, 768, 1440 px), `rattrapages.browser.mjs` **4/4** (adaptée à D181), `progression-exception.browser.mjs` **8/8**, `offline-first.browser.mjs` **25/25**.
+
+### Restant
+- Base `tesla` : 21 routiers actifs sans date de naissance, `2026.2` non appliqué : appliquer migrations et seed, compléter les dates, reconnaître les parcours antérieurs, puis relancer le diagnostic. Contrainte `NOT NULL` à poser ensuite.
+- Bibliothèque : filtre « Mon étape » ajouté ; onglet « Cours terminés » non réalisé (aucune donnée « terminé » côté catalogue).
+- À valider : déclaration d'étude fermée pendant un rattrapage, visibilité de l'observation de reconnaissance par l'adjoint et les assistants.
 
 ## Refonte UX (2026-11-15)
 

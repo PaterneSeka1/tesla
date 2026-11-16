@@ -462,6 +462,8 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
   it('modification de la date de naissance : ancienne et nouvelle valeur journalisées', async () => {
     const { client: admin } = await bootstrapAdmin();
     const { client: pleinClient } = await plein(admin);
+    // Référentiel fictif : 2006-05-10 et 2006-06-10 donnent une étape déterminée (D181).
+    await birthDateIsoForStage(prisma, 'NOVICIAT');
     const scout = await json(
       pleinClient.post('/scouts', {
         firstName: 'Fictif',

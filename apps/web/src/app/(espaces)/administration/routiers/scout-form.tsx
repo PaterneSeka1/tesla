@@ -3,8 +3,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  civilDateAt,
   matriculeSchema,
   normalizeMatricule,
+  STAGE_ADMISSION_ISSUES,
   SCOUT_ADMIN_FIELD_LABELS,
   type ScoutAdminField,
   type ScoutDetail,
@@ -25,7 +27,15 @@ import { OFFLINE_SAVED } from '@/components/progression/use-pedagogy-action';
 import { useToast } from '@/components/ui/toaster';
 import { OfflineQueuedError } from '@/lib/offline/operations';
 import { ApiError } from '@/lib/api/client';
-import { birthDateImpactQueryOptions, createScout, updateScout } from '@/lib/api/scouts';
+import {
+  birthDateImpactQueryOptions,
+  createScout,
+  stagePreviewQueryOptions,
+  updateScout,
+} from '@/lib/api/scouts';
+import { useSessionUser } from '@/components/auth/session-gate';
+import { userCan } from '@/lib/navigation';
+import { cn } from '@/lib/utils';
 import { activeTeamsQueryOptions } from '@/lib/api/teams';
 import { formatDate } from '@/lib/format';
 
@@ -104,6 +114,165 @@ function BirthDateImpact({ scoutId, birthDate }: { scoutId: string; birthDate: s
   );
 }
 
+type Situation = 'NOUVEAU' | 'PARCOURS';
+
+/** Étapes antérieures cochées (parcours antérieur) : date de fin facultative. */
+type PriorSelection = Record<string, { checked: boolean; completedOn: string }>;
+
+/**
+ * Étape proposée par l'API pour la date de naissance saisie (D181) : jamais calculée dans le
+ * navigateur. Bloque l'inscription si l'étape ne peut pas être déterminée.
+ */
+function StageProposal({
+  birthDate,
+  situation,
+  onSituation,
+  canRecognize,
+  prior,
+  onPrior,
+}: {
+  birthDate: string;
+  situation: Situation;
+  onSituation: (value: Situation) => void;
+  canRecognize: boolean;
+  prior: PriorSelection;
+  onPrior: (value: PriorSelection) => void;
+}) {
+  const preview = useQuery({
+    ...stagePreviewQueryOptions(birthDate),
+    enabled: z.iso.date().safeParse(birthDate).success,
+  });
+  const today = civilDateAt(new Date());
+  if (!z.iso.date().safeParse(birthDate).success) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Saisissez la date de naissance : l’étape sera proposée automatiquement.
+      </p>
+    );
+  }
+  if (preview.isPending) return <p className="text-sm text-muted-foreground">Calcul de l’étape…</p>;
+  if (preview.error || !preview.data) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Étape indisponible hors connexion : elle sera vérifiée par le serveur à l’envoi.
+      </p>
+    );
+  }
+  const data = preview.data;
+  if (data.issue) {
+    return (
+      <Alert variant="destructive" aria-live="polite">
+        <TriangleAlert aria-hidden />
+        <AlertTitle>Impossible de déterminer l’étape actuelle</AlertTitle>
+        <AlertDescription>{data.message}</AlertDescription>
+      </Alert>
+    );
+  }
+  const options: { value: Situation; title: string; text: string }[] = [
+    {
+      value: 'NOUVEAU',
+      title: 'Nouveau routier',
+      text: 'Il commence son parcours dans la branche Route.',
+    },
+    {
+      value: 'PARCOURS',
+      title: 'Routier ayant déjà un parcours',
+      text: 'Il a accompli des étapes avant son arrivée sur la plateforme.',
+    },
+  ];
+  return (
+    <div className="space-y-3" aria-live="polite">
+      <p className="rounded-lg border bg-card p-3 text-sm">
+        Étape actuelle : <strong>{data.stage?.name}</strong>
+        <span className="text-muted-foreground"> · déterminée par l’âge ({data.age} ans)</span>
+      </p>
+      {data.priorStages.length > 0 && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Situation pédagogique</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {options.map((option) => (
+              <label
+                key={option.value}
+                className={cn(
+                  'flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm focus-within:ring-2 focus-within:ring-ring',
+                  situation === option.value && 'border-tesla-bordeaux',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="situation"
+                  className="mt-1 accent-tesla-rouge"
+                  checked={situation === option.value}
+                  onChange={() => onSituation(option.value)}
+                />
+                <span>
+                  <span className="block font-medium">{option.title}</span>
+                  <span className="text-muted-foreground">{option.text}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {situation === 'PARCOURS' &&
+        data.priorStages.length > 0 &&
+        (canRecognize ? (
+          <fieldset className="space-y-2 rounded-lg border p-3">
+            <legend className="px-1 text-sm font-medium">Étapes déjà accomplies</legend>
+            <p className="text-sm text-muted-foreground">
+              Reconnaissance officielle : ses rattrapages ne seront pas exigés ; aucun module n’est
+              déclaré acquis.
+            </p>
+            {data.priorStages.map((stage) => {
+              const value = prior[stage.id] ?? { checked: false, completedOn: '' };
+              const dateId = `prior-${stage.id}`;
+              return (
+                <div key={stage.id} className="grid items-center gap-2 sm:grid-cols-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-tesla-rouge"
+                      checked={value.checked}
+                      onChange={(event) =>
+                        onPrior({
+                          ...prior,
+                          [stage.id]: { ...value, checked: event.target.checked },
+                        })
+                      }
+                    />
+                    {stage.name}
+                  </label>
+                  {value.checked && (
+                    <label className="flex items-center gap-2 text-sm" htmlFor={dateId}>
+                      <span className="shrink-0 text-muted-foreground">Fin (facultatif)</span>
+                      <Input
+                        id={dateId}
+                        type="date"
+                        max={today}
+                        value={value.completedOn}
+                        onChange={(event) =>
+                          onPrior({
+                            ...prior,
+                            [stage.id]: { ...value, completedOn: event.target.value },
+                          })
+                        }
+                      />
+                    </label>
+                  )}
+                </div>
+              );
+            })}
+          </fieldset>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            La reconnaissance du parcours antérieur relève du responsable plein : enregistrez le
+            routier, puis il la fera depuis la fiche.
+          </p>
+        ))}
+    </div>
+  );
+}
+
 /**
  * Inscription (sans `scout`) ou gestion administrative d'une fiche routier (administrateur ou
  * responsable plein). Aucun champ e-mail ni mot de passe : l'inscription ne crée jamais de compte.
@@ -121,6 +290,10 @@ export function ScoutForm({
   const router = useRouter();
   const teams = useQuery({ ...activeTeamsQueryOptions, enabled: !scout });
   const [duplicate, setDuplicate] = useState<FormValues | null>(null);
+  const user = useSessionUser();
+  const canRecognize = userCan(user, 'progression.supervise');
+  const [situation, setSituation] = useState<Situation>('NOUVEAU');
+  const [prior, setPrior] = useState<PriorSelection>({});
   const {
     register,
     handleSubmit,
@@ -150,7 +323,28 @@ export function ScoutForm({
   const birthDateCorrected =
     corrections.includes('birthDate') && z.iso.date().safeParse(birthDate).success;
 
+  const preview = useQuery({
+    ...stagePreviewQueryOptions(birthDate),
+    enabled: !scout && z.iso.date().safeParse(birthDate).success,
+  });
+  // Invariant (D181) : l'inscription est bloquée tant que l'API ne détermine pas d'étape.
+  const blocked = !scout && Boolean(preview.data?.issue);
+  const priorStages =
+    !scout && situation === 'PARCOURS' && canRecognize
+      ? (preview.data?.priorStages ?? [])
+          .filter((stage) => prior[stage.id]?.checked)
+          .map((stage) => ({
+            stageId: stage.id,
+            ...(prior[stage.id]?.completedOn && { completedOn: prior[stage.id]!.completedOn }),
+          }))
+      : [];
+
   const save = async (values: FormValues, confirmDuplicate = false) => {
+    if (!values.birthDate && (!scout || scout.birthDate)) {
+      return setError('birthDate', {
+        message: 'La date de naissance est obligatoire : elle détermine l’étape du routier.',
+      });
+    }
     if (corrections.length > 0) {
       if (values.reason.trim().length < 5) {
         return setError('reason', {
@@ -183,17 +377,20 @@ export function ScoutForm({
             lastName: values.lastName,
             firstName: values.firstName,
             matricule: values.matricule || undefined,
-            birthDate: values.birthDate || undefined,
+            birthDate: values.birthDate,
             joinedAt: values.joinedAt || undefined,
             teamId: values.teamId || undefined,
+            ...(priorStages.length > 0 && { priorStages }),
             confirmDuplicate: confirmDuplicate || undefined,
           });
       setDuplicate(null);
       await queryClient.invalidateQueries({ queryKey: ['scouts'] });
       await queryClient.invalidateQueries({ queryKey: ['teams'] });
       toast.success(
-        scout ? 'Fiche modifiée' : 'Routier enregistré',
-        `${saved.firstName} ${saved.lastName}`,
+        scout ? 'Fiche modifiée' : 'Routier enregistré avec succès.',
+        priorStages.length > 0
+          ? `${saved.firstName} ${saved.lastName} · parcours antérieur reconnu.`
+          : `${saved.firstName} ${saved.lastName}`,
       );
       onSaved(saved);
     } catch (error) {
@@ -211,6 +408,12 @@ export function ScoutForm({
           return setError('matricule', { message: error.message });
         }
         if (error.code === 'INVALID_DATE') return setError('joinedAt', { message: error.message });
+        if ((STAGE_ADMISSION_ISSUES as readonly string[]).includes(error.code)) {
+          return setError('birthDate', { message: error.message });
+        }
+        if (error.status === 403) {
+          return toast.error('Vous n’êtes pas autorisé à effectuer cette opération.');
+        }
       }
       toast.error('Enregistrement impossible', error instanceof Error ? error.message : undefined);
     }
@@ -254,6 +457,7 @@ export function ScoutForm({
         <FormField
           id="birthDate"
           label="Date de naissance"
+          required
           hint="Détermine l’étape."
           error={errors.birthDate?.message}
         >
@@ -288,6 +492,20 @@ export function ScoutForm({
           </FormField>
         )}
       </div>
+
+      {!scout && (
+        <section className="space-y-2" aria-label="Étape et situation pédagogique">
+          <h2 className="text-base font-semibold">Étape et parcours</h2>
+          <StageProposal
+            birthDate={birthDate}
+            situation={situation}
+            onSituation={setSituation}
+            canRecognize={canRecognize}
+            prior={prior}
+            onPrior={setPrior}
+          />
+        </section>
+      )}
 
       {corrections.length > 0 && (
         <Alert variant="info" aria-live="polite">
@@ -355,7 +573,7 @@ export function ScoutForm({
         </Alert>
       )}
 
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" disabled={isSubmitting || blocked}>
         {isSubmitting
           ? 'Enregistrement…'
           : scout

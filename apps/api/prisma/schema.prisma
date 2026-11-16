@@ -112,6 +112,8 @@ model User {
   membershipEvents             RouteMembershipEvent[]
   stageOverridesCreated        StageOverride[]           @relation("StageOverrideCreatedBy")
   stageOverridesLifted         StageOverride[]           @relation("StageOverrideLiftedBy")
+  priorStagesRecorded          PriorStageRecognition[]   @relation("PriorStageRecordedBy")
+  priorStagesRevoked           PriorStageRecognition[]   @relation("PriorStageRevokedBy")
   scoutYearsCreated            ScoutYear[]
   mandates                     LeadershipMandate[]       @relation("MandateHolder")
   mandatesRecorded             LeadershipMandate[]       @relation("MandateRecordedBy")
@@ -211,6 +213,7 @@ model ScoutProfile {
   catchUpObligations    CatchUpObligation[]
   membershipEvents      RouteMembershipEvent[]
   stageOverrides        StageOverride[]
+  priorStages           PriorStageRecognition[]
 
   @@index([currentStageId])
   @@index([membershipStatus])
@@ -243,6 +246,7 @@ model ProgressionStage {
   catchUpObligations  CatchUpObligation[]
   stageOverrides      StageOverride[]     @relation("StageOverrideStage")
   stageOverridesFrom  StageOverride[]     @relation("StageOverrideComputedStage")
+  priorRecognitions   PriorStageRecognition[]
 
   @@map("progression_stages")
 }
@@ -2059,4 +2063,35 @@ model MedicalRecord {
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@map("medical_records")
+}
+
+/// Parcours antérieur reconnu (D181) : étape accomplie **avant** l'arrivée du routier sur la
+/// plateforme, reconnue par le responsable plein en fonction. Validation historique d'étape, jamais
+/// une validation de module ni d'acquis ; dispense seulement des rattrapages de cette étape.
+/// Jamais supprimée ni modifiée : seule une révocation motivée (une fois) est enregistrée.
+model PriorStageRecognition {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  scoutProfileId String    @map("scout_profile_id") @db.Uuid
+  stageId        String    @map("stage_id") @db.Uuid
+  /// Date de fin de l'étape si elle est connue (jamais inventée).
+  completedOn    DateTime? @map("completed_on") @db.Date
+  /// Observation ou justification facultative (encadrement seulement).
+  note           String?
+  recordedById   String    @map("recorded_by_id") @db.Uuid
+  recordedAt     DateTime  @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedById    String?   @map("revoked_by_id") @db.Uuid
+  revokeReason   String?   @map("revoke_reason")
+
+  scoutProfile ScoutProfile     @relation(fields: [scoutProfileId], references: [id], onDelete: Restrict)
+  stage        ProgressionStage @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  recordedBy   User             @relation("PriorStageRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  revokedBy    User?            @relation("PriorStageRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+
+  @@index([scoutProfileId])
+  @@index([stageId])
+  @@index([recordedById])
+  @@index([revokedById])
+  @@unique([scoutProfileId, stageId], map: "prior_stage_recognitions_active_key", where: raw("revoked_at IS NULL"))
+  @@map("prior_stage_recognitions")
 }

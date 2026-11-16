@@ -406,9 +406,16 @@ describe('Exception de secours de l’étape (intégration PostgreSQL)', () => {
     for (const client of [adjoint, assistant]) {
       const pathway = await json(client.get(`/scouts/${scoutId}/pathway`), 200, scoutPathwaySchema);
       expect(pathway.age.ruleSetVersion).toBeNull();
-      const raw = JSON.stringify(pathway);
+      // La frise (D181) liste toutes les étapes dans l'ordre, sans révéler l'étape normale.
+      const raw = JSON.stringify({ ...pathway, timeline: [] });
       expect(raw).not.toContain('absence');
       expect(raw).not.toContain('COMPAGNONNAGE');
+      expect(pathway.timeline.find((step) => step.status === 'EN_COURS')?.stage.code).toBe(
+        'APPRENTISSAGE',
+      );
+      expect(pathway.timeline.find((step) => step.stage.code === 'COMPAGNONNAGE')?.status).toBe(
+        'A_VENIR',
+      );
       const overview = await json(client.get('/statistics/pathways'), 200, pathwayOverviewSchema);
       expect(overview.ruleSetVersion).toBeNull();
     }

@@ -224,7 +224,12 @@ export function ScoutList() {
                     {scout.team?.name ?? 'Sans équipe'}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {scout.stage?.name ?? 'Non déterminée'}
+                    {scout.stage?.name ??
+                      (scout.isActive && scout.stageReason !== 'SORTI' ? (
+                        <Badge variant="destructive">À régulariser</Badge>
+                      ) : (
+                        'Non déterminée'
+                      ))}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
                     {scout.hasAccount ? (

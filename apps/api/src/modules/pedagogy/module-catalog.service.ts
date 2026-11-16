@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { offlineModulePackageSchema, printableModuleSchema } from '@tesla/shared';
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   type CatalogLesson,
   type CatalogModule,
@@ -71,19 +71,12 @@ function toCatalogModule(
   };
 }
 
-/** Module fermé tant que les rattrapages de l'étape en cours ne sont pas terminés (D177). */
-function catchUpLocked(lock: ComputedCatchUpLock): ForbiddenException {
-  return new ForbiddenException({
-    code: 'CATCH_UP_LOCKED',
-    message: `Terminez d’abord vos rattrapages${lock.stage ? ` de l’étape ${lock.stage.name}` : ''}.`,
-  });
-}
-
 /**
  * Bibliothèque : uniquement la version publiée courante de chaque module, pour tout utilisateur
- * authentifié. La consultation n'est pas conditionnée à l'étape du routier (règle pédagogique 1),
- * sauf rattrapage en cours (D177, décision du responsable) : le routier n'ouvre alors que ses
- * modules à rattraper, les autres restent listés mais fermés. Aucun brouillon n'est exposé.
+ * authentifié. **Lecture libre (D181)** : la consultation, l'impression et le paquet hors ligne ne
+ * sont jamais conditionnés à l'étape ni aux rattrapages. `locked` signale seulement que l'évaluation
+ * et la déclaration d'étude du module attendent la fin des rattrapages en cours (D177). Aucun
+ * brouillon n'est exposé.
  */
 @Injectable()
 export class ModuleCatalogService {
@@ -157,7 +150,6 @@ export class ModuleCatalogService {
         },
       },
     });
-    await this.assertOpen(actor, module.id);
     return {
       ...toCatalogModule(module, version),
       objectives: version.objectives,
@@ -177,7 +169,6 @@ export class ModuleCatalogService {
   async practicalSheet(actor: Actor, slug: string, key: string): Promise<PracticalSheet> {
     assertCan(actor, 'module.read');
     const { module } = await this.published(slug, {});
-    await this.assertOpen(actor, module.id);
     const attached = practicalSheetsFor(await this.sourceKeyOf(module.id));
     const sheet = attached.some((item) => item.key === key)
       ? PRACTICAL_SHEETS.find((item) => item.key === key)
@@ -196,7 +187,6 @@ export class ModuleCatalogService {
     const { module, version } = await this.published(slug, {
       lessons: { select: lessonSummarySelect, orderBy: { position: 'asc' } },
     });
-    await this.assertOpen(actor, module.id);
     const index = version.lessons.findIndex((lesson) => lesson.id === lessonId);
     if (index === -1) throw lessonNotFound();
     const lesson = await this.prisma.moduleLesson.findUniqueOrThrow({
@@ -243,7 +233,6 @@ export class ModuleCatalogService {
         orderBy: { createdAt: 'asc' },
       },
     });
-    await this.assertOpen(actor, module.id);
     return {
       ...toCatalogModule(module, version),
       objectives: version.objectives,
@@ -297,11 +286,6 @@ export class ModuleCatalogService {
   /** Verrou des rattrapages du routier connecté (aucun pour l'encadrement). */
   private async lockOf(actor: Actor): Promise<ComputedCatchUpLock> {
     return loadActorCatchUpLock(this.prisma, actor, await loadStageContext(this.prisma));
-  }
-
-  private async assertOpen(actor: Actor, moduleId: string): Promise<void> {
-    const lock = await this.lockOf(actor);
-    if (isModuleLocked(lock, moduleId)) throw catchUpLocked(lock);
   }
 
   /** Étape actuelle du routier connecté (profil rattaché au compte), sinon null. */

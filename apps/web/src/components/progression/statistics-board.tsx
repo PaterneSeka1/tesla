@@ -151,7 +151,7 @@ function StatisticsSkeleton() {
   );
 }
 
-const stageName = (stage: { name: string } | null) => stage?.name ?? 'Sans étape';
+const stageName = (stage: { name: string } | null) => stage?.name ?? 'Étape à régulariser';
 
 function StatisticsContent({ data: d }: { data: Statistics }) {
   const rate = d.attendance.rate === null ? '—' : `${Math.round(d.attendance.rate * 100)} %`;

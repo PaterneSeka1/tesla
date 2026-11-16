@@ -197,8 +197,14 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       const first = await login('ENCADREMENT');
       const second = await login('ENCADREMENT');
       const initial = await designate(admin, first.user.id, 'PLEIN');
+      await seedInitialAgeRuleSet(prisma);
       const scout = await json(
-        first.post('/scouts', { firstName: 'Fictif', lastName: 'Historique', joinedAt: TODAY }),
+        first.post('/scouts', {
+          firstName: 'Fictif',
+          lastName: 'Historique',
+          joinedAt: TODAY,
+          birthDate: bornYearsAgo(18, -3),
+        }),
         201,
         scoutDetailSchema,
       );
@@ -340,6 +346,20 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
         scoutDetailSchema,
       );
 
+    /**
+     * Fiche historique créée avant D181 (sans contrôle d'admission) : l'API refuse désormais
+     * d'inscrire un routier dont l'étape ne peut pas être déterminée.
+     */
+    const legacyScout = (n: number, birthDate: string) =>
+      prisma.scoutProfile.create({
+        data: {
+          firstName: 'Routier',
+          lastName: `Fictif${n}`,
+          birthDate: new Date(`${birthDate}T00:00:00Z`),
+          joinedAt: new Date(`${TODAY}T00:00:00Z`),
+        },
+      });
+
     /** Module obligatoire publié d'une étape, avec source officielle fictive (contournement des écrans). */
     async function publishedMandatoryModule(stageCode: string) {
       const module = await prisma.pedagogicalModule.create({
@@ -368,7 +388,19 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
 
     it('étape actuelle calculée selon l’âge, seule étape de l’application ; rien d’inventé sans référentiel', async () => {
       const { plein } = await staff();
-      const novice = await createScout(plein, 1, bornYearsAgo(18, -3));
+      // Sans référentiel, aucune étape : inscription refusée (D181), rien n'est écrit.
+      expect(
+        await errorCode(
+          plein.post('/scouts', {
+            firstName: 'Routier',
+            lastName: 'Fictif0',
+            birthDate: bornYearsAgo(18, -3),
+          }),
+          422,
+        ),
+      ).toBe('NO_AGE_RULE_SET');
+      expect(await prisma.scoutProfile.count()).toBe(0);
+      const novice = await legacyScout(1, bornYearsAgo(18, -3));
       let pathway = await json(plein.get(`/scouts/${novice.id}/pathway`), 200, scoutPathwaySchema);
       expect(pathway.age.reason).toBe('AUCUN_REFERENTIEL');
       expect(pathway.stage).toBeNull();
@@ -385,7 +417,17 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       );
 
       // 19 ans, sans règle validée après le noviciat : non déterminée (aucune étape présumée).
-      const older = await createScout(plein, 2, bornYearsAgo(19));
+      expect(
+        await errorCode(
+          plein.post('/scouts', {
+            firstName: 'Routier',
+            lastName: 'Fictif2',
+            birthDate: bornYearsAgo(19),
+          }),
+          422,
+        ),
+      ).toBe('NO_AGE_RULE');
+      const older = await legacyScout(2, bornYearsAgo(19));
       pathway = await json(plein.get(`/scouts/${older.id}/pathway`), 200, scoutPathwaySchema);
       expect(pathway.stage).toBeNull();
       expect(pathway.age.reason).toBe('AUCUNE_REGLE');
@@ -404,7 +446,7 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       await seedInitialAgeRuleSet(prisma);
       const module = await publishedMandatoryModule('NOVICIAT');
       // Routier sans compte, arrivé à 19 ans (après la fin de son noviciat théorique).
-      const late = await createScout(plein, 3, bornYearsAgo(19));
+      const late = await legacyScout(3, bornYearsAgo(19));
 
       const first = await json(plein.get(`/scouts/${late.id}/pathway`), 200, scoutPathwaySchema);
       expect(first.catchUps).toHaveLength(1);
@@ -512,8 +554,8 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       const { plein } = await staff();
       await seedInitialAgeRuleSet(prisma);
       const team = await plein.post('/teams', { name: 'Équipe fictive' }).expect(201);
-      const eve = await createScout(plein, 5, bornYearsAgo(21, 1));
-      const day = await createScout(plein, 6, bornYearsAgo(21));
+      const eve = await legacyScout(5, bornYearsAgo(21, 1));
+      const day = await legacyScout(6, bornYearsAgo(21));
       await plein
         .post(`/scouts/${day.id}/teams/assign`, { teamId: (team.body as { id: string }).id })
         .expect(201);

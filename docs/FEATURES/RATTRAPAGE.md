@@ -28,8 +28,10 @@ Tant que le manuel n'est pas fourni, aucun module n'est marqué obligatoire : au
 ## Verrou des autres cours (D177)
 Calcul central `apps/api/src/modules/progression/catch-up-lock.ts`, à chaque lecture (aucune tâche planifiée).
 - **Obligation bloquante** : sans décision, module toujours obligatoire, étape d'origine échue, aucun résultat accepté (`VALIDEE`) sur une évaluation du module.
-- **Étape en rattrapage** : la plus ancienne étape ayant une obligation bloquante. **Ouverts** : modules à rattraper de cette étape et des étapes antérieures, textes fondamentaux qu'ils citent. **Fermés** : tous les autres cours, y compris ceux de l'étape actuelle.
-- **Effets pour le routier** : catalogue (modules listés, marqués « Fermé », sans lien), module, leçons, impression, PDF, paquet hors ligne et fichiers refusés (`403 CATCH_UP_LOCKED`) ; déclaration d'étude refusée ; évaluations `VERROUILLE_RATTRAPAGE`, en ligne comme sur papier (préparation par l'encadrement comprise), sauf **dérogation active** du responsable ; préparation hors ligne limitée aux modules ouverts.
+- **Étape en rattrapage** : la plus ancienne étape ayant une obligation bloquante. **Ouverts à l'évaluation et à la déclaration d'étude** : modules à rattraper de cette étape et des étapes antérieures, textes fondamentaux qu'ils citent. **En attente** : les évaluations et études de tous les autres modules.
+- **Lecture libre (D181)** : catalogue, module, leçons, impression, PDF, paquet hors ligne et fichiers restent ouverts pour tout module publié ; le catalogue signale seulement « Évaluation après rattrapage ».
+- **Effets pour le routier** : déclaration d'étude refusée (`403 CATCH_UP_LOCKED`) ; évaluations `VERROUILLE_RATTRAPAGE`, en ligne comme sur papier (préparation par l'encadrement comprise), sauf **dérogation active** du responsable.
+- **Parcours antérieur reconnu (D181)** : aucune obligation n'est créée pour une étape reconnue ; une obligation existante passe « Étape reconnue (parcours antérieur) », ne bloque plus et n'est jamais déclarée acquise. Une révocation la rend de nouveau exigible.
 - **Inchangés** : étape actuelle (aucune rétrogradation), sortie à 21 ans, accès de l'encadrement, acquis et historiques. Après la sortie de la branche, aucun verrou (toute nouvelle activité est déjà fermée).
 - **Affichage** : bandeau « Rattrapage en cours : étape, à terminer avant le … » sur « Mes rattrapages », le parcours et le catalogue ; `GET /me/pathway` et `GET /scouts/:id/pathway` exposent `catchUpLock` (étape, échéance, modules ouverts) et `blocking` par obligation.
 
