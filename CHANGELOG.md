@@ -9,7 +9,8 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 - Sidebar desktop repliable, bouton à côté du logo.
 - « Ajouter une leçon » accessible directement (téléphone, liste des modules, module en ligne via une version de travail explicite) ; « Nouvelle version » devient « Modifier le contenu ».
 - Lecture : reprise retrouvée après une nouvelle version publiée ; ancien lien de leçon expliqué.
-- Recette `apps/web/test/refonte-mobile.browser.mjs`.
+- Routiers sur téléphone : recherche et filtres repliables, une ligne tactile par routier (étape, équipe) ; fiche plus compacte.
+- Recettes `refonte-mobile.browser.mjs` (Chromium et WebKit) et `accessibilite.browser.mjs` (axe-core, WCAG 2.2 AA) ; recettes du référentiel d'âge et du profil mises à jour (D176, D177, D181).
 
 ### Ajouté / modifié — parcours officiel des routiers, 2026-11-16 (D181)
 - Un routier actif a toujours une étape : date de naissance obligatoire à l'inscription, étape proposée par le serveur, inscription bloquée et expliquée si l'étape est indéterminable ; la date ne peut plus être retirée.

@@ -4,19 +4,21 @@ Dernière mise à jour : 2026-11-16 — **refonte mobile : barre inférieure com
 
 ## Refonte mobile (2026-11-16)
 
-Branche `feat/refonte-mobile-lecons` (worktree séparé, depuis `23b1331`, non poussée). Décision D182. Interface web seulement : aucune migration, route API, permission ni règle pédagogique modifiée. Aucun déploiement.
+Branche `feat/refonte-mobile-lecons` (worktree séparé, intègre D181 ; non poussée). Décision D182. Interface web seulement : aucune migration, route API, permission ni règle pédagogique modifiée. Aucun déploiement.
 
 ### Réalisé
 - Barre inférieure commune (`bottomTabsFor`, `activeBottomTab`, `moreNavigationFor`), menu « Plus », hamburger supprimé, barre masquée en passation et pendant la saisie ; sidebar repliable.
-- Ajout direct d'une leçon (mobile, liste, module en ligne via version de travail explicite) ; en-tête de l'éditeur avec l'étape.
+- Ajout direct d'une leçon (mobile, liste, module en ligne via version de travail explicite) ; en-tête de l'éditeur avec l'étape ; encart « module en ligne » simplifié.
 - Reprise de lecture robuste aux nouvelles versions (`reading-position.ts`) ; ancien lien de leçon expliqué.
+- Routiers sur téléphone : filtres repliables, lignes tactiles avec étape ; fiche compacte.
 - Accueil de l'encadrement : accès « Cours et leçons ».
+- Recettes `refonte-mobile` (Chromium et WebKit) et `accessibilite` (axe-core) ; recettes `referentiel-age` et `profil-progression` remises en conformité avec D176, D177 et D181.
 
 ### Vérifications
-lint, typecheck, build web/API OK ; Vitest web 128 ; recettes Chromium : refonte mobile 19/19, éditeur 15/15, gestion des modules 13/13, catalogue 8/8, offline-first 25/25 (sans `SW_FILE`), mot de passe unique 17/17. Détail et limites : [QUALITY/AUDIT_REFONTE_MOBILE_2026-11-16.md](QUALITY/AUDIT_REFONTE_MOBILE_2026-11-16.md).
+lint, typecheck, build OK ; unitaires API 297, web 128 ; intégration 188 (1 ignoré) ; recettes : refonte mobile 20/20 (Chromium et WebKit), accessibilité 33 écrans sans violation, ui-sweep sans problème, et 12 recettes de non-régression réussies. Détail et limites : [QUALITY/AUDIT_REFONTE_MOBILE_2026-11-16.md](QUALITY/AUDIT_REFONTE_MOBILE_2026-11-16.md).
 
 ### Reste
-Lot 5 (fiches routiers) peut reprendre après l'intégration D181 ; Safari iOS et clavier réel ; balayage `ui-sweep` ; validation de l'absence d'onglet Évaluations pour le routier.
+Fusion dans `main` ; recette sur iPhone et Android réels ; validation de l'absence d'onglet Évaluations pour le routier ; `programme-import` non rejouée (classeur réel hors dépôt).
 
 ## Parcours officiel (2026-11-16)
 
