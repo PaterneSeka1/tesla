@@ -1,16 +1,18 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Clock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { BackLink } from '@/components/back-link';
+import { EmptyState } from '@/components/empty-state';
 import { ProgressBar } from '@/components/progress-bar';
 import { LessonContent } from '@/components/modules/lesson-content';
 import { useOfflineImages, useReadingPosition } from '@/components/offline/use-offline-images';
 import { ResourceList } from '@/components/modules/resource-list';
 import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Button } from '@/components/ui/button';
+import { ApiError } from '@/lib/api/client';
 import { catalogLessonQueryOptions } from '@/lib/api/modules';
 import { formatDuration } from '@/lib/format';
 
@@ -26,6 +28,20 @@ export function LessonReader() {
   );
 
   if (isPending) return <TableSkeleton rows={6} />;
+  // Lien ancien (reprise, favori) vers une leçon d'une version remplacée : retour au module.
+  if (error instanceof ApiError && error.status === 404)
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title="Cette leçon n’est plus disponible"
+        description="Le module a peut-être été mis à jour. Ouvrez-le pour retrouver ses leçons."
+        action={
+          <Button asChild>
+            <Link href={`/modules/${slug}`}>Ouvrir le module</Link>
+          </Button>
+        }
+      />
+    );
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
 
   const { module, lesson, previous, next, lessonCount } = data;

@@ -62,7 +62,7 @@ const STATE_MESSAGES: Partial<Record<EditorModuleDetail['current']['status'], st
   A_CORRIGER: 'Corrections demandées : reprenez la rédaction pour modifier cette version.',
   REFUSE: 'Refusé. Pour continuer, créez une nouvelle version.',
   PUBLIE:
-    'En ligne. Pour modifier, créez une nouvelle version : celle-ci reste en ligne jusqu’à la publication de la suivante.',
+    'En ligne. Pour ajouter ou modifier des leçons, ouvrez une version de travail : celle-ci reste en ligne jusqu’à la publication de la suivante.',
   ARCHIVE: 'Archivé. Pour continuer, créez une nouvelle version.',
 };
 
@@ -109,7 +109,12 @@ export function ModuleEditor() {
   };
 
   const lastDecision = module.events.find(
-    (event) => event.versionId === current.id && event.comment && event.action !== 'SOUMISE',
+    (event) =>
+      event.versionId === current.id &&
+      event.comment &&
+      // Note de soumission et note technique de création : pas des décisions du responsable.
+      event.action !== 'SOUMISE' &&
+      event.action !== 'CREEE',
   );
   const unsynced = new Set(
     current.lessons.filter((lesson) => readLessonDraft(lesson.id)).map((lesson) => lesson.id),
@@ -173,16 +178,16 @@ export function ModuleEditor() {
     <Button
       onClick={() =>
         void run(() => createModuleVersion(module.id), {
-          success: 'Nouvelle version créée',
-          error: 'Création impossible',
+          success: 'Version de travail ouverte',
+          error: 'Ouverture impossible',
           detail: module.publishedVersionId
             ? 'La version publiée reste visible jusqu’à la publication de celle-ci.'
             : undefined,
-        })
+        }).then((ok) => ok && go('contenu'))
       }
     >
       <FilePlus2 aria-hidden />
-      Nouvelle version
+      Modifier le contenu
     </Button>
   ) : permissions.canSubmit && section !== 'soumission' && section !== 'verification' ? (
     <Button onClick={() => go('verification')}>
@@ -199,7 +204,7 @@ export function ModuleEditor() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 space-y-1">
           <p className="text-sm text-muted-foreground">
-            {module.code} · version {current.version}
+            {module.code} · {current.stage?.name ?? 'Toutes les étapes'} · version {current.version}
             {module.publishedVersionId &&
               module.publishedVersionId !== current.id &&
               ' · une version est en ligne'}
@@ -400,7 +405,7 @@ export function ModuleEditor() {
 
         {section === 'contenu' && (
           <>
-            <LessonsPanel module={module} editable={permissions.canEdit} />
+            <LessonsPanel key={current.id} module={module} editable={permissions.canEdit} />
             <Disclosure
               title="Ressources et documents"
               summary={

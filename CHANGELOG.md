@@ -4,6 +4,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — refonte mobile : navigation et leçons, 2026-11-16 (D182)
+- Barre de navigation inférieure pour tous les comptes sur téléphone et tablette (routier : Accueil, Cours, Parcours, Plus ; encadrement : Accueil, Routiers, Cours, Plus) ; menu « Plus » en feuille basse ; menu hamburger supprimé.
+- Sidebar desktop repliable, bouton à côté du logo.
+- « Ajouter une leçon » accessible directement (téléphone, liste des modules, module en ligne via une version de travail explicite) ; « Nouvelle version » devient « Modifier le contenu ».
+- Lecture : reprise retrouvée après une nouvelle version publiée ; ancien lien de leçon expliqué.
+- Recette `apps/web/test/refonte-mobile.browser.mjs`.
+
 ### Ajouté / modifié — parcours officiel des routiers, 2026-11-16 (D181)
 - Un routier actif a toujours une étape : date de naissance obligatoire à l'inscription, étape proposée par le serveur, inscription bloquée et expliquée si l'étape est indéterminable ; la date ne peut plus être retirée.
 - Parcours antérieur : le responsable plein reconnaît les étapes accomplies avant l'arrivée (inscription ou fiche), avec date facultative, observation et révocation motivée ; les rattrapages de ces étapes ne sont plus exigés, sans acquis fabriqué.

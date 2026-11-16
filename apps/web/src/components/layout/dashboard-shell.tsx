@@ -1,16 +1,48 @@
+'use client';
+
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
 import { SessionGate } from '@/components/auth/session-gate';
 import { UserMenu } from '@/components/auth/user-menu';
 import { BrandLogo } from '@/components/brand-logo';
 import { DeviceStatus } from '@/components/offline/device-status';
+import { cn } from '@/lib/utils';
 import { PageTransition } from './page-transition';
-import { AppNav, BottomNavSpacer, CurrentPageTitle, MobileMenu, RoutierBottomNav } from './app-nav';
+import { AppNav, BottomNav, BottomNavSpacer, CurrentPageTitle } from './app-nav';
+
+/** Préférence d'affichage de cet appareil seulement (aucune donnée personnelle). */
+const COLLAPSED_KEY = 'tesla.sidebar.collapsed';
+
+const listeners = new Set<() => void>();
+
+function readCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeCollapsed(value: boolean) {
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, value ? '1' : '0');
+  } catch {
+    // Stockage indisponible (navigation privée) : préférence non conservée.
+  }
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
 
 /**
- * Cadre unique de l'application connectée : la navigation dépend du rôle, jamais de l'URL.
- * Desktop : sidebar groupée (titre porté par la page) ; mobile et tablette : en-tête compact
- * et menu latéral, plus une barre
- * d'accès rapides pour le routier. Le contenu n'est affiché qu'après vérification de la session et
- * de l'accès au chemin (`SessionGate`), sauf pour les écrans hors ligne.
+ * Cadre unique de l'application connectée : la navigation dépend des permissions, jamais de l'URL
+ * (D132). Ordinateur (≥ 1024 px) : sidebar fixe et repliable (bouton à côté du logo). Téléphone et
+ * tablette : en-tête compact et barre inférieure commune à tous les comptes (D182). Le contenu n'est
+ * affiché qu'après vérification de la session et de l'accès au chemin (`SessionGate`), sauf pour
+ * les écrans hors ligne.
  */
 export function DashboardShell({
   children,
@@ -19,8 +51,18 @@ export function DashboardShell({
   offline?: boolean;
   children: React.ReactNode;
 }) {
+  // Serveur et premier rendu : sidebar dépliée ; la préférence de l'appareil s'applique ensuite.
+  const collapsed = useSyncExternalStore(subscribe, readCollapsed, () => false);
+  const toggle = () => writeCollapsed(!collapsed);
+  const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
+
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[17rem_1fr] print:block">
+    <div
+      className={cn(
+        'min-h-dvh lg:grid print:block',
+        collapsed ? 'lg:grid-cols-[4.5rem_1fr]' : 'lg:grid-cols-[17rem_1fr]',
+      )}
+    >
       <a
         href="#contenu"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded focus:bg-white focus:px-3 focus:py-2"
@@ -28,26 +70,42 @@ export function DashboardShell({
         Aller au contenu
       </a>
 
-      <aside className="hidden bg-tesla-bordeaux p-4 text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-6 print:hidden!">
-        <div className="flex items-center gap-3 px-1">
-          <BrandLogo size={44} />
-          <div className="leading-tight">
-            <p className="font-semibold">Nikola Tesla</p>
-            <p className="text-xs text-tesla-sable">Académie</p>
-          </div>
+      <aside
+        className={cn(
+          'hidden bg-tesla-bordeaux text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-5 print:hidden!',
+          collapsed ? 'px-2 py-4' : 'p-4',
+        )}
+      >
+        <div className={cn('flex items-center gap-2', collapsed ? 'flex-col' : 'pl-1')}>
+          <BrandLogo size={collapsed ? 36 : 40} />
+          {!collapsed && (
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="font-semibold">Nikola Tesla</p>
+              <p className="text-xs text-tesla-sable">Académie</p>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Déplier le menu' : 'Replier le menu'}
+            title={collapsed ? 'Déplier le menu' : 'Replier le menu'}
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-tesla-sable hover:bg-white/10 hover:text-white focus-visible:ring-[3px] focus-visible:ring-tesla-or/60 focus-visible:outline-none"
+          >
+            <ToggleIcon className="size-5" aria-hidden />
+          </button>
         </div>
-        <AppNav offline={offline} />
-        <DeviceStatus />
+        <AppNav offline={offline} collapsed={collapsed} />
+        {!collapsed && <DeviceStatus />}
         <div className="border-t border-white/15 pt-4">
-          <UserMenu />
+          <UserMenu compact={collapsed} />
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-30 bg-tesla-bordeaux text-white lg:hidden print:hidden">
-          <div className="flex h-14 items-center gap-2 px-2 sm:px-4">
-            <MobileMenu offline={offline} />
-            <BrandLogo size={32} />
+        <header className="sticky top-0 z-30 bg-tesla-bordeaux pt-[env(safe-area-inset-top)] text-white lg:hidden print:hidden">
+          <div className="flex h-12 items-center gap-2.5 px-4">
+            <BrandLogo size={28} />
             <div className="min-w-0 flex-1">
               <CurrentPageTitle offline={offline} />
             </div>
@@ -57,7 +115,7 @@ export function DashboardShell({
 
         <main
           id="contenu"
-          className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:p-0"
+          className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8 print:p-0"
         >
           {offline ? (
             <PageTransition>{children}</PageTransition>
@@ -69,7 +127,7 @@ export function DashboardShell({
         </main>
         <BottomNavSpacer offline={offline} />
       </div>
-      <RoutierBottomNav offline={offline} />
+      <BottomNav offline={offline} />
     </div>
   );
 }

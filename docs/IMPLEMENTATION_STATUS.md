@@ -1,9 +1,44 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-16 — **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-16 — **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16). Même jour : **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
 
+## Refonte mobile (2026-11-16)
 
+Branche `feat/refonte-mobile-lecons` (worktree séparé, depuis `23b1331`, non poussée). Décision D182. Interface web seulement : aucune migration, route API, permission ni règle pédagogique modifiée. Aucun déploiement.
 
+### Réalisé
+- Barre inférieure commune (`bottomTabsFor`, `activeBottomTab`, `moreNavigationFor`), menu « Plus », hamburger supprimé, barre masquée en passation et pendant la saisie ; sidebar repliable.
+- Ajout direct d'une leçon (mobile, liste, module en ligne via version de travail explicite) ; en-tête de l'éditeur avec l'étape.
+- Reprise de lecture robuste aux nouvelles versions (`reading-position.ts`) ; ancien lien de leçon expliqué.
+- Accueil de l'encadrement : accès « Cours et leçons ».
+
+### Vérifications
+lint, typecheck, build web/API OK ; Vitest web 128 ; recettes Chromium : refonte mobile 19/19, éditeur 15/15, gestion des modules 13/13, catalogue 8/8, offline-first 25/25 (sans `SW_FILE`), mot de passe unique 17/17. Détail et limites : [QUALITY/AUDIT_REFONTE_MOBILE_2026-11-16.md](QUALITY/AUDIT_REFONTE_MOBILE_2026-11-16.md).
+
+### Reste
+Lot 5 (fiches routiers) peut reprendre après l'intégration D181 ; Safari iOS et clavier réel ; balayage `ui-sweep` ; validation de l'absence d'onglet Évaluations pour le routier.
+
+## Parcours officiel (2026-11-16)
+
+D181 intégré à `main` par `774ff0c`. Migration additive `20261119090000_prior_stage_recognitions` appliquée sur la base jetable `tesla_parcours_test` seulement. Aucun déploiement ; base `tesla` et production intouchées (lecture seule pour l'audit). Audit : [QUALITY/AUDIT_PARCOURS_ROUTIERS_2026-11-16.md](QUALITY/AUDIT_PARCOURS_ROUTIERS_2026-11-16.md) ; fonctionnel : [FEATURES/PARCOURS_ANTERIEUR.md](FEATURES/PARCOURS_ANTERIEUR.md).
+
+### Réalisé
+- Invariant « routier actif = une étape » : date de naissance obligatoire, refus explicite si l'étape est indéterminable (inscription, correction, réactivation), aperçu serveur `GET /scouts/stage-preview`, trigger SQL contre le retrait de la date.
+- Parcours antérieur : `prior_stage_recognitions` (plein seul, historisé, révocable), à l'inscription et depuis la fiche ; rattrapages de l'étape reconnue non créés et non bloquants, aucun acquis fabriqué.
+- Parcours : frise `timeline` (reconnue / période terminée / en cours / à venir), `priorStages`, indicateurs séparés côté routier ; panneau « Parcours antérieur » de la fiche.
+- Lecture libre de tous les cours publiés (catalogue, leçons, impression, PDF, fichiers, hors ligne) ; verrou D177 limité aux évaluations et déclarations d'étude.
+- Fiches sans étape signalées « À régulariser » ; diagnostic en lecture seule `npm run diagnose:stages -w @tesla/api`.
+
+### Vérifications (2026-11-16, local)
+- `npm run lint`, `npm run typecheck`, `npm run build` : réussis ; `npm run format:check` : 3 avertissements **préexistants** sur `main` (fichiers non modifiés).
+- `npm run test` : API **297**, web **112** réussis.
+- Intégration (`tesla_parcours_test`, `NODE_ENV=test`) : 25 fichiers, **188 réussis**, 1 ignoré (classeur réel absent, préexistant), dont `parcours-anterieur.int-spec.ts` 5/5. Fixtures adaptées (inscription sans date de naissance désormais refusée). `prisma migrate diff` : aucune dérive.
+- Recettes Chromium (API et web compilés, fixture fictive) : `parcours-anterieur.browser.mjs` **15/15** (360, 768, 1440 px), `rattrapages.browser.mjs` **4/4** (adaptée à D181), `progression-exception.browser.mjs` **8/8**, `offline-first.browser.mjs` **25/25**.
+
+### Restant
+- Base `tesla` : 21 routiers actifs sans date de naissance, `2026.2` non appliqué : appliquer migrations et seed, compléter les dates, reconnaître les parcours antérieurs, puis relancer le diagnostic. Contrainte `NOT NULL` à poser ensuite.
+- Bibliothèque : filtre « Mon étape » ajouté ; onglet « Cours terminés » non réalisé (aucune donnée « terminé » côté catalogue).
+- À valider : déclaration d'étude fermée pendant un rattrapage, visibilité de l'observation de reconnaissance par l'adjoint et les assistants.
 
 ## Parcours officiel (2026-11-16)
 

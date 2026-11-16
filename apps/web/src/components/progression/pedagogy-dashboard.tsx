@@ -243,6 +243,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 const RESPONSABLE_ACTIONS: readonly QuickAction[] = [
   { href: '/administration/routiers/nouveau', label: 'Nouveau routier', icon: UserPlus },
+  { href: '/encadrement/modules', label: 'Cours et leçons', icon: BookOpen },
   { href: '/administration/activites', label: 'Activités', icon: CalendarDays },
   { href: '/administration/presences', label: 'Présences', icon: CalendarCheck },
   { href: '/encadrement/evaluations/papier', label: 'Copie papier', icon: Printer },
@@ -252,6 +253,7 @@ const CHEF_ACTIONS: readonly QuickAction[] = [
   { href: '/administration/routiers', label: 'Noter une observation', icon: MessageSquareText },
   { href: '/administration/validations/nouvelle', label: 'Proposer une compétence', icon: Medal },
   { href: '/encadrement/evaluations/papier', label: 'Copie papier', icon: Printer },
+  { href: '/encadrement/modules', label: 'Cours et leçons', icon: BookOpen },
   { href: '/encadrement/modules/nouveau', label: 'Nouveau module', icon: FilePenLine },
 ];
 
