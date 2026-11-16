@@ -200,6 +200,7 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       await seedInitialAgeRuleSet(prisma);
       const scout = await json(
         first.post('/scouts', {
+          sex: 'GARCON',
           firstName: 'Fictif',
           lastName: 'Historique',
           joinedAt: TODAY,
@@ -337,6 +338,7 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
     const createScout = (plein: Client, n: number, birthDate: string) =>
       json(
         plein.post('/scouts', {
+          sex: 'GARCON',
           firstName: 'Routier',
           lastName: `Fictif${n}`,
           birthDate,
@@ -392,6 +394,7 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       expect(
         await errorCode(
           plein.post('/scouts', {
+            sex: 'GARCON',
             firstName: 'Routier',
             lastName: 'Fictif0',
             birthDate: bornYearsAgo(18, -3),
@@ -420,6 +423,7 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       expect(
         await errorCode(
           plein.post('/scouts', {
+            sex: 'GARCON',
             firstName: 'Routier',
             lastName: 'Fictif2',
             birthDate: bornYearsAgo(19),

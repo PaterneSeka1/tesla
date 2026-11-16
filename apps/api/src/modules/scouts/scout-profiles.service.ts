@@ -100,6 +100,7 @@ function adminSnapshot(profile: ScoutProfile): AdminSnapshot {
     lastName: profile.lastName,
     firstName: profile.firstName,
     matricule: profile.matricule,
+    sex: profile.sex,
     birthDate: day(profile.birthDate),
     joinedAt: day(profile.joinedAt),
   };
@@ -220,6 +221,7 @@ export class ScoutProfilesService {
     if (!profile) throw scoutProfileNotFound();
     return {
       ...toListItem(profile, await loadStageContext(this.prisma)),
+      sex: profile.sex,
       birthDate: profile.birthDate ? toIsoDate(profile.birthDate) : null,
       createdAt: profile.createdAt.toISOString(),
       updatedAt: profile.updatedAt.toISOString(),
@@ -287,6 +289,7 @@ export class ScoutProfilesService {
             firstName: data.firstName,
             lastName: data.lastName,
             matricule: data.matricule ?? null,
+            sex: data.sex,
             birthDate: toDbDate(data.birthDate),
             joinedAt: toDbDate(data.joinedAt ?? null),
           },

@@ -126,6 +126,7 @@ describe('Parcours officiel et parcours antérieur (intégration PostgreSQL)', (
   }
 
   const scout = (n: number, extra: object = {}) => ({
+    sex: 'GARCON',
     firstName: 'Fictif',
     lastName: `Parcours ${n}`,
     birthDate: bornYearsAgo(19),

@@ -11,6 +11,7 @@ const fiche: AdminSnapshot = {
   lastName: 'Fictif',
   firstName: 'Routier',
   matricule: null,
+  sex: null,
   birthDate: '2008-05-10',
   joinedAt: null,
 };
@@ -40,6 +41,15 @@ describe('Complétion et correction des données administratives (D173)', () => 
       previous: '2008-05-10',
       next: null,
     });
+  });
+
+  it('le sexe suit la même règle : complétion libre, puis correction (D183)', () => {
+    expect(diffAdminFields(fiche, { sex: 'GARCON' })).toEqual([
+      { field: 'sex', kind: 'COMPLETION', previous: null, next: 'GARCON' },
+    ]);
+    expect(diffAdminFields({ ...fiche, sex: 'GARCON' }, { sex: 'FILLE' })[0]?.kind).toBe(
+      'CORRECTION',
+    );
   });
 
   it('une valeur identique ou absente de la saisie n’est pas un changement', () => {

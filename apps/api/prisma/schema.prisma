@@ -169,6 +169,12 @@ model OfflineDevice {
   @@map("offline_devices")
 }
 
+/// Sexe d'un routier (D183), même liste que `SCOUT_SEXES` de @tesla/shared.
+enum ScoutSex {
+  GARCON
+  FILLE
+}
+
 /// Profil routier : référence métier (identité, matricule, équipe, progression, résultats).
 /// Existe indépendamment de tout compte : `userId` est facultatif et rattachable plus tard (RM-001).
 model ScoutProfile {
@@ -179,6 +185,8 @@ model ScoutProfile {
   matricule         String?               @unique
   firstName         String                @map("first_name")
   lastName          String                @map("last_name")
+  /// Sexe (D183) : choisi à l'inscription ; nul seulement pour une fiche antérieure, jamais déduit.
+  sex               ScoutSex?
   /// Seule source de l'étape actuelle, calculée avec le référentiel d'âge en vigueur (D173).
   birthDate         DateTime?             @map("birth_date") @db.Date
   /// Date réelle d'entrée à la Route : ancienneté et suivi des rattrapages, jamais l'étape. Nulle tant

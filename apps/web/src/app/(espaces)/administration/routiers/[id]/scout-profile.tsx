@@ -1,7 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { STAGE_STATUS_SHORT_LABELS, THEORETICAL_STAGE_REASON_LABELS } from '@tesla/shared';
+import {
+  SCOUT_SEX_LABELS,
+  STAGE_STATUS_SHORT_LABELS,
+  THEORETICAL_STAGE_REASON_LABELS,
+} from '@tesla/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Pencil, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
@@ -110,6 +114,9 @@ export function ScoutProfileView() {
               ) : (
                 <Missing>Matricule non renseigné</Missing>
               )}
+            </Detail>
+            <Detail label="Sexe">
+              {scout.sex ? SCOUT_SEX_LABELS[scout.sex] : <Missing>Sexe non renseigné</Missing>}
             </Detail>
             <Detail label="Équipe actuelle">
               {scout.team ? (

@@ -131,6 +131,7 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
   }
 
   const scoutBody = (n: number, extra: object = {}) => ({
+    sex: 'GARCON',
     firstName: 'Routier',
     lastName: `Fictif${n}`,
     joinedAt: '2026-10-01',
@@ -480,6 +481,10 @@ describe('Routes HTTP authentifiées (intégration PostgreSQL)', () => {
       // Fiche historique sans date de naissance (antérieure à D181) : étape non déterminée,
       // jamais une étape de substitution. L'API refuse d'en créer de nouvelles.
       await responsable.post('/scouts', scoutBody(3, { birthDate: undefined })).expect(400);
+      // D183 : le sexe est choisi à l'inscription, jamais laissé vide ni déduit.
+      expect(
+        await errorCode(responsable.post('/scouts', scoutBody(4, { sex: undefined })), 400),
+      ).toBe('VALIDATION_ERROR');
       const unknown = await prisma.scoutProfile.create({
         data: { firstName: 'Routier', lastName: 'Historique' },
       });

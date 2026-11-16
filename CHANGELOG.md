@@ -4,6 +4,10 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — sexe du routier, 2026-11-16 (D183)
+- Champ « Sexe » (Garçon ou Fille), obligatoire à l'inscription d'un routier, affiché sur sa fiche ; il se corrige avec un motif journalisé et ne se retire pas. Les fiches existantes se complètent depuis « Modifier ».
+- Migration additive `20261120090000_scout_sex`.
+
 ### Corrigé — logo hors connexion, 2026-11-16
 - Le logo s'affiche hors connexion à toutes les tailles (connexion, page de secours, en-tête, menu latéral) : il est servi sous l'adresse préchargée par le service worker au lieu d'une copie optimisée par taille, jamais garantie en cache. Recette `apps/web/test/logo-hors-ligne.browser.mjs`.
 

@@ -107,6 +107,7 @@ describe('Gouvernance des profils et progression automatique (D173, intégration
     );
 
   const scoutBody = (n: number, extra: object = {}) => ({
+    sex: 'GARCON',
     firstName: 'Routier',
     lastName: `Fictif${n}`,
     // Date de naissance obligatoire (D181) : compagnonnage selon le référentiel fictif.

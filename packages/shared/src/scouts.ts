@@ -32,6 +32,18 @@ const personNameSchema = z
 const calendarDateSchema = z.iso.date({ error: 'Date invalide (AAAA-MM-JJ).' });
 
 /**
+ * Sexe d'un routier (D183) : donnée administrative choisie à l'inscription (obligatoire), jamais
+ * déduite du prénom ni utilisée pour une décision pédagogique. Même liste que l'enum Prisma `ScoutSex`.
+ */
+export const SCOUT_SEXES = ['GARCON', 'FILLE'] as const;
+export type ScoutSex = (typeof SCOUT_SEXES)[number];
+export const SCOUT_SEX_LABELS: Record<ScoutSex, string> = { GARCON: 'Garçon', FILLE: 'Fille' };
+export const scoutSexSchema = z.enum(SCOUT_SEXES, {
+  error: (issue) =>
+    issue.input === undefined ? 'Indiquez le sexe du routier (garçon ou fille).' : 'Sexe invalide.',
+});
+
+/**
  * Données administratives protégées d'un routier (D173) : renseignées uniquement par l'administrateur
  * ou le responsable plein en fonction, jamais par le routier lui-même. L'étape n'en fait pas partie :
  * elle est calculée selon l'âge et ne se saisit jamais.
@@ -40,6 +52,7 @@ export const SCOUT_ADMIN_FIELDS = [
   'lastName',
   'firstName',
   'matricule',
+  'sex',
   'birthDate',
   'joinedAt',
 ] as const;
@@ -50,6 +63,7 @@ export const SCOUT_ADMIN_FIELD_LABELS: Record<ScoutAdminField, string> = {
   lastName: 'Nom',
   firstName: 'Prénoms',
   matricule: 'Matricule',
+  sex: 'Sexe',
   birthDate: 'Date de naissance',
   joinedAt: 'Date d’entrée à la Route',
 };
@@ -75,7 +89,7 @@ export type PriorStageInput = z.input<typeof priorStageInputSchema>;
 
 /**
  * Inscription d'un routier, sans adresse e-mail ni mot de passe : aucun compte n'est créé (RM-001).
- * **Date de naissance obligatoire (D181)** : un routier actif a toujours une étape déterminée,
+ * **Sexe obligatoire (D183)**, choisi par celui qui inscrit. **Date de naissance obligatoire (D181)** : un routier actif a toujours une étape déterminée,
  * calculée par l'API ; une date qui ne permet pas de la déterminer bloque l'inscription. Matricule et
  * date d'entrée peuvent rester non renseignés (jamais remplacés par une valeur fictive).
  * `teamId` : affectation initiale facultative (même transaction).
@@ -86,6 +100,7 @@ export const createScoutProfileInputSchema = z.object({
   firstName: personNameSchema,
   lastName: personNameSchema,
   matricule: matriculeSchema.optional(),
+  sex: scoutSexSchema,
   birthDate: calendarDateSchema,
   joinedAt: calendarDateSchema.optional(),
   teamId: z.uuid().optional(),
@@ -105,6 +120,8 @@ export const updateScoutProfileInputSchema = z
     firstName: personNameSchema.optional(),
     lastName: personNameSchema.optional(),
     matricule: matriculeSchema.nullable().optional(),
+    /** Corrigeable avec motif, jamais retiré une fois renseigné (D183). */
+    sex: scoutSexSchema.optional(),
     birthDate: calendarDateSchema.nullable().optional(),
     joinedAt: calendarDateSchema.nullable().optional(),
     /** Motif, obligatoire dès qu'une valeur déjà renseignée change. */
@@ -259,6 +276,8 @@ export const scoutListItemSchema = z.object({
 export type ScoutListItem = z.infer<typeof scoutListItemSchema>;
 
 export const scoutDetailSchema = scoutListItemSchema.extend({
+  /** Nul seulement pour une fiche antérieure à D183, jusqu'à sa complétion. */
+  sex: z.enum(SCOUT_SEXES).nullable(),
   birthDate: z.iso.date().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

@@ -61,6 +61,7 @@ async function fillIdentity(page, lastName, birthDate) {
   await page.goto(`${origin}/administration/routiers/nouveau`);
   await page.locator('#lastName').fill(lastName);
   await page.locator('#firstName').fill('Fictif');
+  await page.locator('#sex').selectOption('GARCON');
   await page.locator('#birthDate').fill(birthDate);
 }
 

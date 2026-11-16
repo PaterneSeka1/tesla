@@ -1,6 +1,23 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-16 — **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16). Même jour : **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-16 — **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16). Même jour : **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+
+## Sexe du routier (2026-11-16)
+
+Décision D183. Aucun déploiement. Migration additive `20261120090000_scout_sex` appliquée sur la base jetable `tesla_test` seulement (pas sur `tesla`).
+
+### Réalisé
+- Enum `ScoutSex` (`GARCON`, `FILLE`) et colonne `scout_profiles.sex` (nullable pour les fiches antérieures) ; constantes `SCOUT_SEXES`, `SCOUT_SEX_LABELS` dans `@tesla/shared`.
+- **Obligatoire à l'inscription** (API `400 VALIDATION_ERROR`, formulaire « Choisir… ») ; donnée administrative protégée (D173, `SCOUT_ADMIN_FIELDS`) : correction motivée et journalisée, jamais retirée ; fiche antérieure complétée librement.
+- Fiche du routier : ligne « Sexe ». Tests d'intégration : toutes les inscriptions fournissent le sexe, inscription sans sexe refusée.
+
+### Vérifications
+- `lint`, `typecheck`, `test` (427), `build` ; intégration complète sur `tesla_test` : 188 réussis, 1 ignoré.
+- Recette `parcours-anterieur.browser.mjs` adaptée (choix du sexe) mais **non relancée**.
+
+### Reste
+- Appliquer la migration sur `tesla` (`npm run db:deploy`) ; compléter le sexe des fiches existantes (aucune valeur déduite), puis éventuellement `NOT NULL`.
+- Non exposé dans « Mon profil », la liste, les filtres ni les statistiques (à décider si utile).
 
 ## Refonte mobile (2026-11-16)
 

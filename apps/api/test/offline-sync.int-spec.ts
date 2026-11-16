@@ -109,6 +109,7 @@ describe('Synchronisation différée des écritures (intégration PostgreSQL)', 
   type Client = Awaited<ReturnType<typeof loginAs>>;
 
   const scoutInput = (lastName: string) => ({
+    sex: 'GARCON',
     lastName,
     firstName: 'Routier',
     joinedAt: daysFromToday(-30),

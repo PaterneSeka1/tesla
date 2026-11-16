@@ -120,6 +120,7 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     extra: { matricule?: string; stage?: ProgressionStageCode } = {},
   ) =>
     profiles.create(responsable, {
+      sex: 'GARCON',
       firstName: 'Routier',
       lastName: `Fictif${n}`,
       joinedAt: '2026-10-01',

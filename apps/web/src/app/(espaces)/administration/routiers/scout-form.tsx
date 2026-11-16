@@ -8,8 +8,11 @@ import {
   normalizeMatricule,
   STAGE_ADMISSION_ISSUES,
   SCOUT_ADMIN_FIELD_LABELS,
+  SCOUT_SEXES,
+  SCOUT_SEX_LABELS,
   type ScoutAdminField,
   type ScoutDetail,
+  type ScoutSex,
   STAGE_STATUS_SHORT_LABELS,
 } from '@tesla/shared';
 import { TriangleAlert } from 'lucide-react';
@@ -51,6 +54,7 @@ const formSchema = z.object({
   matricule: z.string().refine((value) => matriculeSchema.safeParse(value).success, {
     message: 'Matricule invalide : 7 chiffres suivis d’une lettre (ex. 0000001A).',
   }),
+  sex: z.union([z.literal(''), z.enum(SCOUT_SEXES)]),
   birthDate: optionalDate,
   joinedAt: optionalDate,
   teamId: z.string(),
@@ -60,7 +64,14 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const ADMIN_FIELDS = ['lastName', 'firstName', 'matricule', 'birthDate', 'joinedAt'] as const;
+const ADMIN_FIELDS = [
+  'lastName',
+  'firstName',
+  'matricule',
+  'sex',
+  'birthDate',
+  'joinedAt',
+] as const;
 
 /** Valeur saisie ramenée à la forme enregistrée par l'API (chaîne vide = non renseignée). */
 function normalized(field: ScoutAdminField, value: string): string | null {
@@ -306,6 +317,7 @@ export function ScoutForm({
       lastName: scout?.lastName ?? '',
       firstName: scout?.firstName ?? '',
       matricule: scout?.matricule ?? '',
+      sex: scout?.sex ?? '',
       birthDate: scout?.birthDate ?? '',
       // Jamais la date du jour par défaut : une date absente reste « non renseignée ».
       joinedAt: scout?.joinedAt ?? '',
@@ -340,6 +352,10 @@ export function ScoutForm({
       : [];
 
   const save = async (values: FormValues, confirmDuplicate = false) => {
+    // D183 : choisi à l'inscription ; une fiche antérieure peut encore le compléter plus tard.
+    if (!values.sex && (!scout || scout.sex)) {
+      return setError('sex', { message: 'Indiquez le sexe du routier (garçon ou fille).' });
+    }
     if (!values.birthDate && (!scout || scout.birthDate)) {
       return setError('birthDate', {
         message: 'La date de naissance est obligatoire : elle détermine l’étape du routier.',
@@ -363,6 +379,7 @@ export function ScoutForm({
               lastName: values.lastName,
               firstName: values.firstName,
               matricule: values.matricule,
+              sex: values.sex || undefined,
               birthDate: values.birthDate || null,
               joinedAt: values.joinedAt || null,
               ...(corrections.length > 0 && {
@@ -377,6 +394,8 @@ export function ScoutForm({
             lastName: values.lastName,
             firstName: values.firstName,
             matricule: values.matricule || undefined,
+            // Présence vérifiée ci-dessus (D183).
+            sex: values.sex as ScoutSex,
             birthDate: values.birthDate,
             joinedAt: values.joinedAt || undefined,
             teamId: values.teamId || undefined,
@@ -453,6 +472,22 @@ export function ScoutForm({
             {...fieldA11y('matricule', errors.matricule?.message, 'hint')}
             {...register('matricule')}
           />
+        </FormField>
+        <FormField
+          id="sex"
+          label="Sexe"
+          required={!scout || scout.sex !== null}
+          error={errors.sex?.message}
+        >
+          <NativeSelect {...fieldA11y('sex', errors.sex?.message)} {...register('sex')}>
+            {/* Aucune option vide une fois le sexe renseigné : il se corrige, il ne se retire pas. */}
+            {!scout?.sex && <option value="">{scout ? 'Non renseigné' : 'Choisir…'}</option>}
+            {SCOUT_SEXES.map((sex) => (
+              <option key={sex} value={sex}>
+                {SCOUT_SEX_LABELS[sex]}
+              </option>
+            ))}
+          </NativeSelect>
         </FormField>
         <FormField
           id="birthDate"

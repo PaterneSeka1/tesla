@@ -3,10 +3,11 @@ import {
   createScoutProfileInputSchema,
   loginInputSchema,
   OBSERVATION_VISIBILITIES,
+  SCOUT_SEXES,
   scoutListQuerySchema,
   updateScoutProfileInputSchema,
 } from '@tesla/shared';
-import { ObservationVisibility } from '../../generated/prisma/enums.js';
+import { ObservationVisibility, ScoutSex } from '../../generated/prisma/enums.js';
 import { openApiSchema } from '../../common/openapi.js';
 
 describe('Contrats routiers, équipes, observations', () => {
@@ -14,6 +15,7 @@ describe('Contrats routiers, équipes, observations', () => {
     const parsed = createScoutProfileInputSchema.parse({
       firstName: ' Prénom ',
       lastName: 'Fictif',
+      sex: 'GARCON',
       birthDate: '2008-01-15',
       joinedAt: '2026-10-01',
       matricule: '',
@@ -21,6 +23,7 @@ describe('Contrats routiers, équipes, observations', () => {
     expect(parsed).toEqual({
       firstName: 'Prénom',
       lastName: 'Fictif',
+      sex: 'GARCON',
       birthDate: '2008-01-15',
       joinedAt: '2026-10-01',
       matricule: null,
@@ -70,6 +73,18 @@ describe('Contrats routiers, équipes, observations', () => {
     ).toMatchObject({ visibility: 'ENCADREMENT', category: null });
   });
 
+  it('sexe obligatoire à l’inscription, Garçon ou Fille, jamais retiré (D183)', () => {
+    const base = { firstName: 'Prénom', lastName: 'Fictif', birthDate: '2008-01-15' };
+    expect(createScoutProfileInputSchema.parse({ ...base, sex: 'FILLE' }).sex).toBe('FILLE');
+    expect(createScoutProfileInputSchema.safeParse(base).error?.issues[0]?.message).toBe(
+      'Indiquez le sexe du routier (garçon ou fille).',
+    );
+    expect(createScoutProfileInputSchema.safeParse({ ...base, sex: 'AUTRE' }).success).toBe(false);
+    expect(updateScoutProfileInputSchema.parse({ sex: 'GARCON' }).sex).toBe('GARCON');
+    expect(updateScoutProfileInputSchema.safeParse({ sex: null }).success).toBe(false);
+    expect(Object.values(ScoutSex).sort()).toEqual([...SCOUT_SEXES].sort());
+  });
+
   it('l’enum Prisma ObservationVisibility correspond à @tesla/shared', () => {
     expect(Object.values(ObservationVisibility).sort()).toEqual(
       [...OBSERVATION_VISIBILITIES].sort(),
@@ -79,6 +94,6 @@ describe('Contrats routiers, équipes, observations', () => {
   it('produit un schéma OpenAPI à partir d’un contrat Zod', () => {
     const schema = openApiSchema(createScoutProfileInputSchema, 'input') as { required?: string[] };
     // D181 : date de naissance obligatoire ; date d'entrée facultative (jamais la date du jour).
-    expect(schema.required).toEqual(['firstName', 'lastName', 'birthDate']);
+    expect(schema.required).toEqual(['firstName', 'lastName', 'sex', 'birthDate']);
   });
 });

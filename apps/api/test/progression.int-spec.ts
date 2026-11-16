@@ -144,6 +144,7 @@ describe('Progression, compétences, programme et présences (intégration Postg
   const createScout = async (responsable: Client, n: number, extra: object = {}) =>
     json(
       responsable.post('/scouts', {
+        sex: 'GARCON',
         firstName: 'Routier',
         lastName: `Fictif${n}`,
         joinedAt: '2026-10-01',

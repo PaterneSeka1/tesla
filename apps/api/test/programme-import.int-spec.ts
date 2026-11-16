@@ -301,6 +301,7 @@ describe('Import Excel du programme annuel (intégration PostgreSQL)', () => {
       .expect(200);
     const scout = await json(
       responsable.post('/scouts', {
+        sex: 'GARCON',
         firstName: 'Routier',
         lastName: 'Fictif',
         joinedAt: '2026-10-01',

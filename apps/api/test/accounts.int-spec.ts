@@ -237,6 +237,7 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
     const { client: pleinClient } = await plein(admin);
     const scout = await json(
       pleinClient.post('/scouts', {
+        sex: 'GARCON',
         firstName: 'Fictif',
         lastName: 'Sans Compte',
         joinedAt: TODAY,
@@ -466,6 +467,7 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
     await birthDateIsoForStage(prisma, 'NOVICIAT');
     const scout = await json(
       pleinClient.post('/scouts', {
+        sex: 'GARCON',
         firstName: 'Fictif',
         lastName: 'Naissance',
         joinedAt: TODAY,
