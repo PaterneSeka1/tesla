@@ -62,19 +62,34 @@ export const correctionReasonSchema = z
   .max(500, { error: '500 caractères au maximum.' });
 
 /**
+ * Étape accomplie avant l'arrivée sur la plateforme (D181). Date de fin facultative : jamais
+ * inventée lorsqu'elle est inconnue.
+ */
+export const priorStageInputSchema = z.object({
+  stageId: z.uuid({ error: 'Étape invalide.' }),
+  completedOn: calendarDateSchema.optional(),
+  note: z.string().trim().max(1000, { error: '1 000 caractères au maximum.' }).optional(),
+});
+
+export type PriorStageInput = z.input<typeof priorStageInputSchema>;
+
+/**
  * Inscription d'un routier, sans adresse e-mail ni mot de passe : aucun compte n'est créé (RM-001).
- * Pré-inscription incomplète permise : matricule, date de naissance et date d'entrée peuvent rester
- * non renseignés (jamais remplacés par une valeur fictive ni par la date du jour).
+ * **Date de naissance obligatoire (D181)** : un routier actif a toujours une étape déterminée,
+ * calculée par l'API ; une date qui ne permet pas de la déterminer bloque l'inscription. Matricule et
+ * date d'entrée peuvent rester non renseignés (jamais remplacés par une valeur fictive).
  * `teamId` : affectation initiale facultative (même transaction).
+ * `priorStages` : parcours antérieur reconnu dès l'inscription (responsable plein seulement).
  * `confirmDuplicate` : confirme l'inscription malgré un homonyme déjà enregistré.
  */
 export const createScoutProfileInputSchema = z.object({
   firstName: personNameSchema,
   lastName: personNameSchema,
   matricule: matriculeSchema.optional(),
-  birthDate: calendarDateSchema.optional(),
+  birthDate: calendarDateSchema,
   joinedAt: calendarDateSchema.optional(),
   teamId: z.uuid().optional(),
+  priorStages: z.array(priorStageInputSchema).max(10).optional(),
   confirmDuplicate: z.boolean().optional(),
 });
 
@@ -312,6 +327,30 @@ export const computedStageSnapshotSchema = z.object({
 });
 
 export type ComputedStageSnapshot = z.infer<typeof computedStageSnapshotSchema>;
+
+/** Motifs empêchant d'enregistrer un routier actif (D181), voir `stageAdmissionIssue`. */
+export const STAGE_ADMISSION_ISSUES = [
+  'BIRTH_DATE_REQUIRED',
+  'NO_AGE_RULE_SET',
+  'BELOW_ROUTE_AGE',
+  'NO_AGE_RULE',
+  'ABOVE_ROUTE_AGE',
+] as const;
+
+export type StageAdmissionIssue = (typeof STAGE_ADMISSION_ISSUES)[number];
+
+/** Aperçu, avant inscription, de l'étape calculée par l'API pour une date de naissance (D181). */
+export const stagePreviewQuerySchema = z.object({ birthDate: calendarDateSchema });
+
+export const stagePreviewSchema = computedStageSnapshotSchema.extend({
+  /** Motif empêchant l'inscription comme routier actif (nul si l'étape est déterminée). */
+  issue: z.enum(STAGE_ADMISSION_ISSUES).nullable(),
+  message: z.string().nullable(),
+  /** Étapes antérieures à l'étape proposée, qui peuvent être reconnues (parcours antérieur). */
+  priorStages: z.array(stageSummarySchema),
+});
+
+export type StagePreview = z.infer<typeof stagePreviewSchema>;
 
 export const birthDateImpactQuerySchema = z.object({
   birthDate: calendarDateSchema.or(z.literal('').transform(() => null)),

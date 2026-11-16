@@ -395,18 +395,78 @@ export function navigationFor(user: NavUser): NavGroup[] {
   })).filter((group) => group.items.length > 0);
 }
 
-/** Accès rapides de la barre inférieure mobile, pour qui suit un parcours personnel. */
-export const PATHWAY_BOTTOM_NAV: readonly NavItem[] = [
-  { href: HOME_ROUTE, label: 'Accueil', icon: LayoutDashboard },
-  { href: '/modules', label: 'Cours', icon: BookOpen },
-  { href: '/evaluations', label: 'Évaluations', icon: ClipboardCheck },
-  { href: '/progression', label: 'Parcours', icon: GraduationCap },
-  { href: '/compte', label: 'Profil', icon: UserRound },
-];
+/** Onglet de la barre inférieure : une destination et la rubrique du menu qu'il représente. */
+export interface BottomTab extends NavItem {
+  /** Rubrique de `NAVIGATION` : l'onglet est actif sur toutes les pages de cette rubrique. */
+  group: string;
+}
 
-/** La barre inférieure mobile est réservée aux personnes qui suivent un parcours personnel. */
-export function hasPathwayNav(user: NavUser): boolean {
-  return userCan(user, 'progression.readOwn');
+/**
+ * Barre inférieure mobile (D182) : trois destinations quotidiennes déduites des permissions, puis
+ * « Plus » (toujours en dernière position, géré par l'interface). Ordre stable, jamais de rôle
+ * affiché ; une seule barre, même pour une personne cumulant plusieurs responsabilités.
+ * - parcours personnel : Accueil, Cours (bibliothèque), Parcours ;
+ * - encadrement : Accueil, Routiers, Cours (gestion pédagogique) ;
+ * - administrateur : Accueil, Routiers (fiches, D173), Comptes.
+ */
+export function bottomTabsFor(user: NavUser): BottomTab[] {
+  const tabs: BottomTab[] = [
+    { href: HOME_ROUTE, label: 'Accueil', icon: LayoutDashboard, group: 'Accueil' },
+  ];
+  if (userCan(user, 'progression.readOwn')) {
+    if (userCan(user, 'module.read'))
+      tabs.push({ href: '/modules', label: 'Cours', icon: BookOpen, group: 'Cours' });
+    tabs.push({
+      href: '/progression',
+      label: 'Parcours',
+      icon: GraduationCap,
+      group: 'Mon parcours',
+    });
+  } else {
+    if (userCan(user, 'scout.read'))
+      tabs.push({
+        href: '/administration/routiers',
+        label: 'Routiers',
+        icon: Users,
+        group: 'Routiers',
+      });
+    if (userCan(user, 'module.write'))
+      tabs.push({ href: '/encadrement/modules', label: 'Cours', icon: BookOpen, group: 'Cours' });
+    else if (userCan(user, 'module.read'))
+      tabs.push({ href: '/modules', label: 'Cours', icon: BookOpen, group: 'Cours' });
+    else if (userCan(user, 'account.read'))
+      tabs.push({
+        href: '/administration/comptes',
+        label: 'Comptes',
+        icon: KeyRound,
+        group: 'Administration',
+      });
+  }
+  return tabs.slice(0, 3);
+}
+
+/**
+ * Onglet actif : celui de la rubrique de la page affichée ; `null` = « Plus » (page d'une autre
+ * rubrique). Une page hors menu (fiche, leçon…) relève de la rubrique de son chemin parent.
+ */
+export function activeBottomTab(user: NavUser, pathname: string): BottomTab | null {
+  const tabs = bottomTabsFor(user);
+  const group = findActiveGroup(navigationFor(user), pathname);
+  if (group) {
+    const tab = tabs.find((item) => item.group === group.label);
+    // La rubrique « Administration » d'un administrateur n'est un onglet que pour sa page Comptes.
+    if (tab && (tab.group !== 'Administration' || pathname.startsWith(tab.href))) return tab;
+    return null;
+  }
+  return tabs.find((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`)) ?? null;
+}
+
+/** Contenu du menu « Plus » : toutes les rubriques autorisées, sans les destinations déjà en onglet. */
+export function moreNavigationFor(user: NavUser): NavGroup[] {
+  const tabHrefs = new Set(bottomTabsFor(user).map((tab) => tab.href));
+  return navigationFor(user)
+    .map((group) => ({ ...group, items: group.items.filter((item) => !tabHrefs.has(item.href)) }))
+    .filter((group) => group.items.length > 0);
 }
 
 /** Entrée active : la correspondance la plus précise (« /encadrement/modules » plutôt que « /encadrement »). */

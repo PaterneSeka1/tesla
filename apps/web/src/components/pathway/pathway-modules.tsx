@@ -6,7 +6,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { formatCivilDate } from './pathway-summary';
 
-/** Rattrapage en cours (D177) : étape, échéance ; les autres cours restent fermés. */
+/**
+ * Rattrapage en cours (D177) : étape, échéance. Tous les cours restent consultables (D181) ; seules
+ * les autres évaluations attendent la fin du rattrapage.
+ */
 export function CatchUpLockNotice({ pathway }: { pathway: ScoutPathway }) {
   const lock = pathway.catchUpLock;
   if (!lock.active) return null;
@@ -15,8 +18,8 @@ export function CatchUpLockNotice({ pathway }: { pathway: ScoutPathway }) {
       <Lock aria-hidden />
       <AlertDescription>
         Rattrapage en cours{lock.stage ? ` : ${lock.stage.name}` : ''}
-        {lock.dueOn ? `, à terminer avant le ${formatCivilDate(lock.dueOn)}` : ''}. Les autres cours
-        restent fermés jusque-là.
+        {lock.dueOn ? `, à terminer avant le ${formatCivilDate(lock.dueOn)}` : ''}. Tous les cours
+        restent consultables ; les autres évaluations s’ouvriront ensuite.
       </AlertDescription>
     </Alert>
   );
@@ -36,8 +39,12 @@ export function PathwayModules({
   compact?: boolean;
 }) {
   const acquired = pathway.catchUps.filter((obligation) => obligation.decision === 'ACQUIS');
+  // Une obligation couverte par le parcours antérieur reconnu n'est plus « à rattraper » (D181).
   const toCatchUp = pathway.catchUps.filter(
-    (obligation) => obligation.decision === null && obligation.stillRequired,
+    (obligation) =>
+      obligation.decision === null &&
+      obligation.stillRequired &&
+      obligation.status !== 'PARCOURS_ANTERIEUR',
   );
   const elsewhere = new Set([...acquired, ...toCatchUp].map((obligation) => obligation.module.id));
   const current = pathway.stageModules.filter((module) => !elsewhere.has(module.id));
@@ -93,7 +100,7 @@ export function PathwayModules({
             id: module.id,
             label: `${module.code} · ${module.title}`,
             badge: module.locked
-              ? 'Fermé'
+              ? 'Évaluation après rattrapage'
               : module.studied
                 ? 'Étudié'
                 : module.obligation === 'OBLIGATOIRE'

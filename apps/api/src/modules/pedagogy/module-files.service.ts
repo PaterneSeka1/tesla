@@ -17,8 +17,6 @@ import { type Actor } from '../../common/actor.js';
 import { assertCan, can } from '../../common/permissions.js';
 import { parseInput } from '../../common/validation.js';
 import { type StoredFile } from '../../generated/prisma/client.js';
-import { isModuleLocked, loadActorCatchUpLock } from '../progression/catch-up-lock.js';
-import { loadStageContext } from '../progression/computed-stage.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { StoredFilesService } from '../../storage/stored-files.service.js';
 import { resolveAccess } from './module-common.js';
@@ -131,15 +129,8 @@ export class ModuleFilesService {
         .map((ref) => ref.version.moduleId),
       ...inLessons.filter((row) => row.published).map((row) => row.moduleId),
     ];
-    if (publishedModules.length > 0) {
-      // Rattrapage en cours (D177) : fichiers des seuls modules ouverts au routier.
-      const lock = await loadActorCatchUpLock(
-        this.prisma,
-        actor,
-        await loadStageContext(this.prisma),
-      );
-      if (publishedModules.some((moduleId) => !isModuleLocked(lock, moduleId))) return true;
-    }
+    // Fichier d'un module publié : lecture libre pour tout utilisateur authentifié (D181).
+    if (publishedModules.length > 0) return true;
     if (!can(actor, 'module.write')) return false;
     // Rédaction : module propriétaire du fichier ou module qui le référence (versions de travail).
     const moduleIds = new Set([

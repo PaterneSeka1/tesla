@@ -131,7 +131,8 @@ check(
     'Date d’entrée non renseignée',
     'Date de naissance non renseignée',
   ]) {
-    await page.getByText(text).waitFor();
+    // Une mention peut figurer dans les informations et dans le parcours (D181).
+    await page.getByText(text).first().waitFor();
   }
   await page.getByText('Étape non déterminée').first().waitFor();
   check('plein : données manquantes affichées sans valeur fictive');
@@ -159,12 +160,17 @@ check(
   await shot(page, 'correction-plein-1280');
   await page.getByLabel('Je confirme cette correction.').check();
   await page.getByRole('button', { name: 'Enregistrer les modifications' }).click();
-  await page.waitForURL(new RegExp(`/administration/routiers/${novice}$`));
+  // D181 : un routier actif a toujours une étape ; une correction qui la rendrait indéterminable
+  // (aucune règle d'âge pour 20 ans dans ce référentiel) est refusée, la fiche reste inchangée.
+  await page
+    .getByText(/Aucune règle d’âge en vigueur ne couvre cette date de naissance/)
+    .first()
+    .waitFor();
+  assert.match(page.url(), new RegExp(`/administration/routiers/${novice}/modifier$`));
   const fiche = await (await page.request.get(`${api}/scouts/${novice}`)).json();
-  assert.equal(fiche.stage, null);
-  assert.equal(fiche.stageReason, 'AUCUNE_REGLE');
+  assert.equal(fiche.stage?.code, 'NOVICIAT');
   check(
-    'plein : correction de la date de naissance avec aperçu, motif et confirmation ; étape recalculée',
+    'plein : correction de la date de naissance avec aperçu, motif et confirmation ; refusée si l’étape devient indéterminable (D181)',
   );
 
   for (const width of WIDTHS) {

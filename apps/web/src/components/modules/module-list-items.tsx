@@ -12,6 +12,7 @@ import {
   History,
   MoreHorizontal,
   Pencil,
+  Plus,
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -255,6 +256,16 @@ function ModuleActions({
               {working === 'BROUILLON' ? 'Modifier' : 'Consulter'}
             </Link>
           </DropdownMenuItem>
+          {/* Ajout direct d'une leçon (D182) : ouvert sur un brouillon ou un module sans version de
+              travail (la page propose alors d'en ouvrir une, sans la créer d'office). */}
+          {(working === 'BROUILLON' || !working) && (
+            <DropdownMenuItem asChild>
+              <Link href={`${editHref}&section=contenu&ajout=1`}>
+                <Plus aria-hidden />
+                Ajouter une leçon
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild>
             <Link href={withReturn(`/encadrement/modules/${module.id}/apercu`, returnTo)}>
               <Eye aria-hidden />

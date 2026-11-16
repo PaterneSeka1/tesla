@@ -2,7 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { STAGE_STATUS_SHORT_LABELS, THEORETICAL_STAGE_REASON_LABELS } from '@tesla/shared';
-import { Pencil } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Pencil, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSessionUser } from '@/components/auth/session-gate';
@@ -26,9 +27,9 @@ function Missing({ children }: { children: React.ReactNode }) {
 
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
+    <div className="min-w-0 space-y-0.5">
       <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</dt>
-      <dd>{children}</dd>
+      <dd className="wrap-break-word">{children}</dd>
     </div>
   );
 }
@@ -66,7 +67,8 @@ export function ScoutProfileView() {
           </div>
         </div>
         {isResponsable && (
-          <div className="flex flex-wrap gap-2">
+          // Téléphone : boutons compacts côte à côte (la fiche reste visible sans défiler).
+          <div className="flex flex-wrap gap-2 max-sm:[&_[data-slot=button]]:h-10 max-sm:[&_[data-slot=button]]:px-3 max-sm:[&_[data-slot=button]]:text-[0.8125rem]">
             <Button asChild variant="outline">
               <Link href={`/administration/routiers/${scout.id}/modifier`}>
                 <Pencil aria-hidden />
@@ -78,12 +80,28 @@ export function ScoutProfileView() {
         )}
       </div>
 
+      {/* Anomalie (D181) : un routier actif a toujours une étape ; aucune étape de substitution. */}
+      {scout.isActive && !scout.stage && scout.stageReason !== 'SORTI' && (
+        <Alert variant="destructive">
+          <TriangleAlert aria-hidden />
+          <AlertTitle>Fiche à régulariser : étape actuelle non déterminée</AlertTitle>
+          <AlertDescription>
+            {scout.stageReason === 'DATE_NAISSANCE_MANQUANTE'
+              ? 'La date de naissance manque : elle seule permet de déterminer l’étape.'
+              : reasonLabels[scout.stageReason]}
+            {isResponsable
+              ? ' Complétez ou corrigez la fiche.'
+              : ' L’administrateur ou le responsable plein doit régulariser la fiche.'}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Informations</CardTitle>
         </CardHeader>
         <CardContent>
-          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-3">
             <Detail label="Nom">{scout.lastName}</Detail>
             <Detail label="Prénoms">{scout.firstName}</Detail>
             <Detail label="Matricule">

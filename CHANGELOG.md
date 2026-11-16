@@ -4,6 +4,21 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — refonte mobile : navigation et leçons, 2026-11-16 (D182)
+- Barre de navigation inférieure pour tous les comptes sur téléphone et tablette (routier : Accueil, Cours, Parcours, Plus ; encadrement : Accueil, Routiers, Cours, Plus) ; menu « Plus » en feuille basse ; menu hamburger supprimé.
+- Sidebar desktop repliable, bouton à côté du logo.
+- « Ajouter une leçon » accessible directement (téléphone, liste des modules, module en ligne via une version de travail explicite) ; « Nouvelle version » devient « Modifier le contenu ».
+- Lecture : reprise retrouvée après une nouvelle version publiée ; ancien lien de leçon expliqué.
+- Recette `apps/web/test/refonte-mobile.browser.mjs`.
+
+### Ajouté / modifié — parcours officiel des routiers, 2026-11-16 (D181)
+- Un routier actif a toujours une étape : date de naissance obligatoire à l'inscription, étape proposée par le serveur, inscription bloquée et expliquée si l'étape est indéterminable ; la date ne peut plus être retirée.
+- Parcours antérieur : le responsable plein reconnaît les étapes accomplies avant l'arrivée (inscription ou fiche), avec date facultative, observation et révocation motivée ; les rattrapages de ces étapes ne sont plus exigés, sans acquis fabriqué.
+- Frise « Mon parcours » (reconnue, période terminée, en cours, à venir) et indicateurs séparés.
+- Lecture libre de tous les cours publiés, y compris pendant un rattrapage ; seules les évaluations attendent (« Évaluation après rattrapage »).
+- Fiches sans étape signalées « À régulariser » ; diagnostic `npm run diagnose:stages -w @tesla/api` (lecture seule).
+- Migration additive `20261119090000_prior_stage_recognitions`.
+
 ### Modifié — mot de passe unique hors connexion, 2026-11-15 (D180)
 - Le mot de passe du compte ouvre les données préparées sur l'appareil, en ligne comme hors connexion : plus de phrase locale. Case « Utiliser aussi cet appareil sans connexion » à la connexion.
 - Changement ou réinitialisation du mot de passe : données de l'appareil reprotégées à la connexion suivante, sans perte ; conversion unique des anciens coffres à phrase.

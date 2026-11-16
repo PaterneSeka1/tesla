@@ -27,18 +27,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { catalogModuleQueryOptions, modulePdfUrl, practicalSheetPdfUrl } from '@/lib/api/modules';
 import { formatDate, formatDuration } from '@/lib/format';
 import { userCan } from '@/lib/navigation';
+import { type ReadingPosition, resumeLesson } from '@/lib/reading-position';
 
 export function ModuleDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { data: module, error, isPending, refetch } = useQuery(catalogModuleQueryOptions(slug));
   const distribute = userCan(useSessionUser(), 'attempt.preparePaper');
   // Dernière leçon lue sur cet appareil (coffre local ; absente si verrouillé).
-  const [lastLessonId, setLastLessonId] = useState<string | null>(null);
+  const [last, setLast] = useState<ReadingPosition | null>(null);
   useEffect(() => {
     let active = true;
     void readingPosition(slug)
       .then((position) => {
-        if (active) setLastLessonId(position?.lessonId ?? null);
+        if (active) setLast(position);
       })
       .catch(() => {});
     return () => {
@@ -50,7 +51,7 @@ export function ModuleDetail() {
   if (error) return <QueryError error={error} onRetry={() => void refetch()} />;
 
   const recommended = module.myStageId !== null && module.stage?.id === module.myStageId;
-  const resumed = module.lessons.find((lesson) => lesson.id === lastLessonId);
+  const resumed = resumeLesson(module.lessons, last);
   const first = resumed ?? module.lessons[0];
 
   return (

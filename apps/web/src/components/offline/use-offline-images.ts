@@ -61,7 +61,7 @@ export function useReadingPosition(
   useEffect(() => {
     if (!lessonId || !ownerId()) return;
     const readAt = new Date().toISOString();
-    void putRecord(`reading:${slug}`, { lessonId, readAt }).catch(() => {});
+    void putRecord(`reading:${slug}`, { lessonId, lessonTitle, readAt }).catch(() => {});
     if (moduleTitle && lessonTitle) {
       const last: LastReading = { slug, moduleTitle, lessonId, lessonTitle, readAt };
       void putRecord('reading:last', last).catch(() => {});
@@ -78,7 +78,10 @@ export async function readingPosition(slug: string) {
   await ensureVaultRestored();
   if (!ownerId()) return null;
   return (
-    (await readRecord<{ lessonId: string; readAt: string }>(`reading:${slug}`).catch(() => null))
-      ?.value ?? null
+    (
+      await readRecord<{ lessonId: string; lessonTitle?: string; readAt: string }>(
+        `reading:${slug}`,
+      ).catch(() => null)
+    )?.value ?? null
   );
 }

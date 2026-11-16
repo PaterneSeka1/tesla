@@ -48,20 +48,22 @@ const noHorizontalScroll = async (page, label) =>
   );
 
 try {
-  // ─── Assistant : consultation seule ─────────────────────────────────────────────────────────
+  // ─── Assistant : aucun accès au référentiel (réservé au plein depuis D176) ─────────────────
   {
     const { context, page } = await session('assistant-profils@recette.test', 390);
     await page.goto(`${origin}${PAGE}`);
-    await page.getByText('Version 2026.1').waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Nouveau référentiel' }).count(), 0);
-    assert.equal(await page.getByRole('button', { name: 'Mettre en vigueur' }).count(), 0);
+    await page.waitForURL(/\/accueil$/);
+    assert.equal(
+      (await page.request.get(`${api}/age-rules`, { headers: { 'x-tesla-csrf': '1' } })).status(),
+      403,
+    );
     const denied = await page.request.fetch(`${api}/age-rules`, {
       method: 'POST',
       headers: { 'x-tesla-csrf': '1', 'content-type': 'application/json' },
       data: { version: 'refus', sourceReference: 'Refus fictif', stages: [] },
     });
     assert.equal(denied.status(), 403);
-    check('assistant : référentiel consultable, aucune saisie (403 par l’API)');
+    check('assistant : référentiel ni affiché ni consultable, aucune saisie (403 par l’API, D176)');
     await context.close();
   }
 
@@ -72,7 +74,13 @@ try {
     await page.getByRole('button', { name: 'Nouveau référentiel' }).click();
     await page.getByRole('heading', { name: 'Nouveau référentiel' }).waitFor();
     // Prérempli depuis le référentiel en vigueur (période de noviciat et sortie).
-    assert.equal(await page.getByLabel('Étape').first().inputValue(), 'NOVICIAT');
+    assert.equal(
+      await page
+        .getByLabel(/^Étape\b/)
+        .first()
+        .inputValue(),
+      'NOVICIAT',
+    );
     assert.equal(await page.getByLabel('Sortie de la branche (âge)').inputValue(), '21');
     await noHorizontalScroll(page, `formulaire ${width}`);
     if (width === 360) {
@@ -87,7 +95,10 @@ try {
 
     await page.getByLabel('Version').fill(VERSION);
     await page.getByRole('button', { name: 'Ajouter une période' }).click();
-    await page.getByLabel('Étape').nth(1).selectOption('APPRENTISSAGE');
+    await page
+      .getByLabel(/^Étape\b/)
+      .nth(1)
+      .selectOption('APPRENTISSAGE');
     await page.getByLabel('Début (ans)').nth(1).fill('18');
     await page.getByLabel('Fin (ans)').nth(1).fill('20');
     await page.getByLabel('Source de la période').nth(1).fill('Source fictive de recette');

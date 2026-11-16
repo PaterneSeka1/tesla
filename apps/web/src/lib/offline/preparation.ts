@@ -163,15 +163,14 @@ async function prepare(
   if (user.role !== 'ADMINISTRATEUR') {
     progress('Bibliothèque des modules…');
     await get(publishedModulesQueryOptions, 'Modules publiés');
-    const modules = await allPages<{ id: string; slug: string; locked?: boolean }>(
+    const modules = await allPages<{ id: string; slug: string }>(
       client,
       (page) => catalogQueryOptions({ search: '', page, pageSize: 12 }),
       'Bibliothèque',
       failures,
     );
     for (const [index, item] of modules.entries()) {
-      // Rattrapage en cours (D177) : un module fermé n'est ni préparé ni consultable hors ligne.
-      if (item.locked) continue;
+      // Lecture libre (D181) : tout module publié est préparé, rattrapage en cours ou non.
       progress(`Module ${index + 1}/${modules.length}…`);
       const detail = await get<{ lessons: { id: string }[] }>(
         catalogModuleQueryOptions(item.slug),

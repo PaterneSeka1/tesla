@@ -6,12 +6,13 @@ import {
   canAccessPath,
   findActiveGroup,
   findActiveItem,
-  hasPathwayNav,
+  activeBottomTab,
+  bottomTabsFor,
   HOME_ROUTE,
+  moreNavigationFor,
   navigationFor,
   NAVIGATION,
   type NavUser,
-  PATHWAY_BOTTOM_NAV,
   resolvePostLoginPath,
   safeInternalPath,
 } from './navigation';
@@ -272,12 +273,53 @@ describe('navigation', () => {
     expect(hrefs(encadrant).every((href) => hrefs(plein).includes(href))).toBe(true);
   });
 
-  it('barre mobile : cinq entrées du parcours personnel, pour qui en suit un', () => {
-    expect(PATHWAY_BOTTOM_NAV).toHaveLength(5);
-    for (const item of PATHWAY_BOTTOM_NAV) expect(hrefs(routier)).toContain(item.href);
-    expect(hasPathwayNav(routier)).toBe(true);
-    expect(hasPathwayNav(plein)).toBe(false);
-    expect(hasPathwayNav(admin)).toBe(false);
+  it('barre mobile : trois destinations selon les permissions, « Plus » en dernier (D182)', () => {
+    const labels = (user: NavUser) => bottomTabsFor(user).map((tab) => tab.label);
+    expect(labels(routier)).toEqual(['Accueil', 'Cours', 'Parcours']);
+    for (const user of [encadrant, adjoint, assistant, plein])
+      expect(labels(user)).toEqual(['Accueil', 'Routiers', 'Cours']);
+    expect(labels(admin)).toEqual(['Accueil', 'Routiers', 'Comptes']);
+    expect(bottomTabsFor(plein)[2]!.href).toBe('/encadrement/modules');
+    expect(bottomTabsFor(routier)[1]!.href).toBe('/modules');
+  });
+
+  it.each(Object.entries(ALL))(
+    '%s : onglets existants, autorisés et liés à une rubrique',
+    (_, user) => {
+      const groups = navigationFor(user).map((group) => group.label);
+      for (const tab of bottomTabsFor(user)) {
+        expect(pageExists(tab.href), tab.href).toBe(true);
+        expect(canAccessPath(user, tab.href), tab.href).toBe(true);
+        expect(groups, tab.group).toContain(tab.group);
+      }
+    },
+  );
+
+  it.each(Object.entries(ALL))(
+    '%s : « Plus » complète les onglets sans doublon ni oubli',
+    (_, user) => {
+      const tabs = bottomTabsFor(user).map((tab) => tab.href);
+      const more = moreNavigationFor(user).flatMap((group) => group.items.map((item) => item.href));
+      expect(more.filter((href) => tabs.includes(href))).toEqual([]);
+      expect(new Set([...tabs, ...more])).toEqual(new Set(hrefs(user)));
+    },
+  );
+
+  it('onglet actif : rubrique de la page, y compris ses sous-pages ; sinon « Plus »', () => {
+    const active = (user: NavUser, path: string) => activeBottomTab(user, path)?.label ?? 'Plus';
+    expect(active(routier, '/accueil')).toBe('Accueil');
+    expect(active(routier, '/modules/priere/lecons/abc')).toBe('Cours');
+    expect(active(routier, '/mes-rattrapages')).toBe('Parcours');
+    expect(active(routier, '/evaluations')).toBe('Plus');
+    expect(active(routier, '/compte')).toBe('Plus');
+    expect(active(plein, '/administration/routiers/123')).toBe('Routiers');
+    expect(active(plein, '/administration/equipes')).toBe('Routiers');
+    expect(active(plein, '/encadrement/modules/1/modifier')).toBe('Cours');
+    expect(active(plein, '/modules/priere')).toBe('Cours');
+    expect(active(plein, '/administration/modules-a-valider')).toBe('Cours');
+    expect(active(plein, '/encadrement/evaluations')).toBe('Plus');
+    expect(active(admin, '/administration/comptes')).toBe('Comptes');
+    expect(active(admin, '/communaute')).toBe('Plus');
   });
 
   it('retient l’entrée la plus précise comme page active', () => {

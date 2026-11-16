@@ -21,6 +21,11 @@ import {
   type ScoutListQuery,
   scoutListQuerySchema,
   type ScoutPedagogicalHistory,
+  STAGE_ADMISSION_MESSAGES,
+  type StageAdmissionIssue,
+  stageAdmissionIssue,
+  type StagePreview,
+  stagePreviewQuerySchema,
   type UpdateScoutProfileInput,
   updateScoutProfileInputSchema,
 } from '@tesla/shared';
@@ -39,6 +44,7 @@ import {
   withComputedStage,
 } from '../progression/computed-stage.js';
 import { PathwayService } from '../progression/pathway.service.js';
+import { recordPriorStages } from '../progression/prior-stages-common.js';
 import {
   type AdminChange,
   type AdminSnapshot,
@@ -110,6 +116,28 @@ function snapshotAt(birthDate: string | null, context: StageContext): ComputedSt
     stageReason: computed.reason,
     branchExitOn: computed.progression.branchExitOn,
   };
+}
+
+/**
+ * Étape déterminable pour une date de naissance (D181) : seule source, le calcul central selon
+ * l'âge. Renvoie le motif de blocage éventuel, jamais une étape de substitution.
+ */
+function admissionOf(
+  birthDate: string | null,
+  context: StageContext,
+): { snapshot: ComputedStageSnapshot; issue: StageAdmissionIssue | null } {
+  const computed = computedStageOf({ id: null, birthDate: toDbDate(birthDate) }, context);
+  return {
+    snapshot: snapshotAt(birthDate, context),
+    issue: stageAdmissionIssue(computed.progression, birthDate, context.rules),
+  };
+}
+
+function admissionRefused(issue: StageAdmissionIssue): UnprocessableEntityException {
+  return new UnprocessableEntityException({
+    code: issue,
+    message: STAGE_ADMISSION_MESSAGES[issue],
+  });
 }
 
 /**
@@ -213,14 +241,19 @@ export class ScoutProfilesService {
     assertCan(actor, 'scout.create');
     rejectStageInput(input);
     const data = parseInput(createScoutProfileInputSchema, input);
-    assertAdminDates(
-      { birthDate: data.birthDate ?? null, joinedAt: data.joinedAt ?? null },
-      todayCivil(),
-    );
+    assertAdminDates({ birthDate: data.birthDate, joinedAt: data.joinedAt ?? null }, todayCivil());
+    const priorStages = data.priorStages ?? [];
+    // Reconnaître un parcours antérieur est une décision officielle : plein en fonction seulement.
+    if (priorStages.length > 0) assertCan(actor, 'progression.supervise');
     let created: ScoutProfile;
     try {
       created = await this.prisma.$transaction(async (tx) => {
         await assertCanAtWrite(tx, actor, 'scout.create');
+        if (priorStages.length > 0) await assertCanAtWrite(tx, actor, 'progression.supervise');
+        // Invariant (D181) : un routier actif a toujours une étape déterminée par l'âge.
+        const context = await loadStageContext(tx);
+        const { issue } = admissionOf(data.birthDate, context);
+        if (issue) throw admissionRefused(issue);
         if (!data.confirmDuplicate) {
           const homonym = await tx.scoutProfile.findFirst({
             where: {
@@ -254,10 +287,13 @@ export class ScoutProfilesService {
             firstName: data.firstName,
             lastName: data.lastName,
             matricule: data.matricule ?? null,
-            birthDate: toDbDate(data.birthDate ?? null),
+            birthDate: toDbDate(data.birthDate),
             joinedAt: toDbDate(data.joinedAt ?? null),
           },
         });
+        // Parcours antérieur reconnu dans la même transaction : aucun rattrapage n'est créé pour
+        // une étape reconnue (synchronisation après validation).
+        const recognitions = await recordPriorStages(tx, actor, profile, priorStages, context);
         if (data.teamId) {
           await tx.teamAssignment.create({
             data: {
@@ -276,7 +312,8 @@ export class ScoutProfilesService {
             entityId: profile.id,
             metadata: {
               teamId: data.teamId ?? null,
-              missing: (['matricule', 'birthDate', 'joinedAt'] as const).filter(
+              priorStages: recognitions.map((row) => row.stage.code),
+              missing: (['matricule', 'joinedAt'] as const).filter(
                 (field) => data[field] === undefined || data[field] === null,
               ),
             },
@@ -331,6 +368,17 @@ export class ScoutProfilesService {
         assertCorrectionJustified(changes, data);
         const next = { ...before, ...Object.fromEntries(changes.map((c) => [c.field, c.next])) };
         assertAdminDates({ birthDate: next.birthDate, joinedAt: next.joinedAt }, todayCivil());
+        // Invariant (D181) : la date de naissance d'un routier actif n'est jamais retirée, et une
+        // correction ne peut pas rendre son étape indéterminable. Une date qui le fait sortir de la
+        // branche (21 ans atteints) reste une correction légitime.
+        if (
+          previous.isActive &&
+          previous.membershipStatus === 'ACTIF' &&
+          changes.some((change) => change.field === 'birthDate')
+        ) {
+          const { issue } = admissionOf(next.birthDate, await loadStageContext(tx));
+          if (issue && issue !== 'ABOVE_ROUTE_AGE') throw admissionRefused(issue);
+        }
 
         const profile = await tx.scoutProfile.update({
           where: { id: scoutProfileId },
@@ -387,6 +435,29 @@ export class ScoutProfilesService {
   }
 
   /**
+   * Étape proposée avant inscription (D181), calculée par l'API : étape, âge, motif de blocage et
+   * étapes antérieures reconnaissables. Aucune écriture, aucune règle de calcul exposée.
+   */
+  async stagePreview(actor: Actor, query: unknown): Promise<StagePreview> {
+    assertCan(actor, 'scout.create');
+    const { birthDate } = parseInput(stagePreviewQuerySchema, query);
+    const context = await loadStageContext(this.prisma);
+    const { snapshot, issue } = admissionOf(birthDate, context);
+    const current = snapshot.stage;
+    return {
+      ...snapshot,
+      issue,
+      message: issue ? STAGE_ADMISSION_MESSAGES[issue] : null,
+      priorStages:
+        current && !issue
+          ? context.stages
+              .filter((stage) => stage.position < current.position)
+              .map((stage) => toStageSummary(stage)!)
+          : [],
+    };
+  }
+
+  /**
    * Aperçu, sans écriture, des conséquences d'une date de naissance corrigée : âge, étape et sortie
    * avant / après, nouvelles obligations de rattrapage et obligations à réexaminer.
    */
@@ -416,8 +487,9 @@ export class ScoutProfilesService {
     assertCan(actor, 'scout.setActive');
     return this.prisma.$transaction(async (tx) => {
       await assertCanAtWrite(tx, actor, 'scout.setActive');
-      const rows = await tx.$queryRaw<{ is_active: boolean }[]>`
-        SELECT is_active FROM scout_profiles WHERE id = ${scoutProfileId}::uuid FOR UPDATE`;
+      const rows = await tx.$queryRaw<{ is_active: boolean; has_birth_date: boolean }[]>`
+        SELECT is_active, birth_date IS NOT NULL AS has_birth_date
+        FROM scout_profiles WHERE id = ${scoutProfileId}::uuid FOR UPDATE`;
       if (rows.length === 0) throw scoutProfileNotFound();
       if (rows[0]!.is_active === active) {
         throw new ConflictException({
@@ -425,6 +497,8 @@ export class ScoutProfilesService {
           message: active ? 'Ce routier est déjà actif.' : 'Ce routier est déjà désactivé.',
         });
       }
+      // Invariant (D181) : une fiche sans date de naissance n'est pas réactivée sans étape.
+      if (active && !rows[0]!.has_birth_date) throw admissionRefused('BIRTH_DATE_REQUIRED');
       let closedAssignmentId: string | null = null;
       if (!active) {
         const now = new Date();

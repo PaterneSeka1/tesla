@@ -48,13 +48,13 @@ async function restart() {
 const visibleText = (text) => page.getByText(text).filter({ visible: true }).first();
 const link = (href) => page.locator(`a[href="${href}"]:visible`).first();
 /**
- * Navigation ordinaire : lien visible (barre du bas, contenu), sinon menu latéral mobile, sinon
+ * Navigation ordinaire : lien visible (barre du bas, contenu), sinon menu « Plus » mobile, sinon
  * saisie de l'adresse (élément animé ou hors écran).
  */
 async function go(href) {
   try {
     if ((await link(href).count()) === 0)
-      await page.getByRole('button', { name: 'Ouvrir le menu' }).click({ timeout: 5_000 });
+      await page.getByRole('button', { name: /^Plus/ }).click({ timeout: 5_000 });
     await link(href).click({ timeout: 5_000 });
   } catch {
     await page.goto(`${origin}${href}`);
@@ -206,7 +206,7 @@ try {
   check('données locales chiffrées (aucun texte en clair dans IndexedDB)');
 
   // ─── Changement de compte : responsable ───────────────────────────
-  const menu = page.getByRole('button', { name: 'Ouvrir le menu' });
+  const menu = page.getByRole('button', { name: /^Plus/ });
   if (await menu.isVisible()) await menu.click();
   await page.getByRole('button', { name: 'Se déconnecter' }).filter({ visible: true }).click();
   await page.waitForURL('**/connexion');

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { userSummarySchema } from './api.js';
 import { ageProgressionSchema, ageRuleSetSchema, MEMBERSHIP_STATUSES } from './age-progression.js';
 import { scoutRefSchema } from './progression.js';
+import { pathwayStepSchema, priorStageRecognitionSchema } from './prior-stages.js';
 import { stageSummarySchema } from './scouts.js';
 
 // Parcours individuel : étape actuelle calculée selon l'âge (D173), modules de l'étape,
@@ -16,6 +17,7 @@ export const CATCH_UP_STATUSES = [
   'EN_RETARD',
   'NON_APPLICABLE',
   'A_REEXAMINER',
+  'PARCOURS_ANTERIEUR',
 ] as const;
 
 export type CatchUpStatus = (typeof CATCH_UP_STATUSES)[number];
@@ -28,6 +30,7 @@ export const CATCH_UP_STATUS_LABELS: Record<CatchUpStatus, string> = {
   EN_RETARD: 'En retard',
   NON_APPLICABLE: 'Non applicable',
   A_REEXAMINER: 'À réexaminer',
+  PARCOURS_ANTERIEUR: 'Étape reconnue (parcours antérieur)',
 };
 
 /** Synchronisé avec l'enum Prisma `CatchUpDecision`. */
@@ -52,8 +55,14 @@ export function catchUpStatus(facts: {
    * d'origine n'est plus échue : l'obligation reste tracée et attend une décision humaine.
    */
   stillDue?: boolean;
+  /**
+   * Vrai si l'étape d'origine est reconnue au titre du parcours antérieur (D181) : l'obligation ne
+   * retient plus le routier, sans qu'aucun module soit pour autant déclaré acquis.
+   */
+  priorStageRecognized?: boolean;
 }): CatchUpStatus {
   if (facts.decision) return facts.decision;
+  if (facts.priorStageRecognized) return 'PARCOURS_ANTERIEUR';
   if (facts.stillDue === false) return 'A_REEXAMINER';
   if (facts.acceptedAttempts > 0) return 'EN_ATTENTE_VALIDATION';
   if (facts.dueOn !== null && facts.dueOn < facts.today) return 'EN_RETARD';
@@ -129,14 +138,18 @@ export const pathwayModuleSchema = moduleRefSchema.extend({
   obligation: z.enum(['OBLIGATOIRE', 'FACULTATIF']).nullable(),
   officialSource: z.string().nullable(),
   studied: z.boolean(),
-  /** Fermé tant que les rattrapages en cours ne sont pas terminés (D177). */
+  /**
+   * Évaluation et déclaration d'étude fermées tant que les rattrapages en cours ne sont pas terminés
+   * (D177). La lecture du cours reste toujours libre (D181).
+   */
   locked: z.boolean(),
 });
 
 /**
- * Verrou des rattrapages (D177) : tant qu'une étape antérieure reste à rattraper, seuls ses modules
- * (et ceux des étapes déjà rattrapées) sont ouverts au routier ; les autres cours et évaluations
- * sont fermés, sauf dérogation du responsable. Les étapes se rattrapent dans l'ordre du parcours.
+ * Verrou des rattrapages (D177, restreint par D181) : tant qu'une étape antérieure reste à
+ * rattraper, seules les évaluations et déclarations d'étude de ses modules (et de ceux des étapes
+ * déjà rattrapées) restent ouvertes au routier, sauf dérogation du responsable. La lecture de tous
+ * les cours publiés reste libre. Les étapes se rattrapent dans l'ordre du parcours.
  */
 export const catchUpLockSchema = z.object({
   active: z.boolean(),
@@ -166,6 +179,10 @@ export const scoutPathwaySchema = z.object({
   /** Vrai si au moins une obligation n'a pas d'échéance faute de délai officiel. */
   catchUpDeadlineUndetermined: z.boolean(),
   catchUpLock: catchUpLockSchema,
+  /** Frise des étapes dans l'ordre pédagogique (D181). */
+  timeline: z.array(pathwayStepSchema),
+  /** Parcours antérieur reconnu, révocations comprises (observation réservée à l'encadrement). */
+  priorStages: z.array(priorStageRecognitionSchema),
 });
 
 export type ScoutPathway = z.infer<typeof scoutPathwaySchema>;

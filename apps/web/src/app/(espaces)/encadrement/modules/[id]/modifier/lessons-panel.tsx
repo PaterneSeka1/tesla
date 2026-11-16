@@ -25,15 +25,27 @@ import { useModuleAction } from '@/components/modules/use-module-action';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { addLesson, deleteLesson, reorderLessons } from '@/lib/api/modules';
+import { addLesson, createModuleVersion, deleteLesson, reorderLessons } from '@/lib/api/modules';
 import { formatDateTime, formatDuration, fullName } from '@/lib/format';
 import { readLessonDraft } from '@/lib/lesson-drafts';
 import { cn } from '@/lib/utils';
 
+/** Champ « Nouvelle leçon » visible (le panneau des leçons existe en version mobile et ordinateur). */
+function focusNewLessonInput() {
+  requestAnimationFrame(() => {
+    const input = Array.from(
+      document.querySelectorAll<HTMLInputElement>('input[data-new-lesson]'),
+    ).find((element) => element.offsetParent !== null);
+    input?.scrollIntoView({ block: 'center' });
+    input?.focus();
+  });
+}
+
 /**
  * Espace de rédaction des leçons (refonte lot 1) : navigation ordonnée des leçons et zone de
  * rédaction. Chaque leçon s'enregistre automatiquement ; la leçon ouverte est dans l'adresse
- * (`?lecon=`), ce qui permet d'y revenir depuis la vérification.
+ * (`?lecon=`), ce qui permet d'y revenir depuis la vérification. `?ajout=1` ouvre directement le
+ * champ « Nouvelle leçon » (D182) : le module parent est celui de la page, jamais redemandé.
  */
 export function LessonsPanel({
   module,
@@ -50,7 +62,8 @@ export function LessonsPanel({
   const requested = params.get('lecon');
   const selected = lessons.find((lesson) => lesson.id === requested) ?? lessons[0] ?? null;
   const [status, setStatus] = useState<AutosaveStatus>('saved');
-  const [navOpen, setNavOpen] = useState(false);
+  const addRequested = editable && params.get('ajout') === '1';
+  const [navOpen, setNavOpen] = useState(addRequested);
   const [newTitle, setNewTitle] = useState('');
   const newTitleId = useId();
   const navId = useId();
@@ -64,6 +77,46 @@ export function LessonsPanel({
     },
     [params, pathname, router],
   );
+
+  // Ajout demandé depuis la liste des modules ou un module en ligne : focus sur le titre, puis
+  // l'adresse est nettoyée (un rechargement ne rouvre pas le champ).
+  useEffect(() => {
+    if (!addRequested) return;
+    focusNewLessonInput();
+    const next = new URLSearchParams(params.toString());
+    next.delete('ajout');
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  }, [addRequested, params, pathname, router]);
+
+  // Focus après l'affichage du panneau (rendu terminé), quel que soit le moteur du navigateur.
+  const [focusRequest, setFocusRequest] = useState(0);
+  useEffect(() => {
+    if (focusRequest > 0) focusNewLessonInput();
+  }, [focusRequest]);
+  const openAdd = () => {
+    setNavOpen(true);
+    setFocusRequest((count) => count + 1);
+  };
+
+  // Module en ligne : l'ajout ouvre une version de travail (copie de la version publiée, qui reste
+  // visible des routiers jusqu'à la publication de la suivante), puis le champ « Nouvelle leçon ».
+  const startVersionAndAdd = async () => {
+    // L'intention d'ajout est posée dans l'adresse avant la création : le panneau, remonté sur la
+    // nouvelle version (clé), s'ouvre alors directement sur le champ « Nouvelle leçon ».
+    const before = params.toString();
+    const next = new URLSearchParams(before);
+    next.set('section', 'contenu');
+    next.set('ajout', '1');
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+    const ok = await run(() => createModuleVersion(module.id), {
+      success: 'Version de travail ouverte',
+      error: 'Ouverture impossible',
+      detail: module.publishedVersionId
+        ? 'La version en ligne reste visible des routiers jusqu’à la publication de celle-ci.'
+        : undefined,
+    });
+    if (!ok) router.replace(`${pathname}?${before}`, { scroll: false });
+  };
 
   // Avertit avant de quitter la page si une saisie n'est pas confirmée par le serveur.
   useEffect(() => {
@@ -108,6 +161,7 @@ export function LessonsPanel({
       <Label htmlFor={newTitleId}>Nouvelle leçon</Label>
       <Input
         id={newTitleId}
+        data-new-lesson
         maxLength={150}
         placeholder="Titre de la leçon"
         value={newTitle}
@@ -131,6 +185,20 @@ export function LessonsPanel({
     </div>
   );
 
+  const versionNotice = !editable && module.permissions.canCreateVersion && (
+    <div className="flex flex-col gap-3 rounded-lg border border-tesla-or/50 bg-tesla-sable/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="min-w-0 text-sm sm:flex-1">
+        {module.publishedVersionId
+          ? 'Les routiers gardent la version en ligne jusqu’à la publication de la nouvelle.'
+          : 'Une version de travail est ouverte pour ajouter la leçon.'}
+      </p>
+      <Button type="button" className="sm:shrink-0" onClick={() => void startVersionAndAdd()}>
+        <Plus aria-hidden />
+        Ajouter une leçon
+      </Button>
+    </div>
+  );
+
   if (lessons.length === 0) {
     return (
       <div className="space-y-4">
@@ -144,6 +212,7 @@ export function LessonsPanel({
           }
         />
         {editable && <div className="mx-auto max-w-md">{addForm}</div>}
+        {versionNotice}
       </div>
     );
   }
@@ -231,24 +300,39 @@ export function LessonsPanel({
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
-      {/* Petit écran : la liste des leçons est un panneau repliable au-dessus de la rédaction. */}
+      {versionNotice && <div className="lg:col-span-2">{versionNotice}</div>}
+      {/* Petit écran : la liste des leçons est un panneau repliable au-dessus de la rédaction ;
+          « Ajouter une leçon » reste visible sans l'ouvrir. */}
       <div className="lg:hidden">
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full justify-between"
-          aria-expanded={navOpen}
-          aria-controls={navId}
-          onClick={() => setNavOpen((open) => !open)}
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <ListOrdered aria-hidden />
-            <span className="truncate">
-              Leçon {selectedIndex + 1} sur {lessons.length} · {selected?.title}
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-w-0 flex-1 justify-between"
+            aria-expanded={navOpen}
+            aria-controls={navId}
+            onClick={() => setNavOpen((open) => !open)}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <ListOrdered aria-hidden />
+              <span className="truncate">
+                Leçon {selectedIndex + 1} sur {lessons.length} · {selected?.title}
+              </span>
             </span>
-          </span>
-          <span className="text-xs text-muted-foreground">{navOpen ? 'Fermer' : 'Changer'}</span>
-        </Button>
+            <span className="text-xs text-muted-foreground">{navOpen ? 'Fermer' : 'Changer'}</span>
+          </Button>
+          {editable && (
+            <Button
+              type="button"
+              size="icon"
+              className="size-11 shrink-0"
+              aria-label="Ajouter une leçon"
+              onClick={openAdd}
+            >
+              <Plus aria-hidden />
+            </Button>
+          )}
+        </div>
         {navOpen && (
           <div id={navId} className="mt-2 rounded-lg border bg-card p-3">
             {nav}

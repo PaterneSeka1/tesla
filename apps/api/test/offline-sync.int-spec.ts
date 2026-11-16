@@ -20,7 +20,9 @@ import { validateEnv } from '../src/config/env.js';
 import { hashPassword } from '../src/modules/auth/password.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
+  birthDateForStage,
   createTestPrisma,
+  installTestAgeRules,
   grantPersona,
   personaRole,
   resetDatabase,
@@ -70,6 +72,7 @@ describe('Synchronisation différée des écritures (intégration PostgreSQL)', 
   beforeEach(async () => {
     await prisma.$executeRawUnsafe('TRUNCATE client_operations');
     await resetDatabase(prisma);
+    await installTestAgeRules(prisma);
   });
 
   async function loginAs(persona: TestPersona) {
@@ -109,6 +112,8 @@ describe('Synchronisation différée des écritures (intégration PostgreSQL)', 
     lastName,
     firstName: 'Routier',
     joinedAt: daysFromToday(-30),
+    // Date de naissance obligatoire (D181) : compagnonnage selon le référentiel fictif.
+    birthDate: birthDateForStage('COMPAGNONNAGE').toISOString().slice(0, 10),
   });
   const createScout = (client: Client, lastName: string) =>
     json(client.post('/scouts', scoutInput(lastName)), 201, scoutDetailSchema);

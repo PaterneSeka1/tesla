@@ -238,7 +238,8 @@ describe('Rattrapages par étape et verrou des cours (intégration PostgreSQL)',
     await routier.get('/me/pathway').expect(200);
     expect(await prisma.catchUpObligation.count()).toBe(3);
 
-    // 2. Catalogue : seul le module de l'étape en cours de rattrapage est ouvert.
+    // 2. Catalogue : lecture libre de tout cours publié (D181) ; `locked` signale seulement que
+    //    l'évaluation et la déclaration d'étude attendent la fin du rattrapage en cours.
     const catalog = await json(routier.get('/modules?pageSize=50'), 200, catalogPageSchema);
     const lockedBySlug = Object.fromEntries(catalog.items.map((m) => [m.slug, m.locked]));
     expect(lockedBySlug).toEqual({
@@ -250,9 +251,12 @@ describe('Rattrapages par étape et verrou des cours (intégration PostgreSQL)',
     });
     await routier.get('/modules/rattrapage-noviciat').expect(200);
     for (const slug of ['preparation-depart', 'transversal', 'rattrapage-apprentissage']) {
-      expect(await errorCode(routier.get(`/modules/${slug}`), 403)).toBe('CATCH_UP_LOCKED');
-      expect(await errorCode(routier.get(`/modules/${slug}/print`), 403)).toBe('CATCH_UP_LOCKED');
+      await routier.get(`/modules/${slug}`).expect(200);
+      await routier.get(`/modules/${slug}/print`).expect(200);
     }
+    // Lire n'ouvre rien : aucune étude, aucune obligation levée, aucune tentative.
+    expect(await prisma.moduleStudy.count({ where: { scoutProfileId: profile.id } })).toBe(0);
+    expect(await prisma.evaluationAttempt.count({ where: { scoutProfileId: profile.id } })).toBe(0);
     // L'encadrement n'est jamais verrouillé.
     await assistant.get('/modules/preparation-depart').expect(200);
 

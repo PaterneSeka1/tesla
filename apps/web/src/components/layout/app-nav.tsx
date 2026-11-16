@@ -1,23 +1,23 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Menu, X } from 'lucide-react';
+import { Ellipsis, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog as DialogPrimitive } from 'radix-ui';
-import { useState } from 'react';
-import { BrandLogo } from '@/components/brand-logo';
+import { useEffect, useState } from 'react';
 import { UserMenu } from '@/components/auth/user-menu';
 import { meQueryOptions } from '@/lib/api/auth';
 import {
+  activeBottomTab,
+  bottomTabsFor,
   findActiveGroup,
   findActiveHref,
   findActiveItem,
+  moreNavigationFor,
   navigationFor,
   type NavItem,
-  hasPathwayNav,
   type NavUser,
-  PATHWAY_BOTTOM_NAV,
 } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 
@@ -43,9 +43,12 @@ function NavLink({
   active,
   highlighted = false,
   compact = false,
+  collapsed = false,
   onNavigate,
 }: {
   item: NavItem;
+  /** Sidebar repliée : icône seule, libellé pour les technologies d'assistance et au survol. */
+  collapsed?: boolean;
   active: boolean;
   /** Rubrique de la page affichée, sans être la page elle-même. */
   highlighted?: boolean;
@@ -59,9 +62,11 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
+      title={collapsed ? item.label : undefined}
       className={cn(
         'flex items-center gap-3 rounded-md px-3 text-sm font-medium transition-all active:scale-[0.98]',
         compact ? 'min-h-9 py-1.5' : 'min-h-11 py-2',
+        collapsed && 'justify-center px-0',
         'focus-visible:ring-[3px] focus-visible:ring-tesla-or/60 focus-visible:outline-none',
         active
           ? 'bg-tesla-or text-tesla-bordeaux'
@@ -70,25 +75,27 @@ function NavLink({
             : 'text-tesla-sable hover:translate-x-0.5 hover:bg-white/10 hover:text-white',
       )}
     >
-      <Icon className="size-4 shrink-0" aria-hidden />
-      <span className="truncate">{item.label}</span>
+      <Icon className={cn('shrink-0', collapsed ? 'size-5' : 'size-4')} aria-hidden />
+      <span className={collapsed ? 'sr-only' : 'truncate'}>{item.label}</span>
     </Link>
   );
 }
 
 /**
- * Navigation par rubriques selon les permissions (sidebar desktop et tiroir mobile) : une entrée par
- * rubrique ; les pages de la rubrique active s'affichent en dessous.
+ * Navigation par rubriques selon les permissions (sidebar desktop) : une entrée par rubrique ; les
+ * pages de la rubrique active s'affichent en dessous (sauf sidebar repliée : icônes seules).
  */
 export function AppNav({
   offline = false,
   onNavigate,
   animated = false,
+  collapsed = false,
 }: {
   offline?: boolean;
   onNavigate?: () => void;
-  /** Rubriques en cascade à l'ouverture (menu latéral mobile). */
+  /** Rubriques en cascade à l'ouverture. */
   animated?: boolean;
+  collapsed?: boolean;
 }) {
   const pathname = usePathname();
   const user = useNavUser(offline);
@@ -118,11 +125,14 @@ export function AppNav({
             <li key={group.label} className={motion.className} style={motion.style}>
               <NavLink
                 item={{ href: first.href, label: group.label, icon: group.icon }}
-                active={open && (group.items.length === 1 || first.href === activeHref)}
+                active={
+                  open && (collapsed || group.items.length === 1 || first.href === activeHref)
+                }
                 highlighted={open}
+                collapsed={collapsed}
                 onNavigate={onNavigate}
               />
-              {open && group.items.length > 1 && (
+              {open && !collapsed && group.items.length > 1 && (
                 <ul className="mt-1 ml-4 animate-rise space-y-0.5 border-l border-white/15 pl-2">
                   {group.items.slice(1).map((item, itemIndex, items) => (
                     <li key={item.href}>
@@ -165,110 +175,204 @@ export function CurrentPageTitle({ offline = false }: { offline?: boolean }) {
   );
 }
 
-/** Menu latéral mobile et tablette : toutes les entrées autorisées, profil et déconnexion. */
-export function MobileMenu({ offline = false }: { offline?: boolean }) {
-  const [open, setOpen] = useState(false);
+/**
+ * Écrans immersifs sans barre inférieure : passation d'une évaluation (classique ou en paliers).
+ * Un lien de retour explicite reste affiché par la page ; la barre évite une sortie accidentelle.
+ */
+const IMMERSIVE = /^\/evaluations\/[^/]+\/(passer|jeu)(\/|$)/;
+
+export function isImmersivePath(pathname: string): boolean {
+  return IMMERSIVE.test(pathname);
+}
+
+/** Vrai pendant la saisie dans un champ : la barre libère la place du clavier virtuel. */
+function useEditingFocus(): boolean {
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    const isEditable = (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      (target.isContentEditable ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLInputElement &&
+          !['checkbox', 'radio', 'button', 'submit', 'range', 'file'].includes(target.type)));
+    // Retour différé : la barre ne doit pas réapparaître sous le doigt entre l'appui et le
+    // relâchement d'un bouton situé en bas d'écran (« Enregistrer »), ce qui annulerait le clic.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onFocusIn = (event: FocusEvent) => {
+      clearTimeout(timer);
+      if (isEditable(event.target)) setEditing(true);
+      else timer = setTimeout(() => setEditing(false), 400);
+    };
+    const onFocusOut = (event: FocusEvent) => {
+      if (isEditable(event.relatedTarget)) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => setEditing(false), 400);
+    };
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+    };
+  }, []);
+  return editing;
+}
+
+const TAB_CLASS = cn(
+  'flex min-h-14 w-full flex-col items-center justify-center gap-1 text-xs font-medium transition-colors active:scale-95',
+  'focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset',
+);
+
+function TabIcon({ icon: Icon, active }: { icon: NavItem['icon']; active: boolean }) {
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-      <DialogPrimitive.Trigger
-        className="inline-flex size-11 items-center justify-center rounded-md transition-transform hover:bg-white/10 focus-visible:ring-[3px] focus-visible:ring-tesla-or/60 focus-visible:outline-none active:scale-90"
-        aria-label="Ouvrir le menu"
-      >
-        <Menu className="size-6" aria-hidden />
-      </DialogPrimitive.Trigger>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content
-          className={cn(
-            'fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col gap-5 bg-tesla-bordeaux p-4 text-white shadow-xl',
-            'duration-300 ease-out data-[state=open]:animate-in data-[state=open]:slide-in-from-left',
-            'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=closed]:duration-200',
-          )}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <BrandLogo size={40} />
-              <div className="leading-tight">
-                <DialogPrimitive.Title className="font-semibold">
-                  Nikola Tesla
-                </DialogPrimitive.Title>
-                <DialogPrimitive.Description className="text-xs text-tesla-sable">
-                  Académie
-                </DialogPrimitive.Description>
-              </div>
-            </div>
-            <DialogPrimitive.Close
-              className="inline-flex size-11 items-center justify-center rounded-md hover:bg-white/10 focus-visible:ring-[3px] focus-visible:ring-tesla-or/60 focus-visible:outline-none"
-              aria-label="Fermer le menu"
-            >
-              <X className="size-5" aria-hidden />
-            </DialogPrimitive.Close>
-          </div>
-          <AppNav offline={offline} onNavigate={() => setOpen(false)} animated />
-          <div className="border-t border-white/15 pt-4">
-            <UserMenu />
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    // Pastille de l'onglet actif ; l'icône rebondit quand l'onglet devient actif.
+    <span
+      className={cn(
+        'flex h-7 w-14 items-center justify-center rounded-full transition-colors duration-300',
+        active && 'bg-tesla-sable',
+      )}
+    >
+      <Icon key={String(active)} className={cn('size-5', active && 'animate-pop')} aria-hidden />
+    </span>
   );
 }
 
-/** Accès rapides du routier sur mobile (les autres rôles utilisent le menu latéral). */
-export function RoutierBottomNav({ offline = false }: { offline?: boolean }) {
+/**
+ * Barre inférieure mobile et tablette (D182), commune à tous les comptes : trois destinations
+ * déduites des permissions puis « Plus » (toutes les autres rubriques, profil, déconnexion).
+ * Masquée sur ordinateur (sidebar), à l'impression, pendant une passation et pendant la saisie.
+ */
+export function BottomNav({ offline = false }: { offline?: boolean }) {
   const pathname = usePathname();
   const user = useNavUser(offline);
-  if (!user || !hasPathwayNav(user)) return null;
+  const editing = useEditingFocus();
+  const [moreOpen, setMoreOpen] = useState(false);
+  if (!user || isImmersivePath(pathname)) return null;
+  const tabs = bottomTabsFor(user);
+  const active = activeBottomTab(user, pathname);
+  const groups = moreNavigationFor(user);
   const activeHref = findActiveHref(
-    PATHWAY_BOTTOM_NAV.map((item) => item.href),
+    groups.flatMap((group) => group.items.map((item) => item.href)),
     pathname,
   );
+  const moreActive = active === null;
+
   return (
     <nav
-      aria-label="Accès rapides"
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
+      aria-label="Navigation principale mobile"
+      className={cn(
+        'fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_8px_rgb(0_0_0/0.04)] lg:hidden print:hidden',
+        editing && 'max-lg:hidden',
+      )}
     >
-      <ul className="grid grid-cols-5">
-        {PATHWAY_BOTTOM_NAV.map(({ href, label, icon: Icon }) => {
-          const active = href === activeHref;
+      <ul className="mx-auto grid max-w-xl grid-cols-4">
+        {tabs.map((tab) => {
+          const current = tab.href === active?.href;
           return (
-            <li key={href}>
+            <li key={tab.href}>
               <Link
-                href={href}
-                aria-current={active ? 'page' : undefined}
+                href={tab.href}
+                aria-current={current ? 'page' : undefined}
                 className={cn(
-                  'flex min-h-14 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors active:scale-95',
-                  'focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset',
-                  active ? 'text-tesla-rouge' : 'text-muted-foreground hover:text-foreground',
+                  TAB_CLASS,
+                  current ? 'text-tesla-rouge' : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                {/* Pastille de l'onglet actif ; l'icône rebondit quand l'onglet devient actif. */}
-                <span
-                  className={cn(
-                    'flex h-7 w-12 items-center justify-center rounded-full transition-colors duration-300',
-                    active && 'bg-tesla-sable',
-                  )}
-                >
-                  <Icon
-                    key={String(active)}
-                    className={cn('size-5', active && 'animate-pop')}
-                    aria-hidden
-                  />
-                </span>
-                {label}
+                <TabIcon icon={tab.icon} active={current} />
+                {tab.label}
               </Link>
             </li>
           );
         })}
+        <li className="col-start-4">
+          <DialogPrimitive.Root open={moreOpen} onOpenChange={setMoreOpen}>
+            <DialogPrimitive.Trigger
+              className={cn(
+                TAB_CLASS,
+                moreActive ? 'text-tesla-rouge' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <TabIcon icon={Ellipsis} active={moreActive} />
+              Plus
+              {moreActive && <span className="sr-only"> (rubrique de la page affichée)</span>}
+            </DialogPrimitive.Trigger>
+            <DialogPrimitive.Portal>
+              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+              <DialogPrimitive.Content
+                className={cn(
+                  'fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[85dvh] max-w-xl flex-col rounded-t-2xl bg-card text-card-foreground shadow-xl',
+                  'pb-[env(safe-area-inset-bottom)] duration-200 ease-out',
+                  'data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom',
+                  'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom',
+                )}
+              >
+                <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
+                  <DialogPrimitive.Title className="font-semibold">Plus</DialogPrimitive.Title>
+                  <DialogPrimitive.Description className="sr-only">
+                    Toutes les autres pages auxquelles vous avez accès.
+                  </DialogPrimitive.Description>
+                  <DialogPrimitive.Close
+                    className="inline-flex size-11 items-center justify-center rounded-md hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    aria-label="Fermer"
+                  >
+                    <X className="size-5" aria-hidden />
+                  </DialogPrimitive.Close>
+                </div>
+                <div className="space-y-5 overflow-y-auto overscroll-contain px-4 py-4">
+                  {groups.map((group) => (
+                    <section key={group.label} aria-label={group.label} className="space-y-1.5">
+                      <h2 className="px-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                        {group.label}
+                      </h2>
+                      <ul className="grid grid-cols-2 gap-1.5">
+                        {group.items.map((item) => {
+                          const Icon = item.icon;
+                          const current = item.href === activeHref;
+                          return (
+                            <li key={item.href}>
+                              <Link
+                                href={item.href}
+                                onClick={() => setMoreOpen(false)}
+                                aria-current={current ? 'page' : undefined}
+                                className={cn(
+                                  'flex min-h-12 items-center gap-2.5 rounded-lg border px-3 py-2 text-sm font-medium',
+                                  'focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+                                  current
+                                    ? 'border-tesla-or bg-tesla-sable/60 text-tesla-bordeaux'
+                                    : 'hover:bg-muted',
+                                )}
+                              >
+                                <Icon className="size-4 shrink-0 text-tesla-rouge" aria-hidden />
+                                <span className="min-w-0 leading-tight">{item.label}</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                  ))}
+                  <div className="border-t pt-3">
+                    <UserMenu tone="light" onNavigate={() => setMoreOpen(false)} />
+                  </div>
+                </div>
+              </DialogPrimitive.Content>
+            </DialogPrimitive.Portal>
+          </DialogPrimitive.Root>
+        </li>
       </ul>
     </nav>
   );
 }
 
-/** Marge basse réservée à la barre d'accès rapides du routier. */
+/** Marge basse réservée à la barre inférieure (hauteur de la barre et zone de sécurité). */
 export function BottomNavSpacer({ offline = false }: { offline?: boolean }) {
+  const pathname = usePathname();
   const user = useNavUser(offline);
-  return user && hasPathwayNav(user) ? (
-    <div className="h-16 lg:hidden print:hidden" aria-hidden />
+  return user && !isImmersivePath(pathname) ? (
+    <div
+      className="h-[calc(3.5rem+env(safe-area-inset-bottom))] lg:hidden print:hidden"
+      aria-hidden
+    />
   ) : null;
 }

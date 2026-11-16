@@ -1,14 +1,13 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { PROGRESSION_STAGES, STUDY_MODE_LABELS } from '@tesla/shared';
+import { STUDY_MODE_LABELS } from '@tesla/shared';
 import { BookOpen, CalendarCheck, CalendarDays, Medal } from 'lucide-react';
 import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { PageHeading } from '@/components/page-heading';
 import { MyPathwayOverview } from '@/components/pathway/my-pathway';
 import { QueryError, TableSkeleton } from '@/components/query-state';
-import { Stepper } from '@/components/stepper';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,8 +22,6 @@ import {
 import { formatDate } from '@/lib/format';
 import { AttendanceBadge } from './status-badges';
 import { usePedagogyAction } from './use-pedagogy-action';
-
-const STAGE_STEPS = PROGRESSION_STAGES.map((stage) => ({ key: stage.code, label: stage.name }));
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -62,17 +59,13 @@ export function MyPath({ competenciesOnly = false }: { competenciesOnly?: boolea
     );
   }
   const d = query.data;
-  const current = STAGE_STEPS.findIndex((step) => step.key === d.scout.stage?.code);
   return (
     <>
       <PageHeading title={title} />
 
-      {/* Étape calculée selon l'âge (D173) : frise, puis synthèse et modules du parcours. */}
+      {/* Étape calculée selon l'âge (D173), frise et parcours antérieur reconnu (D181). */}
       {!competenciesOnly && (
         <>
-          <section aria-label="Étapes de la Route" className="rounded-xl border bg-card p-4 sm:p-5">
-            <Stepper label="Étapes de la Route" steps={STAGE_STEPS} current={current} />
-          </section>
           <MyPathwayOverview />
         </>
       )}

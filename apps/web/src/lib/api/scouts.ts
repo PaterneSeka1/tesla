@@ -11,6 +11,7 @@ import {
   scoutListItemSchema,
   type ScoutListQuery,
   stageListResponseSchema,
+  stagePreviewSchema,
   teamAssignmentListSchema,
   type UpdateObservationInput,
   type UpdateScoutProfileInput,
@@ -67,13 +68,28 @@ export const birthDateImpactQueryOptions = (id: string, birthDate: string) =>
       ),
   });
 
-export const createScout = (input: CreateScoutProfileInput) =>
-  apiSend('POST', '/scouts', scoutDetailSchema, input, {
-    type: 'scout.create',
-    label: `Nouvelle fiche : ${input.firstName} ${input.lastName}`,
-    entity: { kind: 'scout', id: crypto.randomUUID() },
-    creates: true,
+/** Étape proposée par l'API pour une date de naissance, avant inscription (D181). */
+export const stagePreviewQueryOptions = (birthDate: string) =>
+  queryOptions({
+    queryKey: ['scouts', 'stage-preview', birthDate],
+    queryFn: () =>
+      apiFetch(`/scouts/stage-preview${toQueryString({ birthDate })}`, stagePreviewSchema),
+    staleTime: 60_000,
   });
+
+/**
+ * Inscription. Différable hors connexion, **sauf** avec un parcours antérieur reconnu : décision
+ * officielle, jamais mise en file (D110, D181).
+ */
+export const createScout = (input: CreateScoutProfileInput) =>
+  input.priorStages?.length
+    ? apiSend('POST', '/scouts', scoutDetailSchema, input)
+    : apiSend('POST', '/scouts', scoutDetailSchema, input, {
+        type: 'scout.create',
+        label: `Nouvelle fiche : ${input.firstName} ${input.lastName}`,
+        entity: { kind: 'scout', id: crypto.randomUUID() },
+        creates: true,
+      });
 
 export const updateScout = (id: string, input: UpdateScoutProfileInput, name = 'Fiche') =>
   apiSend('PATCH', `/scouts/${id}`, scoutDetailSchema, input, {

@@ -22,8 +22,8 @@ import { formatDuration } from '@/lib/format';
 const PAGE_SIZE = 12;
 
 /**
- * Modules publiés, en consultation libre ; pendant un rattrapage (D177), le routier n'ouvre que ses
- * modules à rattraper : les autres restent listés mais fermés (contrôle fait par l'API).
+ * Modules publiés, en **consultation libre** quelle que soit l'étape (D181). Pendant un rattrapage
+ * (D177), seules les évaluations des autres modules attendent : la lecture n'est jamais fermée.
  */
 export function Catalog() {
   const [search, setSearch] = useState('');
@@ -50,11 +50,7 @@ export function Catalog() {
     <>
       <PageHeading
         title="Bibliothèque"
-        description={
-          data?.items.some((module) => module.locked)
-            ? undefined
-            : 'Tout module publié est accessible, quelle que soit votre étape.'
-        }
+        description="Tout module publié est accessible, quelle que soit votre étape."
       />
       <div className="flex flex-wrap gap-2" role="group" aria-label="Catégorie">
         {(['', ...MODULE_CATEGORIES] as const).map((value) => (
@@ -108,6 +104,7 @@ export function Catalog() {
             }}
           >
             <option value="">Toutes</option>
+            {data?.myStageId && <option value={data.myStageId}>Mon étape</option>}
             {stages.data?.items.map((stage) => (
               <option key={stage.id} value={stage.id}>
                 {stage.name}
@@ -151,7 +148,8 @@ export function Catalog() {
             <Alert variant="info">
               <Lock aria-hidden />
               <AlertDescription>
-                Terminez d’abord vos rattrapages : les autres cours s’ouvriront ensuite.{' '}
+                Tous les cours restent consultables. Les évaluations des autres modules s’ouvriront
+                après vos rattrapages.{' '}
                 <Link href="/mes-rattrapages" className="font-medium underline underline-offset-4">
                   Mes rattrapages
                 </Link>
@@ -166,7 +164,7 @@ export function Catalog() {
                   <div className="flex flex-wrap gap-2">
                     {module.locked && (
                       <Badge variant="outline">
-                        <Lock aria-hidden /> Fermé
+                        <Lock aria-hidden /> Évaluation après rattrapage
                       </Badge>
                     )}
                     {module.stage && (
@@ -203,21 +201,12 @@ export function Catalog() {
               );
               return (
                 <li key={module.slug}>
-                  {module.locked ? (
-                    <div
-                      aria-disabled="true"
-                      className="flex h-full flex-col gap-3 rounded-lg border border-t-4 border-t-muted bg-muted/40 p-4 opacity-70"
-                    >
-                      {card}
-                    </div>
-                  ) : (
-                    <Link
-                      href={`/modules/${module.slug}`}
-                      className="group flex h-full flex-col gap-3 rounded-lg border border-t-4 border-t-tesla-rouge bg-card p-4 transition-colors hover:border-tesla-or focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                    >
-                      {card}
-                    </Link>
-                  )}
+                  <Link
+                    href={`/modules/${module.slug}`}
+                    className="group flex h-full flex-col gap-3 rounded-lg border border-t-4 border-t-tesla-rouge bg-card p-4 transition-colors hover:border-tesla-or focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                  >
+                    {card}
+                  </Link>
                 </li>
               );
             })}

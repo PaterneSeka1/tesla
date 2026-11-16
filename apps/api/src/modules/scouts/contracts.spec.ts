@@ -14,16 +14,22 @@ describe('Contrats routiers, équipes, observations', () => {
     const parsed = createScoutProfileInputSchema.parse({
       firstName: ' Prénom ',
       lastName: 'Fictif',
+      birthDate: '2008-01-15',
       joinedAt: '2026-10-01',
       matricule: '',
     });
     expect(parsed).toEqual({
       firstName: 'Prénom',
       lastName: 'Fictif',
+      birthDate: '2008-01-15',
       joinedAt: '2026-10-01',
       matricule: null,
     });
     expect(Object.keys(createScoutProfileInputSchema.shape)).not.toContain('email');
+    // D181 : sans date de naissance, l'étape ne peut pas être déterminée ; inscription refusée.
+    expect(
+      createScoutProfileInputSchema.safeParse({ firstName: 'Prénom', lastName: 'Fictif' }).success,
+    ).toBe(false);
   });
 
   it('applique les valeurs par défaut des filtres et refuse une page invalide', () => {
@@ -72,7 +78,7 @@ describe('Contrats routiers, équipes, observations', () => {
 
   it('produit un schéma OpenAPI à partir d’un contrat Zod', () => {
     const schema = openApiSchema(createScoutProfileInputSchema, 'input') as { required?: string[] };
-    // D173 : pré-inscription incomplète, date d'entrée facultative (jamais la date du jour par défaut).
-    expect(schema.required).toEqual(['firstName', 'lastName']);
+    // D181 : date de naissance obligatoire ; date d'entrée facultative (jamais la date du jour).
+    expect(schema.required).toEqual(['firstName', 'lastName', 'birthDate']);
   });
 });

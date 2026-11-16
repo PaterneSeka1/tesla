@@ -14,6 +14,7 @@ import {
   catchUpStageSchedule,
   catchUpReferenceDate,
   catchUpStatus,
+  pathwayTimeline,
   civilDateAt,
   compareCivilDates,
   type CreateAgeRuleSetInput,
@@ -43,7 +44,14 @@ import {
   todayCivil,
   toSnapshot,
 } from './age-rules.js';
-import { endedStages, isModuleLocked, loadCatchUpLock, toCatchUpLock } from './catch-up-lock.js';
+import {
+  endedStages,
+  isModuleLocked,
+  loadCatchUpLock,
+  loadRecognizedStageIds,
+  toCatchUpLock,
+} from './catch-up-lock.js';
+import { priorStageInclude, toPriorStage } from './prior-stages-common.js';
 import { computedStageOf, loadStageContext, type StageContext } from './computed-stage.js';
 import {
   moduleRefSelect,
@@ -260,7 +268,7 @@ export class PathwayService {
       include: profileInclude,
     });
     if (!profile) throw scoutProfileNotFound();
-    return this.build(profile, can(actor, 'progression.supervise'));
+    return this.build(profile, can(actor, 'progression.supervise'), false);
   }
 
   async myPathway(actor: Actor): Promise<ScoutPathway> {
@@ -270,7 +278,7 @@ export class PathwayService {
       include: profileInclude,
     });
     if (!profile) throw scoutProfileNotLinked();
-    return this.build(profile, false);
+    return this.build(profile, false, true);
   }
 
   /** Recalcul idempotent du plan de rattrapage (lecture, traitement quotidien, inscription). */
@@ -298,12 +306,14 @@ export class PathwayService {
     // Plus aucune obligation nouvelle après la sortie de la branche.
     if (effectiveMembership(profile, snapshot, today) === 'SORTI') return 0;
     const progression = ageProgressionOf(profile, snapshot, today);
+    // Étape reconnue au titre du parcours antérieur (D181) : aucun rattrapage n'en naît.
+    const recognized = await loadRecognizedStageIds(this.prisma, profile.id);
     const expected = expectedCatchUps(
       iso(profile.birthDate),
       snapshot,
       today,
       await this.mandatoryModules(),
-    );
+    ).filter((item) => !recognized.has(item.module.stageId));
     if (expected.length === 0) return 0;
     const existing = await this.prisma.catchUpObligation.findMany({
       where: { scoutProfileId: profile.id },
@@ -311,7 +321,7 @@ export class PathwayService {
         moduleId: true,
         decision: true,
         dueOn: true,
-        originStage: { select: { code: true } },
+        originStage: { select: { id: true, code: true } },
       },
     });
     const known = new Set(existing.map((row) => row.moduleId));
@@ -332,7 +342,9 @@ export class PathwayService {
     const stageCodes = [
       ...new Set([
         ...fresh.map((item) => item.module.stageCode),
-        ...existing.filter((row) => row.decision === null).map((row) => row.originStage.code),
+        ...existing
+          .filter((row) => row.decision === null && !recognized.has(row.originStage.id))
+          .map((row) => row.originStage.code),
       ]),
     ].sort((a, b) => position(a) - position(b));
     const schedule = catchUpStageSchedule(
@@ -341,7 +353,13 @@ export class PathwayService {
           .filter((item) => item.module.stageCode === code)
           .map(referenceOf);
         const existingDue = existing
-          .filter((row) => row.decision === null && row.originStage.code === code && row.dueOn)
+          .filter(
+            (row) =>
+              row.decision === null &&
+              !recognized.has(row.originStage.id) &&
+              row.originStage.code === code &&
+              row.dueOn,
+          )
           .map((row) => iso(row.dueOn!))
           .sort(compareCivilDates)[0];
         return {
@@ -436,7 +454,11 @@ export class PathwayService {
    * exception n'en efface aucun). `supervise` : détails internes (référentiel, motifs détaillés)
    * réservés au responsable plein ; les autres profils n'en reçoivent pas.
    */
-  private async build(profile: ProfileRow, supervise: boolean): Promise<ScoutPathway> {
+  private async build(
+    profile: ProfileRow,
+    supervise: boolean,
+    own: boolean,
+  ): Promise<ScoutPathway> {
     const context = await loadStageContext(this.prisma);
     const { today, ruleSet: rules, rules: snapshot } = context;
     await this.sync(profile, rules, today, context.stages);
@@ -453,6 +475,13 @@ export class PathwayService {
     ]);
     const moduleIds = obligations.map((row) => row.moduleId);
     const lock = await loadCatchUpLock(this.prisma, profile, context);
+    const recognitions = await this.prisma.priorStageRecognition.findMany({
+      where: { scoutProfileId: profile.id },
+      include: priorStageInclude,
+      orderBy: [{ stage: { position: 'asc' } }, { recordedAt: 'asc' }],
+    });
+    const recognized = recognitions.filter((row) => row.revokedAt === null);
+    const recognizedStageIds = new Set(recognized.map((row) => row.stageId));
 
     const [studies, attempts, stageModules] = await Promise.all([
       this.prisma.moduleStudy.groupBy({
@@ -495,6 +524,7 @@ export class PathwayService {
         stillDue: ended.has(row.originStage.code),
         arrival: catchUpArrival(ended.get(row.originStage.code), joinedAt),
         blocking: lock.blockingModuleIds.has(row.moduleId),
+        priorStageRecognized: recognizedStageIds.has(row.originStageId),
       }),
     );
 
@@ -522,8 +552,26 @@ export class PathwayService {
           })),
       catchUpLock: toCatchUpLock(lock),
       catchUpDeadlineUndetermined: catchUps.some(
-        (obligation) => obligation.decision === null && obligation.dueOn === null,
+        (obligation) =>
+          obligation.status !== 'PARCOURS_ANTERIEUR' &&
+          obligation.decision === null &&
+          obligation.dueOn === null,
       ),
+      // Frise : étape normale selon l'âge et périodes échues (jamais une cérémonie, D176).
+      timeline: pathwayTimeline({
+        stages: context.stages,
+        currentStageId: stage?.id ?? null,
+        endedStageCodes: new Set(ended.keys()),
+        recognitions: recognized.map((row) => ({
+          id: row.id,
+          stageId: row.stageId,
+          completedOn: row.completedOn ? iso(row.completedOn) : null,
+        })),
+      }),
+      // Le routier voit ses étapes reconnues, sans observation ni révocation de l'encadrement.
+      priorStages: own
+        ? recognized.map((row) => toPriorStage(row, false))
+        : recognitions.map((row) => toPriorStage(row, true)),
     };
   }
 
@@ -532,7 +580,7 @@ export class PathwayService {
     assertCan(actor, 'statistics.read');
     const context = await loadStageContext(this.prisma);
     const { today, ruleSet: rules, rules: snapshot, stages } = context;
-    const [profiles, obligations] = await Promise.all([
+    const [profiles, allObligations] = await Promise.all([
       this.prisma.scoutProfile.findMany({
         where: {
           isActive: true,
@@ -545,9 +593,14 @@ export class PathwayService {
           decision: null,
           ...(teamId && { scoutProfile: { teamAssignments: { some: { teamId, endedAt: null } } } }),
         },
-        select: { dueOn: true, scoutProfileId: true, moduleId: true },
+        select: { dueOn: true, scoutProfileId: true, moduleId: true, originStageId: true },
       }),
     ]);
+    const recognitions = await this.prisma.priorStageRecognition.findMany({
+      where: { revokedAt: null, scoutProfileId: { in: profiles.map((p) => p.id) } },
+      select: { scoutProfileId: true, stageId: true },
+    });
+    const obligations = allObligations.filter(notCovered(recognitions));
     const accepted = await this.prisma.evaluationAttempt.findMany({
       where: {
         status: 'VALIDEE',
@@ -662,6 +715,7 @@ export class PathwayService {
         stillDue: true,
         arrival: 'INCONNUE',
         blocking: false,
+        priorStageRecognized: false,
       });
     });
   }
@@ -678,6 +732,7 @@ function toObligation(
     stillDue: boolean;
     arrival: CatchUpArrival;
     blocking: boolean;
+    priorStageRecognized: boolean;
   },
 ): CatchUpObligation {
   const dueOn = row.dueOn ? iso(row.dueOn) : null;
@@ -702,6 +757,14 @@ function toObligation(
     arrival: facts.arrival,
     blocking: facts.blocking,
   };
+}
+
+/** Obligation ouverte non couverte par une reconnaissance de l'étape d'origine (D181). */
+function notCovered(
+  recognitions: readonly { scoutProfileId: string; stageId: string }[],
+): (row: { scoutProfileId: string; originStageId: string }) => boolean {
+  const covered = new Set(recognitions.map((r) => `${r.scoutProfileId}:${r.stageId}`));
+  return (row) => !covered.has(`${row.scoutProfileId}:${row.originStageId}`);
 }
 
 function toAgeRuleSet(row: RuleSetRow): AgeRuleSet {

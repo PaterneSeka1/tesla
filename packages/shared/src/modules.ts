@@ -910,7 +910,7 @@ export const catalogModuleSchema = z.object({
   publishedAt: z.iso.datetime(),
   /**
    * Vrai pour le routier dont les rattrapages de l'étape en cours ne sont pas terminés (D177) :
-   * contenu fermé jusqu'à leur achèvement ; seuls ses modules à rattraper restent ouverts.
+   * évaluation et déclaration d'étude de ce module en attente. **La lecture reste libre (D181).**
    */
   locked: z.boolean().default(false),
 });
