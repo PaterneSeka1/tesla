@@ -16,9 +16,12 @@
 # Ne déploie aucune version : voir la fin du script pour les étapes suivantes (deploy.sh).
 #
 # Usage : bootstrap.sh <production|preproduction> <domaine> <e-mail_letsencrypt> [options]
-#   <domaine>            domaine servi par ce VPS : celui de l'API (web sur Vercel) ou du site (local)
-#   --web-url <url>      adresse du web sur Vercel (ex. https://tesla.vercel.app) : CORS_ORIGINS
-#   --web-hosting <mode> vercel (défaut) ou local (mode historique : web servi par le VPS)
+#   <domaine>            domaine servi par ce VPS : celui de l'API (vercel, ovh) ou du site (local)
+#   --web-url <url>      adresse publique du web sur Vercel (ex. https://tesla.vercel.app) : CORS_ORIGINS
+#   --web-hosting <mode> vercel (défaut), ovh (web et API sur le VPS, Vercel simple proxy) ou local
+#                        (mode historique : web servi par le VPS sous <domaine>, sans Vercel)
+#   --origin-domain <d>  mode ovh : domaine technique de l'origine web relayée par Vercel
+#                        (WEB_ORIGIN_DOMAIN ; celui du fichier d'instance existant fait foi)
 #   --api-port <port>    port local de l'API (défaut 4000, préproduction 4100) ; doit être libre
 #   --web-port <port>    port local du web en mode local (défaut 3000, préproduction 3100)
 #   --pg-port <port>     port du cluster PostgreSQL 18 à utiliser (défaut 5432)
@@ -38,11 +41,12 @@ instance="${1:-}"; domain="${2:-}"; email="${3:-}"
 [[ "$instance" =~ ^(production|preproduction)$ && -n "$domain" && -n "$email" ]] || usage
 shift 3
 repo_url="https://github.com/PaterneSeka1/tesla.git"; firewall=check; tls=1; journald=0
-hosting=vercel; web_url=""; api_port=""; web_port=""; pg_port=5432; node_dir=""
+hosting=vercel; web_url=""; api_port=""; web_port=""; pg_port=5432; node_dir=""; origin_domain=""
 while (( $# )); do
   case "$1" in
     --web-url) web_url="${2:?}"; shift 2 ;;
     --web-hosting) hosting="${2:?}"; shift 2 ;;
+    --origin-domain) origin_domain="${2:?}"; shift 2 ;;
     --api-port) api_port="${2:?}"; shift 2 ;;
     --web-port) web_port="${2:?}"; shift 2 ;;
     --pg-port) pg_port="${2:?}"; shift 2 ;;
@@ -56,7 +60,7 @@ while (( $# )); do
   esac
 done
 [[ "$domain" =~ ^[a-z0-9.-]+\.[a-z]{2,}$ ]] || { echo "Domaine invalide : ${domain}" >&2; exit 1; }
-[[ "$hosting" =~ ^(vercel|local)$ ]] || { echo "--web-hosting : vercel ou local." >&2; exit 1; }
+[[ "$hosting" =~ ^(vercel|ovh|local)$ ]] || { echo "--web-hosting : vercel, ovh ou local." >&2; exit 1; }
 [[ -z "$web_url" || "$web_url" =~ ^https://[a-z0-9.-]+\.[a-z]{2,}$ ]] ||
   { echo "--web-url : origine https sans chemin ni barre finale attendue (${web_url})." >&2; exit 1; }
 for port in "$api_port" "$web_port" "$pg_port"; do
@@ -90,16 +94,33 @@ env_value() { sed -n "s/^${1}=//p" "${2:-$env_file}" | tail -1; }
 # Ports : ceux d'un fichier d'instance existant font foi ; sinon valeur demandée ou défaut, libre.
 if [[ -f "$env_file" ]]; then
   api_port="$(env_value API_PORT)"; hosting="$(env_value WEB_HOSTING)"; hosting="${hosting:-local}"
-  [[ "$hosting" == local ]] && web_port="$(env_value WEB_PORT)"
+  [[ "$hosting" =~ ^(vercel|ovh|local)$ ]] || { echo "WEB_HOSTING invalide dans ${env_file} : ${hosting}." >&2; exit 1; }
+  [[ "$hosting" != vercel ]] && web_port="$(env_value WEB_PORT)"
+  if [[ "$hosting" == ovh ]]; then
+    configured_origin="$(env_value WEB_ORIGIN_DOMAIN)"
+    [[ -z "$origin_domain" || -z "$configured_origin" || "$origin_domain" == "$configured_origin" ]] ||
+      { echo "--origin-domain ${origin_domain} différent de ${env_file} (${configured_origin})." >&2; exit 1; }
+    origin_domain="${configured_origin:-$origin_domain}"
+    [[ "$web_port" =~ ^[0-9]+$ ]] || { echo "WEB_PORT illisible dans ${env_file} (WEB_HOSTING=ovh)." >&2; exit 1; }
+    # Passage d'une instance existante au mode ovh : le port du web ne doit pas appartenir à une
+    # autre application du VPS (tesla-web@ déjà actif : port déjà le sien).
+    if ! systemctl is-active --quiet "tesla-web@${instance}" 2> /dev/null && port_busy "$web_port"; then
+      echo "Port ${web_port} (WEB_PORT) déjà utilisé sur ce VPS : choisir un autre port dans ${env_file}." >&2; exit 1
+    fi
+  fi
 else
   if [[ "$instance" == production ]]; then api_port="${api_port:-4000}"; web_port="${web_port:-3000}"
   else api_port="${api_port:-4100}"; web_port="${web_port:-3100}"; fi
   port_busy "$api_port" && { echo "Port ${api_port} déjà utilisé sur ce VPS : choisir --api-port." >&2; exit 1; }
-  if [[ "$hosting" == local ]] && port_busy "$web_port"; then
+  if [[ "$hosting" != vercel ]] && port_busy "$web_port"; then
     echo "Port ${web_port} déjà utilisé sur ce VPS : choisir --web-port." >&2; exit 1
   fi
 fi
 [[ "$api_port" =~ ^[0-9]+$ ]] || { echo "API_PORT illisible dans ${env_file}." >&2; exit 1; }
+if [[ "$hosting" == ovh ]]; then
+  [[ "$origin_domain" =~ ^[a-z0-9.-]+\.[a-z]{2,}$ && "$origin_domain" != "$domain" ]] ||
+    { echo "Mode ovh : --origin-domain (ou WEB_ORIGIN_DOMAIN) requis, distinct de ${domain}." >&2; exit 1; }
+fi
 
 # Node.js de TESLA : celui d'un fichier d'instance existant fait foi (défaut sinon) ; les unités
 # systemd étant communes, les deux instances doivent utiliser le même dossier.
@@ -184,6 +205,14 @@ if [[ ! -f "$env_file" ]]; then
     origin="${web_url:-https://<projet>.vercel.app}"
     mode_edits=(-e "s#^CORS_ORIGINS=.*#CORS_ORIGINS=${origin}#"
                 -e "s%^# PUBLIC_APP_URL=.*%# PUBLIC_APP_URL=${origin}%")
+  elif [[ "$hosting" == ovh ]]; then
+    origin="${web_url:-https://<projet>.vercel.app}"
+    mode_edits=(-e "s#^WEB_HOSTING=.*#WEB_HOSTING=ovh#"
+                -e "s#^CORS_ORIGINS=.*#CORS_ORIGINS=${origin}#"
+                -e "s%^# PUBLIC_APP_URL=.*%# PUBLIC_APP_URL=${origin}%"
+                -e "s%^# WEB_PORT=.*%WEB_PORT=${web_port}%"
+                -e "s%^# NEXT_PUBLIC_API_URL=.*%NEXT_PUBLIC_API_URL=/api/v1%"
+                -e "s%^# WEB_ORIGIN_DOMAIN=.*%WEB_ORIGIN_DOMAIN=${origin_domain}%")
   else
     mode_edits=(-e "s#^WEB_HOSTING=.*#WEB_HOSTING=local#"
                 -e "s#^CORS_ORIGINS=.*#CORS_ORIGINS=https://${domain}#"
@@ -240,7 +269,8 @@ visudo -cqf "$sudoers_tmp" && install -m 0440 "$sudoers_tmp" /etc/sudoers.d/tesl
 systemctl daemon-reload
 systemctl enable "tesla-api@${instance}" \
   "tesla-daily@${instance}.timer" "tesla-backup@${instance}.timer" "tesla-healthcheck@${instance}.timer"
-if [[ "$hosting" == local ]]; then
+if [[ "$hosting" != vercel ]]; then
+  # Activé pour le démarrage automatique, jamais démarré ici : deploy.sh le démarre avec un build.
   systemctl enable "tesla-web@${instance}"
 elif systemctl is-enabled --quiet "tesla-web@${instance}" 2> /dev/null; then
   # Passage du mode historique à Vercel : le web n'est plus servi par ce VPS.
@@ -252,10 +282,8 @@ fi
 # Seuls les fichiers « tesla-<instance> » sont créés ; nginx -t en échec → fichier précédent rétabli,
 # pour ne jamais laisser une configuration qui empêcherait le rechargement des autres sites.
 log "Nginx et certificat pour ${domain}"
-site="/etc/nginx/sites-available/tesla-${instance}"
-enabled="/etc/nginx/sites-enabled/tesla-${instance}"
 enable_site() {
-  local target="$1" previous=""
+  local target="$1" enabled="$2" previous=""
   previous="$(readlink "$enabled" 2> /dev/null || true)"
   ln -sfn "$target" "$enabled"
   if ! nginx -t; then
@@ -265,11 +293,40 @@ enable_site() {
   fi
   systemctl reload nginx
 }
+# render <gabarit> <domaine du vhost>
 render() {
-  sed -e "s/DOMAINE/${domain}/g" -e "s/INSTANCE/${instance}/g" -e "s#TESLA_ROOT#${deploy_root}#g" \
+  sed -e "s/DOMAINE/${2}/g" -e "s/INSTANCE/${instance}/g" -e "s#TESLA_ROOT#${deploy_root}#g" \
+      -e "s/PUBLIC_HOST/${public_host:-}/g" \
       -e "s/API_PORT/${api_port}/" -e "s/WEB_PORT/${web_port}/" "$1"
 }
-if [[ "$hosting" == vercel ]]; then
+# install_site <nom> <domaine> <gabarit> : vhost HTTP provisoire et certificat si absent, puis
+# vhost définitif ; nginx -t en échec → fichier précédent rétabli, aucun rechargement.
+install_site() {
+  local name="$1" vhost_domain="$2" template="$3"
+  local site="/etc/nginx/sites-available/${name}" enabled="/etc/nginx/sites-enabled/${name}"
+  local cert="/etc/letsencrypt/live/${vhost_domain}/fullchain.pem"
+  if [[ ! -f "$cert" ]]; then
+    render "$src/deploy/nginx/tesla-acme.conf" "$vhost_domain" > "${site}-acme"
+    enable_site "${site}-acme" "$enabled"
+    if (( tls )); then
+      certbot certonly --webroot -w "$deploy_root/acme" -d "$vhost_domain" --email "$email" \
+        --agree-tos --non-interactive --deploy-hook 'systemctl reload nginx'
+    else
+      warn "Certificat non demandé pour ${vhost_domain} (--no-tls) : relancer ce script quand le DNS pointe vers ce serveur."
+    fi
+  fi
+  if [[ -f "$cert" ]]; then
+    render "$template" "$vhost_domain" > "${site}.new"
+    [[ -f "$site" ]] && cp -p "$site" "${site}.previous"
+    mv -f "${site}.new" "$site"
+    if ! (enable_site "$site" "$enabled"); then
+      if [[ -f "${site}.previous" ]]; then mv -f "${site}.previous" "$site"; else rm -f "$site"; fi
+      exit 1
+    fi
+    rm -f "${site}-acme" "${site}.previous"
+  fi
+}
+if [[ "$hosting" != local ]]; then
   # Secret partagé avec le proxy Vercel (TESLA_PROXY_SECRET) : généré une fois, lisible par root seul.
   proxy_conf="/etc/nginx/tesla/${instance}-proxy.conf"
   install -d -o root -g root -m 0750 /etc/nginx/tesla
@@ -277,30 +334,21 @@ if [[ "$hosting" == vercel ]]; then
     (umask 077; printf '# Secret du proxy Vercel (TESLA_PROXY_SECRET) — ne jamais versionner.\nmap $http_x_tesla_proxy_secret $tesla_proxied_%s {\n    default 0;\n    "%s" 1;\n}\n' \
       "$instance" "$(openssl rand -hex 16)" > "$proxy_conf")
   fi
-  template="$src/deploy/nginx/tesla-api.conf"
+  # Vhost API conservé en mode ovh : il porte le secret et sert l'ancien web Vercel (retour arrière).
+  install_site "tesla-${instance}" "$domain" "$src/deploy/nginx/tesla-api.conf"
 else
-  template="$src/deploy/nginx/tesla.conf"
+  install_site "tesla-${instance}" "$domain" "$src/deploy/nginx/tesla.conf"
 fi
-cert="/etc/letsencrypt/live/${domain}/fullchain.pem"
-if [[ ! -f "$cert" ]]; then
-  render "$src/deploy/nginx/tesla-acme.conf" > "${site}-acme"
-  enable_site "${site}-acme"
-  if (( tls )); then
-    certbot certonly --webroot -w "$deploy_root/acme" -d "$domain" --email "$email" \
-      --agree-tos --non-interactive --deploy-hook 'systemctl reload nginx'
-  else
-    warn "Certificat non demandé (--no-tls) : relancer ce script quand le DNS pointe vers ce serveur."
-  fi
-fi
-if [[ -f "$cert" ]]; then
-  render "$template" > "${site}.new"
-  [[ -f "$site" ]] && cp -p "$site" "${site}.previous"
-  mv -f "${site}.new" "$site"
-  if ! (enable_site "$site"); then
-    if [[ -f "${site}.previous" ]]; then mv -f "${site}.previous" "$site"; else rm -f "$site"; fi
-    exit 1
-  fi
-  rm -f "${site}-acme" "${site}.previous"
+if [[ "$hosting" == ovh ]]; then
+  # Hôte public (domaine Vercel) : celui de CORS_ORIGINS (une seule origine attendue).
+  cors="$(env_value CORS_ORIGINS)"
+  public_host="${cors#https://}"
+  [[ "$cors" == https://* && "$public_host" =~ ^[a-z0-9.-]+\.[a-z]{2,}$ ]] ||
+    { echo "Mode ovh : CORS_ORIGINS doit être l'unique origine https du domaine Vercel (${cors})." >&2; exit 1; }
+  [[ -f "/etc/letsencrypt/live/${domain}/fullchain.pem" ]] ||
+    { echo "Vhost API absent (certificat de ${domain}) : l'origine web en dépend, relancer après son obtention." >&2; exit 1; }
+  log "Nginx et certificat de l'origine web ${origin_domain} (hôte public ${public_host})"
+  install_site "tesla-${instance}-origin" "$origin_domain" "$src/deploy/nginx/tesla-origin.conf"
 fi
 
 # 9. Pare-feu -------------------------------------------------------------------------------------
@@ -334,7 +382,14 @@ cat <<EOF
   2. Premier déploiement :  sudo -iu tesla ${root}/repo/deploy/scripts/deploy.sh ${instance} <étiquette>
   3. Timers :  systemctl start tesla-daily@${instance}.timer tesla-backup@${instance}.timer tesla-healthcheck@${instance}.timer
 EOF
-if [[ "$hosting" == vercel ]]; then
+if [[ "$hosting" == ovh ]]; then
+  cat <<EOF
+  4. Vercel, simple proxy (docs/migration-ovh/07-bascule-vercel.md) : destination
+     https://${origin_domain} dans deploy/vercel-proxy/vercel.json et variable sensible
+       TESLA_PROXY_SECRET=<valeur entre guillemets dans : sudo cat /etc/nginx/tesla/${instance}-proxy.conf>
+  5. Premier administrateur (instance neuve) : docs/DEPLOYMENT_VERCEL_OVH.md § 9.
+EOF
+elif [[ "$hosting" == vercel ]]; then
   cat <<EOF
   4. Vercel (projet, variables d'environnement « Production ») :
        NEXT_PUBLIC_API_URL=/api/v1   TESLA_API_ORIGIN=https://${domain}
