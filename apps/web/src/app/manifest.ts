@@ -1,11 +1,12 @@
 import type { MetadataRoute } from 'next';
+import { SITE_NAME, SITE_SHORT_NAME } from '@/lib/site';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     // Identité stable de l'application installée, indépendante de `start_url`.
     id: '/',
-    name: 'Nikola Tesla Académie',
-    short_name: 'Tesla Académie',
+    name: SITE_NAME,
+    short_name: SITE_SHORT_NAME,
     description: 'Plateforme pédagogique de la Communauté Nikola Tesla — Branche Route, Abidjan.',
     lang: 'fr',
     start_url: '/',

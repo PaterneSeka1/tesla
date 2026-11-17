@@ -7,7 +7,14 @@ import { BrandLogo } from '@/components/brand-logo';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LoginForm } from './login-form';
 
-export const metadata: Metadata = { title: 'Connexion' };
+/** Page publique ouverte au référencement (le formulaire n'expose aucune donnée). */
+export const metadata: Metadata = {
+  title: 'Connexion',
+  description:
+    'Connexion à Nikola Tesla Académie, la plateforme pédagogique de la Communauté Nikola Tesla (Branche Route, Abidjan).',
+  alternates: { canonical: '/connexion' },
+  robots: { index: true, follow: false },
+};
 
 const stagger = (index: number) => ({ '--stagger': index }) as React.CSSProperties;
 

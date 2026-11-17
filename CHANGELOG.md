@@ -4,6 +4,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — référencement et métadonnées, 2026-11-17 (D189)
+- L'accueil public et la page de connexion peuvent apparaître dans les moteurs de recherche ; toutes les autres pages restent exclues.
+- Fichiers `robots.txt` et `sitemap.xml`, adresse canonique, données structurées de la communauté.
+- Aperçu soigné lors du partage d'un lien (WhatsApp, Facebook, X…) : titre, description et image aux couleurs de la communauté.
+
+### Sécurité — Next.js 16.4.6, 2026-11-17
+- Next.js et `eslint-config-next` passent de 16.4.3 à 16.4.6 : correction de deux vulnérabilités modérées de fuite de cache (GHSA-mfr8-8qww-v76h, GHSA-vc7v-qv4w-wrv8).
+
 ### Modifié — actes du responsable plein sans validation, 2026-11-17 (D188)
 - Le responsable plein publie directement ses modules et questionnaires : « Publier » remplace « Envoyer pour validation ».
 - Il publie le résultat d'une copie en un seul geste, sans « valider la note » puis « publier ».
@@ -22,6 +30,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 - Les liens de réinitialisation du mot de passe gardent leur durée (72 h émis par l'encadrement, 60 min en libre-service).
 - Lien non utilisé à temps : bouton « Nouveau lien d'activation » sur la fiche du routier ou de l'adulte (administrateur et plein, compte pas encore activé), en plus d'Administration › Comptes ; l'ancien lien est révoqué.
 - La fiche indique « En attente d'activation » pour un compte rattaché pas encore activé.
+- Compte déjà activé mais mot de passe inutilisable (jamais connecté, oubli) : le même bouton devient « Réinitialiser le mot de passe » sur la fiche et émet un lien de réinitialisation (72 h).
 
 ### Ajouté — apprenants adultes, 2026-11-16 (D185)
 - Page « Adultes » (encadrement et administrateur) : liste, inscription (nom, prénoms, sexe) par l'administrateur ou le plein, fiche réduite (identité, compte, évaluations) et correction motivée.

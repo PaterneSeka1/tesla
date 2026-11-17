@@ -1,6 +1,26 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-17 — **actes du plein sans validation** (D188), voir [§ Actes du plein](#actes-du-plein-sans-validation-2026-11-17) ; **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-17 — **référencement et métadonnées** (D189), voir [§ Référencement](#référencement-et-métadonnées-2026-11-17) ; **actes du plein sans validation** (D188), voir [§ Actes du plein](#actes-du-plein-sans-validation-2026-11-17) ; **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+
+## Référencement et métadonnées (2026-11-17)
+
+Décision D189. Aucune migration, aucun déploiement.
+
+### Réalisé
+- `src/lib/site.ts` : domaine canonique (`SITE_URL`, défaut domaine Vercel), textes, pages indexables, préfixes privés, constructeurs `robots`, `sitemap` et données structurées.
+- `robots.ts`, `sitemap.ts`, `opengraph-image.tsx` (1200×630, logo) ; racine : `metadataBase`, description, mots-clés, Open Graph `fr_CI`, carte `summary_large_image`, `noindex` par défaut conservé.
+- `/` et `/connexion` indexables avec URL canonique ; JSON-LD `EducationalOrganization` + `WebSite` sur l'accueil ; manifeste aligné.
+
+- Sécurité : Next.js et `eslint-config-next` 16.4.3 → **16.4.6** (versions exactes), corrigeant GHSA-mfr8-8qww-v76h et GHSA-vc7v-qv4w-wrv8 (fuites de cache `use cache`, modérées) ; lockfile limité aux paquets Next.
+
+### Vérifications (Node 22.23.5)
+- `lint`, `typecheck`, `test` (API 301/301, web 146/146 dont 7 nouveaux dans `site.test.ts`), `build` (API + web, sans alerte de sécurité de Next) ; rendu contrôlé avec `next start` : balises de `/`, `/connexion`, pages de compte et `/hors-ligne` (`noindex`), `robots.txt` (19 exclusions), `sitemap.xml`, image de partage (200, PNG), redirection des pages connectées sans session.
+- Sous Node 20 (poste de développement), les tests de l'API plantent toujours au démarrage (SIGSEGV) : utiliser Node ≥ 22.12 (`.nvmrc`).
+- Non exécutés : tests d'intégration (`test:int`, base `tesla_test`), l'API n'étant pas modifiée.
+
+### Reste
+- Après déploiement : Google Search Console (vérification du domaine, envoi du plan du site) et test des aperçus de partage (WhatsApp, Facebook).
+- `npm audit` : `minimatch` (modérée, outil de lint seulement, via typescript-eslint 8.72) ; correctif typescript-eslint 8.73.0 publié le 2026-11-16, à adopter après quelques jours de recul.
 
 ## Actes du plein sans validation (2026-11-17)
 

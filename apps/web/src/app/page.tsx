@@ -9,10 +9,22 @@ import {
   UsersRound,
   Zap,
 } from 'lucide-react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BrandBackdrop, BrandCurve } from '@/components/brand-backdrop';
 import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
+import { buildStructuredData, SITE_NAME, SITE_OPEN_GRAPH, serializeJsonLd } from '@/lib/site';
+
+/** Page publique : seule page, avec `/connexion`, ouverte au référencement. */
+export const metadata: Metadata = {
+  title: { absolute: `${SITE_NAME} — Communauté Nikola Tesla, Branche Route d’Abidjan` },
+  alternates: { canonical: '/' },
+  openGraph: { ...SITE_OPEN_GRAPH, url: '/' },
+  robots: { index: true, follow: true },
+};
+
+const STRUCTURED_DATA = serializeJsonLd(buildStructuredData());
 
 /** Délai d'apparition en cascade (voir `.animate-rise` dans globals.css). */
 const stagger = (index: number) => ({ '--stagger': index }) as React.CSSProperties;
@@ -73,6 +85,7 @@ const JOURNEY: readonly { title: string; items: readonly string[]; icon: LucideI
 export default function HomePage() {
   return (
     <div className="flex min-h-dvh flex-col">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: STRUCTURED_DATA }} />
       <header className="relative isolate overflow-hidden bg-tesla-bordeaux text-white">
         <BrandBackdrop className="-z-10" />
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4 pt-12 pb-10 text-center sm:pt-16 sm:pb-14">
