@@ -34,6 +34,8 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
   const [newEmail, setNewEmail] = useState('');
   const [link, setLink] = useState<AccountLink | null>(null);
   const name = fullName(scout);
+  /** Compte rattaché pas encore activé : lien d'activation ; sinon réinitialisation (D186). */
+  const pendingActivation = scout.account?.status === 'A_ACTIVER';
 
   /** Exécute l'action, rafraîchit les données et notifie ; renvoie `true` en cas de succès. */
   const run = async (action: () => Promise<unknown>, success: string, failure: string) => {
@@ -186,20 +188,28 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
         />
       )}
 
-      {scout.account?.status === 'A_ACTIVER' && userCan(user, 'account.manage') && (
+      {scout.account?.isActive && userCan(user, 'account.manage') && (
         <ConfirmDialog
           trigger={
             <Button variant="outline">
               <KeyRound aria-hidden />
-              Nouveau lien d’activation
+              {pendingActivation ? 'Nouveau lien d’activation' : 'Réinitialiser le mot de passe'}
             </Button>
           }
-          title="Nouveau lien d’activation"
+          title={pendingActivation ? 'Nouveau lien d’activation' : 'Réinitialiser le mot de passe'}
           description={
-            <p>
-              {name} n’a pas encore activé son compte. Un nouveau lien à usage unique, valable 7
-              jours, vous sera remis ; les liens précédents cessent de fonctionner.
-            </p>
+            pendingActivation ? (
+              <p>
+                {name} n’a pas encore activé son compte. Un nouveau lien à usage unique, valable 7
+                jours, vous sera remis ; les liens précédents cessent de fonctionner.
+              </p>
+            ) : (
+              <p>
+                {name} a déjà activé son compte. Un lien à usage unique lui permettra de choisir un
+                nouveau mot de passe ; les liens précédents cessent de fonctionner et le mot de
+                passe actuel reste valable jusqu’à son utilisation.
+              </p>
+            )
           }
           confirmLabel="Émettre le lien"
           onConfirm={async () => {
