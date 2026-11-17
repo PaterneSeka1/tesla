@@ -178,11 +178,17 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
       .expect(401);
   });
 
-  it('lien d’activation : vérification, usage unique, mot de passe trop court, lien remplacé', async () => {
+  /** Durée de validité restante d'un lien, en heures arrondies. */
+  const hoursLeft = (expiresAt: string) =>
+    Math.round((new Date(expiresAt).getTime() - Date.now()) / 3_600_000);
+
+  it('lien d’activation : 7 jours, usage unique, mot de passe trop court, lien remplacé', async () => {
     const { client: admin } = await bootstrapAdmin();
     const created = await createAccount(admin, { role: 'ENCADREMENT' });
     expect(created.account.status).toBe('A_ACTIVER');
     expect(created.link.purpose).toBe('ACTIVATION');
+    // Activation valable 7 jours (D186).
+    expect(hoursLeft(created.link.expiresAt)).toBe(7 * 24);
     // Compte non activé : connexion impossible, message indistinct.
     expect(
       await errorCode(
@@ -208,6 +214,8 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
       201,
       accountWithLinkSchema,
     );
+    expect(renewed.link.purpose).toBe('ACTIVATION');
+    expect(hoursLeft(renewed.link.expiresAt)).toBe(7 * 24);
     expect(await errorCode(activate(created.link.token), 400)).toBe('INVALID_ACCOUNT_LINK');
     await activate(renewed.link.token).expect(204);
     expect(await errorCode(activate(renewed.link.token), 400)).toBe('INVALID_ACCOUNT_LINK');
@@ -220,6 +228,8 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
       accountWithLinkSchema,
     );
     expect(reset.link.purpose).toBe('REINITIALISATION');
+    // La réinitialisation garde sa durée plus courte (ACCOUNT_LINK_TTL_HOURS).
+    expect(hoursLeft(reset.link.expiresAt)).toBe(72);
     await prisma.accountToken.updateMany({
       where: { userId: created.account.id, usedAt: null, revokedAt: null },
       data: { expiresAt: new Date(Date.now() - 1000) },
@@ -269,10 +279,23 @@ describe('Comptes : création, activation, sessions (intégration PostgreSQL)', 
     ).toBe('PROFILE_ALREADY_LINKED');
     expect(await prisma.user.count({ where: { email: 'doublon@example.test' } })).toBe(0);
 
-    await activate(created.link.token).expect(204);
+    // Fiche : compte à activer ; le plein réémet un lien depuis la fiche (D186).
+    const pending = await json(pleinClient.get(`/scouts/${scout.id}`), 200, scoutDetailSchema);
+    expect(pending.account).toMatchObject({ id: created.account.id, status: 'A_ACTIVER' });
+    const renewed = await json(
+      pleinClient.post(`/users/${pending.account!.id}/link`),
+      201,
+      accountWithLinkSchema,
+    );
+    expect(renewed.link.purpose).toBe('ACTIVATION');
+    expect(await errorCode(activate(created.link.token), 400)).toBe('INVALID_ACCOUNT_LINK');
+
+    await activate(renewed.link.token).expect(204);
     const routier = await signIn(created.account.email);
     const me = await json(routier.get('/auth/me'), 200, meResponseSchema);
     expect(me.user).toMatchObject({ role: 'ROUTIER', scoutProfileId: scout.id });
+    const activated = await json(pleinClient.get(`/scouts/${scout.id}`), 200, scoutDetailSchema);
+    expect(activated.account?.status).toBe('ACTIF');
   });
 
   it('périmètres : le plein ne gère que les routiers ; encadrement sans mandat et routier refusés', async () => {

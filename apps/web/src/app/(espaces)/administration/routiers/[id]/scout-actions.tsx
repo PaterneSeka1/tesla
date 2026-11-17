@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type AccountLink, type ScoutDetail } from '@tesla/shared';
-import { ArrowRightLeft, Link2, Power, UserMinus, UserPlus } from 'lucide-react';
+import { ArrowRightLeft, KeyRound, Link2, Power, UserMinus, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { AccountLinkDialog } from '@/components/accounts/account-link-dialog';
 import { useSessionUser } from '@/components/auth/session-gate';
@@ -14,7 +14,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { OFFLINE_SAVED } from '@/components/progression/use-pedagogy-action';
 import { useToast } from '@/components/ui/toaster';
 import { OfflineQueuedError } from '@/lib/offline/operations';
-import { createAccount } from '@/lib/api/accounts';
+import { createAccount, issueAccountLink } from '@/lib/api/accounts';
 import { assignTeam, linkAccount, setScoutActive, unassignTeam } from '@/lib/api/scouts';
 import { userCan } from '@/lib/navigation';
 import { activeTeamsQueryOptions } from '@/lib/api/teams';
@@ -181,6 +181,39 @@ export function ScoutActions({ scout }: { scout: ScoutDetail }) {
               setNewEmail('');
               setLink(created);
             }
+            return ok;
+          }}
+        />
+      )}
+
+      {scout.account?.status === 'A_ACTIVER' && userCan(user, 'account.manage') && (
+        <ConfirmDialog
+          trigger={
+            <Button variant="outline">
+              <KeyRound aria-hidden />
+              Nouveau lien d’activation
+            </Button>
+          }
+          title="Nouveau lien d’activation"
+          description={
+            <p>
+              {name} n’a pas encore activé son compte. Un nouveau lien à usage unique, valable 7
+              jours, vous sera remis ; les liens précédents cessent de fonctionner.
+            </p>
+          }
+          confirmLabel="Émettre le lien"
+          onConfirm={async () => {
+            const accountId = scout.account?.id;
+            if (!accountId) return false;
+            let issued: AccountLink | null = null;
+            const ok = await run(
+              async () => {
+                issued = (await issueAccountLink(accountId)).link;
+              },
+              'Lien émis',
+              'Émission impossible',
+            );
+            if (ok) setLink(issued);
             return ok;
           }}
         />

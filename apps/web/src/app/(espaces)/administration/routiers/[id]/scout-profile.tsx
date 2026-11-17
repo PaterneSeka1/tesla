@@ -182,9 +182,11 @@ export function ScoutProfileView() {
                   {scout.account.email ?? 'Compte rattaché'}
                   {!scout.account.isActive && ' (désactivé)'}
                   <span className="block text-xs text-muted-foreground">
-                    {scout.account.lastLoginAt
-                      ? `Dernière connexion : ${formatDateTime(scout.account.lastLoginAt)}`
-                      : 'Jamais connecté'}
+                    {scout.account.status === 'A_ACTIVER'
+                      ? 'En attente d’activation'
+                      : scout.account.lastLoginAt
+                        ? `Dernière connexion : ${formatDateTime(scout.account.lastLoginAt)}`
+                        : 'Jamais connecté'}
                   </span>
                 </>
               ) : (

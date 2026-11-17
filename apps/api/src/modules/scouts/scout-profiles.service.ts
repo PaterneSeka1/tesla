@@ -39,6 +39,7 @@ import { parseInput } from '../../common/validation.js';
 import { type Prisma, type ScoutProfile } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { assertCanAtWrite } from '../auth/write-authority.js';
+import { accountStatus } from '../users/accounts.service.js';
 import { todayCivil } from '../progression/age-rules.js';
 import {
   computedStageOf,
@@ -232,7 +233,9 @@ export class ScoutProfilesService {
       createdAt: profile.createdAt.toISOString(),
       updatedAt: profile.updatedAt.toISOString(),
       account: profile.user && {
+        id: profile.user.id,
         email: can(actor, 'scout.linkAccount') ? profile.user.email : null,
+        status: accountStatus(profile.user),
         isActive: profile.user.isActive,
         lastLoginAt: profile.user.lastLoginAt?.toISOString() ?? null,
       },

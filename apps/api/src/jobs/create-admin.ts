@@ -11,7 +11,7 @@ import { AccountsService } from '../modules/users/accounts.service.js';
 /**
  * Installation : premier compte d'administration technique, sans mot de passe dans le code, la
  * ligne de commande ni l'environnement (D121). Affiche un lien d'activation à usage unique, valable
- * ACCOUNT_LINK_TTL_HOURS heures ; le titulaire y choisit lui-même son mot de passe.
+ * ACTIVATION_LINK_TTL_DAYS jours (ACCOUNT_LINK_TTL_HOURS heures en secours) ; le titulaire y choisit lui-même son mot de passe.
  * Secours (`--recover`) : nouveau lien pour un administrateur existant (mot de passe perdu).
  * Usage : `npm run admin:create -w @tesla/api -- --email … --first-name … --last-name … [--web-url https://…]`
  *         `npm run admin:create -w @tesla/api -- --recover --email …`

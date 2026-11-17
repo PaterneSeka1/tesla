@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ACCOUNT_STATUSES } from './accounts.js';
 import { paginationQuerySchema, searchQuerySchema, userSummarySchema } from './api.js';
 import { THEORETICAL_STAGE_REASONS } from './age-progression.js';
 import { EVALUATION_MODES, ATTEMPT_STATUSES } from './evaluation-enums.js';
@@ -313,7 +314,11 @@ export const scoutDetailSchema = scoutListItemSchema.extend({
   /** Compte rattaché. L'e-mail n'est communiqué qu'au responsable. */
   account: z
     .object({
+      /** Identifiant du compte : nouveau lien d'activation depuis la fiche (D186). */
+      id: z.uuid(),
       email: z.string().nullable(),
+      /** « À activer » tant que le titulaire n'a pas choisi son mot de passe. */
+      status: z.enum(ACCOUNT_STATUSES),
       isActive: z.boolean(),
       lastLoginAt: z.iso.datetime().nullable(),
     })

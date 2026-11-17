@@ -37,7 +37,8 @@ Un seul fichier `.env` à la racine, lu par Docker Compose, l'API, Prisma et Nex
 | `CORS_ORIGINS` | Origines autorisées, séparées par des virgules | `http://localhost:3000` |
 | `SWAGGER_ENABLED` | `true` \| `false` | `true` hors production |
 | `SESSION_TTL_HOURS` | Durée de vie d'une session | `12` |
-| `ACCOUNT_LINK_TTL_HOURS` | Validité d'un lien d'activation ou de réinitialisation | `72` |
+| `ACCOUNT_LINK_TTL_HOURS` | Validité d'un lien de réinitialisation émis par l'encadrement (heures) | `72` |
+| `ACTIVATION_LINK_TTL_DAYS` | Validité d'un lien d'activation de compte (jours, usage unique) | `7` |
 | `TRUST_PROXY` | `true` derrière Nginx (adresse IP réelle) | `false` |
 | `TEST_DATABASE_URL` | Base des tests d'intégration (nom en `_test`) | — |
 | `NEXT_PUBLIC_API_URL` | URL de l'API vue du navigateur (**obligatoire**, intégrée au build) | — |

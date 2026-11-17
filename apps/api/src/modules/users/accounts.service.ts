@@ -471,15 +471,18 @@ export class AccountsService {
 
   /**
    * Jeton à usage unique et code de secours équivalent (D162) ; seules leurs empreintes sont
-   * conservées. Révoque les liens précédents du compte. Durée : `ttlMs`, ou la durée des liens
-   * transmis par une personne habilitée (ACCOUNT_LINK_TTL_HOURS).
+   * conservées. Révoque les liens précédents du compte. Durée : `ttlMs`, sinon
+   * ACTIVATION_LINK_TTL_DAYS pour une activation (D186) et ACCOUNT_LINK_TTL_HOURS pour une
+   * réinitialisation transmise par une personne habilitée.
    */
   private async issueLink(
     tx: Tx,
     userId: string,
     purpose: AccountTokenPurpose,
     createdById: string | null,
-    ttlMs = this.env.ACCOUNT_LINK_TTL_HOURS * 3_600_000,
+    ttlMs = purpose === 'ACTIVATION'
+      ? this.env.ACTIVATION_LINK_TTL_DAYS * 86_400_000
+      : this.env.ACCOUNT_LINK_TTL_HOURS * 3_600_000,
   ): Promise<AccountLink> {
     const now = new Date();
     await tx.accountToken.updateMany({

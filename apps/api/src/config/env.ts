@@ -22,8 +22,10 @@ const envSchema = z
     SWAGGER_ENABLED: booleanString.optional(),
     /** Durée de vie absolue d'une session (heures). */
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
-    /** Validité d'un lien d'activation ou de réinitialisation du mot de passe (heures, D118). */
+    /** Validité d'un lien de réinitialisation du mot de passe émis par l'encadrement (heures, D118). */
     ACCOUNT_LINK_TTL_HOURS: z.coerce.number().int().min(1).max(336).default(72),
+    /** Validité d'un lien d'activation de compte, à usage unique (jours, D186). */
+    ACTIVATION_LINK_TTL_DAYS: z.coerce.number().int().min(1).max(30).default(7),
     /** Validité d'une demande « mot de passe oublié » en libre-service (minutes, D166). */
     PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(10).max(1440).default(60),
     /**
