@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import {
   type ApproveModuleInput,
   approveModuleInputSchema,
@@ -8,7 +8,6 @@ import {
   motivatedDecisionInputSchema,
   type Paginated,
   type PaginationQuery,
-  pendingEditorialNotes,
   type PublicationHistoryItem,
   publicationHistoryQuerySchema,
   type SubmissionItem,
@@ -24,7 +23,6 @@ import { parseInput } from '../../common/validation.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { toUserSummary, userSummarySelect } from '../scouts/presenters.js';
 import {
-  currentEditorialNotes,
   emptyDraftOf,
   eventInclude,
   formatModuleCode,
@@ -37,6 +35,7 @@ import {
   versionSummaryInclude,
 } from './module-common.js';
 import { ModuleEditorService } from './module-editor.service.js';
+import { approveSubmittedVersion, publishApprovedVersion } from './module-publication.js';
 
 /**
  * Décisions éditoriales, exclusivement réservées au responsable pédagogique :
@@ -106,28 +105,9 @@ export class ModuleReviewService {
     await this.prisma.$transaction(async (tx) => {
       const locked = await lockVersion(tx, moduleId, versionId);
       if (locked.status !== 'SOUMIS') throw invalidTransition(locked.status);
-      const notes = await currentEditorialNotes(tx, moduleId);
-      const pending = notes ? pendingEditorialNotes(notes).length : 0;
-      if (pending > 0 && editorialNotesAcknowledged !== true) {
-        throw new UnprocessableEntityException({
-          code: 'EDITORIAL_NOTES_NOT_ACKNOWLEDGED',
-          message:
-            'Ce module importé comporte des points à vérifier ou à compléter : confirmez les avoir traités avant d’approuver.',
-        });
-      }
-      await tx.moduleVersion.update({
-        where: { id: versionId },
-        data: { status: 'APPROUVE', approvedAt: new Date(), approvedById: actor.userId },
-      });
-      await recordEvent(tx, actor, {
-        moduleId,
-        versionId,
-        action: 'APPROUVEE',
-        fromStatus: 'SOUMIS',
-        toStatus: 'APPROUVE',
+      await approveSubmittedVersion(tx, actor, moduleId, versionId, {
         comment: comment ?? null,
-        audit: 'module.approved',
-        ...(pending > 0 && { metadata: { editorialNotesAcknowledged: pending } }),
+        editorialNotesAcknowledged,
       });
     });
   }
@@ -188,55 +168,7 @@ export class ModuleReviewService {
   async publish(actor: Actor, moduleId: string, input: VersionActionInput): Promise<void> {
     assertCan(actor, 'module.review');
     const { versionId } = parseInput(versionActionInputSchema, input);
-    await this.prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<{ published_version_id: string | null }[]>`
-        SELECT published_version_id FROM pedagogical_modules WHERE id = ${moduleId}::uuid FOR UPDATE`;
-      if (rows.length === 0) throw moduleNotFound();
-      const previousId = rows[0]!.published_version_id;
-      const locked = await lockVersion(tx, moduleId, versionId);
-      if (locked.status !== 'APPROUVE') {
-        throw new ConflictException({
-          code: 'VERSION_NOT_APPROVED',
-          message: 'Seule une version approuvée peut être publiée.',
-        });
-      }
-      const now = new Date();
-      if (previousId) {
-        await tx.pedagogicalModule.update({
-          where: { id: moduleId },
-          data: { publishedVersionId: null },
-        });
-        await tx.moduleVersion.update({
-          where: { id: previousId },
-          data: { status: 'ARCHIVE', archivedAt: now },
-        });
-        await recordEvent(tx, actor, {
-          moduleId,
-          versionId: previousId,
-          action: 'REMPLACEE',
-          fromStatus: 'PUBLIE',
-          toStatus: 'ARCHIVE',
-          comment: `Remplacée par la version ${locked.version}.`,
-        });
-      }
-      await tx.moduleVersion.update({
-        where: { id: versionId },
-        data: { status: 'PUBLIE', publishedAt: now, publishedById: actor.userId },
-      });
-      await tx.pedagogicalModule.update({
-        where: { id: moduleId },
-        data: { publishedVersionId: versionId },
-      });
-      await recordEvent(tx, actor, {
-        moduleId,
-        versionId,
-        action: 'PUBLIEE',
-        fromStatus: 'APPROUVE',
-        toStatus: 'PUBLIE',
-        audit: 'module.published',
-        metadata: { replacedVersionId: previousId },
-      });
-    });
+    await this.prisma.$transaction((tx) => publishApprovedVersion(tx, actor, moduleId, versionId));
   }
 
   /** Retrait motivé de la version publiée : le module disparaît de la bibliothèque. */

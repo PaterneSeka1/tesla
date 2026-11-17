@@ -53,6 +53,11 @@ import {
   versionDetailInclude,
   versionSummaryInclude,
 } from './evaluation-common.js';
+import {
+  approveSubmittedEvaluationVersion,
+  publishApprovedEvaluationVersion,
+} from './evaluation-publication.js';
+import { assertCanAtWrite } from '../auth/write-authority.js';
 
 const listInclude = {
   stage: true,
@@ -404,6 +409,13 @@ export class EvaluationEditorService {
         toStatus: 'SOUMIS',
         comment: note ?? null,
       });
+      // Responsable plein en fonction (D188) : son propre questionnaire n'attend aucune validation ;
+      // approbation et publication dans la même transaction (module évalué publié exigé).
+      if (can(actor, 'evaluation.review')) {
+        await assertCanAtWrite(tx, actor, 'evaluation.review');
+        await approveSubmittedEvaluationVersion(tx, actor, evaluationId, versionId, null);
+        await publishApprovedEvaluationVersion(tx, actor, evaluationId, versionId);
+      }
     });
     return this.detail(actor, evaluationId, access);
   }

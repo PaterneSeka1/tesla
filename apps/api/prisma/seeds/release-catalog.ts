@@ -16,7 +16,6 @@ import { can } from '../../src/common/permissions.js';
 import { type PrismaClient } from '../../src/generated/prisma/client.js';
 import { resolveAuthority } from '../../src/modules/auth/auth.service.js';
 import { EvaluationEditorService } from '../../src/modules/evaluations/evaluation-editor.service.js';
-import { EvaluationReviewService } from '../../src/modules/evaluations/evaluation-review.service.js';
 import {
   currentEditorialNotes,
   emptyDraftOf,
@@ -105,7 +104,6 @@ export async function releaseCatalog(
   const moduleEditor = new ModuleEditorService(prisma);
   const moduleReview = new ModuleReviewService(prisma, moduleEditor);
   const evaluationEditor = new EvaluationEditorService(prisma);
-  const evaluationReview = new EvaluationReviewService(prisma, evaluationEditor);
   const lines: ReleaseLine[] = [];
   // Contrôle préalable (`pedagogy:audit`) : aucune publication d'un module portant une anomalie
   // bloquante. Les leçons vides ne bloquent pas : elles sont retirées avant la soumission (D129).
@@ -201,20 +199,23 @@ export async function releaseCatalog(
           where: { id: working.id },
           select: { revision: true },
         });
+        // Soumission du responsable plein : approbation et publication immédiates (D188).
         await moduleEditor.submit(actor, module.id, {
           versionId: working.id,
           revision,
           note: DECISION,
-        });
-      }
-      if (working.status === 'BROUILLON' || working.status === 'SOUMIS') {
-        await moduleReview.approve(actor, module.id, {
-          versionId: working.id,
-          comment: DECISION,
           editorialNotesAcknowledged: options.acknowledgeNotes === true,
         });
+      } else {
+        if (working.status === 'SOUMIS') {
+          await moduleReview.approve(actor, module.id, {
+            versionId: working.id,
+            comment: DECISION,
+            editorialNotesAcknowledged: options.acknowledgeNotes === true,
+          });
+        }
+        await moduleReview.publish(actor, module.id, { versionId: working.id });
       }
-      await moduleReview.publish(actor, module.id, { versionId: working.id });
     }
     const removed = working.status === 'BROUILLON' ? emptyLessons.length : 0;
     lines.push({
@@ -298,8 +299,7 @@ export async function releaseCatalog(
         revision: detail.current.revision,
         note: DECISION,
       });
-      await evaluationReview.approve(actor, evaluationId, { versionId, comment: DECISION });
-      await evaluationReview.publish(actor, evaluationId, { versionId });
+      // Soumission du responsable plein : approbation et publication immédiates (D188).
     }
     lines.push({
       key,

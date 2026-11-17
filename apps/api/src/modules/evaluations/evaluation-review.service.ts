@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   type ApproveModuleInput,
   approveModuleInputSchema,
@@ -28,6 +28,10 @@ import {
   versionSummaryInclude,
 } from './evaluation-common.js';
 import { EvaluationEditorService } from './evaluation-editor.service.js';
+import {
+  approveSubmittedEvaluationVersion,
+  publishApprovedEvaluationVersion,
+} from './evaluation-publication.js';
 
 /**
  * Décisions sur les questionnaires, exclusivement réservées au responsable pédagogique :
@@ -99,19 +103,7 @@ export class EvaluationReviewService {
     await this.prisma.$transaction(async (tx) => {
       const locked = await lockEvaluationVersion(tx, evaluationId, versionId);
       if (locked.status !== 'SOUMIS') throw invalidEvaluationTransition(locked.status);
-      await tx.evaluationVersion.update({
-        where: { id: versionId },
-        data: { status: 'APPROUVE', approvedAt: new Date(), approvedById: actor.userId },
-      });
-      await recordEvaluationEvent(tx, actor, {
-        evaluationId,
-        versionId,
-        action: 'APPROUVEE',
-        fromStatus: 'SOUMIS',
-        toStatus: 'APPROUVE',
-        comment: comment ?? null,
-        audit: 'evaluation.approved',
-      });
+      await approveSubmittedEvaluationVersion(tx, actor, evaluationId, versionId, comment ?? null);
     });
   }
 
@@ -170,69 +162,9 @@ export class EvaluationReviewService {
   async publish(actor: Actor, evaluationId: string, input: VersionActionInput): Promise<void> {
     assertCan(actor, 'evaluation.review');
     const { versionId } = parseInput(versionActionInputSchema, input);
-    await this.prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<
-        { published_version_id: string | null; module_id: string | null }[]
-      >`SELECT published_version_id, module_id FROM evaluations WHERE id = ${evaluationId}::uuid FOR UPDATE`;
-      if (rows.length === 0) throw evaluationNotFound();
-      const { published_version_id: previousId, module_id: moduleId } = rows[0]!;
-      const locked = await lockEvaluationVersion(tx, evaluationId, versionId);
-      if (locked.status !== 'APPROUVE') {
-        throw new ConflictException({
-          code: 'VERSION_NOT_APPROVED',
-          message: 'Seule une version approuvée peut être publiée.',
-        });
-      }
-      let moduleVersionId: string | null = null;
-      if (moduleId) {
-        const module = await tx.pedagogicalModule.findUniqueOrThrow({
-          where: { id: moduleId },
-          select: { publishedVersionId: true },
-        });
-        if (!module.publishedVersionId) {
-          throw new ConflictException({
-            code: 'MODULE_NOT_PUBLISHED',
-            message: 'Le module évalué doit être publié avant son évaluation.',
-          });
-        }
-        moduleVersionId = module.publishedVersionId;
-      }
-      const now = new Date();
-      if (previousId) {
-        await tx.evaluation.update({
-          where: { id: evaluationId },
-          data: { publishedVersionId: null },
-        });
-        await tx.evaluationVersion.update({
-          where: { id: previousId },
-          data: { status: 'ARCHIVE', archivedAt: now },
-        });
-        await recordEvaluationEvent(tx, actor, {
-          evaluationId,
-          versionId: previousId,
-          action: 'REMPLACEE',
-          fromStatus: 'PUBLIE',
-          toStatus: 'ARCHIVE',
-          comment: `Remplacée par la version ${locked.version}`,
-        });
-      }
-      const published = await tx.evaluationVersion.update({
-        where: { id: versionId },
-        data: { status: 'PUBLIE', publishedAt: now, publishedById: actor.userId, moduleVersionId },
-      });
-      await tx.evaluation.update({
-        where: { id: evaluationId },
-        data: { publishedVersionId: versionId, title: published.title },
-      });
-      await recordEvaluationEvent(tx, actor, {
-        evaluationId,
-        versionId,
-        action: 'PUBLIEE',
-        fromStatus: 'APPROUVE',
-        toStatus: 'PUBLIE',
-        audit: 'evaluation.published',
-      });
-    });
+    await this.prisma.$transaction((tx) =>
+      publishApprovedEvaluationVersion(tx, actor, evaluationId, versionId),
+    );
   }
 
   /** Retrait de la version publiée : plus aucune nouvelle tentative ; l'historique est conservé. */

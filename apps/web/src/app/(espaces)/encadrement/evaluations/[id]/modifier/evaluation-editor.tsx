@@ -17,6 +17,7 @@ import {
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { BackLink } from '@/components/back-link';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EvaluationSettingsForm } from '@/components/evaluations/evaluation-settings-form';
@@ -43,6 +44,7 @@ import {
   updateQuestion,
 } from '@/lib/api/evaluations';
 import { formatPoints } from '@/lib/format';
+import { userCan } from '@/lib/navigation';
 
 type Status = EditorEvaluationDetail['current']['status'];
 
@@ -59,6 +61,8 @@ export function EvaluationEditor() {
   const run = useEvaluationAction();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Responsable plein en fonction (D188) : son envoi publie directement, sans validation.
+  const direct = userCan(useSessionUser(), 'evaluation.review');
   const {
     data: evaluation,
     error,
@@ -153,24 +157,33 @@ export function EvaluationEditor() {
                   }
                 >
                   <Send aria-hidden />
-                  Envoyer pour validation
+                  {direct ? 'Publier' : 'Envoyer pour validation'}
                 </Button>
               }
-              title="Envoyer le questionnaire pour validation ?"
+              title={
+                direct ? 'Publier le questionnaire ?' : 'Envoyer le questionnaire pour validation ?'
+              }
               description={
                 <>
                   <p>
                     Version {current.version} : {current.questionCount} question
                     {current.questionCount > 1 ? 's' : ''}, {formatPoints(current.totalPoints)}.
                   </p>
-                  <p>
-                    Le responsable l’examinera ; elle ne sera plus modifiable jusqu’à sa décision.
-                    Les routiers n’y ont accès qu’après publication, selon leur progression.
-                  </p>
+                  {direct ? (
+                    <p>
+                      Il est publié immédiatement, sans validation : les routiers y ont accès selon
+                      leur progression. Le module évalué doit déjà être publié.
+                    </p>
+                  ) : (
+                    <p>
+                      Le responsable l’examinera ; elle ne sera plus modifiable jusqu’à sa décision.
+                      Les routiers n’y ont accès qu’après publication, selon leur progression.
+                    </p>
+                  )}
                 </>
               }
-              label="Note pour le responsable (facultative)"
-              confirmLabel="Envoyer pour validation"
+              label={direct ? 'Note (facultative)' : 'Note pour le responsable (facultative)'}
+              confirmLabel={direct ? 'Publier' : 'Envoyer pour validation'}
               onConfirm={(note) =>
                 run(
                   () =>
@@ -179,7 +192,12 @@ export function EvaluationEditor() {
                       revision: current.revision,
                       note,
                     }),
-                  { success: 'Questionnaire envoyé pour validation', error: 'Envoi impossible' },
+                  direct
+                    ? { success: 'Questionnaire publié', error: 'Publication impossible' }
+                    : {
+                        success: 'Questionnaire envoyé pour validation',
+                        error: 'Envoi impossible',
+                      },
                 )
               }
             />

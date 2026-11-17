@@ -80,6 +80,8 @@ import {
   versionNotFound,
   versionSummaryInclude,
 } from './module-common.js';
+import { approveSubmittedVersion, publishApprovedVersion } from './module-publication.js';
+import { assertCanAtWrite } from '../auth/write-authority.js';
 import {
   moduleFilterWhere,
   moduleOrderBy,
@@ -501,7 +503,10 @@ export class ModuleEditorService {
   /** Soumission à l'approbation : la version est figée jusqu'à la décision du responsable. */
   async submit(actor: Actor, moduleId: string, input: SubmitModuleInput): Promise<void> {
     assertCan(actor, 'module.write');
-    const { versionId, revision, note } = parseInput(submitModuleInputSchema, input);
+    const { versionId, revision, note, editorialNotesAcknowledged } = parseInput(
+      submitModuleInputSchema,
+      input,
+    );
     await this.prisma.$transaction(async (tx) => {
       await resolveAccess(tx, actor, moduleId);
       const locked = await lockVersion(tx, moduleId, versionId);
@@ -546,6 +551,16 @@ export class ModuleEditorService {
         comment: note ?? null,
         audit: 'module.submitted',
       });
+      // Responsable plein en fonction (D188) : son propre travail n'attend aucune validation ;
+      // approbation et publication dans la même transaction, droits revérifiés à l'écriture.
+      if (can(actor, 'module.review')) {
+        await assertCanAtWrite(tx, actor, 'module.review');
+        await approveSubmittedVersion(tx, actor, moduleId, versionId, {
+          comment: null,
+          editorialNotesAcknowledged,
+        });
+        await publishApprovedVersion(tx, actor, moduleId, versionId);
+      }
       await touchModule(tx, moduleId);
     });
   }

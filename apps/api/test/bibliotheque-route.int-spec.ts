@@ -113,13 +113,14 @@ describe('Bibliothèque de la Route (intégration PostgreSQL)', () => {
   async function publish(responsable: Session, moduleId: string) {
     const detail = await detailOf(responsable, moduleId);
     const versionId = detail.current.id;
+    // Responsable plein : sa soumission publie directement (D188).
     await responsable
-      .post(`/editor/modules/${moduleId}/submit`, { versionId, revision: detail.current.revision })
+      .post(`/editor/modules/${moduleId}/submit`, {
+        versionId,
+        revision: detail.current.revision,
+        editorialNotesAcknowledged: true,
+      })
       .expect(201);
-    await responsable
-      .post(`/admin/modules/${moduleId}/approve`, { versionId, editorialNotesAcknowledged: true })
-      .expect(204);
-    await responsable.post(`/admin/modules/${moduleId}/publish`, { versionId }).expect(204);
   }
 
   const snapshot = async () => ({

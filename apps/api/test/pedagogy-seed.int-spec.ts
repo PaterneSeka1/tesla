@@ -251,7 +251,7 @@ describe('Seed pédagogique (intégration PostgreSQL)', () => {
     expect(apiErrorSchema.parse(refused.body).code).toBe('MODULE_INCOMPLETE');
   });
 
-  it('la publication suit le workflow humain ; une version publiée n’est jamais remplacée', async () => {
+  it('le responsable plein publie directement (D188) ; une version publiée n’est jamais remplacée', async () => {
     const [m01] = await importAll();
     const moduleId = createdId(m01);
     const responsable = await loginAs('RESPONSABLE');
@@ -259,21 +259,28 @@ describe('Seed pédagogique (intégration PostgreSQL)', () => {
       (await responsable.get(`/editor/modules/${moduleId}`).expect(200)).body,
     );
     const versionId = detail.current.id;
-    await responsable
+    // Points « à vérifier » de l'import : acquittement explicite exigé (AUD-027), même pour la
+    // publication directe du responsable plein (D188) ; refus sans aucune écriture.
+    const unacknowledged = await responsable
       .post(`/editor/modules/${moduleId}/submit`, {
         versionId,
         revision: detail.current.revision,
       })
-      .expect(201);
-    // Points « à vérifier » de l'import : acquittement explicite exigé (AUD-027).
-    const unacknowledged = await responsable
-      .post(`/admin/modules/${moduleId}/approve`, { versionId })
       .expect(422);
     expect(apiErrorSchema.parse(unacknowledged.body).code).toBe('EDITORIAL_NOTES_NOT_ACKNOWLEDGED');
+    expect(
+      (await prisma.moduleVersion.findUniqueOrThrow({ where: { id: versionId } })).status,
+    ).toBe('BROUILLON');
     await responsable
-      .post(`/admin/modules/${moduleId}/approve`, { versionId, editorialNotesAcknowledged: true })
-      .expect(204);
-    await responsable.post(`/admin/modules/${moduleId}/publish`, { versionId }).expect(204);
+      .post(`/editor/modules/${moduleId}/submit`, {
+        versionId,
+        revision: detail.current.revision,
+        editorialNotesAcknowledged: true,
+      })
+      .expect(201);
+    expect(
+      (await prisma.moduleVersion.findUniqueOrThrow({ where: { id: versionId } })).status,
+    ).toBe('PUBLIE');
     const approval = await prisma.auditLog.findFirstOrThrow({
       where: { action: 'module.approved', entityId: versionId },
     });

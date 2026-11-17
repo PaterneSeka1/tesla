@@ -399,9 +399,15 @@ export const addCollaboratorInputSchema = z.object({ userId: z.uuid() });
 
 export type AddCollaboratorInput = z.input<typeof addCollaboratorInputSchema>;
 
+/**
+ * Soumission d'une version. Responsable plein en fonction (D188) : la soumission vaut approbation et
+ * publication immédiates de son propre travail ; `editorialNotesAcknowledged` confirme alors que les
+ * points à vérifier d'un module importé ont été traités (comme à l'approbation).
+ */
 export const submitModuleInputSchema = z.object({
   ...versionTarget,
   note: optionalText(1000).optional(),
+  editorialNotesAcknowledged: z.boolean().optional(),
 });
 
 export type SubmitModuleInput = z.input<typeof submitModuleInputSchema>;

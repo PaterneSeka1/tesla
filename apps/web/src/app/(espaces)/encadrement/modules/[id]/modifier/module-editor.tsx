@@ -1,7 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { type EditorModuleDetail, MODULE_VERSION_ACTION_LABELS } from '@tesla/shared';
+import {
+  type EditorModuleDetail,
+  MODULE_VERSION_ACTION_LABELS,
+  pendingEditorialNotes,
+} from '@tesla/shared';
 import {
   CircleCheck,
   Copy,
@@ -17,6 +21,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { useId, useRef, useState } from 'react';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { BackLink } from '@/components/back-link';
 import { Disclosure } from '@/components/disclosure';
 import { CommentDialog } from '@/components/modules/comment-dialog';
@@ -49,6 +54,7 @@ import { formatDuration } from '@/lib/format';
 import { readLessonDraft } from '@/lib/lesson-drafts';
 import { safeReturnPath } from '@/lib/module-list-params';
 import { moduleReadiness, type ReadinessItem } from '@/lib/module-readiness';
+import { userCan } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
 import { CollaboratorsPanel } from './collaborators-panel';
 import { LessonsPanel } from './lessons-panel';
@@ -83,6 +89,8 @@ export function ModuleEditor() {
   const params = useSearchParams();
   const tabsId = useId();
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Responsable plein en fonction (D188) : son envoi publie directement, sans validation.
+  const direct = userCan(useSessionUser(), 'module.review');
   const { data: module, error, isPending, refetch } = useQuery(editorModuleQueryOptions(id));
   const retour = params.get('retour');
   const backHref = safeReturnPath(retour, '/encadrement/modules');
@@ -136,31 +144,69 @@ export function ModuleEditor() {
     if (ok) router.push(`/encadrement/modules/${copyId}/modifier`);
   };
 
-  const submitDialog = (trigger: React.ReactNode) => (
-    <CommentDialog
-      trigger={trigger}
-      title="Envoyer pour validation ?"
-      description={
-        <p>
-          Le responsable examinera la version {current.version}. Elle ne sera plus modifiable
-          jusqu’à sa décision (approbation, corrections demandées ou refus).
-        </p>
-      }
-      label="Note pour le responsable (facultative)"
-      confirmLabel="Envoyer pour validation"
-      onConfirm={(note) =>
-        run(
-          () =>
-            submitModule(module.id, {
-              versionId: current.id,
-              revision: current.revision,
-              note,
-            }),
-          { success: 'Module envoyé pour validation', error: 'Envoi impossible' },
-        )
-      }
-    />
-  );
+  const pendingNotes = module.sourceImport
+    ? pendingEditorialNotes(module.sourceImport.editorialNotes).length
+    : 0;
+  const submitDialog = (trigger: React.ReactNode) =>
+    direct ? (
+      <CommentDialog
+        trigger={trigger}
+        title="Publier cette version ?"
+        description={
+          <>
+            <p>
+              La version {current.version} sera immédiatement visible des routiers
+              {module.publishedVersionId ? ' et remplacera la version en ligne' : ''}.
+            </p>
+            {pendingNotes > 0 && (
+              <p className="mt-2 font-medium">
+                {pendingNotes} point{pendingNotes > 1 ? 's' : ''} à vérifier ou à compléter
+                {pendingNotes > 1 ? ' ont été signalés' : ' a été signalé'} à l’import de ce module.
+                En publiant, vous confirmez les avoir traités.
+              </p>
+            )}
+          </>
+        }
+        label="Note (facultative)"
+        confirmLabel="Publier"
+        onConfirm={(note) =>
+          run(
+            () =>
+              submitModule(module.id, {
+                versionId: current.id,
+                revision: current.revision,
+                note,
+                ...(pendingNotes > 0 && { editorialNotesAcknowledged: true }),
+              }),
+            { success: 'Module publié', error: 'Publication impossible' },
+          )
+        }
+      />
+    ) : (
+      <CommentDialog
+        trigger={trigger}
+        title="Envoyer pour validation ?"
+        description={
+          <p>
+            Le responsable examinera la version {current.version}. Elle ne sera plus modifiable
+            jusqu’à sa décision (approbation, corrections demandées ou refus).
+          </p>
+        }
+        label="Note pour le responsable (facultative)"
+        confirmLabel="Envoyer pour validation"
+        onConfirm={(note) =>
+          run(
+            () =>
+              submitModule(module.id, {
+                versionId: current.id,
+                revision: current.revision,
+                note,
+              }),
+            { success: 'Module envoyé pour validation', error: 'Envoi impossible' },
+          )
+        }
+      />
+    );
 
   const primaryAction = permissions.canResume ? (
     <Button
@@ -192,7 +238,7 @@ export function ModuleEditor() {
   ) : permissions.canSubmit && section !== 'soumission' && section !== 'verification' ? (
     <Button onClick={() => go('verification')}>
       <CircleCheck aria-hidden />
-      Vérifier et envoyer
+      {direct ? 'Vérifier et publier' : 'Vérifier et envoyer'}
     </Button>
   ) : null;
 
@@ -430,7 +476,13 @@ export function ModuleEditor() {
         )}
 
         {section === 'soumission' && (
-          <SubmissionSection module={module} blocking={blocking} onGo={go} submit={submitDialog} />
+          <SubmissionSection
+            module={module}
+            blocking={blocking}
+            onGo={go}
+            submit={submitDialog}
+            direct={direct}
+          />
         )}
 
         {section === 'historique' && (
@@ -557,11 +609,14 @@ function SubmissionSection({
   blocking,
   onGo,
   submit,
+  direct,
 }: {
   module: EditorModuleDetail;
   blocking: ReadinessItem[];
   onGo: (section: SectionKey) => void;
   submit: (trigger: React.ReactNode) => React.ReactNode;
+  /** Responsable plein en fonction : publication directe (D188). */
+  direct: boolean;
 }) {
   const { current, permissions } = module;
   const total = current.lessons.reduce((sum, lesson) => sum + (lesson.durationMinutes ?? 0), 0);
@@ -595,20 +650,30 @@ function SubmissionSection({
         <Info aria-hidden />
         <AlertTitle>Ce qui se passe ensuite</AlertTitle>
         <AlertDescription>
-          <ul className="list-disc space-y-1 pl-5">
-            <li>
-              Le responsable examine le module et décide : approuver, demander des corrections ou
-              refuser.
-            </li>
-            <li>Pendant l’examen, la version n’est plus modifiable.</li>
-            <li>
-              Le module n’est visible des routiers qu’après sa publication par le responsable
-              {module.publishedVersionId
-                ? ' ; la version actuellement en ligne le reste d’ici là'
-                : ''}
-              .
-            </li>
-          </ul>
+          {direct ? (
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Le module est publié immédiatement : aucune validation n’est nécessaire.</li>
+              <li>
+                Il devient visible des routiers
+                {module.publishedVersionId ? ' et remplace la version actuellement en ligne' : ''}.
+              </li>
+            </ul>
+          ) : (
+            <ul className="list-disc space-y-1 pl-5">
+              <li>
+                Le responsable examine le module et décide : approuver, demander des corrections ou
+                refuser.
+              </li>
+              <li>Pendant l’examen, la version n’est plus modifiable.</li>
+              <li>
+                Le module n’est visible des routiers qu’après sa publication par le responsable
+                {module.publishedVersionId
+                  ? ' ; la version actuellement en ligne le reste d’ici là'
+                  : ''}
+                .
+              </li>
+            </ul>
+          )}
         </AlertDescription>
       </Alert>
       {!permissions.canSubmit ? (
@@ -629,7 +694,7 @@ function SubmissionSection({
         submit(
           <Button>
             <Send aria-hidden />
-            Envoyer pour validation
+            {direct ? 'Publier' : 'Envoyer pour validation'}
           </Button>,
         )
       )}
