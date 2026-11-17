@@ -34,6 +34,12 @@ export const PERMISSIONS = {
    */
   'scout.create': ADMINISTRATION,
   'scout.update': ADMINISTRATION,
+  /**
+   * Correction directe d'une donnée administrative (D188) : le responsable plein en fonction
+   * corrige sans motif ni confirmation ; la correction reste journalisée (ancienne et nouvelle
+   * valeurs, auteur, date). L'administrateur garde le motif et la confirmation (D173).
+   */
+  'scout.correctDirectly': OFFICIEL,
   'scout.setMatricule': ADMINISTRATION,
   'scout.setActive': ADMINISTRATION,
   'scout.linkAccount': ADMINISTRATION,

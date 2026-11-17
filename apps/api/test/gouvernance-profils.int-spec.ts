@@ -234,7 +234,7 @@ describe('Gouvernance des profils et progression automatique (D173, intégration
   });
 
   it('profils protégés : pré-inscription incomplète, complétion, correction motivée, matricule unique', async () => {
-    const { pleinA } = await community();
+    const { admin, pleinA } = await community();
     // D181 : sans date de naissance, l'étape est indéterminable ; inscription refusée.
     await pleinA.post('/scouts', { firstName: 'Routier', lastName: 'SansDate' }).expect(400);
     // Inscription sans date d'entrée ni matricule : aucune valeur fictive ; étape calculée.
@@ -258,14 +258,30 @@ describe('Gouvernance des profils et progression automatique (D173, intégration
         { field: 'joinedAt', next: '2026-09-05' },
       ],
     });
-    // Correction : motif et confirmation.
+    // Correction par l'administrateur : motif et confirmation (D173).
     expect(
-      await errorCode(pleinA.patch(`/scouts/${scout.id}`, { matricule: '0000008D' }), 422),
+      await errorCode(admin.patch(`/scouts/${scout.id}`, { matricule: '0000008D' }), 422),
     ).toBe('CORRECTION_REASON_REQUIRED');
+    expect(
+      await errorCode(
+        admin.patch(`/scouts/${scout.id}`, { matricule: '0000008D', reason: 'Motif fictif.' }),
+        422,
+      ),
+    ).toBe('CORRECTION_NOT_CONFIRMED');
+    // Correction par le plein en fonction : directe, sans motif ni confirmation, journalisée (D188).
+    await pleinA.patch(`/scouts/${scout.id}`, { matricule: '0000008D' }).expect(200);
+    const corrected = await prisma.auditLog.findFirstOrThrow({
+      where: { action: 'scout_profile.corrected', entityId: scout.id },
+    });
+    expect(corrected.actorId).toBe(pleinA.user.id);
+    expect(corrected.metadata).toMatchObject({
+      reason: null,
+      changes: [{ field: 'matricule', previous: '0000007C', next: '0000008D' }],
+    });
     // Matricule unique.
     const other = await json(pleinA.post('/scouts', scoutBody(2)), 201, scoutDetailSchema);
     expect(
-      await errorCode(pleinA.patch(`/scouts/${other.id}`, { matricule: '0000007C' }), 409),
+      await errorCode(pleinA.patch(`/scouts/${other.id}`, { matricule: '0000008D' }), 409),
     ).toBe('MATRICULE_ALREADY_USED');
     // Dates incohérentes refusées.
     expect(

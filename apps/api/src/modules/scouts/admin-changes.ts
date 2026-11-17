@@ -37,12 +37,17 @@ export function diffAdminFields(
   });
 }
 
-/** Une correction exige un motif et une confirmation explicite (422 sinon, rien n'est écrit). */
+/**
+ * Une correction exige un motif et une confirmation explicite (422 sinon, rien n'est écrit), sauf
+ * correction directe du responsable plein en fonction (`direct`, D188) : motif facultatif, aucune
+ * confirmation ; la correction est journalisée de la même façon.
+ */
 export function assertCorrectionJustified(
   changes: readonly AdminChange[],
   justification: { reason?: string; confirmCorrection?: true },
+  direct = false,
 ): void {
-  if (!changes.some((change) => change.kind === 'CORRECTION')) return;
+  if (direct || !changes.some((change) => change.kind === 'CORRECTION')) return;
   if (!justification.reason) {
     throw new UnprocessableEntityException({
       code: 'CORRECTION_REASON_REQUIRED',

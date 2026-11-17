@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { FormField, fieldA11y } from '@/components/form-field';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ import { OFFLINE_SAVED } from '@/components/progression/use-pedagogy-action';
 import { ApiError } from '@/lib/api/client';
 import { createAdult, updateScout } from '@/lib/api/scouts';
 import { OfflineQueuedError } from '@/lib/offline/operations';
+import { userCan } from '@/lib/navigation';
 
 const formSchema = z.object({
   lastName: z.string().trim().min(1, { error: 'Le nom est requis.' }).max(100),
@@ -66,6 +68,8 @@ export function AdultForm({
       confirmCorrection: false,
     },
   });
+  // Responsable plein en fonction (D188) : correction directe, sans motif ni confirmation.
+  const direct = userCan(useSessionUser(), 'scout.correctDirectly');
   const watched = useWatch({ control, name: ADULT_ADMIN_FIELDS });
   const corrections = adult
     ? ADULT_ADMIN_FIELDS.filter((field, index) => {
@@ -79,7 +83,7 @@ export function AdultForm({
     if (!values.sex && (!adult || adult.sex)) {
       return setError('sex', { message: 'Indiquez le sexe (homme ou femme).' });
     }
-    if (corrections.length > 0) {
+    if (corrections.length > 0 && !direct) {
       if (values.reason.trim().length < 5) {
         return setError('reason', {
           message: 'Indiquez le motif de la correction (5 caractères au minimum).',
@@ -97,10 +101,11 @@ export function AdultForm({
               lastName: values.lastName,
               firstName: values.firstName,
               sex: values.sex || undefined,
-              ...(corrections.length > 0 && {
-                reason: values.reason.trim(),
-                confirmCorrection: true as const,
-              }),
+              ...(corrections.length > 0 &&
+                !direct && {
+                  reason: values.reason.trim(),
+                  confirmCorrection: true as const,
+                }),
               expectedUpdatedAt: adult.updatedAt,
             },
             `${adult.firstName} ${adult.lastName}`,
@@ -181,35 +186,42 @@ export function AdultForm({
           <AlertDescription className="space-y-3">
             <p>
               {corrections.map((field) => SCOUT_ADMIN_FIELD_LABELS[field]).join(', ')} : l’ancienne
-              et la nouvelle valeur seront conservées au journal avec votre motif.
+              et la nouvelle valeur seront conservées au journal
+              {direct ? '.' : ' avec votre motif.'}
             </p>
-            <FormField
-              id="reason"
-              label="Motif de la correction"
-              required
-              error={errors.reason?.message}
-            >
-              <Textarea
-                rows={2}
-                className="w-full"
-                {...fieldA11y('reason', errors.reason?.message)}
-                {...register('reason')}
-              />
-            </FormField>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1 size-4 shrink-0 accent-tesla-rouge"
-                aria-invalid={errors.confirmCorrection ? true : undefined}
-                {...register('confirmCorrection')}
-              />
-              <span>
-                Je confirme cette correction.
-                {errors.confirmCorrection && (
-                  <span className="block text-destructive">{errors.confirmCorrection.message}</span>
-                )}
-              </span>
-            </label>
+            {!direct && (
+              <>
+                <FormField
+                  id="reason"
+                  label="Motif de la correction"
+                  required
+                  error={errors.reason?.message}
+                >
+                  <Textarea
+                    rows={2}
+                    className="w-full"
+                    {...fieldA11y('reason', errors.reason?.message)}
+                    {...register('reason')}
+                  />
+                </FormField>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1 size-4 shrink-0 accent-tesla-rouge"
+                    aria-invalid={errors.confirmCorrection ? true : undefined}
+                    {...register('confirmCorrection')}
+                  />
+                  <span>
+                    Je confirme cette correction.
+                    {errors.confirmCorrection && (
+                      <span className="block text-destructive">
+                        {errors.confirmCorrection.message}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              </>
+            )}
           </AlertDescription>
         </Alert>
       )}

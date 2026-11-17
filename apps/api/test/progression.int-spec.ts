@@ -279,31 +279,10 @@ describe('Progression, compétences, programme et présences (intégration Postg
         ),
       ).toBe('STAGE_IS_COMPUTED');
 
-      // Correction de la date de naissance : motif et confirmation exigés, étape recalculée.
+      // Correction de la date de naissance par le plein (D188) : directe, sans motif ni
+      // confirmation, journalisée (ancienne et nouvelle valeurs) ; étape recalculée.
       const corrected = await birthDateIsoForStage(prisma, 'APPRENTISSAGE');
-      expect(
-        await errorCode(responsable.patch(`/scouts/${scout.id}`, { birthDate: corrected }), 422),
-      ).toBe('CORRECTION_REASON_REQUIRED');
-      expect(
-        await errorCode(
-          responsable.patch(`/scouts/${scout.id}`, {
-            birthDate: corrected,
-            reason: 'Acte de naissance fictif vérifié.',
-          }),
-          422,
-        ),
-      ).toBe('CORRECTION_NOT_CONFIRMED');
-      // Vider d'abord le champ est aussi une correction.
-      expect(
-        await errorCode(responsable.patch(`/scouts/${scout.id}`, { birthDate: null }), 422),
-      ).toBe('CORRECTION_REASON_REQUIRED');
-      await responsable
-        .patch(`/scouts/${scout.id}`, {
-          birthDate: corrected,
-          reason: 'Acte de naissance fictif vérifié.',
-          confirmCorrection: true,
-        })
-        .expect(200);
+      await responsable.patch(`/scouts/${scout.id}`, { birthDate: corrected }).expect(200);
       progression = await progressionOf(chef, scout.id);
       expect(progression.scout.stage?.code).toBe('APPRENTISSAGE');
       const audit = await prisma.auditLog.findFirstOrThrow({
@@ -311,7 +290,7 @@ describe('Progression, compétences, programme et présences (intégration Postg
       });
       expect(audit.actorId).toBe(responsable.user.id);
       expect(audit.metadata).toMatchObject({
-        reason: 'Acte de naissance fictif vérifié.',
+        reason: null,
         changes: [{ field: 'birthDate', previous: birthDate, next: corrected }],
       });
 

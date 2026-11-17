@@ -303,6 +303,8 @@ export function ScoutForm({
   const [duplicate, setDuplicate] = useState<FormValues | null>(null);
   const user = useSessionUser();
   const canRecognize = userCan(user, 'progression.supervise');
+  // Responsable plein en fonction (D188) : correction directe, sans motif ni confirmation.
+  const direct = userCan(user, 'scout.correctDirectly');
   const [situation, setSituation] = useState<Situation>('NOUVEAU');
   const [prior, setPrior] = useState<PriorSelection>({});
   const {
@@ -361,7 +363,7 @@ export function ScoutForm({
         message: 'La date de naissance est obligatoire : elle détermine l’étape du routier.',
       });
     }
-    if (corrections.length > 0) {
+    if (corrections.length > 0 && !direct) {
       if (values.reason.trim().length < 5) {
         return setError('reason', {
           message: 'Indiquez le motif de la correction (5 caractères au minimum).',
@@ -382,10 +384,11 @@ export function ScoutForm({
               sex: values.sex || undefined,
               birthDate: values.birthDate || null,
               joinedAt: values.joinedAt || null,
-              ...(corrections.length > 0 && {
-                reason: values.reason.trim(),
-                confirmCorrection: true as const,
-              }),
+              ...(corrections.length > 0 &&
+                !direct && {
+                  reason: values.reason.trim(),
+                  confirmCorrection: true as const,
+                }),
               expectedUpdatedAt: scout.updatedAt,
             },
             `${scout.firstName} ${scout.lastName}`,
@@ -549,38 +552,45 @@ export function ScoutForm({
           <AlertDescription className="space-y-3">
             <p>
               {corrections.map((field) => SCOUT_ADMIN_FIELD_LABELS[field]).join(', ')} : l’ancienne
-              et la nouvelle valeur seront conservées au journal avec votre motif.
+              et la nouvelle valeur seront conservées au journal
+              {direct ? '.' : ' avec votre motif.'}
             </p>
             {birthDateCorrected && scout && (
               <BirthDateImpact scoutId={scout.id} birthDate={birthDate} />
             )}
-            <FormField
-              id="reason"
-              label="Motif de la correction"
-              required
-              error={errors.reason?.message}
-            >
-              <Textarea
-                rows={2}
-                className="w-full"
-                {...fieldA11y('reason', errors.reason?.message)}
-                {...register('reason')}
-              />
-            </FormField>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-1 size-4 shrink-0 accent-tesla-rouge"
-                aria-invalid={errors.confirmCorrection ? true : undefined}
-                {...register('confirmCorrection')}
-              />
-              <span>
-                Je confirme cette correction.
-                {errors.confirmCorrection && (
-                  <span className="block text-destructive">{errors.confirmCorrection.message}</span>
-                )}
-              </span>
-            </label>
+            {!direct && (
+              <>
+                <FormField
+                  id="reason"
+                  label="Motif de la correction"
+                  required
+                  error={errors.reason?.message}
+                >
+                  <Textarea
+                    rows={2}
+                    className="w-full"
+                    {...fieldA11y('reason', errors.reason?.message)}
+                    {...register('reason')}
+                  />
+                </FormField>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1 size-4 shrink-0 accent-tesla-rouge"
+                    aria-invalid={errors.confirmCorrection ? true : undefined}
+                    {...register('confirmCorrection')}
+                  />
+                  <span>
+                    Je confirme cette correction.
+                    {errors.confirmCorrection && (
+                      <span className="block text-destructive">
+                        {errors.confirmCorrection.message}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              </>
+            )}
           </AlertDescription>
         </Alert>
       )}

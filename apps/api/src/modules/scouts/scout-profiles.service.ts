@@ -434,7 +434,7 @@ export class ScoutProfilesService {
           throw adultNotInRoute();
         }
         if (changes.length === 0) return { profile: previous, changes };
-        assertCorrectionJustified(changes, data);
+        assertCorrectionJustified(changes, data, can(actor, 'scout.correctDirectly'));
         const next = { ...before, ...Object.fromEntries(changes.map((c) => [c.field, c.next])) };
         assertAdminDates({ birthDate: next.birthDate, joinedAt: next.joinedAt }, todayCivil());
         // Invariant (D181) : la date de naissance d'un routier actif n'est jamais retirée, et une
