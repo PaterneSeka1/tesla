@@ -1,5 +1,7 @@
 # Workflow des évaluations
 
+> **D188** : un questionnaire soumis par le responsable plein est approuvé et publié dans la même transaction (module évalué publié exigé). Une copie soumise par le plein (seul habilité, D161) passe `SOUMISE → VALIDEE` dans la même transaction ; « résultat accepté » n'est toujours ni la validation d'un acquis ni un changement d'étape.
+
 Deux cycles distincts : celui du **questionnaire** (rédaction → publication) et celui de la **tentative** (passation → correction → examen). Aucun des deux ne modifie l'étape d'un routier.
 
 ## 1. Questionnaire (mêmes états que les modules)

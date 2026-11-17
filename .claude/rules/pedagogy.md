@@ -10,7 +10,7 @@ paths:
 # Règles pédagogiques (non négociables sans décision du responsable)
 
 1. **Consultation libre** des modules **publiés** par tous les routiers authentifiés, quelle que soit l'étape, **y compris pendant un rattrapage** (D181) : le verrou D177 ne ferme que les évaluations et la déclaration d'étude. Lire un cours ne valide rien. Un brouillon n'est jamais visible des routiers.
-2. **Publication exclusivement après approbation** du responsable pédagogique. Un chef crée et modifie ; il soumet ; seul le responsable approuve ou renvoie avec motif. Toute modification d'un module publié repasse par l'approbation.
+2. **Publication exclusivement après approbation** du responsable pédagogique. Un chef crée et modifie ; il soumet ; seul le responsable approuve ou renvoie avec motif. Toute modification d'un module publié repasse par l'approbation. **Exception D188** : le responsable plein en fonction ne se valide pas lui-même ; sa soumission vaut approbation et publication (de même pour ses questionnaires, ses copies corrigées, ses propositions d'acquis et ses corrections de fiche, sans motif ni confirmation).
 3. **Évaluations contrôlées** : accessibles selon l'étape de progression du routier. **Apprenant adulte (D185)** : toute évaluation publiée, dans la limite des tentatives ; aucune étape, aucune donnée de la Route (équipe, rattrapage, acquis…). Corrigé et résultat comme pour un routier.
 4. **Exceptions individuelles** : seul le responsable accorde un déblocage, nominatif, motivé, tracé dans l'audit, révocable.
 5. **Validation officielle exclusivement humaine** : un score d'évaluation n'entraîne jamais de validation ni de passage d'étape automatique. Seul le responsable valide.

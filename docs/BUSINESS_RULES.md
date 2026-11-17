@@ -108,6 +108,8 @@ Toutes les permissions sont vérifiées côté serveur.
 | RM-030 | Suppression d'un brouillon vide | Seul un module jamais soumis ni publié, sans texte, ressource, collaborateur ni usage peut être supprimé, par le responsable, avec motif ; tout autre module s'archive. Le journal d'audit conserve l'import et la suppression. | `purge_empty_module_draft` (seul point d'entrée), audit `module.purged` |
 | RM-029 | Duplication | Dupliquer crée un nouveau brouillon sans modifier l'original ; le caractère obligatoire n'est jamais repris. | `POST /editor/modules/:id/duplicate`, audit `module.duplicated` |
 
+**Actes du responsable plein (D188)** : sa soumission d'un module ou d'un questionnaire l'approuve et le publie immédiatement ; sa soumission d'une copie accepte le résultat ; sa proposition d'acquis vaut validation officielle ; sa correction d'une fiche ne demande ni motif ni confirmation (journalisée). Les envois des chefs restent soumis à sa décision ; les corrections de l'administrateur restent motivées et confirmées (RM-019).
+
 ### Règles de la phase 3 (évaluations)
 
 > Statut : **implémentées de bout en bout** (API, écrans, tests d'intégration, recette navigateur). Détails : [FEATURES/EVALUATIONS.md](FEATURES/EVALUATIONS.md), [FEATURES/EVALUATION_WORKFLOW.md](FEATURES/EVALUATION_WORKFLOW.md), [FEATURES/PAPER_EVALUATIONS.md](FEATURES/PAPER_EVALUATIONS.md). RM-005 (impression) et RM-006 à RM-011 sont désormais exposées par des routes et des écrans.

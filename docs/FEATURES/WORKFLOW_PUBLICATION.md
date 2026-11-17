@@ -1,5 +1,7 @@
 # Workflow d'approbation et de publication des modules
 
+> **D188** : soumise par le responsable plein en fonction, une version passe `SOUMIS → APPROUVE → PUBLIE` dans la même transaction (trois événements historisés, points d'import à acquitter avec `editorialNotesAcknowledged`). Les soumissions des chefs suivent le circuit ci-dessous.
+
 Phase 2 (2026-10-29). Comportement **réellement implémenté** ; garanti par le service (`ModuleEditorService`, `ModuleReviewService`) **et** par des triggers PostgreSQL.
 
 ## États d'une version

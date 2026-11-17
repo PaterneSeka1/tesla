@@ -1,6 +1,20 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-17 — **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-17 — **actes du plein sans validation** (D188), voir [§ Actes du plein](#actes-du-plein-sans-validation-2026-11-17) ; **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+
+## Actes du plein sans validation (2026-11-17)
+
+Décision D188. Aucune migration, aucun déploiement.
+
+### Réalisé
+- API : soumission d'un module ou d'un questionnaire par le plein = approbation et publication atomiques ; soumission d'une copie par le plein = résultat accepté ; proposition d'acquis du plein = validation officielle ; correction de fiche par le plein sans motif ni confirmation (`scout.correctDirectly`). Script de mise en service du catalogue adapté.
+- Web : boutons « Publier » (modules, questionnaires, résultat d'une copie), « Valider un acquis », formulaires de fiche (routier, adulte) sans motif ni case de confirmation pour le plein.
+
+### Vérifications
+- `lint`, `typecheck`, `test` (API 301, web 139), `build` ; intégration sur `tesla_test` : 192 réussis, 1 ignoré (tests adaptés au nouveau circuit, nouveau scénario D188 pour les acquis).
+
+### Reste
+- Recette navigateur avec un compte plein ; arbitrage des motifs conservés (voir D188).
 
 ## Migration du web vers OVH (2026-11-17)
 

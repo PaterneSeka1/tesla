@@ -4,6 +4,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — actes du responsable plein sans validation, 2026-11-17 (D188)
+- Le responsable plein publie directement ses modules et questionnaires : « Publier » remplace « Envoyer pour validation ».
+- Il publie le résultat d'une copie en un seul geste, sans « valider la note » puis « publier ».
+- Sa proposition d'acquis est une validation officielle immédiate (« Valider un acquis »).
+- Il corrige une fiche (routier ou adulte) sans motif ni case de confirmation ; la correction reste journalisée.
+- Rien ne change pour les envois des autres membres de l'encadrement ni pour l'administrateur.
+
 ### Ajouté — préparation de l'hébergement du web sur OVH, 2026-11-17 (D187)
 - Mode de déploiement `WEB_HOSTING=ovh` : l'application web et l'API tournent sur le serveur OVH ; l'adresse `nikola-tesla-academie.vercel.app` ne change pas, Vercel ne fait plus que relayer.
 - Aucune réinstallation de l'application ni nouvelle connexion attendue : même adresse, même service worker, même manifeste, données locales conservées.
