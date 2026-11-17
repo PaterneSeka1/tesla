@@ -17,6 +17,7 @@ Décision D189. Aucune migration, aucun déploiement.
 - `lint`, `typecheck`, `test` (API 301/301, web 146/146 dont 7 nouveaux dans `site.test.ts`), `build` (API + web, sans alerte de sécurité de Next) ; rendu contrôlé avec `next start` : balises de `/`, `/connexion`, pages de compte et `/hors-ligne` (`noindex`), `robots.txt` (19 exclusions), `sitemap.xml`, image de partage (200, PNG), redirection des pages connectées sans session.
 - Sous Node 20 (poste de développement), les tests de l'API plantent toujours au démarrage (SIGSEGV) : utiliser Node ≥ 22.12 (`.nvmrc`).
 - Non exécutés : tests d'intégration (`test:int`, base `tesla_test`), l'API n'étant pas modifiée.
+- **Déployé en production** le 2026-11-17 à 19:03 UTC (`0fce2a6`, sauvegarde chiffrée préalable, aucune migration) : contrôlé sur l'origine OVH et sur le domaine public (`robots.txt`, `sitemap.xml`, balises, image de partage, santé de l'API).
 
 ### Reste
 - Après déploiement : Google Search Console (vérification du domaine, envoi du plan du site) et test des aperçus de partage (WhatsApp, Facebook).
