@@ -28,8 +28,16 @@ Décision D187. Préparation dans le dépôt uniquement : **aucune action sur le
 - `deploy-scripts.test.sh` 69/69, `vercel-proxy.test.sh` 10/10 ; `nginx -t` et 12 scénarios sur Nginx 1.24 (Docker) ; vrai Next.js 16.4.3 (`next start`) derrière le vhost d'origine.
 - Non exécutés : lint, typecheck, tests Vitest (aucun code TypeScript modifié) ; ShellCheck (absent).
 
+### Exécuté sur le VPS (2026-11-17, 17:58–18:02 UTC)
+- Audit § 1 : `nginx -t` OK, 18 Gio disponibles, base à jour (30 migrations, aucune en attente), sauvegarde du jour présente. Port 3000 occupé par une autre application → **`WEB_PORT=3100`**.
+- Étape A : `5999d1e` déployé en mode vercel (sauvegarde, aucune migration, `HEALTHY`).
+- Étape B : `/etc/tesla/production.env.avant-ovh` conservé ; `WEB_HOSTING=ovh`, `WEB_PORT=3100`, `NEXT_PUBLIC_API_URL=/api/v1`, `WEB_ORIGIN_DOMAIN=tesla.veilleurdesmedias.org` ; vhost API identique au modèle avant `bootstrap.sh` ; certificat `tesla.veilleurdesmedias.org` (expire 2027-02-15), vhost `tesla-production-origin`, `tesla-web@production` activé. Avertissement Nginx non bloquant « protocol options redefined » sur 443.
+- Étape C : `5999d1e` en mode ovh, `tesla-api@production` et `tesla-web@production` en service (127.0.0.1:4100, 127.0.0.1:3100).
+- Contrôles § 6 : origine 403 sans secret, 200 avec ; `sw.js` `no-store` ; santé `ok` ; redirection `/accueil` relative ; manifeste `"id":"/"`. Contrôle de santé périodique OK (un échec transitoire à 18:00, pendant le changement de mode).
+- Constat préexistant : `tesla-alert` échoue (`ALERT_URL` : « Bad hostname ») — alertes non reçues.
+
 ### Reste
-- Domaine d'origine et DNS ; audit du VPS, sauvegarde et restauration d'essai ; étapes A, B, C ; essai du proxy dans un projet Vercel séparé ; **bascule sur autorisation** ; recette sur téléphones réels.
+- Essai du proxy dans un projet Vercel séparé ; **bascule Vercel** ([07](migration-ovh/07-bascule-vercel.md) § 3) ; recette sur téléphones réels ; corriger `ALERT_URL`.
 
 ## Lien d'activation de 7 jours (2026-11-17)
 
