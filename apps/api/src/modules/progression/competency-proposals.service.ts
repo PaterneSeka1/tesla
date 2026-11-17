@@ -45,6 +45,7 @@ import {
 } from './progression-common.js';
 import { computedStageOf, loadStageContext, type StageContext } from './computed-stage.js';
 import { assertRouteProfile } from '../scouts/route-profile.js';
+import { assertCanAtWrite } from '../auth/write-authority.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -354,6 +355,12 @@ export class CompetencyProposalsService {
             metadata: { scoutProfileId: scout.id, competencyId: competency.id },
           },
         });
+        // Responsable plein en fonction (D188) : sa propre proposition n'attend aucune validation ;
+        // décision officielle « acquis » dans la même transaction, motivée par sa justification.
+        if (can(actor, 'competency.decide')) {
+          await assertCanAtWrite(tx, actor, 'competency.decide');
+          await this.applyDecision(tx, actor, proposal, 'APPROUVEE', data.justification);
+        }
         return proposal.id;
       });
       return this.get(actor, id);
@@ -457,63 +464,7 @@ export class CompetencyProposalsService {
       await this.prisma.$transaction(async (tx) => {
         const proposal = await this.lock(tx, id, data.revision);
         if (proposal.status !== 'EN_ATTENTE') throw invalidProposalStatus(proposal.status);
-        const now = new Date();
-        await tx.competencyProposal.update({
-          where: { id },
-          data: {
-            status: decision,
-            decisionComment: data.comment,
-            decidedById: actor.userId,
-            decidedAt: now,
-            revision: { increment: 1 },
-          },
-        });
-        if (decision !== 'COMPLEMENT_DEMANDE') {
-          const evidences = await tx.competencyEvidence.findMany({
-            where: { proposalId: id },
-            include: evidenceInclude,
-          });
-          await tx.competencyValidation.create({
-            data: {
-              scoutProfileId: proposal.scoutProfileId,
-              competencyId: proposal.competencyId,
-              proposalId: id,
-              decision: decision === 'APPROUVEE' ? 'ACQUIS' : 'A_RETRAVAILLER',
-              justification: data.comment,
-              examinedEvidence: evidences.map((row) => ({
-                id: row.id,
-                kind: row.kind,
-                ...describeEvidence(row),
-              })),
-              decidedById: actor.userId,
-              decidedAt: now,
-            },
-          });
-        }
-        const action: ProposalAction =
-          decision === 'APPROUVEE'
-            ? 'APPROUVEE'
-            : decision === 'REFUSEE'
-              ? 'REFUSEE'
-              : 'COMPLEMENT_DEMANDE';
-        await this.recordEvent(tx, actor, id, action, 'EN_ATTENTE', decision, data.comment);
-        await tx.auditLog.create({
-          data: {
-            actorId: actor.userId,
-            action:
-              decision === 'APPROUVEE'
-                ? 'competency.validated'
-                : decision === 'REFUSEE'
-                  ? 'competency.rejected'
-                  : 'competency.complement_requested',
-            entityType: 'CompetencyProposal',
-            entityId: id,
-            metadata: {
-              scoutProfileId: proposal.scoutProfileId,
-              competencyId: proposal.competencyId,
-            },
-          },
-        });
+        await this.applyDecision(tx, actor, proposal, decision, data.comment);
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -525,6 +476,77 @@ export class CompetencyProposalsService {
       throw error;
     }
     return this.get(actor, id);
+  }
+
+  /**
+   * Décision officielle dans la transaction appelante (proposition verrouillée, EN_ATTENTE) :
+   * statut, validation ACQUIS ou « à retravailler », historique et journal d'audit.
+   */
+  private async applyDecision(
+    tx: Prisma.TransactionClient,
+    actor: Actor,
+    proposal: { id: string; scoutProfileId: string; competencyId: string },
+    decision: 'APPROUVEE' | 'REFUSEE' | 'COMPLEMENT_DEMANDE',
+    comment: string,
+  ): Promise<void> {
+    const { id } = proposal;
+    const now = new Date();
+    await tx.competencyProposal.update({
+      where: { id },
+      data: {
+        status: decision,
+        decisionComment: comment,
+        decidedById: actor.userId,
+        decidedAt: now,
+        revision: { increment: 1 },
+      },
+    });
+    if (decision !== 'COMPLEMENT_DEMANDE') {
+      const evidences = await tx.competencyEvidence.findMany({
+        where: { proposalId: id },
+        include: evidenceInclude,
+      });
+      await tx.competencyValidation.create({
+        data: {
+          scoutProfileId: proposal.scoutProfileId,
+          competencyId: proposal.competencyId,
+          proposalId: id,
+          decision: decision === 'APPROUVEE' ? 'ACQUIS' : 'A_RETRAVAILLER',
+          justification: comment,
+          examinedEvidence: evidences.map((row) => ({
+            id: row.id,
+            kind: row.kind,
+            ...describeEvidence(row),
+          })),
+          decidedById: actor.userId,
+          decidedAt: now,
+        },
+      });
+    }
+    const action: ProposalAction =
+      decision === 'APPROUVEE'
+        ? 'APPROUVEE'
+        : decision === 'REFUSEE'
+          ? 'REFUSEE'
+          : 'COMPLEMENT_DEMANDE';
+    await this.recordEvent(tx, actor, id, action, 'EN_ATTENTE', decision, comment);
+    await tx.auditLog.create({
+      data: {
+        actorId: actor.userId,
+        action:
+          decision === 'APPROUVEE'
+            ? 'competency.validated'
+            : decision === 'REFUSEE'
+              ? 'competency.rejected'
+              : 'competency.complement_requested',
+        entityType: 'CompetencyProposal',
+        entityId: id,
+        metadata: {
+          scoutProfileId: proposal.scoutProfileId,
+          competencyId: proposal.competencyId,
+        },
+      },
+    });
   }
 
   /** Révocation motivée d'une décision officielle (correction tracée ; la décision reste visible). */

@@ -568,6 +568,49 @@ describe('Progression, compétences, programme et présences (intégration Postg
       expect(after.validations[0]?.revokedAt).not.toBeNull();
     });
 
+    it('D188. la proposition du plein vaut validation officielle immédiate, sans file d’attente', async () => {
+      const responsable = await loginAs('RESPONSABLE');
+      const chef = await loginAs('CHEF');
+      const scout = await createScout(responsable, 1);
+      const competency = await createCompetency(responsable, 'DIR-01');
+      const proposal = await json(
+        responsable.post('/competency-proposals', {
+          scoutProfileId: scout.id,
+          competencyId: competency.id,
+          justification: 'Acquis constaté directement par le responsable (fictif).',
+          evidences: [{ kind: 'AUTRE', description: 'Élément fictif.' }],
+        }),
+        201,
+        proposalSchema,
+      );
+      expect(proposal).toMatchObject({ status: 'APPROUVEE', validation: { decision: 'ACQUIS' } });
+      expect(proposal.events.map((event) => event.action)).toEqual(['SOUMISE', 'APPROUVEE']);
+      const validation = await prisma.competencyValidation.findFirstOrThrow({
+        where: { proposalId: proposal.id },
+      });
+      expect(validation).toMatchObject({
+        decidedById: responsable.user.id,
+        justification: 'Acquis constaté directement par le responsable (fictif).',
+      });
+      expect(await prisma.auditLog.count({ where: { action: 'competency.validated' } })).toBe(1);
+      expect((await progressionOf(chef, scout.id)).competencies[0]).toMatchObject({
+        status: 'ACQUIS',
+      });
+      // La proposition d'un chef, elle, attend toujours la décision du plein.
+      const other = await createCompetency(responsable, 'DIR-02');
+      const pending = await json(
+        chef.post('/competency-proposals', {
+          scoutProfileId: scout.id,
+          competencyId: other.id,
+          justification: 'Proposition fictive d’un chef.',
+          evidences: [{ kind: 'AUTRE', description: 'Élément fictif.' }],
+        }),
+        201,
+        proposalSchema,
+      );
+      expect(pending.status).toBe('EN_ATTENTE');
+    });
+
     it('un refus motivé rend la compétence « à retravailler » et le signale à l’encadrement', async () => {
       const responsable = await loginAs('RESPONSABLE');
       const chef = await loginAs('CHEF');

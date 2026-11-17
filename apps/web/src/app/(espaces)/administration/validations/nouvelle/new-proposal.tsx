@@ -5,6 +5,7 @@ import { type EvidenceInput } from '@tesla/shared';
 import { Send } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDeferredValue, useState } from 'react';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { BackLink } from '@/components/back-link';
 import { FormField, fieldA11y } from '@/components/form-field';
 import { PageHeading } from '@/components/page-heading';
@@ -19,11 +20,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { competenciesQueryOptions, createProposal } from '@/lib/api/progression';
 import { scoutsQueryOptions } from '@/lib/api/scouts';
 import { fullName } from '@/lib/format';
+import { userCan } from '@/lib/navigation';
 
 /** Proposition de validation d'une compétence par un chef (ou le responsable), preuves à l'appui. */
 export function NewProposal() {
   const router = useRouter();
   const run = usePedagogyAction();
+  // Responsable plein en fonction (D188) : sa proposition vaut validation officielle immédiate.
+  const direct = userCan(useSessionUser(), 'competency.decide');
   const searchParams = useSearchParams();
   const [scoutId, setScoutId] = useState(searchParams.get('scoutId') ?? '');
   const [competencyId, setCompetencyId] = useState('');
@@ -61,7 +65,9 @@ export function NewProposal() {
           await createProposal({ scoutProfileId: scoutId, competencyId, justification, evidences })
         ).id;
       },
-      { success: 'Proposition soumise au responsable', error: 'Proposition non soumise' },
+      direct
+        ? { success: 'Acquis validé', error: 'Validation impossible' }
+        : { success: 'Proposition soumise au responsable', error: 'Proposition non soumise' },
     );
     setSubmitting(false);
     if (created.id) router.push(`/administration/validations/${created.id}`);
@@ -70,7 +76,7 @@ export function NewProposal() {
   return (
     <>
       <BackLink href="/administration/validations">Validations</BackLink>
-      <PageHeading title="Proposer une validation" />
+      <PageHeading title={direct ? 'Valider un acquis' : 'Proposer une validation'} />
       <Card>
         <CardHeader>
           <CardTitle>Routier et compétence</CardTitle>
@@ -178,7 +184,7 @@ export function NewProposal() {
       </Card>
       <Button onClick={() => void submit()} disabled={submitting}>
         <Send aria-hidden />
-        {submitting ? 'Envoi…' : 'Soumettre au responsable'}
+        {submitting ? 'Envoi…' : direct ? 'Valider l’acquis' : 'Soumettre au responsable'}
       </Button>
     </>
   );

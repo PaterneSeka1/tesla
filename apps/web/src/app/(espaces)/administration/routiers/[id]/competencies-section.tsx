@@ -7,6 +7,7 @@ import {
 } from '@tesla/shared';
 import { BadgeCheck, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { useSessionUser } from '@/components/auth/session-gate';
 import { EmptyState } from '@/components/empty-state';
 import { CommentDialog } from '@/components/modules/comment-dialog';
 import { CompetencyStatusBadge } from '@/components/progression/status-badges';
@@ -16,10 +17,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { revokeValidation } from '@/lib/api/progression';
 import { formatDate, formatDateTime, fullName } from '@/lib/format';
+import { userCan } from '@/lib/navigation';
 
 /** Compétences du routier : statut déduit des seules décisions humaines enregistrées. */
 export function CompetenciesSection({ progression }: { progression: ScoutProgression }) {
   const run = usePedagogyAction();
+  // Responsable plein (D188) : sa proposition vaut validation immédiate.
+  const direct = userCan(useSessionUser(), 'competency.decide');
   const { scout } = progression;
 
   return (
@@ -37,7 +41,7 @@ export function CompetenciesSection({ progression }: { progression: ScoutProgres
               <Button asChild size="sm">
                 <Link href={`/administration/validations/nouvelle?scoutId=${scout.id}`}>
                   <Plus aria-hidden />
-                  Proposer une validation
+                  {direct ? 'Valider un acquis' : 'Proposer une validation'}
                 </Link>
               </Button>
             )}
