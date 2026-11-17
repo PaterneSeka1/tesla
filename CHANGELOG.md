@@ -4,6 +4,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — préparation de l'hébergement du web sur OVH, 2026-11-17 (D187)
+- Mode de déploiement `WEB_HOSTING=ovh` : l'application web et l'API tournent sur le serveur OVH ; l'adresse `nikola-tesla-academie.vercel.app` ne change pas, Vercel ne fait plus que relayer.
+- Aucune réinstallation de l'application ni nouvelle connexion attendue : même adresse, même service worker, même manifeste, données locales conservées.
+- Retour arrière vers l'hébergement Vercel en une opération, sans effet sur les données.
+- Non déployé : la bascule attend la vérification du serveur, un essai en prévisualisation et l'autorisation du responsable (`docs/migration-ovh/`).
+
 ### Modifié — lien d'activation de compte, 2026-11-17 (D186)
 - Un lien d'activation (et son code de secours) reste valable 7 jours (`ACTIVATION_LINK_TTL_DAYS`) au lieu de 72 heures ; il ne sert toujours qu'une fois.
 - Les liens de réinitialisation du mot de passe gardent leur durée (72 h émis par l'encadrement, 60 min en libre-service).

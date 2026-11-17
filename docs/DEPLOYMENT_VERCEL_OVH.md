@@ -1,6 +1,6 @@
 # Déploiement Vercel + OVH
 
-Architecture de référence (D167) : **web Next.js sur Vercel**, **API NestJS, PostgreSQL et sauvegardes sur le VPS OVH**, fichiers sur Cloudflare R2. Le mode historique (web et API sur le VPS) reste documenté dans [DEPLOYMENT.md](DEPLOYMENT.md), qui contient aussi les étapes communes (R2, sauvegardes, supervision, sécurité) auxquelles ce guide renvoie.
+Architecture de référence (D167) : **web Next.js sur Vercel**, **API NestJS, PostgreSQL et sauvegardes sur le VPS OVH**, fichiers sur Cloudflare R2. **Mode `ovh` (D187, en préparation)** : web et API sur le VPS, Vercel réduit à un proxy sans build, même adresse publique — voir [migration-ovh/](migration-ovh/03-architecture.md). Le mode historique (web et API sur le VPS) reste documenté dans [DEPLOYMENT.md](DEPLOYMENT.md), qui contient aussi les étapes communes (R2, sauvegardes, supervision, sécurité) auxquelles ce guide renvoie.
 
 **État au 2026-11-03** : scripts, unités, vhost et relais vérifiés localement (§ 12), y compris l'exécution sur un Node.js 22 isolé (`/opt/node22/bin`) à côté du Node.js 20 du système (D168). Aucun VPS, aucun projet Vercel, aucun compte Cloudflare réels n'ont été utilisés : première exécution en **préproduction**.
 

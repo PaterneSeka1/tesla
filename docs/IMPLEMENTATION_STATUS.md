@@ -1,6 +1,21 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-17 — **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-17 — **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+
+## Migration du web vers OVH (2026-11-17)
+
+Décision D187. Préparation dans le dépôt uniquement : **aucune action sur le VPS ni sur Vercel** (pas d'accès SSH autorisé ni d'accès au projet Vercel depuis le poste). Aucun code applicatif modifié. Dossier : [migration-ovh/](migration-ovh/10-rapport-final.md).
+
+### Réalisé
+- Mode `WEB_HOSTING=ovh` (`common.sh`, `deploy.sh`, `healthcheck.sh`, `rollback.sh`, `bootstrap.sh`, modèle d'environnement) ; vhost d'origine `deploy/nginx/tesla-origin.conf` ; proxy Vercel `deploy/vercel-proxy/vercel.json`.
+- Audit : production publique saine ; manifeste et `sw.js` de production identiques au dépôt ; anomalie préexistante : sur Vercel, `sw.js` ne reconnaît aucun script des pages (`/_next/static/immutable/…`), la préparation hors ligne n'enregistre donc pas les scripts à l'avance.
+
+### Vérifications
+- `deploy-scripts.test.sh` 69/69, `vercel-proxy.test.sh` 10/10 ; `nginx -t` et 12 scénarios sur Nginx 1.24 (Docker) ; vrai Next.js 16.4.3 (`next start`) derrière le vhost d'origine.
+- Non exécutés : lint, typecheck, tests Vitest (aucun code TypeScript modifié) ; ShellCheck (absent).
+
+### Reste
+- Domaine d'origine et DNS ; audit du VPS, sauvegarde et restauration d'essai ; étapes A, B, C ; essai du proxy dans un projet Vercel séparé ; **bascule sur autorisation** ; recette sur téléphones réels.
 
 ## Lien d'activation de 7 jours (2026-11-17)
 
