@@ -1,6 +1,24 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-16 — **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-17 — **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+
+## Lien d'activation de 7 jours (2026-11-17)
+
+Décision D186. Aucune migration, aucun déploiement.
+
+### Réalisé
+- `ACTIVATION_LINK_TTL_DAYS` (7 par défaut, 1 à 30) dans `src/config/env.ts`, `.env.example`, `deploy/env/production.env.example`, README et DEPLOYMENT.
+- `issueLink` (`accounts.service.ts`) : durée par défaut selon la finalité (activation en jours, réinitialisation `ACCOUNT_LINK_TTL_HOURS`) ; « mot de passe oublié » inchangé.
+- Usage unique et réémission (révocation de l'ancien lien) déjà en place, réutilisés tels quels (`POST /users/:id/link`, permission `account.manage` et périmètre vérifiés côté serveur).
+- Fiche (`scoutDetailSchema.account`) : `id` et `status` du compte rattaché ; bouton « Nouveau lien d'activation » dans `scout-actions.tsx` (compte `A_ACTIVER`, `account.manage`), lien remis par `AccountLinkDialog` ; mention « En attente d'activation » dans `scout-profile.tsx`.
+- Test d'intégration `accounts.int-spec.ts` complété : 7 jours à la création et à la réémission, 72 h pour la réinitialisation ; état du compte sur la fiche et réémission par le plein.
+
+### Vérifications
+- `npm run typecheck`, `npm run lint`, Prettier, `npm run build` (avec `NEXT_PUBLIC_API_URL=/api/v1`) et tests web (139/139) : réussis.
+- Tests Vitest de l'API et d'intégration **non exécutables** dans l'environnement de cette session : Node 20 au lieu de ≥ 22.12, les processus de test plantent (SIGSEGV) avant le premier test, y compris sur le code d'origine. À relancer sous Node 22 (`npm run test:int -w @tesla/api`).
+
+### Limites
+- Bouton de la fiche non recetté dans un navigateur.
 
 ## Apprenants adultes (2026-11-16)
 

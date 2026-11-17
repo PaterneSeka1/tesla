@@ -4,6 +4,12 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Modifié — lien d'activation de compte, 2026-11-17 (D186)
+- Un lien d'activation (et son code de secours) reste valable 7 jours (`ACTIVATION_LINK_TTL_DAYS`) au lieu de 72 heures ; il ne sert toujours qu'une fois.
+- Les liens de réinitialisation du mot de passe gardent leur durée (72 h émis par l'encadrement, 60 min en libre-service).
+- Lien non utilisé à temps : bouton « Nouveau lien d'activation » sur la fiche du routier ou de l'adulte (administrateur et plein, compte pas encore activé), en plus d'Administration › Comptes ; l'ancien lien est révoqué.
+- La fiche indique « En attente d'activation » pour un compte rattaché pas encore activé.
+
 ### Ajouté — apprenants adultes, 2026-11-16 (D185)
 - Page « Adultes » (encadrement et administrateur) : liste, inscription (nom, prénoms, sexe) par l'administrateur ou le plein, fiche réduite (identité, compte, évaluations) et correction motivée.
 - Compte « Adulte (apprenant) » créé par invitation et rattaché à la fiche adulte ; le plein gère aussi ces comptes.

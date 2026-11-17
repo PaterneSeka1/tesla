@@ -67,7 +67,8 @@ Le script liste les valeurs `<…>` restantes de `/etc/tesla/production.env` :
 | `BACKUP_HEARTBEAT_URL` (facultatif) | Sonde « dead man's switch » appelée après chaque sauvegarde réussie |
 | `BACKUP_RESTORE_CHECK_URL` (recommandé) | Rôle de maintenance `CREATEDB` pour la restauration d'essai à chaque sauvegarde |
 | `PUBLIC_APP_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` (facultatif, D166) | Envoi des liens et codes d'activation et de récupération. Tout ou rien ; STARTTLS exigé sur 587 (`SMTP_SECURE=false`) ou TLS implicite sur 465 (`true`). Sans SMTP : récupération administrée (« Comptes » → nouveau lien, remis après vérification d'identité), et l'interface ne prétend jamais qu'un e-mail est parti |
-| `PASSWORD_RESET_TTL_MINUTES` | Validité d'une demande « mot de passe oublié » (60 par défaut) ; `ACCOUNT_LINK_TTL_HOURS` reste la validité des liens émis par une personne habilitée |
+| `PASSWORD_RESET_TTL_MINUTES` | Validité d'une demande « mot de passe oublié » (60 par défaut) ; `ACCOUNT_LINK_TTL_HOURS` reste la validité des liens de réinitialisation émis par une personne habilitée |
+| `ACTIVATION_LINK_TTL_DAYS` | Validité d'un lien d'activation de compte, à usage unique (7 jours par défaut, D186) |
 
 Puis, en `tesla` : `gpg --import cle-publique.asc` et `rclone config` (remotes `r2-backup`, `r2-backup-crypt`, `r2-files-ro`, voir [STORAGE_R2.md](STORAGE_R2.md) § 7). Ne jamais définir `DEMO_ACCOUNT_PASSWORD`. `NEXT_PUBLIC_API_URL` est intégrée au build : la modifier impose un redéploiement.
 
