@@ -401,13 +401,12 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
         correctionRevision: recorded.correctionRevision,
       }),
     ).rejects.toThrow(ForbiddenException);
-    await attempts.submitReview(responsable, attempt.code, {
+    // Le plein corrige et soumet : son résultat est accepté dans la même transaction (D188).
+    const decided = await attempts.submitReview(responsable, attempt.code, {
       correctionRevision: recorded.correctionRevision,
     });
-
-    await expect(attempts.acceptReview(chef, attempt.id, {})).rejects.toThrow(ForbiddenException);
-    const decided = await attempts.acceptReview(responsable, attempt.id, {});
     expect(decided.status).toBe('VALIDEE');
+    await expect(attempts.acceptReview(chef, attempt.id, {})).rejects.toThrow(ForbiddenException);
 
     const after = await prisma.scoutProfile.findUniqueOrThrow({ where: { id: scout.id } });
     expect(after.currentStageId).toBeNull();
@@ -437,15 +436,22 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     ]);
   });
 
-  it('correction après soumission : motif obligatoire et réponses originales conservées', async () => {
+  it('correction après soumission : réouverture motivée et réponses originales conservées', async () => {
     const scout = await newScout(1);
     const attempt = await prepare(scout.id);
     await record(attempt.code);
     await attempts.submitReview(responsable, attempt.code, {
       correctionRevision: await revisionOf(attempt.code),
     });
-    await expect(record(attempt.code, 'Corrigée')).rejects.toThrow(UnprocessableEntityException);
-    await record(attempt.code, 'Corrigée', { reason: 'Transcription erronée' });
+    // Résultat accepté dès la soumission (D188) : aucune modification sans réouverture motivée.
+    await expect(
+      record(attempt.code, 'Corrigée', { reason: 'Transcription erronée' }),
+    ).rejects.toThrow(ConflictException);
+    await expect(attempts.reopen(responsable, attempt.id, { reason: '' })).rejects.toThrow(
+      BadRequestException,
+    );
+    await attempts.reopen(responsable, attempt.id, { reason: 'Transcription erronée' });
+    await record(attempt.code, 'Corrigée');
 
     const snapshots = await prisma.evaluationAttemptEvent.findMany({
       where: { attemptId: attempt.id, snapshot: { not: undefined } },
@@ -578,7 +584,6 @@ describe('Routiers, équipes et tentatives papier (intégration PostgreSQL)', ()
     await attempts.submitReview(responsable, attempt.code, {
       correctionRevision: await revisionOf(attempt.code),
     });
-    await attempts.acceptReview(responsable, attempt.id, {});
     const published = await attempts.detail(chef, { code: attempt.code });
     expect(published).toMatchObject({ status: 'VALIDEE', score: 1.5, maxScore: 2 });
     expect(published.questions[0]?.expectedAnswer).toBeNull();

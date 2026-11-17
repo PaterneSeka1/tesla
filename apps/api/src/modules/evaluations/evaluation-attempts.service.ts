@@ -767,36 +767,50 @@ export class EvaluationAttemptsService {
     assertCan(actor, 'attempt.submit');
     const parsedCode = parseInput(attemptCodeSchema, code);
     const { correctionRevision } = parseInput(correctionRevisionInputSchema, input);
-    await this.transition(actor, { code: parsedCode }, 'SOUMISE', async (tx, attempt) => {
-      if (attempt.correctionRevision !== correctionRevision) throw correctionConflict();
-      const questions = await loadVersionQuestions(tx, attempt.evaluationVersionId);
-      const total = await this.total(tx, attempt.id, questions);
-      if (attempt.recordedAt === null && attempt.mode === 'PAPIER') {
-        throw new UnprocessableEntityException({
-          code: 'ATTEMPT_RESULT_MISSING',
-          message: 'Le résultat doit être saisi avant la soumission.',
-        });
-      }
-      if (!total.complete) {
-        throw new UnprocessableEntityException({
-          code: 'CORRECTION_INCOMPLETE',
-          message: 'Toutes les réponses libres doivent être notées avant la soumission.',
-        });
-      }
-      return {
-        data: {
-          score: total.score,
-          maxScore: total.maxScore > 0 ? total.maxScore : null,
-          correctionRevision: { increment: 1 },
-          // Copie saisie par le responsable lui-même : transmise implicitement.
-          ...(attempt.mode === 'PAPIER' &&
-            attempt.transmittedAt === null && {
-              transmittedAt: new Date(),
-              transmittedById: actor.userId,
-            }),
-        },
-      };
-    });
+    await this.transition(
+      actor,
+      { code: parsedCode },
+      'SOUMISE',
+      async (tx, attempt) => {
+        if (attempt.correctionRevision !== correctionRevision) throw correctionConflict();
+        const questions = await loadVersionQuestions(tx, attempt.evaluationVersionId);
+        const total = await this.total(tx, attempt.id, questions);
+        if (attempt.recordedAt === null && attempt.mode === 'PAPIER') {
+          throw new UnprocessableEntityException({
+            code: 'ATTEMPT_RESULT_MISSING',
+            message: 'Le résultat doit être saisi avant la soumission.',
+          });
+        }
+        if (!total.complete) {
+          throw new UnprocessableEntityException({
+            code: 'CORRECTION_INCOMPLETE',
+            message: 'Toutes les réponses libres doivent être notées avant la soumission.',
+          });
+        }
+        return {
+          data: {
+            score: total.score,
+            maxScore: total.maxScore > 0 ? total.maxScore : null,
+            correctionRevision: { increment: 1 },
+            // Copie saisie par le responsable lui-même : transmise implicitement.
+            ...(attempt.mode === 'PAPIER' &&
+              attempt.transmittedAt === null && {
+                transmittedAt: new Date(),
+                transmittedById: actor.userId,
+              }),
+          },
+        };
+      },
+      undefined,
+      // Soumission réservée au responsable plein, qui corrige lui-même (D161) : son résultat est
+      // accepté dans la même transaction, sans second passage par sa propre file (D188).
+      // Ce n'est ni la validation d'un acquis ni un changement d'étape (RM-EVAL-004).
+      {
+        to: 'VALIDEE',
+        data: { decidedById: actor.userId, decidedAt: new Date(), decisionComment: null },
+        auditAction: 'evaluation_attempt.review_accepted',
+      },
+    );
     return this.detail(actor, { code: parsedCode });
   }
 
@@ -1041,13 +1055,19 @@ export class EvaluationAttemptsService {
       attempt: EvaluationAttempt,
     ) => Promise<AttemptUpdate> | AttemptUpdate,
     auditAction?: string,
+    /** Seconde transition enchaînée dans la même transaction (ex. SOUMISE → VALIDEE, D188). */
+    follow?: {
+      to: AttemptStatus;
+      data: Prisma.EvaluationAttemptUncheckedUpdateInput;
+      auditAction: string;
+    },
   ): Promise<EvaluationAttempt> {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const attempt = await lockAttempt(tx, ref);
         assertTransition(attempt.status, to);
         const { data, reason, snapshot } = await prepare(tx, attempt);
-        const updated = await tx.evaluationAttempt.update({
+        let updated = await tx.evaluationAttempt.update({
           where: { id: attempt.id, status: attempt.status },
           data: { ...data, status: to },
         });
@@ -1069,6 +1089,30 @@ export class EvaluationAttemptsService {
               entityType: 'EvaluationAttempt',
               entityId: attempt.id,
               metadata: { code: attempt.code, from: attempt.status, to },
+            },
+          });
+        }
+        if (follow) {
+          assertTransition(to, follow.to);
+          updated = await tx.evaluationAttempt.update({
+            where: { id: attempt.id, status: to },
+            data: { ...follow.data, status: follow.to },
+          });
+          await tx.evaluationAttemptEvent.create({
+            data: {
+              attemptId: attempt.id,
+              actorId: actor.userId,
+              fromStatus: to,
+              toStatus: follow.to,
+            },
+          });
+          await tx.auditLog.create({
+            data: {
+              actorId: actor.userId,
+              action: follow.auditAction,
+              entityType: 'EvaluationAttempt',
+              entityId: attempt.id,
+              metadata: { code: attempt.code, from: to, to: follow.to },
             },
           });
         }

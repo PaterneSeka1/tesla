@@ -705,45 +705,29 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
       correctionDetailSchema,
     );
 
-    // Avant examen : statut seul, sans résultat détaillé.
-    const before = await json(routier.get('/me/attempts'), 200, myAttempts);
-    expect(before.items[0]).toMatchObject({ status: 'SOUMISE', result: null });
-
-    // 17. Examen par le responsable : demande de nouvelle correction motivée, puis acceptation.
+    // 17. Correction et soumission par le plein : résultat accepté sans second passage (D188).
+    await chef.post(`/admin/attempts/${attempt.id}/accept-review`, {}).expect(403);
     const pending = await json(
       responsable.get('/admin/attempts/pending-review'),
       200,
       correctionList,
     );
-    expect(pending.items.map((item) => item.id)).toEqual([attempt.id]);
-    await chef.post(`/admin/attempts/${attempt.id}/accept-review`, {}).expect(403);
-    await responsable.post(`/admin/attempts/${attempt.id}/request-correction`, {}).expect(400);
-    const back = await json(
-      responsable.post(`/admin/attempts/${attempt.id}/request-correction`, {
-        reason: 'Revoir la question 5.',
-      }),
-      200,
-      correctionDetailSchema,
-    );
-    expect(back.status).toBe('A_CORRIGER');
-    await chef
-      .post(`/corrections/${attempt.code}/submit-review`, {
-        correctionRevision: back.correctionRevision,
-      })
-      .expect(403);
-    await responsable
-      .post(`/corrections/${attempt.code}/submit-review`, {
-        correctionRevision: back.correctionRevision,
-      })
-      .expect(200);
+    expect(pending.items).toEqual([]);
     const accepted = await json(
-      responsable.post(`/admin/attempts/${attempt.id}/accept-review`, {
-        comment: 'Résultat cohérent.',
-      }),
+      responsable.get(`/corrections/${attempt.code}`),
       200,
       correctionDetailSchema,
     );
     expect(accepted.status).toBe('VALIDEE');
+    const events = await prisma.evaluationAttemptEvent.findMany({
+      where: { attemptId: attempt.id },
+      orderBy: { createdAt: 'asc' },
+      select: { toStatus: true, actorId: true },
+    });
+    expect(events.slice(-2)).toEqual([
+      { toStatus: 'SOUMISE', actorId: responsable.user.id },
+      { toStatus: 'VALIDEE', actorId: responsable.user.id },
+    ]);
 
     // 18. Aucun changement d'étape automatique.
     const profile = await prisma.scoutProfile.findUniqueOrThrow({
@@ -754,11 +738,7 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
 
     // Le routier retrouve son résultat, sans les bonnes réponses.
     const after = await json(routier.get('/me/attempts'), 200, myAttempts);
-    expect(after.items[0]!.result).toMatchObject({
-      score: 6.5,
-      maxScore: 8,
-      comment: 'Résultat cohérent.',
-    });
+    expect(after.items[0]!.result).toMatchObject({ score: 6.5, maxScore: 8, comment: null });
     expect(JSON.stringify(after)).not.toMatch(/isCorrect|expectedAnswer|guidance/);
   });
 
@@ -928,7 +908,6 @@ describe('Évaluations (intégration HTTP, PostgreSQL)', () => {
       200,
       correctionDetailSchema,
     );
-    await responsable.post(`/admin/attempts/${prepared.id}/accept-review`, {}).expect(200);
 
     // 15 et 20. Nouvelle version publiée : l'ancienne copie reste liée à sa version et consultable.
     const v2 = await json(

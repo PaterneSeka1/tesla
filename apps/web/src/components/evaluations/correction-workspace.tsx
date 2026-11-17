@@ -512,16 +512,21 @@ function CorrectionForm({ copy }: { copy: CorrectionDetail }) {
             trigger={
               <Button type="button" variant="outline" disabled={isDirty || missing > 0}>
                 <Send aria-hidden />
-                Valider la note
+                Publier le résultat
               </Button>
             }
-            title="Valider la note finale ?"
-            description={<p>Le score sera figé ; il restera à publier le résultat.</p>}
-            confirmLabel="Valider la note"
+            title="Publier le résultat ?"
+            description={
+              <p>
+                Le score sera figé et le résultat de {copy.code} visible du routier, sans autre
+                validation (D188). Ce n’est ni la validation d’un acquis ni un changement d’étape.
+              </p>
+            }
+            confirmLabel="Publier"
             onConfirm={() =>
               run(() => submitCorrection(copy.code, copy.correctionRevision), {
-                success: 'Note validée',
-                error: 'Validation impossible',
+                success: 'Résultat publié',
+                error: 'Publication impossible',
               })
             }
           />
@@ -552,8 +557,8 @@ function CorrectionForm({ copy }: { copy: CorrectionDetail }) {
       {grader && copy.status === 'A_CORRIGER' && (isDirty || missing > 0) && (
         <p className="text-sm text-muted-foreground">
           {isDirty
-            ? 'Enregistrez la correction avant de valider la note.'
-            : `${missing} réponse${missing > 1 ? 's' : ''} rédigée${missing > 1 ? 's' : ''} à noter avant la validation.`}
+            ? 'Enregistrez la correction avant de publier le résultat.'
+            : `${missing} réponse${missing > 1 ? 's' : ''} rédigée${missing > 1 ? 's' : ''} à noter avant la publication.`}
         </p>
       )}
       {!grader && isDirty && copy.status === 'A_CORRIGER' && (
