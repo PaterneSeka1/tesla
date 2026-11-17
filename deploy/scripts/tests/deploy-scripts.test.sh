@@ -144,6 +144,34 @@ write_env local
 check "déploiement v2 (mode local)" deploy v2
 check "build de tous les espaces avec Node.js 22" grep -qxF "npm run build $n22" "$t/calls"
 check "redémarrage API et web" grep -qx 'sudo /usr/bin/systemctl restart tesla-api@production tesla-web@production' "$t/calls"
+
+# 6 bis. Mode ovh (web et API sur le VPS, Vercel simple proxy) : comme le mode historique, mais
+# NEXT_PUBLIC_API_URL même origine (/api/v1), WEB_PORT et WEB_ORIGIN_DOMAIN obligatoires.
+write_env ovh
+before_ovh="$(releases)"
+check "mode ovh : WEB_PORT et WEB_ORIGIN_DOMAIN exigés" \
+  bash -c "! '$t/scripts/deploy.sh' production v2 > '$t/out' 2>&1 && grep -q 'WEB_PORT' '$t/out'"
+printf 'WEB_PORT=3000\nWEB_ORIGIN_DOMAIN=origine.tesla.test\n' >> "$t/etc/production.env"
+check "mode ovh : NEXT_PUBLIC_API_URL absolue refusée" \
+  bash -c "! '$t/scripts/deploy.sh' production v2 > '$t/out' 2>&1 && grep -q 'NEXT_PUBLIC_API_URL doit valoir /api/v1' '$t/out'"
+check "aucune release créée par ces refus (ovh)" test "$(releases)" = "$before_ovh"
+sed -i 's#^NEXT_PUBLIC_API_URL=.*#NEXT_PUBLIC_API_URL=/api/v1#' "$t/etc/production.env"
+check "déploiement v2 (mode ovh)" deploy v2
+check "mode ovh : build de tous les espaces avec Node.js 22" grep -qxF "npm run build $n22" "$t/calls"
+check "mode ovh : redémarrage API et web" grep -qx 'sudo /usr/bin/systemctl restart tesla-api@production tesla-web@production' "$t/calls"
+# Retour arrière : les releases précédentes n'ont pas de build Next.js (doublure npm) → refus.
+check "mode ovh : rollback vers une release sans build web refusé" \
+  bash -c "! '$t/scripts/rollback.sh' production > '$t/out' 2>&1 && grep -q 'introuvable' '$t/out'"
+no_web=""
+for dir in $(ls -1dt "$root"/releases/*/ | sed 's#/$##'); do
+  [[ "$dir" != "$(readlink -f "$root/current")" && -f "$dir/HEALTHY" ]] && { no_web="$dir"; break; }
+done
+check "mode ovh : rollback explicite sans build web refusé" \
+  bash -c "! '$t/scripts/rollback.sh' production '$no_web' > '$t/out' 2>&1 && grep -q 'sans build du web' '$t/out'"
+mkdir -p "$no_web/apps/web/.next" && touch "$no_web/apps/web/.next/BUILD_ID"
+check "mode ovh : rollback vers une release avec build web" rollback
+check "mode ovh : rollback redémarre API et web" grep -qx 'sudo /usr/bin/systemctl restart tesla-api@production tesla-web@production' "$t/calls"
+check "WEB_HOSTING inconnu refusé" bash -c "sed -i 's#^WEB_HOSTING=.*#WEB_HOSTING=autre#' '$t/etc/production.env'; ! '$t/scripts/deploy.sh' production v2 > /dev/null 2>&1"
 write_env vercel
 
 # 7. Rétention : 5 releases saines + current ; FAILED au plus 2.

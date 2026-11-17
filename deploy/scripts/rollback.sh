@@ -15,13 +15,16 @@ tesla_check_instance "$instance"
 tesla_load_env "$instance"
 root="$(tesla_deploy_root)/${instance}"
 mapfile -t units < <(tesla_units "$instance")
+# Web servi par le VPS (ovh, local) : seule une release contenant un build Next.js convient (une
+# release construite en mode vercel n'en a pas : tesla-web@ ne pourrait pas démarrer).
+with_web() { [[ "$(tesla_web_hosting)" == vercel || -f "$1/apps/web/.next/BUILD_ID" ]]; }
 tesla_lock "$root"
 current="$(readlink -f "$root/current")"
 target="${2:-}"
 if [[ -z "$target" ]]; then
   # Release saine la plus récente (contrôle de santé réussi lors de sa mise en service).
   for dir in $(ls -1dt "$root"/releases/*/ | sed 's#/$##'); do
-    [[ "$dir" != "$current" && -f "$dir/HEALTHY" && ! -f "$dir/FAILED" ]] && { target="$dir"; break; }
+    [[ "$dir" != "$current" && -f "$dir/HEALTHY" && ! -f "$dir/FAILED" ]] && with_web "$dir" && { target="$dir"; break; }
   done
 else
   target="$(readlink -f "$target" || true)"
@@ -29,6 +32,7 @@ fi
 [[ -n "$target" && -d "$target" && "${target%/*}" == "$root/releases" ]] ||
   { echo "Release saine introuvable : ${target:-aucune}" >&2; exit 1; }
 [[ -f "$target/FAILED" ]] && { echo "Release marquée en échec : ${target}" >&2; exit 1; }
+with_web "$target" || { echo "Release sans build du web (construite en mode vercel) : ${target}" >&2; exit 1; }
 
 echo "Retour de $(cat "$current/REVISION") vers $(cat "$target/REVISION")"
 tesla_switch_current "$root" "$target"

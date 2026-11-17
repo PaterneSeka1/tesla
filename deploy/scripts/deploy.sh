@@ -8,7 +8,9 @@
 # ces releases servent au retour arrière. Build en échec → release supprimée ; santé en échec →
 # release marquée FAILED (conservée pour diagnostic, jamais choisie par rollback.sh).
 # WEB_HOSTING=vercel (fichier d'instance) : seule l'API est construite et redémarrée ; le web est
-# déployé par Vercel depuis GitHub (docs/DEPLOYMENT_VERCEL_OVH.md).
+# déployé par Vercel depuis GitHub (docs/DEPLOYMENT_VERCEL_OVH.md). WEB_HOSTING=ovh ou local : web
+# et API construits et redémarrés ; en mode ovh, le web est relayé par Vercel (proxy seul) et appelle
+# l'API en même origine (NEXT_PUBLIC_API_URL=/api/v1 obligatoire, docs/migration-ovh/04-deploiement.md).
 # Node.js : celui de TESLA_NODE_DIR (/opt/node22/bin par défaut) pour npm ci, Prisma et les builds ;
 # le Node.js système et les autres applications du serveur ne sont pas concernés.
 # Usage : deploy.sh <production|preproduction> <commit|étiquette>
@@ -30,13 +32,18 @@ hosting="$(tesla_web_hosting)"
 mapfile -t units < <(tesla_units "$instance")
 tesla_use_node
 tesla_check_units "$(tesla_node_dir)" tesla-api@.service tesla-daily@.service
-[[ "$hosting" == local ]] && tesla_check_units "$(tesla_node_dir)" tesla-web@.service
+[[ "$hosting" != vercel ]] && tesla_check_units "$(tesla_node_dir)" tesla-web@.service
 required=(DATABASE_URL PUBLIC_URL CORS_ORIGINS BACKUP_DIR BACKUP_GPG_RECIPIENT)
-[[ "$hosting" == local ]] && required+=(NEXT_PUBLIC_API_URL)
+[[ "$hosting" != vercel ]] && required+=(NEXT_PUBLIC_API_URL)
+[[ "$hosting" == ovh ]] && required+=(WEB_PORT WEB_ORIGIN_DOMAIN)
 for var in "${required[@]}"; do
   [[ -n "${!var:-}" && "${!var}" != *'<'* ]] ||
     { echo "Variable manquante ou à compléter dans ${TESLA_CONFIG_DIR}/${instance}.env : ${var}" >&2; exit 1; }
 done
+# Mode ovh : le navigateur reste sur le domaine Vercel, l'API doit donc être appelée en même origine.
+if [[ "$hosting" == ovh && "${NEXT_PUBLIC_API_URL:-}" != /api/v1 ]]; then
+  echo "WEB_HOSTING=ovh : NEXT_PUBLIC_API_URL doit valoir /api/v1 (même origine que le domaine Vercel)." >&2; exit 1
+fi
 [[ -d "$root/releases" && -d "$root/repo/.git" ]] || { echo "Instance non installée : ${root} (bootstrap.sh)." >&2; exit 1; }
 tesla_lock "$root"
 free_kb="$(df --output=avail -k "$root" | tail -1)"

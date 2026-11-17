@@ -41,12 +41,13 @@ tesla_load_env() {
   set +a
 }
 
-# Hébergement du web : « vercel » (API seule sur le VPS) ou « local » (mode historique, Next.js
-# servi par tesla-web@ derrière le même Nginx).
+# Hébergement du web : « vercel » (API seule sur le VPS, Next.js sur Vercel), « ovh » (web et API
+# sur le VPS derrière le domaine Vercel, simple proxy : docs/migration-ovh/03-architecture.md) ou
+# « local » (mode historique, Next.js servi par tesla-web@ derrière le même Nginx, sans Vercel).
 tesla_web_hosting() {
   case "${WEB_HOSTING:-local}" in
-    vercel | local) printf '%s\n' "${WEB_HOSTING:-local}" ;;
-    *) echo "WEB_HOSTING invalide : ${WEB_HOSTING} (vercel ou local)" >&2; exit 1 ;;
+    vercel | ovh | local) printf '%s\n' "${WEB_HOSTING:-local}" ;;
+    *) echo "WEB_HOSTING invalide : ${WEB_HOSTING} (vercel, ovh ou local)" >&2; exit 1 ;;
   esac
 }
 
