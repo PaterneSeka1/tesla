@@ -9,6 +9,8 @@ export interface MembershipRunReport {
   ruleSetVersion: string | null;
   examined: number;
   exited: number;
+  /** Comptes de routiers sortis passés au rôle ADULTE (D190), sorties antérieures comprises. */
+  accountsConverted: number;
   anomalies: string[];
 }
 
@@ -16,7 +18,9 @@ export interface MembershipRunReport {
  * Appartenance à la branche (RouteMembershipService). Le jour de l'âge de sortie, le routier n'est
  * plus membre actif : le statut est enregistré, l'événement journalisé, l'affectation d'équipe
  * ouverte clôturée à cette date. Rien n'est supprimé (compte, fiche, résultats, études, acquis,
- * étapes, équipes) ; aucune étape (Départ routier compris) n'est attribuée. Traitement idempotent ;
+ * étapes, équipes) ; aucune étape (Départ routier compris) n'est attribuée. Le routier sorti est
+ * ensuite considéré comme un adulte (D190) : son compte passe au rôle ADULTE, sa fiche reste une
+ * fiche routier (matricule, date de naissance et historique conservés). Traitement idempotent ;
  * l'appartenance est aussi recalculée à la lecture (`effectiveMembership`).
  */
 @Injectable()
@@ -41,10 +45,12 @@ export class MembershipService {
       ruleSetVersion: rules?.version ?? null,
       examined: 0,
       exited: 0,
+      accountsConverted: 0,
       anomalies: [],
     };
     if (!rules || rules.branchExitAgeYears === null) {
       report.anomalies.push('Aucun âge de sortie en vigueur : aucune sortie appliquée.');
+      report.accountsConverted = await this.convertExitedAccounts(actorId, report);
       return report;
     }
     const snapshot = toSnapshot(rules);
@@ -101,9 +107,59 @@ export class MembershipService {
         this.logger.error(`Sortie non appliquée pour le profil ${profile.id}`);
       }
     }
+    report.accountsConverted = await this.convertExitedAccounts(actorId, report);
     this.logger.log(
-      `Sorties de branche au ${referenceDate} : ${report.exited} appliquée(s) sur ${report.examined} profil(s) examiné(s), ${report.anomalies.length} anomalie(s).`,
+      `Sorties de branche au ${referenceDate} : ${report.exited} appliquée(s) sur ${report.examined} profil(s) examiné(s), ${report.accountsConverted} compte(s) passé(s) adulte, ${report.anomalies.length} anomalie(s).`,
     );
     return report;
+  }
+
+  /**
+   * Routier sorti considéré comme adulte (D190) : tout compte ROUTIER rattaché à une fiche sortie
+   * passe au rôle ADULTE (cours et évaluations publiés, « Mes résultats »). Idempotent : couvre aussi
+   * les sorties antérieures et les comptes rattachés après la sortie. La fiche n'est pas convertie.
+   */
+  private async convertExitedAccounts(
+    actorId: string | null,
+    report: MembershipRunReport,
+  ): Promise<number> {
+    const accounts = await this.prisma.user.findMany({
+      where: {
+        role: 'ROUTIER',
+        scoutProfile: { kind: 'ROUTIER', membershipStatus: 'SORTI' },
+      },
+      select: { id: true, scoutProfile: { select: { id: true } } },
+    });
+    let converted = 0;
+    for (const account of accounts) {
+      try {
+        const applied = await this.prisma.$transaction(async (tx) => {
+          const { count } = await tx.user.updateMany({
+            where: { id: account.id, role: 'ROUTIER' },
+            data: { role: 'ADULTE' },
+          });
+          if (count === 0) return false;
+          await tx.auditLog.create({
+            data: {
+              actorId,
+              action: 'membership.account_adult',
+              entityType: 'User',
+              entityId: account.id,
+              metadata: {
+                previousRole: 'ROUTIER',
+                role: 'ADULTE',
+                scoutProfileId: account.scoutProfile?.id ?? null,
+              },
+            },
+          });
+          return true;
+        });
+        if (applied) converted += 1;
+      } catch (error) {
+        report.anomalies.push(`Compte ${account.id} : ${(error as Error).message.slice(0, 200)}`);
+        this.logger.error(`Compte non passé adulte : ${account.id}`);
+      }
+    }
+    return converted;
   }
 }

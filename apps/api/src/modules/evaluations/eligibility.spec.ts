@@ -116,15 +116,27 @@ describe('Éligibilité aux évaluations', () => {
 describe('Éligibilité : appartenance à la branche et rattrapage (refonte)', () => {
   const otherStage = { profile: { isActive: true, stageId: 'stage-apprentissage' } };
 
-  it('limite d’âge atteinte : refusée, même à l’étape ou avec une dérogation', () => {
+  it('routier sorti, considéré comme adulte (D190) : toute évaluation publiée, limite de tentatives seule', () => {
     expect(computeEligibility(facts({ membership: 'SORTI' }))).toMatchObject({
-      status: 'SORTI_BRANCHE',
-      allowed: false,
+      status: 'ELIGIBLE',
+      allowed: true,
     });
+    // Autre étape, rattrapage verrouillé : sans effet après la sortie.
     expect(
-      computeEligibility(facts({ ...otherStage, membership: 'SORTI', waivers: [waiver()] }))
-        .allowed,
-    ).toBe(false);
+      computeEligibility(facts({ ...otherStage, membership: 'SORTI', lockedByCatchUp: true })),
+    ).toMatchObject({ status: 'ELIGIBLE', allowed: true });
+    const attempts = [
+      { id: 'a', code: 'NT-2027-000001', mode: 'EN_LIGNE' as const, status: 'VALIDEE' as const },
+    ];
+    expect(
+      computeEligibility(facts({ membership: 'SORTI', maxAttempts: 1, attempts })),
+    ).toMatchObject({ status: 'LIMITE_ATTEINTE', allowed: false });
+    // Fiche désactivée : toujours refusée.
+    expect(
+      computeEligibility(
+        facts({ profile: { isActive: false, stageId: STAGE }, membership: 'SORTI' }),
+      ).status,
+    ).toBe('PROFIL_INACTIF');
   });
 
   it('obligation de rattrapage ouverte : évaluation d’une étape antérieure accessible', () => {
@@ -158,9 +170,9 @@ describe('Éligibilité : appartenance à la branche et rattrapage (refonte)', (
         facts({ lockedByCatchUp: true, waivers: [waiver({ revokedAt: new Date('2027-01-05') })] }),
       ),
     ).toMatchObject({ status: 'VERROUILLE_RATTRAPAGE' });
-    // Routier sorti : la sortie prime.
+    // Routier sorti (D190) : considéré comme adulte, le verrou ne s'applique plus.
     expect(computeEligibility(facts({ lockedByCatchUp: true, membership: 'SORTI' })).status).toBe(
-      'SORTI_BRANCHE',
+      'ELIGIBLE',
     );
   });
 });

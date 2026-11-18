@@ -131,11 +131,11 @@ export const PERMISSIONS = {
    * couvre les seuls comptes routiers et adultes (périmètre vérifié par le service, D185).
    */
   /**
-   * Fiche médicale personnelle (D135, D142) : chaque routier et membre de l'encadrement gère la
-   * sienne, et seulement la sienne. Le compte administrateur, purement technique, n'en a pas.
-   * Distincte de toute permission pédagogique : aucune ne donne accès à la fiche d'autrui.
+   * Fiche médicale personnelle (D135, D191) : tout compte (routier, adulte, encadrement,
+   * administrateur) gère la sienne, et seulement la sienne. Distincte de toute permission
+   * pédagogique ou administrative : aucune ne donne accès à la fiche d'autrui.
    */
-  'medicalRecord.own': ['ROUTIER', 'ENCADREMENT'],
+  'medicalRecord.own': ['ROUTIER', 'ADULTE', 'ENCADREMENT', 'ADMINISTRATEUR'],
   'account.read': ['ADMINISTRATEUR', 'OFFICIEL'],
   'account.manage': ['ADMINISTRATEUR', 'OFFICIEL'],
 } as const satisfies Record<string, readonly AccessLevel[]>;
