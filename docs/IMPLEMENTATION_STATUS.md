@@ -4,13 +4,14 @@ Dernière mise à jour : 2026-11-17 — **fiche médicale pour tout le monde** (
 
 ## Routier sorti considéré comme adulte (2026-11-17)
 
-Décision D190. Aucune migration, aucun déploiement.
+Décision D190. Aucune migration.
 
 ### Réalisé
 - API : `MembershipService.applyExits` passe au rôle `ADULTE` les comptes `ROUTIER` rattachés à une fiche `SORTI` (idempotent, audit `membership.account_adult`, champ `accountsConverted` du rapport) ; `computeEligibility` applique les règles adultes à un routier sorti ; distribution collective limitée aux routiers membres de la branche.
 
 ### Vérifications
 - `lint`, `typecheck`, `test` (API 301, web 139) ; intégration sur `tesla_test` : `refonte`, `apprenants-adultes`, `evaluations`, `stage-override` (31 réussis).
+- **Déployé en production** le 2026-11-18 à 09:27 UTC avec D191 (`c752164`, build Next.js neuf, sauvegarde chiffrée préalable copiée sur R2, aucune migration) : release marquée saine, `tesla-api` et `tesla-web` actifs, santé de l'API, origine OVH (403 sans secret, 200 avec), domaine public (`/`, `/connexion`, `robots.txt`, `sitemap.xml`, manifeste, image de partage, redirection de `/accueil`).
 
 ### Reste
 - Fiche médicale ouverte à tous les comptes (D191 : permission partagée, tests `medical-records` 3 suites d'intégration réussies) ; arbitrer « Ma progression » pour un routier sorti (voir D190) ; lancer le traitement quotidien sur la base pour convertir les sorties existantes.
