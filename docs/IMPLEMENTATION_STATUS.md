@@ -1,6 +1,19 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-17 — **actes du plein sans validation** (D188), voir [§ Actes du plein](#actes-du-plein-sans-validation-2026-11-17) ; **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-17 — **fiche médicale pour tout le monde** (D190) et **routier sorti considéré comme adulte** (D189), voir [§ Sortie vers adulte](#routier-sorti-considéré-comme-adulte-2026-11-17) ; **actes du plein sans validation** (D188), voir [§ Actes du plein](#actes-du-plein-sans-validation-2026-11-17) ; **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+
+## Routier sorti considéré comme adulte (2026-11-17)
+
+Décision D189. Aucune migration, aucun déploiement.
+
+### Réalisé
+- API : `MembershipService.applyExits` passe au rôle `ADULTE` les comptes `ROUTIER` rattachés à une fiche `SORTI` (idempotent, audit `membership.account_adult`, champ `accountsConverted` du rapport) ; `computeEligibility` applique les règles adultes à un routier sorti ; distribution collective limitée aux routiers membres de la branche.
+
+### Vérifications
+- `lint`, `typecheck`, `test` (API 301, web 139) ; intégration sur `tesla_test` : `refonte`, `apprenants-adultes`, `evaluations`, `stage-override` (31 réussis).
+
+### Reste
+- Fiche médicale ouverte à tous les comptes (D190 : permission partagée, tests `medical-records` 3 suites d'intégration réussies) ; arbitrer « Ma progression » pour un routier sorti (voir D189) ; lancer le traitement quotidien sur la base pour convertir les sorties existantes.
 
 ## Actes du plein sans validation (2026-11-17)
 
@@ -781,7 +794,7 @@ Déjà en place et réutilisé : suppression des mandats et application unique (
 
 ### Réalisé
 - **Navigation** (D141) : rubriques (routier 5, encadrement 5, administrateur 3), pages de la rubrique active dépliées, barre mobile à 5 accès, « Mon profil ».
-- **Administrateur technique** (D142) : comptes et désignation de l'encadrement dans « Administration », aucune fiche médicale (permission `medicalRecord.own`).
+- **Administrateur technique** (D142) : comptes et désignation de l'encadrement dans « Administration », sa propre fiche médicale depuis D190 (permission `medicalRecord.own`).
 - **Fiches médicales** (D135–D137) : migration additive `20261108090000_medical_records`, module API `medical`, chiffrement AES-256-GCM, PDF A4, carte « Fiche médicale » dans Mon profil, exclusion du cache hors ligne.
 - **Réponses courtes** (D138) : migration additive `20261109090000_short_answer_variants`, moteur `gradeShortAnswer`, champ « Variantes acceptées » dans l'éditeur, corrigé papier.
 - **Résultats d'un questionnaire** (D139) : `GET /editor/evaluations/:id/results`, page `/encadrement/evaluations/[id]/resultats`.

@@ -136,7 +136,7 @@ En ligne : `EN_COURS → A_CORRIGER` (remise, correction objective). Papier : `P
 - **Réponse courte** : correction automatique uniquement par égalité avec une variante acceptée déclarée par l'auteur, après normalisation des espaces et de la casse ; sinon note humaine, jamais zéro automatique (D138).
 - **Mode jeu à paliers** : même tentative, même notation, aucun corrigé sur l'appareil, score communiqué selon la règle habituelle (D140).
 - **Résultats d'un questionnaire** : consultables par tout l'encadrement, sans classement ni valeur estimée (D139).
-- **Fiche médicale** : une par compte de routier ou d'encadrement (le compte administrateur, technique, n'en a pas) ; titulaire seul (lecture, modification illimitée, impression, suppression) ; aucune permission pédagogique ou administrative n'y donne accès ; chiffrée ; jamais hors ligne ni dans les statistiques (D135–D137).
+- **Fiche médicale** : une par compte, pour tout le monde : routier, adulte, encadrement et administrateur (D190) ; titulaire seul (lecture, modification illimitée, impression, suppression) ; aucune permission pédagogique ou administrative n'y donne accès ; chiffrée ; jamais hors ligne ni dans les statistiques (D135–D137).
 - **Arbitrage du responsable** : le seul travail de l'administrateur est la gestion des comptes, désignation de l'encadrement comprise (D142) ; le plein seul approuve et publie, et crée les fiches routiers.
 
 ## Référentiel de progression (SAPF-Route)
@@ -195,7 +195,7 @@ Détails : [SEEDS_PEDAGOGIQUES.md](SEEDS_PEDAGOGIQUES.md).
 ## Refonte 2026-10-29 — âge, rattrapages, encadrement
 - **Étape** (D173) : déterminée par l'âge (date de naissance) et le référentiel d'âge en vigueur, jamais par la date d'entrée ; seule étape de l'application, calculée, jamais saisie ; distincte de la progression pédagogique et du rattrapage. Voir [FEATURES/PROGRESSION_PAR_AGE.md](FEATURES/PROGRESSION_PAR_AGE.md).
 - **Noviciat** : du 18e anniversaire à un mois calendaire plus tard (règle fournie, à rapprocher du manuel). L'échéance ne valide rien.
-- **Sortie** : le jour du 21e anniversaire, le routier n'est plus membre actif ; historique intégralement conservé ; aucune étape attribuée.
+- **Sortie** : le jour du 21e anniversaire, le routier n'est plus membre actif ; historique intégralement conservé ; aucune étape attribuée. Le routier sorti est ensuite considéré comme un adulte (D189) : compte au rôle `ADULTE`, toutes les évaluations publiées ouvertes, fiche routier conservée.
 - **Rattrapage** : modules obligatoires (source officielle exigée) d'étapes dont la période est échue ; acquis seulement par décision humaine. Voir [FEATURES/RATTRAPAGE.md](FEATURES/RATTRAPAGE.md).
 - **Encadrement** (D132, remplace les mandats) : responsable plein, adjoint, assistants désignés directement par l'administrateur, sans lien avec l'année scoute ; un seul plein en fonction ; remplacement confirmé, immédiat et historisé ; décisions officielles réservées au plein en fonction ; l'adjoint et les assistants accompagnent (droits de l'encadrement). Voir [FEATURES/ENCADREMENT.md](FEATURES/ENCADREMENT.md).
 - **Application unique** (D134) : aucun espace, aucun choix d'espace, aucun rôle technique affiché ; ce que voit chacun découle de ses permissions. Voir [FEATURES/NAVIGATION_ET_PERMISSIONS.md](FEATURES/NAVIGATION_ET_PERMISSIONS.md).
