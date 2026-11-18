@@ -116,7 +116,7 @@ describe('Éligibilité aux évaluations', () => {
 describe('Éligibilité : appartenance à la branche et rattrapage (refonte)', () => {
   const otherStage = { profile: { isActive: true, stageId: 'stage-apprentissage' } };
 
-  it('routier sorti, considéré comme adulte (D189) : toute évaluation publiée, limite de tentatives seule', () => {
+  it('routier sorti, considéré comme adulte (D190) : toute évaluation publiée, limite de tentatives seule', () => {
     expect(computeEligibility(facts({ membership: 'SORTI' }))).toMatchObject({
       status: 'ELIGIBLE',
       allowed: true,
@@ -170,7 +170,7 @@ describe('Éligibilité : appartenance à la branche et rattrapage (refonte)', (
         facts({ lockedByCatchUp: true, waivers: [waiver({ revokedAt: new Date('2027-01-05') })] }),
       ),
     ).toMatchObject({ status: 'VERROUILLE_RATTRAPAGE' });
-    // Routier sorti (D189) : considéré comme adulte, le verrou ne s'applique plus.
+    // Routier sorti (D190) : considéré comme adulte, le verrou ne s'applique plus.
     expect(computeEligibility(facts({ lockedByCatchUp: true, membership: 'SORTI' })).status).toBe(
       'ELIGIBLE',
     );

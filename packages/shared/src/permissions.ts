@@ -131,7 +131,7 @@ export const PERMISSIONS = {
    * couvre les seuls comptes routiers et adultes (périmètre vérifié par le service, D185).
    */
   /**
-   * Fiche médicale personnelle (D135, D190) : tout compte (routier, adulte, encadrement,
+   * Fiche médicale personnelle (D135, D191) : tout compte (routier, adulte, encadrement,
    * administrateur) gère la sienne, et seulement la sienne. Distincte de toute permission
    * pédagogique ou administrative : aucune ne donne accès à la fiche d'autrui.
    */

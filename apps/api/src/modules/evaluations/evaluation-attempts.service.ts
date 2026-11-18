@@ -229,7 +229,7 @@ export class EvaluationAttemptsService {
     const version = evaluation.publishedVersion;
     if (!version) throw versionNotPublished();
     // Distribution collective par étape et équipe (D163) : routiers membres de la branche seulement
-    // (adultes exclus, D185 ; routiers sortis, considérés comme adultes, exclus, D189).
+    // (adultes exclus, D185 ; routiers sortis, considérés comme adultes, exclus, D190).
     const profiles = await this.prisma.scoutProfile.findMany({
       where: { kind: 'ROUTIER', isActive: true, membershipStatus: 'ACTIF' },
       include: {

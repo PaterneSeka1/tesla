@@ -571,7 +571,7 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       const dayPath = await json(plein.get(`/scouts/${day.id}/pathway`), 200, scoutPathwaySchema);
       expect(dayPath.membership).toEqual({ status: 'SORTI', exitedOn: null });
 
-      // Comptes rattachés : seul celui du routier sorti devient adulte (D189).
+      // Comptes rattachés : seul celui du routier sorti devient adulte (D190).
       const dayAccount = await login('ROUTIER');
       const eveAccount = await login('ROUTIER');
       await prisma.scoutProfile.update({

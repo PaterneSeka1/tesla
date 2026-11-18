@@ -4,11 +4,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
-### Modifié — fiche médicale pour tout le monde, 2026-11-17 (D190)
+### Modifié — fiche médicale pour tout le monde, 2026-11-17 (D191)
 - Les adultes (routiers sortis de la branche compris) et l'administrateur ont désormais leur fiche médicale (Paramètres du compte), comme les routiers et l'encadrement.
 - Chacun ne voit toujours que la sienne ; l'administrateur n'a aucun accès à celle des autres.
 
-### Modifié — routier sorti de la branche considéré comme adulte, 2026-11-17 (D189)
+### Modifié — routier sorti de la branche considéré comme adulte, 2026-11-17 (D190)
 - Le jour de ses 21 ans, le compte du routier passe automatiquement au rôle « Adulte (apprenant) » lors du traitement quotidien ; les sorties déjà enregistrées sont aussi converties.
 - Il peut de nouveau composer : toutes les évaluations publiées, sans condition d'étape ni de rattrapage, comme un adulte.
 - Sa fiche, son matricule, ses résultats, acquis et son historique sont conservés ; il n'apparaît plus dans la distribution collective.

@@ -169,11 +169,11 @@ describe('Fiches médicales (intégration PostgreSQL)', () => {
     expect((await record(owner.get())).record?.data.allergies).toBe(SECRET_TEXT);
   });
 
-  it('tout compte a sa fiche (D190) : adulte et routier sorti passé adulte compris', async () => {
+  it('tout compte a sa fiche (D191) : adulte et routier sorti passé adulte compris', async () => {
     const adult = await loginAs('ROUTIER', 'ADULTE');
     const created = await record(adult.put({ expectedRevision: null, data: data() }));
     expect(created.record?.revision).toBe(1);
-    // Routier sorti (D189) : la fiche créée avant la bascule reste la sienne.
+    // Routier sorti (D190) : la fiche créée avant la bascule reste la sienne.
     const exited = await loginAs('ROUTIER');
     await record(exited.put({ expectedRevision: null, data: data('Avant la sortie') }));
     await prisma.user.update({ where: { id: exited.user.id }, data: { role: 'ADULTE' } });

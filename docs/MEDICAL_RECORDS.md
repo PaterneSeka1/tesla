@@ -3,7 +3,7 @@
 Décisions D135–D137 (2026-10-30). Code : `apps/api/src/modules/medical/`, `packages/shared/src/medical.ts`, `apps/web/src/components/accounts/medical-record-card.tsx`.
 
 ## Principe
-- Une fiche **par compte**, pour tout le monde : routier, adulte (routier sorti compris), membre de l'encadrement et administrateur (permission `medicalRecord.own`, D190) : même modèle pour tous. La fiche est liée au compte : elle suit le titulaire quand son rôle change (sortie de la branche, D189).
+- Une fiche **par compte**, pour tout le monde : routier, adulte (routier sorti compris), membre de l'encadrement et administrateur (permission `medicalRecord.own`, D191) : même modèle pour tous. La fiche est liée au compte : elle suit le titulaire quand son rôle change (sortie de la branche, D190).
 - Seul le titulaire la consulte, la crée, la modifie (sans limite), l'imprime, la télécharge et la supprime, depuis **Mon profil**. Aucune validation administrative.
 - Aucune autre personne n'y accède : ni l'encadrement, ni le responsable plein, ni l'administrateur.
 

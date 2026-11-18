@@ -76,7 +76,7 @@ export function computeEligibility(facts: EligibilityFacts): Eligibility {
   };
   if (!facts.profile) return { ...base, status: 'SANS_PROFIL', allowed: false };
   if (!facts.profile.isActive) return { ...base, status: 'PROFIL_INACTIF', allowed: false };
-  // Apprenant adulte (D185), et routier sorti de la branche, considéré comme adulte (D189) : toute
+  // Apprenant adulte (D185), et routier sorti de la branche, considéré comme adulte (D190) : toute
   // évaluation publiée, sans condition d'étape, d'appartenance ni de rattrapage ; seule la limite de
   // tentatives s'applique.
   if (facts.profile.kind === 'ADULTE' || facts.membership === 'SORTI') {

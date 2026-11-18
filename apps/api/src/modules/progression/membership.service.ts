@@ -9,7 +9,7 @@ export interface MembershipRunReport {
   ruleSetVersion: string | null;
   examined: number;
   exited: number;
-  /** Comptes de routiers sortis passés au rôle ADULTE (D189), sorties antérieures comprises. */
+  /** Comptes de routiers sortis passés au rôle ADULTE (D190), sorties antérieures comprises. */
   accountsConverted: number;
   anomalies: string[];
 }
@@ -19,7 +19,7 @@ export interface MembershipRunReport {
  * plus membre actif : le statut est enregistré, l'événement journalisé, l'affectation d'équipe
  * ouverte clôturée à cette date. Rien n'est supprimé (compte, fiche, résultats, études, acquis,
  * étapes, équipes) ; aucune étape (Départ routier compris) n'est attribuée. Le routier sorti est
- * ensuite considéré comme un adulte (D189) : son compte passe au rôle ADULTE, sa fiche reste une
+ * ensuite considéré comme un adulte (D190) : son compte passe au rôle ADULTE, sa fiche reste une
  * fiche routier (matricule, date de naissance et historique conservés). Traitement idempotent ;
  * l'appartenance est aussi recalculée à la lecture (`effectiveMembership`).
  */
@@ -115,7 +115,7 @@ export class MembershipService {
   }
 
   /**
-   * Routier sorti considéré comme adulte (D189) : tout compte ROUTIER rattaché à une fiche sortie
+   * Routier sorti considéré comme adulte (D190) : tout compte ROUTIER rattaché à une fiche sortie
    * passe au rôle ADULTE (cours et évaluations publiés, « Mes résultats »). Idempotent : couvre aussi
    * les sorties antérieures et les comptes rattachés après la sortie. La fiche n'est pas convertie.
    */
