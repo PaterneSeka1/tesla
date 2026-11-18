@@ -63,6 +63,7 @@ import {
   loadStageContext,
   type StageContext,
 } from '../progression/computed-stage.js';
+import { effectiveMembership } from '../progression/age-rules.js';
 import { issueAttemptCode } from './attempt-code.js';
 import { assertTransition } from './attempt-workflow.js';
 import {
@@ -227,9 +228,10 @@ export class EvaluationAttemptsService {
     if (!evaluation) throw evaluationNotFound();
     const version = evaluation.publishedVersion;
     if (!version) throw versionNotPublished();
-    // Distribution collective par étape et équipe (D163) : routiers seulement (D185).
+    // Distribution collective par étape et équipe (D163) : routiers membres de la branche seulement
+    // (adultes exclus, D185 ; routiers sortis, considérés comme adultes, exclus, D189).
     const profiles = await this.prisma.scoutProfile.findMany({
-      where: { kind: 'ROUTIER', isActive: true },
+      where: { kind: 'ROUTIER', isActive: true, membershipStatus: 'ACTIF' },
       include: {
         teamAssignments: { where: { endedAt: null }, include: { team: true }, take: 1 },
       },
@@ -239,6 +241,8 @@ export class EvaluationAttemptsService {
     const context = await loadStageContext(this.prisma);
     const candidates: DistributionCandidate[] = [];
     for (const profile of profiles) {
+      // Sortie atteinte mais pas encore enregistrée par la tâche quotidienne : déjà exclue.
+      if (effectiveMembership(profile, context.rules, context.today) === 'SORTI') continue;
       const eligibility = await loadEligibility(this.prisma, {
         profile,
         evaluation,

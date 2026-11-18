@@ -571,10 +571,32 @@ describe('Refonte parcours Route et gouvernance (intégration PostgreSQL)', () =
       const dayPath = await json(plein.get(`/scouts/${day.id}/pathway`), 200, scoutPathwaySchema);
       expect(dayPath.membership).toEqual({ status: 'SORTI', exitedOn: null });
 
+      // Comptes rattachés : seul celui du routier sorti devient adulte (D189).
+      const dayAccount = await login('ROUTIER');
+      const eveAccount = await login('ROUTIER');
+      await prisma.scoutProfile.update({
+        where: { id: day.id },
+        data: { userId: dayAccount.user.id },
+      });
+      await prisma.scoutProfile.update({
+        where: { id: eve.id },
+        data: { userId: eveAccount.user.id },
+      });
+
       const membership = app.get(MembershipService);
       const report = await membership.applyExits(TODAY);
       expect(report.exited).toBe(1);
-      expect((await membership.applyExits(TODAY)).exited).toBe(0);
+      expect(report.accountsConverted).toBe(1);
+      const rerun = await membership.applyExits(TODAY);
+      expect(rerun).toMatchObject({ exited: 0, accountsConverted: 0 });
+      // Rôle relu à chaque requête : la session ouverte passe adulte sans reconnexion.
+      expect((await me(dayAccount)).role).toBe('ADULTE');
+      expect((await me(eveAccount)).role).toBe('ROUTIER');
+      expect(
+        await prisma.auditLog.count({
+          where: { action: 'membership.account_adult', entityId: dayAccount.user.id },
+        }),
+      ).toBe(1);
       const profile = await prisma.scoutProfile.findUniqueOrThrow({
         where: { id: day.id },
         include: { teamAssignments: true, stageChanges: true, membershipEvents: true },

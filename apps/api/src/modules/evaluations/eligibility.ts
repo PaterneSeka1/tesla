@@ -76,15 +76,15 @@ export function computeEligibility(facts: EligibilityFacts): Eligibility {
   };
   if (!facts.profile) return { ...base, status: 'SANS_PROFIL', allowed: false };
   if (!facts.profile.isActive) return { ...base, status: 'PROFIL_INACTIF', allowed: false };
-  // Apprenant adulte (D185) : toute évaluation publiée, sans condition d'étape, d'appartenance ni de
-  // rattrapage ; seule la limite de tentatives s'applique.
-  if (facts.profile.kind === 'ADULTE') {
+  // Apprenant adulte (D185), et routier sorti de la branche, considéré comme adulte (D189) : toute
+  // évaluation publiée, sans condition d'étape, d'appartenance ni de rattrapage ; seule la limite de
+  // tentatives s'applique.
+  if (facts.profile.kind === 'ADULTE' || facts.membership === 'SORTI') {
     if (!open && facts.maxAttempts !== null && attemptsUsed >= facts.maxAttempts) {
       return { ...base, status: 'LIMITE_ATTEINTE', allowed: false };
     }
     return { ...base, status: 'ELIGIBLE', allowed: true };
   }
-  if (facts.membership === 'SORTI') return { ...base, status: 'SORTI_BRANCHE', allowed: false };
 
   let waiver: Eligibility['waiver'] = null;
   const active = [...facts.waivers]
