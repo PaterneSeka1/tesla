@@ -66,14 +66,17 @@ describe('Fiches médicales (intégration PostgreSQL)', () => {
     await resetDatabase(prisma);
   });
 
-  async function loginAs(persona: TestPersona) {
+  async function loginAs(
+    persona: TestPersona,
+    role: 'ROUTIER' | 'ADULTE' | 'ENCADREMENT' | 'ADMINISTRATEUR' = personaRole(persona),
+  ) {
     counter += 1;
     const user = await prisma.user.create({
       data: {
         email: `medical${counter}@example.test`,
         firstName: 'Fictif',
         lastName: `${persona} ${counter}`,
-        role: personaRole(persona),
+        role,
         passwordHash,
       },
     });
@@ -97,7 +100,7 @@ describe('Fiches médicales (intégration PostgreSQL)', () => {
   const code = async (req: request.Test, status: number) =>
     apiErrorSchema.parse((await req.expect(status)).body).code;
 
-  it.each<TestPersona>(['ROUTIER', 'CHEF', 'RESPONSABLE'])(
+  it.each<TestPersona>(['ROUTIER', 'CHEF', 'RESPONSABLE', 'ADMINISTRATEUR'])(
     '%s : crée sa fiche puis la modifie autant de fois que nécessaire',
     async (persona) => {
       const me = await loginAs(persona);
@@ -166,15 +169,25 @@ describe('Fiches médicales (intégration PostgreSQL)', () => {
     expect((await record(owner.get())).record?.data.allergies).toBe(SECRET_TEXT);
   });
 
-  it('compte administrateur (technique, D142) : aucune fiche, aucun accès à celle d’autrui', async () => {
+  it('tout compte a sa fiche (D190) : adulte et routier sorti passé adulte compris', async () => {
+    const adult = await loginAs('ROUTIER', 'ADULTE');
+    const created = await record(adult.put({ expectedRevision: null, data: data() }));
+    expect(created.record?.revision).toBe(1);
+    // Routier sorti (D189) : la fiche créée avant la bascule reste la sienne.
+    const exited = await loginAs('ROUTIER');
+    await record(exited.put({ expectedRevision: null, data: data('Avant la sortie') }));
+    await prisma.user.update({ where: { id: exited.user.id }, data: { role: 'ADULTE' } });
+    expect((await record(exited.get())).record?.data.allergies).toBe('Avant la sortie');
+  });
+
+  it('compte administrateur : sa propre fiche seulement, aucun accès à celle d’autrui', async () => {
     const owner = await loginAs('ROUTIER');
     await record(owner.put({ expectedRevision: null, data: data() }));
     const admin = await loginAs('ADMINISTRATEUR');
-    expect(await code(admin.get(), 403)).toBe('FORBIDDEN');
-    expect(await code(admin.put({ expectedRevision: null, data: data() }), 403)).toBe('FORBIDDEN');
-    expect(await code(admin.get('/pdf'), 403)).toBe('FORBIDDEN');
-    expect(await code(admin.delete({ expectedRevision: 1 }), 403)).toBe('FORBIDDEN');
-    await admin.get(`/${owner.user.id}`).expect(404);
+    expect((await record(admin.get())).record).toBeNull();
+    for (const suffix of [`/${owner.user.id}`, `/${owner.user.id}/pdf`]) {
+      await admin.get(suffix).expect(404);
+    }
     expect(await prisma.medicalRecord.count()).toBe(1);
   });
 

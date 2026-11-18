@@ -30,13 +30,13 @@ describe('Permissions', () => {
       'evaluation.read',
       'evaluation.take',
       'results.readOwn',
+      'medicalRecord.own',
     ] as const) {
       expect(can(adulte, permission), permission).toBe(true);
     }
     for (const permission of [
       'progression.readOwn',
       'moduleStudy.declare',
-      'medicalRecord.own',
       'scout.read',
       'attempt.record',
       'statistics.read',
