@@ -162,7 +162,7 @@ function ModuleGroup({
         <ul className="space-y-1 text-sm">
           {items.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center justify-between gap-2">
-              <span className="min-w-0 break-words">{item.label}</span>
+              <span className="min-w-0 wrap-break-word">{item.label}</span>
               {item.badge && <Badge variant="outline">{item.badge}</Badge>}
             </li>
           ))}
