@@ -9,6 +9,7 @@ import {
 import { Fragment } from 'react';
 import { resolveImageSrc } from '@/lib/api/assets';
 import { type CalloutVariant, structureLesson } from './lesson-structure';
+import { PracticeBlock } from '@/components/practice/practice-block';
 
 /**
  * Rendu d'un contenu de leçon (document structuré validé par l'API) en éléments React.
@@ -18,10 +19,17 @@ import { type CalloutVariant, structureLesson } from './lesson-structure';
 export function LessonContent({
   document,
   offlineImages,
+  moduleSlug,
+  onPracticeContinue,
 }: {
   document: LessonDocument;
   offlineImages?: Record<string, string>;
+  /** Module publié : les activités s'enregistrent (sinon aperçu sans enregistrement). */
+  moduleSlug?: string;
+  /** Mode Découverte : l'activité démarre seule et sa fin propose de continuer la halte. */
+  onPracticeContinue?: () => void;
 }) {
+  const ctx: RenderContext = { offlineImages, moduleSlug, onPracticeContinue };
   if (document.content.length === 0) {
     return <p className="text-muted-foreground italic">Leçon sans contenu.</p>;
   }
@@ -30,7 +38,7 @@ export function LessonContent({
     <div className="lesson-content space-y-4 leading-relaxed">
       {segments.map((segment, index) =>
         segment.kind === 'block' ? (
-          <Block key={index} block={segment.block} offlineImages={offlineImages} />
+          <Block key={index} block={segment.block} ctx={ctx} />
         ) : (
           <aside
             key={index}
@@ -40,13 +48,13 @@ export function LessonContent({
             <p className="text-sm font-semibold tracking-wide text-tesla-bordeaux uppercase">
               {segment.title}
             </p>
-            {renderBlocks(segment.blocks, offlineImages)}
+            {renderBlocks(segment.blocks, ctx)}
           </aside>
         ),
       )}
       {references.length > 0 && (
         <footer className="space-y-1 border-t pt-3 text-sm text-muted-foreground">
-          {renderBlocks(references, offlineImages)}
+          {renderBlocks(references, ctx)}
         </footer>
       )}
     </div>
@@ -62,20 +70,27 @@ const CALLOUT_STYLES: Record<CalloutVariant, string> = {
   vigilance: 'border-tesla-rouge bg-muted/30',
 };
 
-function renderBlocks(blocks: LessonBlock[], offlineImages?: Record<string, string>) {
-  return blocks.map((block, index) => (
-    <Block key={index} block={block} offlineImages={offlineImages} />
-  ));
+interface RenderContext {
+  offlineImages?: Record<string, string>;
+  moduleSlug?: string;
+  onPracticeContinue?: () => void;
 }
 
-function Block({
-  block,
-  offlineImages,
-}: {
-  block: LessonBlock;
-  offlineImages?: Record<string, string>;
-}) {
+function renderBlocks(blocks: LessonBlock[], ctx: RenderContext) {
+  return blocks.map((block, index) => <Block key={index} block={block} ctx={ctx} />);
+}
+
+function Block({ block, ctx }: { block: LessonBlock; ctx: RenderContext }) {
+  const { offlineImages } = ctx;
   switch (block.type) {
+    case 'practice':
+      return (
+        <PracticeBlock
+          activity={block.attrs.activity}
+          moduleSlug={ctx.moduleSlug}
+          onContinue={ctx.onPracticeContinue}
+        />
+      );
     case 'paragraph':
       return <p>{renderInline(block.content)}</p>;
     case 'heading':
@@ -89,19 +104,17 @@ function Block({
         </h4>
       );
     case 'bulletList':
-      return (
-        <ul className="list-disc space-y-1 pl-6">{renderItems(block.content, offlineImages)}</ul>
-      );
+      return <ul className="list-disc space-y-1 pl-6">{renderItems(block.content, ctx)}</ul>;
     case 'orderedList':
       return (
         <ol className="list-decimal space-y-1 pl-6" start={block.attrs?.start}>
-          {renderItems(block.content, offlineImages)}
+          {renderItems(block.content, ctx)}
         </ol>
       );
     case 'blockquote':
       return (
         <blockquote className="space-y-2 border-l-4 border-tesla-or bg-tesla-sable/40 py-2 pr-3 pl-4 italic">
-          {renderBlocks(block.content, offlineImages)}
+          {renderBlocks(block.content, ctx)}
         </blockquote>
       );
     case 'horizontalRule':
@@ -129,10 +142,10 @@ function Block({
   }
 }
 
-function renderItems(items: LessonListItem[], offlineImages?: Record<string, string>) {
+function renderItems(items: LessonListItem[], ctx: RenderContext) {
   return items.map((item, index) => (
     <li key={index} className="[&>p]:inline">
-      {renderBlocks(item.content, offlineImages)}
+      {renderBlocks(item.content, ctx)}
     </li>
   ));
 }

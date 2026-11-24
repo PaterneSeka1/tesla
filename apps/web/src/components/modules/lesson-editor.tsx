@@ -1,12 +1,16 @@
 'use client';
 
 import {
+  emptyPracticeActivity,
   isSafeImageSrc,
   isSafeLinkHref,
   type LessonDocument,
   lessonFileImageSrc,
   PEDAGOGICAL_BLOCKS,
   type PedagogicalBlockKey,
+  type PracticeActivity,
+  PRACTICE_KIND_LABELS,
+  PRACTICE_KINDS,
 } from '@tesla/shared';
 import Image from '@tiptap/extension-image';
 import { type Editor, EditorContent, useEditor, useEditorState } from '@tiptap/react';
@@ -46,6 +50,8 @@ import { resolveImageSrc } from '@/lib/api/assets';
 import { uploadModuleFile } from '@/lib/api/files';
 import { MAX_ASSET_BYTES } from '@/lib/offline/downloads';
 import { cn } from '@/lib/utils';
+import { PracticeFormDialog } from '@/components/practice/practice-form';
+import { PracticeNode } from '@/components/practice/practice-node';
 
 /**
  * Image Tiptap dont l'adresse d'affichage est résolue (image stockée par Tesla) ; le document
@@ -105,6 +111,7 @@ export function LessonEditor({
         },
       }),
       LessonImage.configure({ inline: false, allowBase64: false }),
+      PracticeNode,
     ],
     content: value,
     editorProps: {
@@ -151,6 +158,8 @@ function Toolbar({ editor, moduleId }: { editor: Editor; moduleId?: string }) {
     }),
   });
   const [panel, setPanel] = useState<'link' | 'image' | null>(null);
+  // Nouvelle activité : insérée seulement une fois le formulaire validé (jamais de bloc vide).
+  const [newActivity, setNewActivity] = useState<PracticeActivity | null>(null);
   const chain = () => editor.chain().focus();
 
   const insertBlock = (key: PedagogicalBlockKey) => {
@@ -359,9 +368,28 @@ function Toolbar({ editor, moduleId }: { editor: Editor; moduleId?: string }) {
                 <span className="text-xs text-muted-foreground">{block.hint}</span>
               </DropdownMenuItem>
             ))}
+            <DropdownMenuLabel>Activité d’entraînement</DropdownMenuLabel>
+            {PRACTICE_KINDS.map((kind) => (
+              <DropdownMenuItem
+                key={kind}
+                onSelect={() => setNewActivity(emptyPracticeActivity(kind))}
+              >
+                {PRACTICE_KIND_LABELS[kind]}
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {newActivity && (
+        <PracticeFormDialog
+          initial={newActivity}
+          open
+          onOpenChange={(open) => !open && setNewActivity(null)}
+          onSave={(activity) =>
+            chain().insertContent({ type: 'practice', attrs: { activity } }).run()
+          }
+        />
+      )}
       {panel === 'link' && (
         <UrlForm
           label="Adresse du lien"

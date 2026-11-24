@@ -32,7 +32,10 @@ export type OperationType =
   | 'observation.create'
   | 'scout.create'
   | 'scout.update'
-  | 'team.assign';
+  | 'team.assign'
+  // Entraînement libre (D196) : rejouable, recorrigé et dédupliqué par le serveur.
+  | 'practice.result'
+  | 'lesson.read';
 
 export interface LocalOperation {
   id: string;
@@ -127,6 +130,8 @@ export const OPERATION_TYPES: Record<OperationType, OperationTypeDefinition> = {
   },
   'activity.status': { permission: 'activity.manage', rebase: rebaseRevision },
   'observation.create': { permission: 'observation.create' },
+  'practice.result': { permission: 'practice.own' },
+  'lesson.read': { permission: 'practice.own' },
   'scout.create': { permission: 'scout.create' },
   'scout.update': {
     permission: 'scout.update',
