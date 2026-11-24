@@ -2,8 +2,10 @@ import {
   buildPracticeBank,
   clozeBlanks,
   clozeFromText,
+  activityFingerprint,
   computeBadges,
   gradePractice,
+  mergeBadges,
   isMastered,
   type LessonDocument,
   lessonDocumentSchema,
@@ -140,6 +142,7 @@ describe('banque dérivée du contenu publié', () => {
 });
 
 describe('révisions et badges (D196, D197)', () => {
+  const at = (day: number) => new Date(Date.UTC(2026, 10, day));
   const today = new Date('2026-11-24T10:00:00Z');
 
   it('Leitner : la réussite fait monter, l’erreur ramène à la première boîte', () => {
@@ -150,7 +153,6 @@ describe('révisions et badges (D196, D197)', () => {
   });
 
   it('badges datés par l’événement qui remplit la condition', () => {
-    const at = (day: number) => new Date(Date.UTC(2026, 10, day));
     const badges = computeBadges({
       events: [
         { kind: 'LECON_LUE', moduleSlug: 'a', createdAt: at(2) },
@@ -158,12 +160,62 @@ describe('révisions et badges (D196, D197)', () => {
         { kind: 'LECON_LUE', moduleSlug: 'a', createdAt: at(4) },
         { kind: 'LECON_LUE', moduleSlug: 'c', createdAt: at(5) },
       ],
-      progress: [{ activityKind: 'quiz', attempts: 3, box: 2, masteredAt: at(6) }],
+      progress: [
+        // Réussie après deux essais manqués : Persévérance.
+        { activityKind: 'quiz', masteredAt: at(6), failuresBeforeMastery: 2 },
+        // Réussie du premier coup puis répétée : aucune difficulté, pas de Persévérance.
+        { activityKind: 'order', masteredAt: at(1), failuresBeforeMastery: 0 },
+      ],
     });
     const earned = Object.fromEntries(badges.map((badge) => [badge.key, badge.earnedAt]));
     expect(earned['premier-pas']).toBe(at(2).toISOString());
     expect(earned.curiosite).toBe(at(5).toISOString());
     expect(earned.perseverance).toBe(at(6).toISOString());
     expect(earned.explorateur).toBeNull();
+  });
+
+  it('Retour sur les traces : acquis dès la révision d’ancrage, même si la notion redescend', () => {
+    const badges = computeBadges({
+      events: [
+        { kind: 'REVISION', moduleSlug: 'a', ref: 'a:x:3', createdAt: at(2) },
+        { kind: 'REVISION', moduleSlug: 'a', ref: 'a:x:4', createdAt: at(4) },
+        { kind: 'REVISION', moduleSlug: 'a', ref: 'a:y:5', createdAt: at(9) },
+      ],
+      // Boîte actuelle redescendue à 1 après une erreur : la condition reste remplie.
+      progress: [{ activityKind: 'quiz', masteredAt: at(1) }],
+    });
+    expect(badges.find((badge) => badge.key === 'retour-sur-les-traces')?.earnedAt).toBe(
+      at(4).toISOString(),
+    );
+    expect(badges.find((badge) => badge.key === 'perseverance')?.earnedAt).toBeNull();
+  });
+
+  it('un badge enregistré reste acquis avec sa date d’obtention', () => {
+    const computed = computeBadges({ events: [], progress: [] });
+    const merged = mergeBadges(computed, [{ badgeKey: 'perseverance', earnedAt: at(3) }]);
+    expect(merged.find((badge) => badge.key === 'perseverance')?.earnedAt).toBe(
+      at(3).toISOString(),
+    );
+    expect(merged.filter((badge) => badge.earnedAt)).toHaveLength(1);
+  });
+
+  it('empreinte d’activité : indépendante de l’ordre des clés, change avec le contenu', () => {
+    const a = activityFingerprint({
+      kind: 'truefalse',
+      id: 'vf-abcdef',
+      items: [{ statement: 'Vrai ?', answer: true }],
+    });
+    const b = activityFingerprint({
+      id: 'vf-abcdef',
+      items: [{ answer: true, statement: 'Vrai ?' }],
+      kind: 'truefalse',
+    });
+    const c = activityFingerprint({
+      kind: 'truefalse',
+      id: 'vf-abcdef',
+      items: [{ statement: 'Vrai ?', answer: false }],
+    });
+    expect(a).toBe(b);
+    expect(a).not.toBe(c);
   });
 });

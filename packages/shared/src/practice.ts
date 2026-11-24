@@ -35,6 +35,15 @@ const optionalText = (max: number) => z.string().trim().max(max).optional();
 /** Identifiant stable d'une activité dans le module (clé de révision et de récompense). */
 const activityId = z.string().regex(/^[a-z0-9-]{6,40}$/, 'Identifiant d’activité invalide.');
 
+/** Difficulté éditoriale facultative (1 accessible, 2 intermédiaire, 3 exigeante). */
+export const PRACTICE_DIFFICULTIES = [1, 2, 3] as const;
+export const PRACTICE_DIFFICULTY_LABELS: Record<1 | 2 | 3, string> = {
+  1: 'Accessible',
+  2: 'Intermédiaire',
+  3: 'Exigeante',
+};
+const practiceDifficulty = z.number().int().min(1).max(3).optional();
+
 const quizItem = z
   .object({
     prompt: text(400),
@@ -56,12 +65,14 @@ export const practiceActivitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('quiz'),
     id: activityId,
     title: optionalText(120),
+    difficulty: practiceDifficulty,
     items: z.array(quizItem).min(1).max(30),
   }),
   z.object({
     kind: z.literal('truefalse'),
     id: activityId,
     title: optionalText(120),
+    difficulty: practiceDifficulty,
     items: z
       .array(
         z.object({ statement: text(400), answer: z.boolean(), explanation: optionalText(600) }),
@@ -73,6 +84,7 @@ export const practiceActivitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('match'),
     id: activityId,
     title: optionalText(120),
+    difficulty: practiceDifficulty,
     pairs: z
       .array(z.object({ left: text(160), right: text(200) }))
       .min(2)
@@ -82,6 +94,7 @@ export const practiceActivitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('order'),
     id: activityId,
     title: optionalText(120),
+    difficulty: practiceDifficulty,
     /** Étapes dans le bon ordre ; `marker` facultatif (date, numéro) affiché après correction. */
     steps: z
       .array(z.object({ label: text(200), marker: optionalText(40) }))
@@ -92,6 +105,7 @@ export const practiceActivitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('flashcards'),
     id: activityId,
     title: optionalText(120),
+    difficulty: practiceDifficulty,
     cards: z
       .array(z.object({ front: text(300), back: text(600) }))
       .min(1)
@@ -101,6 +115,7 @@ export const practiceActivitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('cloze'),
     id: activityId,
     title: optionalText(120),
+    difficulty: practiceDifficulty,
     /** Texte où chaque mot à retrouver est noté `[[mot]]`. */
     text: text(3000).refine((value) => (value.match(CLOZE_BLANK) ?? []).length >= 1, {
       message: 'Marquez au moins un mot à compléter avec [[ ]].',
@@ -110,6 +125,7 @@ export const practiceActivitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('scenario'),
     id: activityId,
     title: optionalText(120),
+    difficulty: practiceDifficulty,
     situation: text(1200),
     /** Plusieurs choix peuvent être raisonnables : chacun reçoit un éclairage, jamais une note. */
     choices: z

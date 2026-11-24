@@ -48,7 +48,7 @@ export const BADGES = [
   {
     key: 'perseverance',
     title: 'Persévérance',
-    description: 'Une activité réussie après au moins trois essais.',
+    description: 'Une activité enfin réussie après au moins deux essais manqués.',
   },
   {
     key: 'retour-sur-les-traces',
@@ -71,6 +71,8 @@ export type EarnedBadge = z.infer<typeof earnedBadgeSchema>;
 
 export const bankActivitySchema = z.object({
   key: z.string(),
+  /** Empreinte du contenu de l'activité : un résultat n'est compté que sur ce même contenu. */
+  fingerprint: z.string(),
   lessonId: z.uuid(),
   lessonTitle: z.string(),
   origin: z.enum(['authored', 'derived']),
@@ -95,12 +97,37 @@ export type PracticeBankModule = PracticeBank['modules'][number];
 
 // ─── Écritures (rejouables hors ligne, idempotentes) ─────────────────────
 
+/**
+ * Façon dont l'activité a été jouée :
+ * - `activity` : activité complète (lecteur, défis en séquence) ;
+ * - `ascension` : une seule question à choix (`item`) de L'Ascension ;
+ * - `memory` : jeu de mémoire sur des associations (aucune note : trouver les paires est garanti).
+ */
+export const PRACTICE_PLAY_MODES = ['activity', 'ascension', 'memory'] as const;
+export type PracticePlayMode = (typeof PRACTICE_PLAY_MODES)[number];
+
 export const practiceResultInputSchema = z.object({
+  /**
+   * Identifiant unique de la tentative, créé sur l'appareil au début de la partie : un même
+   * identifiant rejoué (réseau, file hors ligne, double envoi, deux appareils) ne compte qu'une fois.
+   * Facultatif pour les envois mis en file par une ancienne version de l'application.
+   */
+  attemptId: z.uuid().optional(),
   moduleSlug: z.string().min(1).max(120),
   activityKey: z.string().regex(/^[a-z0-9-]{6,40}$/),
+  /** Empreinte du contenu joué (`BankActivity.fingerprint`) : jamais de recorrection silencieuse. */
+  fingerprint: z
+    .string()
+    .regex(/^[0-9a-f]{8}$/)
+    .optional(),
+  mode: z.enum(PRACTICE_PLAY_MODES).default('activity'),
+  /** Ascension : rang de la question dans l'activité. */
+  item: z.number().int().min(0).max(99).optional(),
+  /** Réponse obtenue avec une aide (indice, joker) : jamais comptée comme maîtrisée. */
+  assisted: z.boolean().default(false),
   answers: practiceAnswersSchema,
 });
-export type PracticeResultInput = z.infer<typeof practiceResultInputSchema>;
+export type PracticeResultInput = z.input<typeof practiceResultInputSchema>;
 
 export const rewardSummarySchema = z.object({
   xpAwarded: z.number().int().nonnegative(),
@@ -109,6 +136,11 @@ export const rewardSummarySchema = z.object({
 export type RewardSummary = z.infer<typeof rewardSummarySchema>;
 
 export const practiceResultSchema = rewardSummarySchema.extend({
+  /**
+   * `counted` : résultat pris en compte. `stale` : l'activité a changé (ou a été retirée) depuis
+   * la partie ; la tentative est conservée dans l'historique, sans recorrection ni récompense.
+   */
+  status: z.enum(['counted', 'stale']).default('counted'),
   correct: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
   mastered: z.boolean(),
@@ -138,16 +170,31 @@ export const learningJournalSchema = z.object({
   lessonsRead: z.number().int().nonnegative(),
   activitiesMastered: z.number().int().nonnegative(),
   badges: z.array(earnedBadgeSchema),
-  /** Activités à revoir aujourd'hui (au plus 20, les plus anciennes d'abord). */
+  /**
+   * Activités à revoir aujourd'hui, **encore présentes** dans la version publiée (au plus 20, les
+   * plus anciennes d'abord). Une activité retirée n'est plus proposée ; son historique est conservé.
+   */
   dueReviews: z.array(dueReviewSchema),
-  /** Leçons lues (référence stable `module:empreinte du titre`), pour marquer le sentier. */
+  /** Leçons lues (références d'événement), conservées pour les anciens clients. */
   readLessons: z.array(z.string()),
+  /** Leçons de la version publiée actuelle déjà lues (identité stable, renommage compris). */
+  readLessonIds: z.array(z.string()).default([]),
   /** Activités déjà pratiquées (`module:activité`), pour varier les parties. */
   practiced: z.array(z.string()),
+  /** Activités réussies sans erreur au moins une fois (`module:activité`). */
+  mastered: z.array(z.string()).default([]),
 });
 export type LearningJournal = z.infer<typeof learningJournalSchema>;
 
-/** Référence stable d'une leçon lue : le titre survit aux nouvelles versions (identifiants recréés). */
+/**
+ * Référence d'une leçon lue par son identité stable (`lesson_key`, recopiée de version en version,
+ * conservée en cas de renommage).
+ */
+export function lessonKeyReadRef(moduleSlug: string, lessonKey: string): string {
+  return `${moduleSlug}:k:${lessonKey}`;
+}
+
+/** Ancienne référence d'une leçon lue (empreinte du titre), encore reconnue pour l'historique. */
 export function lessonReadRef(moduleSlug: string, lessonTitle: string): string {
   let hash = 0x811c9dc5;
   for (let index = 0; index < lessonTitle.length; index++) {
@@ -171,18 +218,28 @@ export function nextReview(
 
 /** Données minimales du calcul des badges (événements et suivi du compte). */
 export interface BadgeFacts {
-  events: { kind: string; moduleSlug: string; createdAt: Date }[];
-  progress: { activityKind: string; attempts: number; box: number; masteredAt: Date | null }[];
+  events: { kind: string; moduleSlug: string; createdAt: Date; ref?: string }[];
+  progress: {
+    activityKind: string;
+    masteredAt: Date | null;
+    /** Essais manqués avant la première réussite complète (figé ensuite). */
+    failuresBeforeMastery?: number;
+  }[];
 }
 
-/** Badges obtenus et date d'obtention (événement qui a rempli la condition), calcul déterministe. */
+/** Boîte de révision à partir de laquelle une notion est « bien ancrée ». */
+export const ANCHORED_BOX = 4;
+
+/**
+ * Conditions des badges et date à laquelle chacune a été remplie, calcul déterministe à partir de
+ * faits en ajout seul : une erreur ultérieure ne peut pas faire disparaître une condition remplie.
+ * Les badges obtenus sont en outre enregistrés (`learning_badges`) et restent acquis.
+ */
 export function computeBadges(facts: BadgeFacts): EarnedBadge[] {
-  const reads = facts.events
-    .filter((event) => event.kind === 'LECON_LUE')
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const mastered = facts.events
-    .filter((event) => event.kind === 'ACTIVITE_MAITRISEE')
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const byDate = <T extends { createdAt: Date }>(rows: T[]) =>
+    [...rows].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const reads = byDate(facts.events.filter((event) => event.kind === 'LECON_LUE'));
+  const mastered = byDate(facts.events.filter((event) => event.kind === 'ACTIVITE_MAITRISEE'));
   const nth = (rows: { createdAt: Date }[], n: number) => rows[n - 1]?.createdAt ?? null;
 
   let curiosity: Date | null = null;
@@ -194,20 +251,26 @@ export function computeBadges(facts: BadgeFacts): EarnedBadge[] {
       break;
     }
   }
-  const orders = facts.progress
-    .filter((row) => row.activityKind === 'order' && row.masteredAt)
-    .map((row) => ({ createdAt: row.masteredAt! }))
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const persevered = facts.progress
-    .filter((row) => row.masteredAt && row.attempts >= 3)
-    .map((row) => row.masteredAt!)
-    .sort((a, b) => a.getTime() - b.getTime())[0];
-  const anchored = facts.events
-    .filter((event) => event.kind === 'REVISION')
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const anchoredAt = facts.progress.some((row) => row.box >= 4)
-    ? (anchored.at(-1)?.createdAt ?? null)
-    : null;
+  const orders = byDate(
+    facts.progress
+      .filter((row) => row.activityKind === 'order' && row.masteredAt)
+      .map((row) => ({ createdAt: row.masteredAt! })),
+  );
+  // Persévérance : réussite complète obtenue après de vraies difficultés (≥ 2 essais manqués).
+  const persevered = byDate(
+    facts.progress
+      .filter((row) => row.masteredAt && (row.failuresBeforeMastery ?? 0) >= 2)
+      .map((row) => ({ createdAt: row.masteredAt! })),
+  )[0];
+  // Retour sur les traces : première révision réussie qui a fait atteindre la boîte d'ancrage
+  // (événement en ajout seul, référence `module:activité:boîte`).
+  const anchored = byDate(
+    facts.events.filter((event) => {
+      if (event.kind !== 'REVISION' || !event.ref) return false;
+      const box = Number(event.ref.split(':').at(-1));
+      return Number.isInteger(box) && box >= ANCHORED_BOX;
+    }),
+  )[0];
 
   const dates: Record<BadgeKey, Date | null> = {
     'premier-pas': nth(reads, 1),
@@ -215,8 +278,8 @@ export function computeBadges(facts: BadgeFacts): EarnedBadge[] {
     explorateur: nth(reads, 10),
     'memoire-de-la-route': nth(mastered, 10),
     'maitre-des-reperes': nth(orders, 3),
-    perseverance: persevered ?? null,
-    'retour-sur-les-traces': anchoredAt,
+    perseverance: persevered?.createdAt ?? null,
+    'retour-sur-les-traces': anchored?.createdAt ?? null,
   };
   return BADGES.map((badge) => ({
     key: badge.key,
@@ -224,6 +287,19 @@ export function computeBadges(facts: BadgeFacts): EarnedBadge[] {
     description: badge.description,
     earnedAt: dates[badge.key]?.toISOString() ?? null,
   }));
+}
+
+/**
+ * Badges affichés : un badge enregistré reste acquis avec sa date réelle d'obtention, même si sa
+ * condition n'est plus vérifiable ; un badge dont la condition est remplie mais pas encore
+ * enregistrée apparaît avec la date calculée.
+ */
+export function mergeBadges(
+  computed: readonly EarnedBadge[],
+  stored: readonly { badgeKey: string; earnedAt: Date }[],
+): EarnedBadge[] {
+  const kept = new Map(stored.map((row) => [row.badgeKey, row.earnedAt.toISOString()]));
+  return computed.map((badge) => ({ ...badge, earnedAt: kept.get(badge.key) ?? badge.earnedAt }));
 }
 
 // ─── Indicateur pour l'encadrement (agrégé, jamais nominatif) ────────────

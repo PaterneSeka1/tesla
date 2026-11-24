@@ -13,6 +13,8 @@ import type { PracticeActivity } from './practice.js';
 export interface BankActivity {
   /** Clé stable dans le module : identifiant rédigé, ou empreinte du texte d'origine. */
   key: string;
+  /** Empreinte du contenu (`activityFingerprint`) : change dès que l'activité est modifiée. */
+  fingerprint: string;
   lessonId: string;
   lessonTitle: string;
   /** `authored` : rédigée par l'encadrement ; `derived` : tirée du texte publié. */
@@ -60,6 +62,23 @@ export function fingerprint(value: string): string {
   return hash.toString(16).padStart(8, '0');
 }
 
+/** Sérialisation canonique (clés triées) : même empreinte quel que soit l'ordre des clés. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object')
+    return `{${Object.keys(value)
+      .sort()
+      .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+      .map((key) => `${JSON.stringify(key)}:${canonical((value as Record<string, unknown>)[key])}`)
+      .join(',')}}`;
+  return JSON.stringify(value);
+}
+
+/** Empreinte du contenu d'une activité, indépendante de l'ordre des clés JSON. */
+export function activityFingerprint(activity: PracticeActivity): string {
+  return fingerprint(canonical(activity));
+}
+
 const RETENIR = new Set(['à retenir', 'pour retenir', 'pour mémoriser', 'pour conclure']);
 const SACRED = /prière|seigneur|dieu|jésus|amen|marie|notre père|promesse|loi scoute/i;
 
@@ -85,10 +104,10 @@ export function clozeFromText(value: string, step = 4, max = 12): string | null 
 export function buildPracticeBank(lessons: readonly BankLesson[]): BankActivity[] {
   const bank: BankActivity[] = [];
   const keys = new Set<string>();
-  const push = (entry: BankActivity) => {
+  const push = (entry: Omit<BankActivity, 'fingerprint'>) => {
     if (keys.has(entry.key)) return;
     keys.add(entry.key);
-    bank.push(entry);
+    bank.push({ ...entry, fingerprint: activityFingerprint(entry.activity) });
   };
 
   for (const lesson of lessons) {
