@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type AccountTokenPurpose } from '@tesla/shared';
-import { createTransport, type Transporter } from 'nodemailer';
+import { type Transporter } from 'nodemailer';
+import { createMailTransport, smtpErrorCode } from '../../common/mail-transport.js';
 import { ENV } from '../../config/config.module.js';
 import { type Env } from '../../config/env.js';
 
@@ -21,20 +22,7 @@ export class AccountMailer {
   private readonly transport: Transporter | null;
 
   constructor(@Inject(ENV) private readonly env: Env) {
-    this.transport =
-      env.SMTP_HOST && env.SMTP_FROM && env.PUBLIC_APP_URL
-        ? createTransport({
-            host: env.SMTP_HOST,
-            port: env.SMTP_PORT,
-            secure: env.SMTP_SECURE,
-            // Sans TLS implicite : STARTTLS obligatoire, jamais d'envoi en clair.
-            requireTLS: !env.SMTP_SECURE,
-            ...(env.SMTP_USER && { auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } }),
-            connectionTimeout: 10_000,
-            greetingTimeout: 10_000,
-            socketTimeout: 20_000,
-          })
-        : null;
+    this.transport = createMailTransport(env);
   }
 
   get enabled(): boolean {
@@ -89,10 +77,8 @@ export class AccountMailer {
       });
       return true;
     } catch (error) {
-      // Code d'erreur seulement : le message du serveur SMTP peut citer l'adresse du destinataire.
-      const code = (error as { code?: unknown } | null)?.code;
       this.logger.error(
-        `Échec d’envoi d’un e-mail de compte (${input.purpose}, ${typeof code === 'string' ? code : 'erreur'})`,
+        `Échec d’envoi d’un e-mail de compte (${input.purpose}, ${smtpErrorCode(error)})`,
       );
       return false;
     }
