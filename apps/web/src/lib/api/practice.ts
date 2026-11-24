@@ -29,7 +29,10 @@ export const sendPracticeResult = (input: PracticeResultInput) =>
   apiSend('POST', '/me/practice/results', practiceResultSchema, input, {
     type: 'practice.result',
     label: 'Entraînement',
-    entity: { kind: 'practice', id: `${input.moduleSlug}:${input.activityKey}` },
+    entity: {
+      kind: 'practice',
+      id: input.attemptId ?? `${input.moduleSlug}:${input.activityKey}`,
+    },
   });
 
 export const sendLessonRead = (input: LessonReadInput) =>

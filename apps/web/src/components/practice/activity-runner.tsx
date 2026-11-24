@@ -8,15 +8,19 @@ import {
   type PracticeAnswers,
   type PracticeKind,
 } from '@tesla/shared';
-import { ArrowRight, Award, CloudOff, RotateCcw } from 'lucide-react';
-import { type ComponentType, useState } from 'react';
+import { ArrowRight, Award, CloudOff, RefreshCw, RotateCcw } from 'lucide-react';
+import { type ComponentType, useEffect, useRef, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { Button } from '@/components/ui/button';
-import { ApiError } from '@/lib/api/client';
-import { sendPracticeResult } from '@/lib/api/practice';
 import { feedback } from '@/lib/feedback';
 import { userCan } from '@/lib/navigation';
-import { OfflineQueuedError } from '@/lib/offline/operations';
+import {
+  flushPendingResults,
+  RETRYABLE,
+  SAVE_MESSAGES,
+  type SaveState,
+  submitPracticeResult,
+} from '@/lib/practice-results';
 import { ClozePlayer } from './cloze-player';
 import { FlashcardsPlayer } from './flashcards-player';
 import { type PlayerProps } from './kit';
@@ -43,11 +47,11 @@ export const PLAYERS: Record<PracticeKind, ComponentType<PlayerProps<any>>> = {
 export interface RunnableActivity {
   moduleSlug: string;
   key: string;
+  /** Empreinte du contenu joué (banque) : le serveur ne recorrige jamais un contenu modifié. */
+  fingerprint?: string;
   activity: PracticeActivity;
   reverent?: boolean;
 }
-
-type Saved = 'idle' | 'saving' | 'saved' | 'device' | 'offline' | 'none';
 
 /** Éléments à revoir (questions manquées), pour l'écran de fin. */
 function toReview(activity: PracticeActivity, graded: boolean[]): string[] {
@@ -85,37 +89,53 @@ export function ActivityRunner({
   const queryClient = useQueryClient();
   const [round, setRound] = useState(0);
   const [answers, setAnswers] = useState<PracticeAnswers | null>(null);
-  const [saved, setSaved] = useState<Saved>('idle');
+  const [assisted, setAssisted] = useState(false);
+  const [saved, setSaved] = useState<SaveState | 'idle'>('idle');
   const [reward, setReward] = useState<{ xp: number; badges: EarnedBadge[] } | null>(null);
+  // Une tentative par manche : son identifiant accompagne chaque nouvel essai d'envoi.
+  const attempt = useRef<string>(crypto.randomUUID());
   const Player = PLAYERS[item.activity.kind];
   // Aperçu (rédaction, sans module publié) : jamais d'enregistrement.
   const records = item.moduleSlug !== '' && userCan(user, 'practice.own');
 
-  const finish = async (result: PracticeAnswers) => {
-    setAnswers(result);
-    if (!records) return setSaved('none');
+  // Résultats gardés dans l'onglet : renvoyés à l'ouverture et au retour du réseau.
+  useEffect(() => {
+    if (!records) return;
+    const flush = () => void flushPendingResults(user.id);
+    flush();
+    window.addEventListener('online', flush);
+    return () => window.removeEventListener('online', flush);
+  }, [records, user.id]);
+
+  const send = async (result: PracticeAnswers, help: boolean) => {
+    const attemptId = attempt.current;
     setSaved('saving');
-    try {
-      const response = await sendPracticeResult({
-        moduleSlug: item.moduleSlug,
-        activityKey: item.key,
-        answers: result,
-      });
-      setSaved('saved');
-      if (response.xpAwarded > 0 || response.newBadges.length > 0) {
-        setReward({ xp: response.xpAwarded, badges: response.newBadges });
-        if (response.newBadges.length > 0) feedback('reward');
-      }
-      void queryClient.invalidateQueries({ queryKey: ['me', 'journal'] });
-    } catch (error) {
-      setSaved(
-        error instanceof OfflineQueuedError
-          ? 'device'
-          : error instanceof ApiError && error.status === 0
-            ? 'offline'
-            : 'none',
-      );
+    const outcome = await submitPracticeResult(user.id, {
+      attemptId,
+      moduleSlug: item.moduleSlug,
+      activityKey: item.key,
+      fingerprint: item.fingerprint,
+      mode: 'activity',
+      assisted: help,
+      answers: result,
+    });
+    // Réponse d'une manche abandonnée (« Recommencer » entre-temps) : ignorée.
+    if (attempt.current !== attemptId) return;
+    setSaved(outcome.state);
+    const response = outcome.result;
+    if (response && (response.xpAwarded > 0 || response.newBadges.length > 0)) {
+      setReward({ xp: response.xpAwarded, badges: response.newBadges });
+      if (response.newBadges.length > 0) feedback('reward');
     }
+    if (outcome.state === 'saved')
+      void queryClient.invalidateQueries({ queryKey: ['me', 'journal'] });
+  };
+
+  const finish = (result: PracticeAnswers, meta?: { assisted?: boolean }) => {
+    setAnswers(result);
+    setAssisted(!!meta?.assisted);
+    if (!records) return setSaved('preview');
+    void send(result, !!meta?.assisted);
   };
 
   if (!answers)
@@ -124,7 +144,7 @@ export function ActivityRunner({
         key={round}
         activity={item.activity}
         reverent={item.reverent}
-        onDone={(result) => void finish(result)}
+        onDone={(result, meta) => finish(result, meta)}
       />
     );
 
@@ -176,17 +196,24 @@ export function ActivityRunner({
         </div>
       )}
 
-      {saved === 'offline' && (
-        <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      {saved !== 'idle' && SAVE_MESSAGES[saved] && (
+        <p
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+          role={saved === 'failed' || saved === 'retry' ? 'alert' : undefined}
+        >
           <CloudOff className="size-3.5" aria-hidden />
-          Hors connexion : ce résultat n’est pas enregistré. Activez cet appareil pour garder vos
-          entraînements sans réseau.
-        </p>
-      )}
-      {saved === 'device' && (
-        <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <CloudOff className="size-3.5" aria-hidden />
-          Enregistré sur cet appareil, envoyé à la prochaine connexion.
+          {SAVE_MESSAGES[saved]}
+          {RETRYABLE.includes(saved) && (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs"
+              onClick={() => void send(answers, assisted)}
+            >
+              <RefreshCw className="size-3" aria-hidden />
+              Réessayer
+            </Button>
+          )}
         </p>
       )}
 
@@ -200,7 +227,9 @@ export function ActivityRunner({
         <Button
           variant={onContinue ? 'outline' : 'default'}
           onClick={() => {
+            attempt.current = crypto.randomUUID();
             setAnswers(null);
+            setAssisted(false);
             setReward(null);
             setSaved('idle');
             setRound(round + 1);

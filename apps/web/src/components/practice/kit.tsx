@@ -105,5 +105,6 @@ export interface PlayerProps<A> {
   activity: A;
   /** Texte religieux ou officiel cité : mémorisation sans score ni jugement (§ 34). */
   reverent?: boolean;
-  onDone: (answers: (number | boolean | string)[]) => void;
+  /** `assisted` : une aide (indice) a été utilisée ; jamais comptée comme une maîtrise. */
+  onDone: (answers: (number | boolean | string)[], meta?: { assisted?: boolean }) => void;
 }

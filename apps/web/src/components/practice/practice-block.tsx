@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  activityFingerprint,
   type PracticeActivity,
   PRACTICE_KIND_LABELS,
   practiceItemCount,
@@ -58,7 +59,12 @@ export function PracticeBlock({
           <div className="mt-4 border-t border-tesla-or/30 pt-4">
             <ActivityRunner
               compact
-              item={{ moduleSlug: moduleSlug ?? '', key: activity.id, activity }}
+              item={{
+                moduleSlug: moduleSlug ?? '',
+                key: activity.id,
+                fingerprint: activityFingerprint(activity),
+                activity,
+              }}
               onContinue={onContinue}
             />
           </div>

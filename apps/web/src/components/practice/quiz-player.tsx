@@ -15,6 +15,7 @@ export function QuizPlayer({ activity, onDone }: PlayerProps<Quiz | TrueFalse>) 
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<(number | boolean)[]>([]);
   const [hint, setHint] = useState(false);
+  const [assisted, setAssisted] = useState(false);
   const items = activity.kind === 'quiz' ? activity.items : activity.items;
   const answer = answers[index];
   const answered = answer !== undefined;
@@ -50,7 +51,7 @@ export function QuizPlayer({ activity, onDone }: PlayerProps<Quiz | TrueFalse>) 
   const advance = () => {
     setHint(false);
     if (index + 1 < items.length) setIndex(index + 1);
-    else onDone(answers);
+    else onDone(answers, { assisted });
   };
 
   return (
@@ -90,7 +91,14 @@ export function QuizPlayer({ activity, onDone }: PlayerProps<Quiz | TrueFalse>) 
                 {question.hint}
               </p>
             ) : (
-              <Button variant="ghost" size="sm" onClick={() => setHint(true)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setHint(true);
+                  setAssisted(true);
+                }}
+              >
                 <Lightbulb aria-hidden />
                 Un indice
               </Button>
