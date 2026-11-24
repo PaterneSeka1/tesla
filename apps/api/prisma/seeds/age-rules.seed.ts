@@ -92,9 +92,48 @@ export const AGE_RULE_SET_2026_2 = {
   ],
 } as const;
 
+/**
+ * Version `2026.3` (D192, 2026-11-24) : chronologie et délai de rattrapage inchangés par rapport à
+ * `2026.2` ; ajoute l'alerte « échéance proche » des rattrapages, 7 jours avant l'échéance, validée
+ * par le responsable le 2026-11-24.
+ */
+export const AGE_RULE_SET_2026_3 = {
+  ...AGE_RULE_SET_2026_2,
+  version: '2026.3',
+  effectiveFrom: '2026-11-24',
+  notes:
+    'Chronologie et rattrapages identiques à 2026.2 (21 jours par étape, D177). Alerte « échéance proche » des rattrapages : 7 jours avant l’échéance (responsable, 2026-11-24, D192). Seuil d’alerte avant la sortie : à valider.',
+  catchUpAlertDays: 7,
+} as const;
+
+interface VersionedRuleSet {
+  version: string;
+  effectiveFrom: string;
+  sourceReference: string;
+  notes: string;
+  branchExitAgeYears: number;
+  catchUpDelayDays: number;
+  catchUpAlertDays?: number;
+  stages: readonly {
+    code: string;
+    startYears: number;
+    startMonths: number;
+    endYears: number;
+    endMonths: number;
+  }[];
+}
+
+export const seedAgeRuleSet2026_2 = (prisma: PrismaClient) =>
+  seedVersionedAgeRuleSet(prisma, AGE_RULE_SET_2026_2);
+
+export const seedAgeRuleSet2026_3 = (prisma: PrismaClient) =>
+  seedVersionedAgeRuleSet(prisma, AGE_RULE_SET_2026_3);
+
 /** Idempotent : une version existante n'est jamais modifiée (elle est figée une fois en vigueur). */
-export async function seedAgeRuleSet2026_2(prisma: PrismaClient): Promise<void> {
-  const rules = AGE_RULE_SET_2026_2;
+async function seedVersionedAgeRuleSet(
+  prisma: PrismaClient,
+  rules: VersionedRuleSet,
+): Promise<void> {
   const existing = await prisma.ageRuleSet.findUnique({ where: { version: rules.version } });
   if (existing) {
     console.log(`Seed : référentiel d’âge ${existing.version} déjà présent (inchangé).`);
@@ -112,6 +151,7 @@ export async function seedAgeRuleSet2026_2(prisma: PrismaClient): Promise<void> 
         notes: rules.notes,
         branchExitAgeYears: rules.branchExitAgeYears,
         catchUpDelayDays: rules.catchUpDelayDays,
+        catchUpAlertDays: rules.catchUpAlertDays ?? null,
         stages: {
           create: rules.stages.map(({ code, ...period }) => ({
             stageId: byCode.get(code)!,
