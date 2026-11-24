@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { type PracticeActivity, practiceActivitySchema } from './practice.js';
 
 /**
  * Contenu structuré d'une leçon : document au format ProseMirror/Tiptap (JSON), jamais du HTML.
@@ -20,7 +21,8 @@ export function isSafeLinkHref(href: string): boolean {
  * Image envoyée depuis l'appareil d'un rédacteur (stockage objet, D143) : chemin interne du relais
  * même origine, jamais une URL signée. Le serveur contrôle l'accès à chaque lecture.
  */
-const LESSON_FILE_IMAGE = /^\/api\/v1\/module-files\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+const LESSON_FILE_IMAGE =
+  /^\/api\/v1\/module-files\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
 /** Chemin interne d'une image de leçon stockée par Tesla. */
 export function lessonFileImageSrc(fileId: string): string {
@@ -53,7 +55,11 @@ export const PEDAGOGICAL_BLOCKS = [
   { key: 'retenir', title: 'À retenir', hint: 'Une notion essentielle.' },
   { key: 'exemple', title: 'Exemple', hint: 'Une situation concrète.' },
   { key: 'pratique', title: 'Activité pratique', hint: 'Une action à réaliser.' },
-  { key: 'reflexion', title: 'Question de réflexion', hint: 'Une réflexion personnelle ou collective.' },
+  {
+    key: 'reflexion',
+    title: 'Question de réflexion',
+    hint: 'Une réflexion personnelle ou collective.',
+  },
   { key: 'reference', title: 'Référence', hint: 'Une source ou un document officiel.' },
 ] as const;
 export type PedagogicalBlockKey = (typeof PEDAGOGICAL_BLOCKS)[number]['key'];
@@ -80,7 +86,9 @@ export type LessonBlock =
   | { type: 'orderedList'; attrs?: { start?: number }; content: LessonListItem[] }
   | { type: 'blockquote'; content: LessonBlock[] }
   | { type: 'horizontalRule' }
-  | { type: 'image'; attrs: { src: string; alt?: string | null } };
+  | { type: 'image'; attrs: { src: string; alt?: string | null } }
+  /** Activité d'entraînement (D194) : suit le circuit de publication du module. */
+  | { type: 'practice'; attrs: { activity: PracticeActivity } };
 
 export interface LessonDocument {
   type: 'doc';
@@ -142,6 +150,10 @@ const blockSchema: z.ZodType<LessonBlock> = z.lazy(() =>
         alt: z.string().max(300).nullable().optional(),
       }),
     }),
+    z.object({
+      type: z.literal('practice'),
+      attrs: z.object({ activity: practiceActivitySchema }),
+    }),
   ]),
 );
 
@@ -166,7 +178,7 @@ export function emptyLessonDocument(): LessonDocument {
 /** Vrai si la leçon ne contient ni texte ni image (soumission refusée dans ce cas). */
 export function isLessonDocumentEmpty(doc: LessonDocument): boolean {
   const hasContent = (node: LessonBlock | LessonListItem | LessonInline): boolean => {
-    if (node.type === 'image') return true;
+    if (node.type === 'image' || node.type === 'practice') return true;
     if (node.type === 'text') return node.text.trim() !== '';
     return 'content' in node && Array.isArray(node.content) && node.content.some(hasContent);
   };

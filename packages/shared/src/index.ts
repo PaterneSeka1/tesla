@@ -27,3 +27,6 @@ export * from './entreprise.js';
 export * from './stage-override.js';
 export * from './prior-stages.js';
 export * from './notifications.js';
+export * from './practice.js';
+export * from './practice-bank.js';
+export * from './learning.js';

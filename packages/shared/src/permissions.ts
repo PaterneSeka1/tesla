@@ -141,6 +141,16 @@ export const PERMISSIONS = {
    * seulement les siennes (routes `/me/notifications`, aucun identifiant de destinataire).
    */
   'notification.own': ['ROUTIER', 'ADULTE', 'ENCADREMENT', 'ADMINISTRATEUR'],
+  /**
+   * Entraînement libre (D194) : jouer avec les activités des modules publiés. L'encadrement joue
+   * en aperçu, sans rien enregistrer.
+   */
+  'practice.play': ['ROUTIER', 'ADULTE', 'ENCADREMENT'],
+  /**
+   * Progression ludique personnelle (D196, D197) : enregistrer ses entraînements et lectures,
+   * consulter son carnet (XP, badges, révisions). Titulaire seul, routes `/me/...`.
+   */
+  'practice.own': ['ROUTIER', 'ADULTE'],
   'account.read': ['ADMINISTRATEUR', 'OFFICIEL'],
   'account.manage': ['ADMINISTRATEUR', 'OFFICIEL'],
 } as const satisfies Record<string, readonly AccessLevel[]>;
