@@ -8,6 +8,8 @@ import { ModuleFilesController } from './module-files.controller.js';
 import { ModuleFilesService } from './module-files.service.js';
 import { ModuleReviewController } from './module-review.controller.js';
 import { ModuleReviewService } from './module-review.service.js';
+import { PracticeController } from './practice.controller.js';
+import { PracticeService } from './practice.service.js';
 
 /**
  * Modules pédagogiques : rédaction collaborative versionnée (chefs), workflow d'approbation
@@ -20,6 +22,7 @@ import { ModuleReviewService } from './module-review.service.js';
     ModuleEditorController,
     ModuleReviewController,
     ModuleFilesController,
+    PracticeController,
   ],
   providers: [
     ModuleCatalogService,
@@ -27,6 +30,7 @@ import { ModuleReviewService } from './module-review.service.js';
     ModuleDraftDeletionService,
     ModuleReviewService,
     ModuleFilesService,
+    PracticeService,
   ],
 })
 export class PedagogyModule {}

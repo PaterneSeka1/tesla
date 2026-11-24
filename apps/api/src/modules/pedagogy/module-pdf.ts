@@ -4,6 +4,7 @@ import {
   lessonImageFileId,
   type LessonBlock,
   type LessonInline,
+  practicePrintLines,
   type PrintableModule,
 } from '@tesla/shared';
 import PDFDocument from 'pdfkit';
@@ -311,6 +312,27 @@ function blockNode(doc: Doc, block: LessonBlock, indent: number): void {
         );
       doc.moveDown(0.45);
       break;
+    case 'practice': {
+      // Activité d'entraînement (D194) : l'exercice sans réponse, pour un travail sur papier.
+      const printable = practicePrintLines(block.attrs.activity);
+      ensureSpace(doc, 50);
+      doc.moveDown(0.3);
+      doc
+        .fillColor(COLORS.rouge)
+        .font('Helvetica-Bold')
+        .fontSize(BODY_SIZE + 0.5);
+      doc.text(clean(printable.title), x, doc.y, { width: w });
+      doc.moveDown(0.2);
+      for (const line of printable.lines) {
+        ensureSpace(doc, 18);
+        doc.fillColor(COLORS.texte).font('Helvetica').fontSize(BODY_SIZE);
+        doc.text(clean(line), x, doc.y, { width: w });
+        doc.moveDown(0.15);
+      }
+      doc.x = MARGIN;
+      doc.moveDown(0.45);
+      break;
+    }
   }
 }
 

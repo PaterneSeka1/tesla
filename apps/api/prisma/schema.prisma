@@ -129,6 +129,8 @@ model User {
   accountTokens                AccountToken[]            @relation("AccountTokenUser")
   accountTokensIssued          AccountToken[]            @relation("AccountTokenCreatedBy")
   notifications                Notification[]
+  learningEvents               LearningEvent[]
+  practiceProgress             PracticeProgress[]
 
   @@index([role])
   @@map("users")
@@ -2151,4 +2153,56 @@ model Notification {
   @@unique([userId, dedupeKey])
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+/// Événement d'apprentissage ludique (D196) : trace d'une récompense attribuée par le serveur.
+/// Ajout seul (trigger) ; une seule ligne par compte, nature et référence (idempotence).
+/// Aucune valeur officielle : jamais lié à l'étape, aux acquis ni aux résultats d'évaluation.
+model LearningEvent {
+  id         String            @id @default(uuid(7)) @db.Uuid
+  userId     String            @map("user_id") @db.Uuid
+  kind       LearningEventKind
+  /// Référence stable : `module:leçon` ou `module:activité` (+ palier de révision).
+  ref        String
+  moduleSlug String            @map("module_slug")
+  xp         Int
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, kind, ref])
+  @@index([userId, createdAt])
+  @@map("learning_events")
+}
+
+enum LearningEventKind {
+  LECON_LUE
+  ACTIVITE_TERMINEE
+  ACTIVITE_MAITRISEE
+  REVISION
+}
+
+/// Suivi d'entraînement d'une activité (D197) : répétition espacée déterministe (boîtes 1 à 5).
+model PracticeProgress {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  moduleSlug      String    @map("module_slug")
+  activityKey     String    @map("activity_key")
+  activityKind    String    @map("activity_kind")
+  attempts        Int       @default(0)
+  /// Dernier score d'entraînement (éléments réussis / notés), jamais un résultat officiel.
+  lastCorrect     Int       @default(0) @map("last_correct")
+  lastTotal       Int       @default(0) @map("last_total")
+  box             Int       @default(1)
+  dueOn           DateTime  @map("due_on") @db.Date
+  masteredAt      DateTime? @map("mastered_at") @db.Timestamptz(3)
+  lastPracticedAt DateTime  @map("last_practiced_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, moduleSlug, activityKey])
+  @@index([userId, dueOn])
+  @@map("practice_progress")
 }
