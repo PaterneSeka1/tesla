@@ -82,6 +82,10 @@ for (const width of [390, 1280]) {
     '/progression',
     '/evaluations',
     '/compte',
+    // Expérience immersive (D194–D200) : défis, une partie, carnet.
+    '/defis',
+    '/defis/textes',
+    '/carnet',
   ]) {
     await routier.goto(`${origin}${path}`);
     await scan(routier, `${width}px routier ${path}`);

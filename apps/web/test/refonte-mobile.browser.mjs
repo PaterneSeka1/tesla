@@ -123,7 +123,7 @@ const paragraph = (text) => ({
 // 2. Routier : quatre onglets, ordre stable, onglet actif, liens profonds, « Plus », retour.
 const routier = await session(ROUTIER, 390);
 await bottomNav(routier).waitFor();
-assert.deepEqual(await tabLabels(routier), ['Accueil', 'Cours', 'Parcours', 'Plus']);
+assert.deepEqual(await tabLabels(routier), ['Accueil', 'Cours', 'Défis', 'Parcours', 'Plus']);
 assert.deepEqual(await activeTab(routier), ['Accueil']);
 await shot(routier, '01-routier-accueil-390');
 await bottomNav(routier).getByRole('link', { name: 'Cours', exact: true }).click();
@@ -157,8 +157,9 @@ await shot(routier, '02-routier-plus-390');
 await routier.keyboard.press('Escape');
 await sheet.waitFor({ state: 'hidden' });
 await bottomNav(routier).getByRole('button', { name: /Plus/ }).click();
-await sheet.getByRole('link', { name: 'Évaluations' }).click();
-await routier.waitForURL(/\/evaluations$/);
+// Page d'une rubrique sans onglet (D198 : les évaluations relèvent désormais de « Parcours »).
+await sheet.getByRole('link', { name: 'Mon profil' }).click();
+await routier.waitForURL(/\/compte$/);
 await sheet.waitFor({ state: 'hidden' });
 assert.deepEqual(await activeTab(routier), []);
 assert.match(await bottomNav(routier).getByRole('button', { name: /Plus/ }).innerText(), /Plus/);
@@ -402,7 +403,7 @@ check('publication selon le workflow : soumission (chef), approbation et publica
 await routier.setViewportSize({ width: 390, height: 844 });
 await routier.goto(`${origin}/modules/${slug}`);
 await routier.getByRole('heading', { name: MODULE_TITLE }).waitFor();
-await routier.getByRole('link', { name: /Commencer la lecture/ }).click();
+await routier.getByRole('link', { name: /^Commencer/ }).click();
 await routier.getByRole('heading', { name: 'Prière scoute' }).waitFor();
 await routier
   .getByRole('link', { name: /suivante/i })

@@ -63,6 +63,9 @@ try {
   const lesson = detail.lessons.find((l) => l.title.startsWith('Comprendre et appliquer'));
   await page.goto(`${origin}/modules/${methode.slug}/lecons/${lesson.id}`);
   await page.getByRole('heading', { name: lesson.title }).waitFor();
+  // Lecture intégrale (D195) : toute la leçon d'un seul tenant, comme avant le mode Découverte.
+  const integral = page.getByRole('button', { name: 'Lecture intégrale' });
+  if (await integral.isVisible()) await integral.click();
   for (const label of ['Pour réfléchir', 'À retenir']) {
     assert.equal(await page.locator(`aside[aria-label="${label}"]`).count(), 1, label);
   }
@@ -70,12 +73,15 @@ try {
     await page.locator('.lesson-content footer').innerText(),
     /Source : « Base du scoutisme »/,
   );
-  assert.ok((await page.getByText('Leçon 4 sur 4').count()) > 0);
+  assert.ok((await page.getByText('Halte 4 sur 4').count()) > 0);
   await noHorizontalScroll();
   check(
     'leçon complétée : encadrés « Pour réfléchir » et « À retenir », références en pied de leçon',
   );
-  await page.getByRole('link', { name: /Précédente/ }).click();
+  await page
+    .getByRole('link', { name: /précédente/i })
+    .first()
+    .click();
   await page.getByRole('heading', { name: 'Les dix articles de la loi scoute' }).waitFor();
   check('navigation vers la leçon précédente');
 
