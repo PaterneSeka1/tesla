@@ -45,6 +45,9 @@ export interface LastReading {
   lessonId: string;
   lessonTitle: string;
   readAt: string;
+  /** Halte (rang de la leçon) et nombre de haltes, pour « Halte 3 sur 5 » (absents avant D195). */
+  position?: number;
+  count?: number;
 }
 
 /**
@@ -54,19 +57,29 @@ export interface LastReading {
 export function useReadingPosition(
   slug: string,
   lessonId: string | undefined,
-  titles?: { module: string; lesson: string },
+  titles?: { module: string; lesson: string; position?: number; count?: number },
 ) {
   const moduleTitle = titles?.module;
   const lessonTitle = titles?.lesson;
+  const position = titles?.position;
+  const count = titles?.count;
   useEffect(() => {
     if (!lessonId || !ownerId()) return;
     const readAt = new Date().toISOString();
     void putRecord(`reading:${slug}`, { lessonId, lessonTitle, readAt }).catch(() => {});
     if (moduleTitle && lessonTitle) {
-      const last: LastReading = { slug, moduleTitle, lessonId, lessonTitle, readAt };
+      const last: LastReading = {
+        slug,
+        moduleTitle,
+        lessonId,
+        lessonTitle,
+        readAt,
+        position,
+        count,
+      };
       void putRecord('reading:last', last).catch(() => {});
     }
-  }, [slug, lessonId, moduleTitle, lessonTitle]);
+  }, [slug, lessonId, moduleTitle, lessonTitle, position, count]);
 }
 
 export async function lastReading(): Promise<LastReading | null> {
