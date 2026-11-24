@@ -147,7 +147,7 @@ La ligne de l'année reste verrouillée jusqu'au `COMMIT` : les créations concu
 | --- | --- |
 | `npm run db:migrate -- --name <nom>` | Créer et appliquer une migration (développement) |
 | `npm run db:deploy` | Appliquer les migrations existantes (CI/production) |
-| `npm run db:seed` | Seed idempotent : étapes de progression, programme, modules « Bases du scoutisme » ; 25 comptes de démonstration fictifs `*.demo@tesla.test` (1 responsable, `chef1`–`chef4`, `routier.demo` sans profil, `routier01`–`routier19` avec profil réparti sur les quatre étapes) uniquement hors production et si `DEMO_ACCOUNT_PASSWORD` est défini localement ; un profil existant n'est jamais modifié, aucune équipe créée |
+| `npm run db:seed` | Seed idempotent : étapes de progression, programme, référentiels d'âge, catalogue importé ; hors production et si `DEMO_ACCOUNT_PASSWORD` est défini localement, communauté de démonstration (`prisma/seeds/demo-community.ts`) : administrateur, plein, adjoint, deux assistants désignés, 16 routiers sur les quatre étapes (deux sans compte), 3 équipes, un compte à rattacher, un apprenant adulte, catalogue mis en service au nom du plein, module d'entraînement soumis à son approbation ; personnes inventées, adresses `prenom.nom@nikolatesla.local` non délivrables ; anciens comptes `*.demo@tesla.test` désactivés et équipes « Recette » archivées, jamais supprimés |
 | `npm run db:generate` | Régénérer le client |
 
 | Migration | Contenu | Vérification |

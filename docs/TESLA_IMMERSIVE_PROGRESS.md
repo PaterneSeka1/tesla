@@ -57,7 +57,9 @@ Migrations de `fix/progression-audit` (`catch_up_reminders`, `stage_transition_n
 | 13 | Recette finale, audit de simplicité, documentation | **terminé** (voir le rapport) | `immersive.browser.mjs`, docs |
 
 ## Migrations
-- `20261125090000_learning_events_practice` (additive : 2 tables, CHECK, trigger d'ajout seul). Appliquée sur **`tesla_test` uniquement**. À appliquer sur `tesla` puis en production sur autorisation (`npm run db:deploy` après sauvegarde), avec les deux migrations de `fix/progression-audit`.
+- `20261125090000_learning_events_practice` (additive : 2 tables, CHECK, trigger d'ajout seul).
+- 2026-11-24, sur demande : base locale **`tesla`** sauvegardée (`../tesla-backups/tesla-avant-migrations-2026-11-24.dump`, hors dépôt), puis `db:deploy` des 4 migrations en attente (`learner_kind_adults`, `catch_up_reminders`, `stage_transition_notifications`, `learning_events_practice`) ; `migrate diff` : aucune dérive. **Production non touchée.**
+- Seed de démonstration appliqué sur `tesla` (`prisma/seeds/demo-community.ts`) : 21 comptes, 16 fiches, catalogue publié au nom du plein, module « S’entraîner : repères de la progression » soumis par un assistant (à approuver par le plein). Limite : aucun module publié n'est obligatoire avec source officielle, donc aucun rattrapage n'apparaît (règle D177, non contournée).
 
 ## Tests exécutés
 - Référence (avant travaux) : lint, typecheck, API 312/312, web 146/146.

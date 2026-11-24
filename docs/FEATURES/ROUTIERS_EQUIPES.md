@@ -14,7 +14,7 @@ Légende : ✅ implémentée et testée · 🟡 partiellement implémentée · �
 | Limitation des tentatives | ✅ | En mémoire (instance unique). |
 | Protection CSRF | ✅ | En-tête `x-tesla-csrf` + origine autorisée + SameSite=Lax. |
 | Protection des espaces web | ✅ | `proxy.ts` (cookie) + `SessionGate` (session et rôle) ; l'API reste la seule garantie. |
-| Comptes de démonstration | ✅ | `*.demo@tesla.test` (responsable, 2 chefs, 1 routier sans profil), créés par `npm run db:seed` si `DEMO_ACCOUNT_PASSWORD` est défini dans le `.env` local, jamais en production. |
+| Comptes de démonstration | ✅ | Communauté de démonstration (`prisma/seeds/demo-community.ts`, adresses `@nikolatesla.local`) créée par `npm run db:seed` si `DEMO_ACCOUNT_PASSWORD` est défini dans le `.env` local, jamais en production. |
 | Création / activation de comptes, mot de passe oublié | ⬜ | Phase « Comptes ». |
 
 ## Équipes — `/administration/equipes`
@@ -91,5 +91,5 @@ Routes HTTP, écrans de saisie et génération PDF : ⬜ phase 4 bis (contrats p
 ```bash
 # .env local (jamais versionné) : DEMO_ACCOUNT_PASSWORD=<au moins 12 caractères>
 npm run db:deploy && npm run db:seed
-npm run dev   # http://localhost:3000/connexion — responsable.demo@tesla.test
+npm run dev   # http://localhost:3000/connexion — serge.kouassi@nikolatesla.local (responsable plein)
 ```
