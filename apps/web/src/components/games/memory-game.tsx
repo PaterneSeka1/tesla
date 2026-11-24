@@ -1,12 +1,13 @@
 'use client';
 
 import { stableShuffle } from '@tesla/shared';
-import { Brain } from 'lucide-react';
+import { Brain, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { feedback } from '@/lib/feedback';
-import { type BankEntry } from '@/lib/games';
+import { type GameSession } from '@/lib/game-session';
+import { type BankEntry, entryId } from '@/lib/games';
 import { cn } from '@/lib/utils';
 
 interface MemoryCard {
@@ -16,71 +17,135 @@ interface MemoryCard {
   side: 'left' | 'right';
 }
 
+export interface MemoryData {
+  entry: { id: string; fingerprint: string };
+  /** Paires trouvées (rang dans l'activité). */
+  found: number[];
+  turns: number;
+  /** Identifiant de la tentative envoyée à la fin (une seule fois). */
+  attemptId: string;
+  done: boolean;
+}
+
+export const memoryStart = (entry: BankEntry): MemoryData => ({
+  entry: { id: entryId(entry), fingerprint: entry.fingerprint },
+  found: [],
+  turns: 0,
+  attemptId: crypto.randomUUID(),
+  done: false,
+});
+
+export function memoryStillValid(data: MemoryData, entries: readonly BankEntry[]) {
+  return entries.some(
+    (entry) => entryId(entry) === data.entry.id && entry.fingerprint === data.entry.fingerprint,
+  );
+}
+
+/** Dos de carte : motif de dunes et de vagues (District Requin de Sable), en SVG du thème. */
+function CardBack() {
+  return (
+    <svg viewBox="0 0 60 80" className="h-full w-full" aria-hidden>
+      <rect width="60" height="80" rx="9" fill="var(--tesla-bordeaux)" />
+      <rect
+        x="4"
+        y="4"
+        width="52"
+        height="72"
+        rx="6"
+        fill="none"
+        stroke="var(--tesla-or)"
+        strokeOpacity="0.5"
+      />
+      {[22, 34, 46, 58].map((y, index) => (
+        <path
+          key={y}
+          d={`M8 ${y} q 7 -${5 + index} 14 0 t 14 0 t 14 0`}
+          fill="none"
+          stroke="var(--tesla-or)"
+          strokeOpacity={0.35 + index * 0.12}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      ))}
+      <circle cx="30" cy="13" r="3.2" fill="var(--tesla-or)" opacity="0.8" />
+    </svg>
+  );
+}
+
 /**
- * Jeu de mémoire (D198) : des paires pédagogiques (notion et définition, date et événement…) tirées
- * d'une activité d'associations publiée. Cartes retournées au toucher ou au clavier ; aucune
- * minuterie, aucun score enregistré. Chaque carte retournée est annoncée aux lecteurs d'écran.
+ * Jeu de mémoire (D198) : des paires pédagogiques tirées d'une activité d'associations publiée.
+ * Cartes retournées au toucher ou au clavier, sans minuterie ; chaque carte retournée est annoncée
+ * aux lecteurs d'écran. La partie (paires trouvées, essais) reprend après une fermeture ; la fin
+ * est enregistrée une fois (mode `memory`, sans note : trouver les paires est toujours possible).
  */
 export function MemoryGame({
+  session,
   entry,
   size,
   exitHref,
+  onUpdate,
+  onRestart,
+  onComplete,
 }: {
+  session: GameSession<MemoryData>;
   entry: BankEntry;
   size: number;
   exitHref: string;
+  onUpdate: (data: MemoryData) => void;
+  onRestart: () => void;
+  onComplete: (data: MemoryData) => void;
 }) {
-  const [round, setRound] = useState(0);
+  const state = session.data;
   const cards = useMemo(() => {
     if (entry.activity.kind !== 'match') return [];
-    const pairs = entry.activity.pairs.slice(0, size);
-    const all: MemoryCard[] = pairs.flatMap((pair, index) => [
+    const all: MemoryCard[] = entry.activity.pairs.slice(0, size).flatMap((pair, index) => [
       { id: `${index}-l`, pair: index, label: pair.left, side: 'left' as const },
       { id: `${index}-r`, pair: index, label: pair.right, side: 'right' as const },
     ]);
-    return stableShuffle(all, `${entry.key}:${round}`);
-  }, [entry, size, round]);
+    // Disposition propre à la partie, identique à la reprise.
+    return stableShuffle(all, `${entry.key}:${session.id}`);
+  }, [entry, size, session.id]);
   const [open, setOpen] = useState<string[]>([]);
-  const [found, setFound] = useState<Set<number>>(new Set());
-  const [turns, setTurns] = useState(0);
+  const found = new Set(state.found);
   const pairs = cards.length / 2;
-  const done = found.size === pairs && pairs > 0;
+
+  useEffect(() => {
+    if (open.length !== 2) return;
+    const timer = setTimeout(() => setOpen([]), 900);
+    return () => clearTimeout(timer);
+  }, [open]);
 
   const flip = (card: MemoryCard) => {
-    if (found.has(card.pair) || open.includes(card.id) || open.length === 2) return;
+    if (state.done || found.has(card.pair) || open.includes(card.id) || open.length === 2) return;
     const next = [...open, card.id];
     setOpen(next);
     if (next.length < 2) return;
-    setTurns(turns + 1);
     const [a, b] = next.map((id) => cards.find((c) => c.id === id)!);
+    const turns = state.turns + 1;
     if (a!.pair === b!.pair) {
-      setFound(new Set([...found, a!.pair]));
       setOpen([]);
-      feedback('success');
-    } else {
-      setTimeout(() => setOpen([]), 900);
-    }
+      const nowFound = [...state.found, a!.pair];
+      const done = nowFound.length === pairs;
+      const data = { ...state, found: nowFound, turns, done };
+      onUpdate(data);
+      feedback(done ? 'reward' : 'success');
+      if (done) onComplete(data);
+    } else onUpdate({ ...state, turns });
   };
 
-  if (done)
+  if (state.done)
     return (
       <div className="animate-achieve space-y-4 rounded-2xl border bg-card p-5 text-center">
         <Brain className="mx-auto size-8 text-tesla-rouge" aria-hidden />
         <p className="text-lg font-semibold text-tesla-bordeaux">Toutes les paires trouvées</p>
-        <p className="text-sm text-muted-foreground">En {turns} essais.</p>
+        <p className="text-sm text-muted-foreground">En {state.turns} essais.</p>
         <div className="flex flex-wrap justify-center gap-2">
-          <Button asChild>
-            <Link href={exitHref}>Autres défis</Link>
+          <Button onClick={onRestart} autoFocus>
+            <RotateCcw aria-hidden />
+            Nouvelle partie
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setFound(new Set());
-              setTurns(0);
-              setRound(round + 1);
-            }}
-          >
-            Rejouer
+          <Button asChild variant="outline">
+            <Link href={exitHref}>Autres défis</Link>
           </Button>
         </div>
       </div>
@@ -92,7 +157,7 @@ export function MemoryGame({
         {found.size} paire{found.size > 1 ? 's' : ''} sur {pairs}
         {entry.activity.title ? ` · ${entry.activity.title}` : ''}
       </p>
-      <ul className="grid grid-cols-4 gap-2">
+      <ul className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
         {cards.map((card) => {
           const visible = found.has(card.pair) || open.includes(card.id);
           return (
@@ -106,12 +171,12 @@ export function MemoryGame({
                 disabled={found.has(card.pair)}
               >
                 <span className="flip-card-inner h-full">
-                  <span className="flip-card-face flex items-center justify-center rounded-xl border-2 border-tesla-bordeaux/20 bg-tesla-bordeaux text-tesla-or">
-                    <Brain className="size-6 opacity-60" aria-hidden />
+                  <span className="flip-card-face overflow-hidden rounded-xl shadow-sm">
+                    <CardBack />
                   </span>
                   <span
                     className={cn(
-                      'flip-card-face flip-card-back flex items-center justify-center overflow-hidden rounded-xl border-2 p-1.5 text-center text-xs leading-tight sm:text-sm',
+                      'flip-card-face flip-card-back flex items-center justify-center overflow-hidden rounded-xl border-2 p-1.5 text-center text-xs leading-tight shadow-sm sm:text-sm',
                       found.has(card.pair)
                         ? 'border-emerald-600 bg-emerald-50'
                         : card.side === 'left'

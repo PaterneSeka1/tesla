@@ -2,55 +2,51 @@
 
 import { BookOpen, Flag } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { ActivityRunner } from '@/components/practice/activity-runner';
 import { Button } from '@/components/ui/button';
-import { type BankEntry } from '@/lib/games';
+import { type GameSession } from '@/lib/game-session';
+import { type BankEntry, entryId } from '@/lib/games';
 
-const KEY = 'tesla.games.position';
-
-function savedIndex(storageKey: string, length: number): number {
-  try {
-    const saved = (JSON.parse(window.localStorage.getItem(KEY) ?? '{}') as Record<string, number>)[
-      storageKey
-    ];
-    return typeof saved === 'number' && saved >= 0 && saved < length ? saved : 0;
-  } catch {
-    return 0;
-  }
+export interface SequenceData {
+  /** Activités choisies à l'ouverture, avec la version de leur contenu. */
+  picked: { id: string; fingerprint: string }[];
+  index: number;
+  done: boolean;
 }
 
-function saveIndex(storageKey: string, index: number | null) {
-  try {
-    const all = JSON.parse(window.localStorage.getItem(KEY) ?? '{}') as Record<string, number>;
-    if (index === null) delete all[storageKey];
-    else all[storageKey] = index;
-    // Seules les parties du jour sont utiles : on garde les dix dernières.
-    window.localStorage.setItem(
-      KEY,
-      JSON.stringify(Object.fromEntries(Object.entries(all).slice(-10))),
-    );
-  } catch {
-    // Stockage indisponible : la partie reprendra au début.
-  }
+/** Une partie enregistrée n'est reprise que si toutes ses activités sont inchangées. */
+export function sequenceStillValid(data: SequenceData, entries: readonly BankEntry[]) {
+  const byId = new Map(entries.map((entry) => [entryId(entry), entry.fingerprint]));
+  return (
+    data.picked.length > 0 &&
+    data.index >= 0 &&
+    data.index < data.picked.length &&
+    data.picked.every((item) => byId.get(item.id) === item.fingerprint)
+  );
 }
 
 /**
- * Enchaînement d'activités : une à la fois, reprise automatique à l'activité en cours (fermeture,
- * actualisation, coupure réseau), lien discret vers la leçon d'origine pour revoir la notion.
+ * Enchaînement d'activités : une à la fois, reprise à l'activité en cours (fermeture, changement
+ * de jour, coupure réseau), lien discret vers la leçon d'origine pour revoir la notion.
  */
 export function SequenceGame({
+  session,
   entries,
-  storageKey,
   exitHref,
+  onUpdate,
+  onRestart,
+  onFinish,
 }: {
-  entries: BankEntry[];
-  storageKey: string;
+  session: GameSession<SequenceData>;
+  entries: readonly BankEntry[];
   exitHref: string;
+  onUpdate: (data: SequenceData) => void;
+  onRestart: () => void;
+  onFinish: () => void;
 }) {
-  const [index, setIndex] = useState(() => savedIndex(storageKey, entries.length));
-  const [done, setDone] = useState(false);
-  useEffect(() => saveIndex(storageKey, done ? null : index), [storageKey, index, done]);
+  const byId = new Map(entries.map((entry) => [entryId(entry), entry]));
+  const picked = session.data.picked.map((item) => byId.get(item.id)!).filter(Boolean);
+  const { index, done } = session.data;
 
   if (done)
     return (
@@ -61,27 +57,21 @@ export function SequenceGame({
           <Button asChild>
             <Link href={exitHref}>Autres défis</Link>
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setIndex(0);
-              setDone(false);
-            }}
-          >
-            Rejouer
+          <Button variant="outline" onClick={onRestart}>
+            Nouvelle partie
           </Button>
         </div>
       </div>
     );
 
-  const entry = entries[index]!;
-  const last = index + 1 >= entries.length;
+  const entry = picked[index]!;
+  const last = index + 1 >= picked.length;
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        {entries.length > 1 && (
+        {picked.length > 1 && (
           <span className="tabular-nums">
-            {index + 1} / {entries.length}
+            {index + 1} / {picked.length}
           </span>
         )}
         <Link
@@ -95,11 +85,16 @@ export function SequenceGame({
       {entry.activity.title && (
         <p className="font-semibold text-tesla-bordeaux">{entry.activity.title}</p>
       )}
-      <div key={`${index}`} className="animate-enter">
+      <div key={`${session.id}:${index}`} className="animate-enter">
         <ActivityRunner
           item={entry}
           continueLabel={last ? 'Terminer' : 'Activité suivante'}
-          onContinue={() => (last ? setDone(true) : setIndex(index + 1))}
+          onContinue={() => {
+            if (last) {
+              onUpdate({ ...session.data, done: true });
+              onFinish();
+            } else onUpdate({ ...session.data, index: index + 1 });
+          }}
         />
       </div>
     </div>

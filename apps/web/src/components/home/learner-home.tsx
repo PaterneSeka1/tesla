@@ -13,6 +13,7 @@ import { myPathwayQueryOptions } from '@/lib/api/pathway';
 import { journalQueryOptions, practiceBankQueryOptions } from '@/lib/api/practice';
 import { formatDate } from '@/lib/format';
 import { homeSuggestion, nextAdventure } from '@/lib/home';
+import { dueInBank, flattenBank, gameMode, isPlayable } from '@/lib/games';
 import { userCan } from '@/lib/navigation';
 import { onboardingDone, markOnboardingDone } from '@/lib/onboarding';
 import { cn } from '@/lib/utils';
@@ -64,8 +65,11 @@ export function LearnerHome() {
       : null,
     lastReading: last ?? null,
     recommended: dashboard.data?.recommendedModules[0] ?? null,
-    dueReviews: journal.data?.dueReviews.length ?? 0,
-    hasPractice: (bank.data?.modules.length ?? 0) > 0,
+    dueReviews: bank.data
+      ? dueInBank(flattenBank(bank.data), journal.data?.dueReviews ?? []).length
+      : 0,
+    // Le défi express n'est proposé que s'il est réellement jouable.
+    hasPractice: !!bank.data && isPlayable(gameMode('express')!, flattenBank(bank.data)),
   };
   const adventure = nextAdventure(input);
   const suggestion = homeSuggestion(input);

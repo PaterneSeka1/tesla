@@ -36,6 +36,7 @@ import { AdventureTrail } from '@/components/modules/adventure-trail';
 import { journalQueryOptions, practiceBankQueryOptions } from '@/lib/api/practice';
 import { catalogModuleQueryOptions, modulePdfUrl, practicalSheetPdfUrl } from '@/lib/api/modules';
 import { formatDate, formatDuration } from '@/lib/format';
+import { flattenBank, playableModes } from '@/lib/games';
 import { userCan } from '@/lib/navigation';
 import { type ReadingPosition, resumeLesson } from '@/lib/reading-position';
 
@@ -66,7 +67,9 @@ export function ModuleDetail() {
   const recommended = module.myStageId !== null && module.stage?.id === module.myStageId;
   const resumed = resumeLesson(module.lessons, last);
   const first = resumed ?? module.lessons[0];
+  const readIds = new Set(journal.data?.readLessonIds ?? []);
   const readRefs = new Set(journal.data?.readLessons ?? []);
+  const moduleEntries = bank.data ? flattenBank(bank.data, module.slug) : [];
 
   return (
     <>
@@ -156,11 +159,11 @@ export function ModuleDetail() {
             title: lesson.title,
             href: `/modules/${module.slug}/lecons/${lesson.id}`,
             durationMinutes: lesson.durationMinutes,
-            done: readRefs.has(lessonReadRef(module.slug, lesson.title)),
+            done: readIds.has(lesson.id) || readRefs.has(lessonReadRef(module.slug, lesson.title)),
             current: lesson.id === resumed?.id,
           }))}
           practiceHref={
-            bank.data?.modules.some((item) => item.slug === module.slug)
+            playableModes(moduleEntries).some((mode) => mode.group)
               ? `/defis?module=${encodeURIComponent(module.slug)}`
               : null
           }

@@ -157,6 +157,7 @@ export interface BankEntry {
   moduleSlug: string;
   moduleTitle: string;
   key: string;
+  fingerprint: string;
   lessonId: string;
   lessonTitle: string;
   reverent?: boolean;
@@ -172,6 +173,7 @@ export function flattenBank(bank: PracticeBank, moduleSlug?: string | null): Ban
         moduleSlug: module.slug,
         moduleTitle: module.title,
         key: entry.key,
+        fingerprint: entry.fingerprint,
         lessonId: entry.lessonId,
         lessonTitle: entry.lessonTitle,
         reverent: entry.reverent,
@@ -196,32 +198,172 @@ export function compatible(mode: GameMode, entries: readonly BankEntry[]): BankE
   );
 }
 
+/** Contexte de sélection d'une partie (carnet du compte et historique local des parties). */
+export interface SelectionContext {
+  due: readonly DueReview[];
+  practiced: ReadonlySet<string>;
+  /** Activités réussies sans erreur (jamais prioritaires). */
+  mastered?: ReadonlySet<string>;
+  /** Activités jouées lors des dernières parties (évite de rejouer exactement la même chose). */
+  recent?: ReadonlySet<string>;
+  /** Graine propre à la partie : stable pendant la partie, différente d'une partie à l'autre. */
+  seed: string;
+}
+
+const difficultyOf = (entry: BankEntry) => entry.activity.difficulty ?? 2;
+
+/** Révisions échues qui existent encore dans la banque publiée (les autres ne bloquent rien). */
+export function dueInBank(entries: readonly BankEntry[], due: readonly DueReview[]): DueReview[] {
+  const ids = new Set(entries.map(entryId));
+  return due.filter((row) => ids.has(`${row.moduleSlug}:${row.activityKey}`));
+}
+
 /**
- * Sélection déterministe d'une partie : d'abord les activités à revoir (échéance), puis celles
- * jamais pratiquées, puis les autres ; l'ordre varie d'un jour à l'autre (graine = date), jamais
- * au hasard pur. Révisions : uniquement les activités échues.
+ * Priorité d'une activité (plus petit = plus utile) : à revoir, jamais pratiquée, pratiquée sans
+ * être maîtrisée, maîtrisée ; une activité vue lors des dernières parties passe après ses pareilles.
+ */
+function priority(entry: BankEntry, context: SelectionContext, dueIds: ReadonlySet<string>) {
+  const id = entryId(entry);
+  const base = dueIds.has(id)
+    ? 0
+    : !context.practiced.has(id)
+      ? 1
+      : context.mastered?.has(id)
+        ? 3
+        : 2;
+  return base * 2 + (context.recent?.has(id) ? 1 : 0);
+}
+
+/**
+ * Sélection déterministe d'une partie : priorité pédagogique, puis variété (une leçon différente
+ * à chaque activité tant que possible), puis difficulté croissante. Révisions : uniquement les
+ * activités échues encore publiées. La sélection est enregistrée avec la partie.
  */
 export function pickSession(
   mode: GameMode,
   entries: readonly BankEntry[],
-  context: { due: readonly DueReview[]; practiced: ReadonlySet<string>; seed: string },
+  context: SelectionContext,
 ): BankEntry[] {
   const pool = compatible(mode, entries);
   const dueIds = new Set(context.due.map((row) => `${row.moduleSlug}:${row.activityKey}`));
   if (mode.key === 'revisions')
     return pool.filter((entry) => dueIds.has(entryId(entry))).slice(0, mode.size);
-  const rank = (entry: BankEntry) =>
-    dueIds.has(entryId(entry)) ? 0 : context.practiced.has(entryId(entry)) ? 2 : 1;
-  const shuffled = stableShuffle(pool, `${mode.key}:${context.seed}`);
-  return [...shuffled].sort((a, b) => rank(a) - rank(b)).slice(0, mode.size);
+  const ranked = stableShuffle(pool, `${mode.key}:${context.seed}`).sort(
+    (a, b) => priority(a, context, dueIds) - priority(b, context, dueIds),
+  );
+  const chosen: BankEntry[] = [];
+  const lessons = new Set<string>();
+  for (const entry of ranked) {
+    if (chosen.length >= mode.size) break;
+    if (lessons.has(entry.lessonId)) continue;
+    lessons.add(entry.lessonId);
+    chosen.push(entry);
+  }
+  for (const entry of ranked) {
+    if (chosen.length >= mode.size) break;
+    if (!chosen.includes(entry)) chosen.push(entry);
+  }
+  return chosen
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => difficultyOf(a.entry) - difficultyOf(b.entry) || a.index - b.index)
+    .map(({ entry }) => entry);
 }
 
-/** Questions de L'Ascension : toutes les questions à choix compatibles, ordre stable du jour. */
-export function ascensionQuestions(entries: readonly BankEntry[], seed: string, size = 10) {
-  const questions = entries.flatMap((entry) =>
+export interface AscensionQuestion {
+  /** `module:activité:rang` : identité stable de la question. */
+  id: string;
+  moduleSlug: string;
+  activityKey: string;
+  fingerprint: string;
+  item: number;
+  lessonId: string;
+  lessonTitle: string;
+  prompt: string;
+  options: string[];
+  answer: number;
+  hint?: string;
+  explanation?: string;
+  difficulty: number;
+}
+
+/** Il faut au moins trois paliers et une question de réserve. */
+export const ASCENSION_MIN_QUESTIONS = 4;
+
+export function allAscensionQuestions(entries: readonly BankEntry[]): AscensionQuestion[] {
+  return entries.flatMap((entry) =>
     entry.activity.kind === 'quiz'
-      ? entry.activity.items.map((item, index) => ({ ...item, id: `${entryId(entry)}:${index}` }))
+      ? entry.activity.items.map((item, index) => ({
+          id: `${entryId(entry)}:${index}`,
+          moduleSlug: entry.moduleSlug,
+          activityKey: entry.key,
+          fingerprint: entry.fingerprint,
+          item: index,
+          lessonId: entry.lessonId,
+          lessonTitle: entry.lessonTitle,
+          prompt: item.prompt,
+          options: item.options,
+          answer: item.answer,
+          hint: item.hint,
+          explanation: item.explanation,
+          difficulty: difficultyOf(entry),
+        }))
       : [],
   );
-  return stableShuffle(questions, `ascension:${seed}`).slice(0, size);
+}
+
+/**
+ * Questions d'une ascension : d'abord les notions à revoir et les questions nouvelles, en variant
+ * les leçons, puis rangées par difficulté croissante (la dernière sert de réserve au joker).
+ */
+export function ascensionQuestions(
+  entries: readonly BankEntry[],
+  context: SelectionContext,
+  count: number,
+): AscensionQuestion[] {
+  const dueIds = new Set(context.due.map((row) => `${row.moduleSlug}:${row.activityKey}`));
+  const byEntry = new Map(entries.map((entry) => [entryId(entry), entry]));
+  const rank = (question: AscensionQuestion) =>
+    priority(byEntry.get(`${question.moduleSlug}:${question.activityKey}`)!, context, dueIds);
+  const ranked = stableShuffle(allAscensionQuestions(entries), `ascension:${context.seed}`).sort(
+    (a, b) => rank(a) - rank(b),
+  );
+  const chosen: AscensionQuestion[] = [];
+  const lessons = new Set<string>();
+  for (const question of ranked) {
+    if (chosen.length >= count) break;
+    if (lessons.has(question.lessonId)) continue;
+    lessons.add(question.lessonId);
+    chosen.push(question);
+  }
+  for (const question of ranked) {
+    if (chosen.length >= count) break;
+    if (!chosen.includes(question)) chosen.push(question);
+  }
+  const reserve = chosen.length > ASCENSION_MIN_QUESTIONS - 1 ? chosen.pop()! : null;
+  chosen.sort((a, b) => a.difficulty - b.difficulty);
+  return reserve ? [...chosen, reserve] : chosen;
+}
+
+/**
+ * Un jeu est-il réellement jouable avec ce contenu ? Seule source de vérité pour l'accueil, la
+ * salle des défis et les modules : aucun jeu vide, aucun bouton inutile.
+ */
+export function isPlayable(
+  mode: GameMode,
+  entries: readonly BankEntry[],
+  due: readonly DueReview[] = [],
+): boolean {
+  if (mode.key === 'revisions')
+    return pickSession(mode, entries, { due, practiced: new Set(), seed: '' }).length > 0;
+  const pool = compatible(mode, entries);
+  if (mode.engine === 'ascension')
+    return allAscensionQuestions(pool).length >= ASCENSION_MIN_QUESTIONS;
+  return pool.length > 0;
+}
+
+export function playableModes(
+  entries: readonly BankEntry[],
+  due: readonly DueReview[] = [],
+): GameMode[] {
+  return GAME_MODES.filter((mode) => isPlayable(mode, entries, due));
 }
