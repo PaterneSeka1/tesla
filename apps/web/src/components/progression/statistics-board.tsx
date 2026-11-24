@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { practiceInsightsQueryOptions } from '@/lib/api/practice';
 import { ACTIVITY_STATUS_LABELS, type Statistics } from '@tesla/shared';
 import {
   BookOpen,
@@ -357,6 +358,8 @@ function StatisticsContent({ data: d }: { data: Statistics }) {
         )}
       </section>
 
+      <PracticeInsightsSection />
+
       <p className="text-xs text-muted-foreground">
         Calculé le {formatDateTime(d.generatedAt)} à partir des données enregistrées.
       </p>
@@ -370,3 +373,38 @@ const STATUS_KEYS = {
   REPORTEE: 'postponed',
   ANNULEE: 'cancelled',
 } as const;
+
+/**
+ * Notions à retravailler (D196, cahier § 84) : activités d'entraînement les moins réussies,
+ * agrégées à partir de trois apprenants, sans aucun nom. Masqué s'il n'y a rien à signaler.
+ */
+function PracticeInsightsSection() {
+  const { data } = useQuery(practiceInsightsQueryOptions);
+  if (!data || data.items.length === 0) return null;
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-tesla-bordeaux">Notions à retravailler</h2>
+      <ul className="divide-y rounded-lg border bg-card">
+        {data.items.map((item) => (
+          <li
+            key={`${item.moduleSlug}:${item.title}:${item.lessonTitle}`}
+            className="flex items-center gap-3 px-4 py-3"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{item.title}</span>
+              <span className="block truncate text-sm text-muted-foreground">
+                {item.moduleTitle} · {item.lessonTitle}
+              </span>
+            </span>
+            <span className="text-right text-sm tabular-nums">
+              <span className="font-semibold">{Math.round(item.successRate * 100)} %</span>
+              <span className="block text-xs text-muted-foreground">
+                {item.learners} apprenants
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

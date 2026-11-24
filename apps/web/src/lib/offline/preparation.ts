@@ -1,3 +1,5 @@
+import { journalQueryOptions, practiceBankQueryOptions } from '@/lib/api/practice';
+import { GAME_MODES } from '@/lib/games';
 import { type QueryClient } from '@tanstack/react-query';
 import { type SessionUser } from '@tesla/shared';
 import { ApiError, withStrictReads } from '@/lib/api/client';
@@ -182,6 +184,15 @@ async function prepare(
         pages.add(`/modules/${item.slug}/lecons/${lesson.id}`);
       }
     }
+  }
+
+  // Entraînement libre (D198) : banque des modules publiés et parties jouables hors ligne ;
+  // carnet (récompenses synchronisées) pour qui en possède un.
+  if (userCan(user, 'practice.play')) {
+    progress('Défis…');
+    await get(practiceBankQueryOptions, 'Défis');
+    for (const mode of GAME_MODES) pages.add(`/defis/${mode.key}`);
+    if (userCan(user, 'practice.own')) await get(journalQueryOptions, 'Carnet');
   }
 
   if (userCan(user, 'progression.readOwn')) {

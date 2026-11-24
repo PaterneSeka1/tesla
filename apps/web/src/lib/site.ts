@@ -67,6 +67,8 @@ export const PRIVATE_PATH_PREFIXES = [
   '/administration',
   '/modules',
   '/evaluations',
+  '/defis',
+  '/carnet',
   '/mes-resultats',
   '/progression',
   '/mes-competences',
