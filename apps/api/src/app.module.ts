@@ -9,6 +9,7 @@ import { DashboardsModule } from './modules/dashboards/dashboards.module.js';
 import { LeadershipModule } from './modules/leadership/leadership.module.js';
 import { EvaluationsModule } from './modules/evaluations/evaluations.module.js';
 import { MedicalModule } from './modules/medical/medical.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { PedagogyModule } from './modules/pedagogy/pedagogy.module.js';
 import { ProgrammesModule } from './modules/programmes/programmes.module.js';
 import { ProgressionModule } from './modules/progression/progression.module.js';
@@ -34,6 +35,7 @@ import { StorageModule } from './storage/storage.module.js';
     DashboardsModule,
     AuditModule,
     MedicalModule,
+    NotificationsModule,
   ],
   /** Écritures rejouées par la file de synchronisation des appareils (D110). */
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],

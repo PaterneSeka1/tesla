@@ -206,6 +206,11 @@ export const catchUpLockSchema = z.object({
   stage: stageSummarySchema.nullable(),
   /** Échéance de cette étape (nulle sans délai validé). */
   dueOn: z.iso.date().nullable(),
+  /**
+   * Alerte d'échéance (D192) : `PROCHE` dans la fenêtre `catchUpAlertDays` du référentiel (aucune
+   * tant qu'elle n'est pas arbitrée), `DEPASSEE` dès le lendemain de l'échéance.
+   */
+  deadline: z.enum(['PROCHE', 'DEPASSEE']).nullable(),
   /** Modules ouverts pendant le verrou. */
   allowedModuleIds: z.array(z.uuid()),
 });

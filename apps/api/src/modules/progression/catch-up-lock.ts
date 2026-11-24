@@ -2,6 +2,7 @@ import {
   type AgeRuleSetSnapshot,
   compareCivilDates,
   type CatchUpLock,
+  catchUpReminderKind,
   stagePeriods,
 } from '@tesla/shared';
 import { type Prisma, type ProgressionStage } from '../../generated/prisma/client.js';
@@ -81,7 +82,12 @@ export function isModuleLocked(lock: ComputedCatchUpLock, moduleId: string | nul
   return lock.active && (moduleId === null || !lock.allowedModuleIds.has(moduleId));
 }
 
-export function toCatchUpLock(lock: ComputedCatchUpLock): CatchUpLock {
+export function toCatchUpLock(
+  lock: ComputedCatchUpLock,
+  today: string,
+  alertDays: number | null,
+): CatchUpLock {
+  const reminder = lock.active ? catchUpReminderKind(lock.dueOn, today, alertDays) : null;
   return {
     active: lock.active,
     stage: lock.stage && {
@@ -91,6 +97,12 @@ export function toCatchUpLock(lock: ComputedCatchUpLock): CatchUpLock {
       position: lock.stage.position,
     },
     dueOn: lock.dueOn,
+    deadline:
+      reminder === 'RATTRAPAGE_EN_RETARD'
+        ? 'DEPASSEE'
+        : reminder === 'RATTRAPAGE_ECHEANCE_PROCHE'
+          ? 'PROCHE'
+          : null,
     allowedModuleIds: [...lock.allowedModuleIds],
   };
 }

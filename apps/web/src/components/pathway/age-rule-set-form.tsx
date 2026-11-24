@@ -36,6 +36,7 @@ interface Values {
   catchUpDelayMonths: string;
   catchUpDelayDays: string;
   exitAlertMonths: string;
+  catchUpAlertDays: string;
   stages: StageRow[];
 }
 
@@ -53,6 +54,7 @@ function initialValues(base: AgeRuleSet | null): Values {
     catchUpDelayMonths: text(base?.catchUpDelayMonths),
     catchUpDelayDays: text(base?.catchUpDelayDays),
     exitAlertMonths: text(base?.exitAlertMonths),
+    catchUpAlertDays: text(base?.catchUpAlertDays),
     stages:
       base?.stages.map((rule) => ({
         stageCode: rule.stageCode,
@@ -74,6 +76,7 @@ function toInput(values: Values): CreateAgeRuleSetInput {
     catchUpDelayMonths: count(values.catchUpDelayMonths),
     catchUpDelayDays: count(values.catchUpDelayDays),
     exitAlertMonths: count(values.exitAlertMonths),
+    catchUpAlertDays: count(values.catchUpAlertDays),
     stages: values.stages.map((row) => ({
       stageCode: row.stageCode,
       start: { years: Number(row.startYears), months: Number(row.startMonths || 0) },
@@ -175,7 +178,7 @@ export function AgeRuleSetForm({ base, onDone }: { base: AgeRuleSet | null; onDo
 
           <fieldset className="space-y-3">
             <legend className="font-semibold text-tesla-bordeaux">Seuils</legend>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <FormField
                 id="rules-exit"
                 label="Sortie de la branche (âge)"
@@ -226,6 +229,19 @@ export function AgeRuleSetForm({ base, onDone }: { base: AgeRuleSet | null; onDo
                   min={1}
                   {...fieldA11y('rules-alert', errors.exitAlertMonths?.message)}
                   {...register('exitAlertMonths')}
+                />
+              </FormField>
+              <FormField
+                id="rules-catchup-alert"
+                label="Alerte avant l’échéance d’un rattrapage (jours)"
+                error={errors.catchUpAlertDays?.message}
+              >
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  {...fieldA11y('rules-catchup-alert', errors.catchUpAlertDays?.message)}
+                  {...register('catchUpAlertDays')}
                 />
               </FormField>
             </div>

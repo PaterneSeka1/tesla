@@ -20,6 +20,8 @@ export interface CachedResponse {
 const EXCLUDED_PREFIXES = [
   '/auth/',
   '/me/medical-record',
+  // Notifications (D192) : état de lecture tenu par le serveur, jamais rejoué depuis une copie.
+  '/me/notifications',
   '/users',
   '/offline/',
   '/attempts/',

@@ -1,4 +1,4 @@
-import { summarizeOpenCatchUps } from '@tesla/shared';
+import { catchUpReminderKind, summarizeOpenCatchUps } from '@tesla/shared';
 import { describe, expect, it } from 'vitest';
 
 // Indicateurs « Parcours de la communauté » : mêmes critères que la fiche et le verrou D177.
@@ -76,5 +76,24 @@ describe('summarizeOpenCatchUps', () => {
       obligations: [obligation('r1', 'm1', 'NOVICIAT', '2026-01-01')],
     });
     expect(summary).toMatchObject({ open: 1, overdue: 0, awaitingValidation: 1 });
+  });
+});
+
+describe('catchUpReminderKind (D192)', () => {
+  const today = '2026-11-23';
+  it('aucun rappel sans échéance', () => {
+    expect(catchUpReminderKind(null, today, 7)).toBeNull();
+  });
+  it('en retard dès le lendemain de l’échéance, même sans fenêtre arbitrée', () => {
+    expect(catchUpReminderKind('2026-11-22', today, null)).toBe('RATTRAPAGE_EN_RETARD');
+    expect(catchUpReminderKind('2026-11-23', today, null)).toBeNull();
+  });
+  it('échéance proche dans la fenêtre, bornes incluses', () => {
+    expect(catchUpReminderKind('2026-11-30', today, 7)).toBe('RATTRAPAGE_ECHEANCE_PROCHE');
+    expect(catchUpReminderKind('2026-11-23', today, 7)).toBe('RATTRAPAGE_ECHEANCE_PROCHE');
+    expect(catchUpReminderKind('2026-12-01', today, 7)).toBeNull();
+  });
+  it('fenêtre non arbitrée : aucun rappel préalable', () => {
+    expect(catchUpReminderKind('2026-11-25', today, null)).toBeNull();
   });
 });

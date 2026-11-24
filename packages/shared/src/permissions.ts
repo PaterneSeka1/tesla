@@ -136,6 +136,11 @@ export const PERMISSIONS = {
    * pédagogique ou administrative : aucune ne donne accès à la fiche d'autrui.
    */
   'medicalRecord.own': ['ROUTIER', 'ADULTE', 'ENCADREMENT', 'ADMINISTRATEUR'],
+  /**
+   * Notifications personnelles (D192) : chaque compte consulte et marque lues les siennes, et
+   * seulement les siennes (routes `/me/notifications`, aucun identifiant de destinataire).
+   */
+  'notification.own': ['ROUTIER', 'ADULTE', 'ENCADREMENT', 'ADMINISTRATEUR'],
   'account.read': ['ADMINISTRATEUR', 'OFFICIEL'],
   'account.manage': ['ADMINISTRATEUR', 'OFFICIEL'],
 } as const satisfies Record<string, readonly AccessLevel[]>;

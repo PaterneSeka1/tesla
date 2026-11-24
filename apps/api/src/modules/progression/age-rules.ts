@@ -37,6 +37,7 @@ export function toSnapshot(row: RuleSetRow): AgeRuleSetSnapshot {
     catchUpDelayMonths: row.catchUpDelayMonths,
     catchUpDelayDays: row.catchUpDelayDays,
     exitAlertMonths: row.exitAlertMonths,
+    catchUpAlertDays: row.catchUpAlertDays,
     stages: row.stages.map((rule) => ({
       stageCode: rule.stage.code,
       start: { years: rule.startYears, months: rule.startMonths },

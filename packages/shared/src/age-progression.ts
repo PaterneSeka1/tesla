@@ -165,6 +165,11 @@ export interface AgeRuleSetSnapshot {
   catchUpDelayDays?: number | null;
   /** Seuil d'alerte avant la sortie, en mois ; nul tant qu'il n'est pas validé. */
   exitAlertMonths: number | null;
+  /**
+   * Alerte « échéance proche » d'un rattrapage, en jours avant l'échéance (D192) ; nulle tant
+   * qu'elle n'est pas arbitrée : aucun rappel préalable (le rappel de retard reste envoyé).
+   */
+  catchUpAlertDays?: number | null;
   stages: readonly AgeStageRuleSnapshot[];
 }
 
@@ -445,6 +450,8 @@ export const ageRuleSetSchema = z.object({
   /** Délai par étape à rattraper, en jours (prioritaire sur les mois, D177). */
   catchUpDelayDays: z.number().int().nullable(),
   exitAlertMonths: z.number().int().nullable(),
+  /** Alerte avant l'échéance d'un rattrapage, en jours (D192). */
+  catchUpAlertDays: z.number().int().nullable(),
   stages: z.array(
     z.object({
       stageCode: z.string(),
@@ -485,6 +492,7 @@ export const createAgeRuleSetInputSchema = z
     catchUpDelayMonths: nullableCount(120),
     catchUpDelayDays: nullableCount(365).optional(),
     exitAlertMonths: nullableCount(60),
+    catchUpAlertDays: nullableCount(60).optional(),
     stages: z
       .array(
         z.object({

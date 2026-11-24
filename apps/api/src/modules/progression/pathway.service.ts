@@ -176,6 +176,7 @@ export class PathwayService {
             catchUpDelayMonths: data.catchUpDelayMonths,
             catchUpDelayDays: data.catchUpDelayDays ?? null,
             exitAlertMonths: data.exitAlertMonths,
+            catchUpAlertDays: data.catchUpAlertDays ?? null,
             stages: {
               create: data.stages.map((rule) => ({
                 stageId: byCode.get(rule.stageCode)!,
@@ -585,7 +586,7 @@ export class PathwayService {
             ruleSetVersion: null,
             reason: PUBLIC_CATCH_UP_REASON,
           })),
-      catchUpLock: toCatchUpLock(lock),
+      catchUpLock: toCatchUpLock(lock, today, rules?.catchUpAlertDays ?? null),
       catchUpDeadlineUndetermined: catchUps.some(
         (obligation) =>
           obligation.status !== 'PARCOURS_ANTERIEUR' &&
@@ -828,6 +829,7 @@ function toAgeRuleSet(row: RuleSetRow): AgeRuleSet {
     catchUpDelayMonths: row.catchUpDelayMonths,
     catchUpDelayDays: row.catchUpDelayDays,
     exitAlertMonths: row.exitAlertMonths,
+    catchUpAlertDays: row.catchUpAlertDays,
     stages: [...row.stages]
       .sort((a, b) => a.stage.position - b.stage.position)
       .map((rule) => ({

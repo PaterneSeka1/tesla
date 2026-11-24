@@ -13,10 +13,15 @@ import { formatCivilDate } from './pathway-summary';
 export function CatchUpLockNotice({ pathway }: { pathway: ScoutPathway }) {
   const lock = pathway.catchUpLock;
   if (!lock.active) return null;
+  // Alerte d'échéance (D192) : signalée en clair, sans changer le verrou.
+  const overdue = lock.deadline === 'DEPASSEE';
   return (
-    <Alert variant="info">
+    <Alert variant={overdue ? 'destructive' : 'info'}>
       <Lock aria-hidden />
       <AlertDescription>
+        {lock.deadline && (
+          <strong className="block">{overdue ? 'Échéance dépassée.' : 'Échéance proche.'}</strong>
+        )}
         Rattrapage en cours{lock.stage ? ` : ${lock.stage.name}` : ''}
         {lock.dueOn ? `, à terminer avant le ${formatCivilDate(lock.dueOn)}` : ''}. Tous les cours
         restent consultables ; les autres évaluations s’ouvriront ensuite.

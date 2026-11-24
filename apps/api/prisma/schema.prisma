@@ -128,6 +128,7 @@ model User {
   leadershipEnded              LeadershipAssignment[]    @relation("LeadershipAssignmentEndedBy")
   accountTokens                AccountToken[]            @relation("AccountTokenUser")
   accountTokensIssued          AccountToken[]            @relation("AccountTokenCreatedBy")
+  notifications                Notification[]
 
   @@index([role])
   @@map("users")
@@ -220,8 +221,8 @@ model ScoutProfile {
   createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user                  User?                  @relation(fields: [userId], references: [id], onDelete: Restrict)
-  currentStage          ProgressionStage?      @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
+  user                  User?                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  currentStage          ProgressionStage?       @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
   teamAssignments       TeamAssignment[]
   evaluationAttempts    EvaluationAttempt[]
   evaluationWaivers     EvaluationWaiver[]
@@ -260,14 +261,14 @@ model ProgressionStage {
   scoutProfiles       ScoutProfile[]
   evaluations         Evaluation[]
   moduleVersions      ModuleVersion[]
-  stageChangesFrom    ScoutStageChange[]  @relation("StageChangeFrom")
-  stageChangesTo      ScoutStageChange[]  @relation("StageChangeTo")
+  stageChangesFrom    ScoutStageChange[]      @relation("StageChangeFrom")
+  stageChangesTo      ScoutStageChange[]      @relation("StageChangeTo")
   competencies        Competency[]
   programmeCategories ProgrammeCategory[]
   ageRules            AgeStageRule[]
   catchUpObligations  CatchUpObligation[]
-  stageOverrides      StageOverride[]     @relation("StageOverrideStage")
-  stageOverridesFrom  StageOverride[]     @relation("StageOverrideComputedStage")
+  stageOverrides      StageOverride[]         @relation("StageOverrideStage")
+  stageOverridesFrom  StageOverride[]         @relation("StageOverrideComputedStage")
   priorRecognitions   PriorStageRecognition[]
 
   @@map("progression_stages")
@@ -1721,6 +1722,8 @@ model AgeRuleSet {
   /// Délai par étape à rattraper, en jours (D177) ; prioritaire sur le délai en mois.
   catchUpDelayDays   Int?             @map("catch_up_delay_days")
   exitAlertMonths    Int?             @map("exit_alert_months")
+  /// Alerte « échéance proche » d'un rattrapage, en jours (D192) ; nulle = non arbitrée.
+  catchUpAlertDays   Int?             @map("catch_up_alert_days")
   activatedAt        DateTime?        @map("activated_at") @db.Timestamptz(3)
   /// Null = activé par le système (seed de la règle fournie par le responsable).
   activatedById      String?          @map("activated_by_id") @db.Uuid
@@ -2110,10 +2113,41 @@ model PriorStageRecognition {
   recordedBy   User             @relation("PriorStageRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
   revokedBy    User?            @relation("PriorStageRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
 
+  @@unique([scoutProfileId, stageId], map: "prior_stage_recognitions_active_key", where: raw("revoked_at IS NULL"))
   @@index([scoutProfileId])
   @@index([stageId])
   @@index([recordedById])
   @@index([revokedById])
-  @@unique([scoutProfileId, stageId], map: "prior_stage_recognitions_active_key", where: raw("revoked_at IS NULL"))
   @@map("prior_stage_recognitions")
+}
+
+/// Nature d'une notification de la plateforme (D192). Synchronisé avec `NOTIFICATION_KINDS`.
+enum NotificationKind {
+  RATTRAPAGE_ECHEANCE_PROCHE
+  RATTRAPAGE_EN_RETARD
+}
+
+/// Notification personnelle (D192) : affichée dans la fenêtre « Notifications » à la connexion et
+/// envoyée au plus une fois par e-mail si le SMTP est configuré. Jamais supprimée : marquée lue.
+model Notification {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  userId           String           @map("user_id") @db.Uuid
+  kind             NotificationKind
+  title            String
+  body             String
+  /// Chemin interne de l'application (jamais une URL externe).
+  link             String?
+  /// Idempotence : une seule notification par destinataire et par événement.
+  dedupeKey        String           @map("dedupe_key")
+  readAt           DateTime?        @map("read_at") @db.Timestamptz(3)
+  /// Réservation de l'envoi (au plus une tentative), puis confirmation de l'envoi.
+  emailAttemptedAt DateTime?        @map("email_attempted_at") @db.Timestamptz(3)
+  emailedAt        DateTime?        @map("emailed_at") @db.Timestamptz(3)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt])
+  @@map("notifications")
 }

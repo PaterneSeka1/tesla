@@ -142,6 +142,8 @@ function RuleSetCard({
           </dd>
           <dt className="text-muted-foreground">Alerte avant la sortie</dt>
           <dd>{ruleSet.exitAlertMonths ? `${ruleSet.exitAlertMonths} mois` : undetermined}</dd>
+          <dt className="text-muted-foreground">Alerte avant l’échéance d’un rattrapage</dt>
+          <dd>{ruleSet.catchUpAlertDays ? `${ruleSet.catchUpAlertDays} jours` : undetermined}</dd>
         </dl>
         <div>
           <p className="font-medium">Périodes d’étape</p>

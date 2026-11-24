@@ -5,6 +5,7 @@ import { useSyncExternalStore } from 'react';
 import { SessionGate } from '@/components/auth/session-gate';
 import { UserMenu } from '@/components/auth/user-menu';
 import { BrandLogo } from '@/components/brand-logo';
+import { NotificationsDialog } from '@/components/notifications/notifications-dialog';
 import { DeviceStatus } from '@/components/offline/device-status';
 import { cn } from '@/lib/utils';
 import { PageTransition } from './page-transition';
@@ -121,6 +122,7 @@ export function DashboardShell({
             <PageTransition>{children}</PageTransition>
           ) : (
             <SessionGate>
+              <NotificationsDialog />
               <PageTransition>{children}</PageTransition>
             </SessionGate>
           )}

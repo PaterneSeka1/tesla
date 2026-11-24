@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { NotificationsModule } from '../notifications/notifications.module.js';
+import { CatchUpRemindersService } from './catch-up-reminders.service.js';
 import { CompetenciesService } from './competencies.service.js';
 import { CompetencyProposalsService } from './competency-proposals.service.js';
 import { MembershipService } from './membership.service.js';
@@ -25,6 +27,7 @@ import { StageOverridesService } from './stage-overrides.service.js';
  * responsable), référentiel de compétences, propositions et validations officielles, études de modules.
  */
 @Module({
+  imports: [NotificationsModule],
   controllers: [
     ProgressionController,
     ScoutProgressionController,
@@ -46,7 +49,8 @@ import { StageOverridesService } from './stage-overrides.service.js';
     MembershipService,
     StageOverridesService,
     PriorStagesService,
+    CatchUpRemindersService,
   ],
-  exports: [PathwayService, MembershipService],
+  exports: [PathwayService, MembershipService, CatchUpRemindersService],
 })
 export class ProgressionModule {}
