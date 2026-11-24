@@ -131,6 +131,8 @@ model User {
   notifications                Notification[]
   learningEvents               LearningEvent[]
   practiceProgress             PracticeProgress[]
+  practiceAttempts             PracticeAttempt[]
+  learningBadges               LearningBadge[]
 
   @@index([role])
   @@map("users")
@@ -938,6 +940,8 @@ model ModuleLesson {
   /// Rang dans la version (0, 1, 2…), maintenu contigu par le service.
   position        Int
   title           String
+  /// Identité pédagogique stable de la leçon, recopiée de version en version (renommage compris).
+  lessonKey       String   @default(dbgenerated("gen_random_uuid()")) @map("lesson_key") @db.Uuid
   content         Json
   durationMinutes Int?     @map("duration_minutes")
   /// Contrôle de concurrence optimiste de la leçon.
@@ -953,6 +957,7 @@ model ModuleLesson {
   updatedBy User?            @relation("ModuleLessonUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
   resources ModuleResource[]
 
+  @@unique([versionId, lessonKey])
   @@index([versionId, position])
   @@index([createdById])
   @@index([updatedById])
@@ -2182,23 +2187,77 @@ enum LearningEventKind {
   REVISION
 }
 
+/// Tentative d'entraînement (D201) : une ligne par identifiant de tentative, en ajout seul.
+/// Rejouer le même identifiant renvoie le résultat enregistré sans aucun nouvel effet.
+model PracticeAttempt {
+  id                  String                @id @default(uuid(7)) @db.Uuid
+  userId              String                @map("user_id") @db.Uuid
+  attemptId           String                @map("attempt_id") @db.Uuid
+  moduleSlug          String                @map("module_slug")
+  activityKey         String                @map("activity_key")
+  /// Version publiée du module au moment de l'enregistrement.
+  moduleVersion       Int?                  @map("module_version")
+  /// Empreinte du contenu joué, envoyée par l'appareil.
+  activityFingerprint String?               @map("activity_fingerprint")
+  mode                String
+  item                Int?
+  assisted            Boolean               @default(false)
+  status              PracticeAttemptStatus
+  answers             Json
+  correct             Int
+  total               Int
+  mastered            Boolean
+  /// Réponse renvoyée à l'appareil (rejouée à l'identique).
+  result              Json
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, attemptId])
+  @@index([userId, moduleSlug, activityKey, createdAt])
+  @@map("practice_attempts")
+}
+
+enum PracticeAttemptStatus {
+  /// Prise en compte (suivi, révisions, récompenses).
+  COMPTEE
+  /// Contenu modifié ou retiré depuis la partie : conservée sans recorrection ni effet.
+  PERIMEE
+}
+
+/// Badge obtenu (D201) : enregistré une fois, jamais retiré, date réelle d'obtention.
+model LearningBadge {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  badgeKey  String   @map("badge_key")
+  earnedAt  DateTime @map("earned_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, badgeKey])
+  @@map("learning_badges")
+}
+
 /// Suivi d'entraînement d'une activité (D197) : répétition espacée déterministe (boîtes 1 à 5).
 model PracticeProgress {
-  id              String    @id @default(uuid(7)) @db.Uuid
-  userId          String    @map("user_id") @db.Uuid
-  moduleSlug      String    @map("module_slug")
-  activityKey     String    @map("activity_key")
-  activityKind    String    @map("activity_kind")
-  attempts        Int       @default(0)
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  moduleSlug            String    @map("module_slug")
+  activityKey           String    @map("activity_key")
+  activityKind          String    @map("activity_kind")
+  attempts              Int       @default(0)
   /// Dernier score d'entraînement (éléments réussis / notés), jamais un résultat officiel.
-  lastCorrect     Int       @default(0) @map("last_correct")
-  lastTotal       Int       @default(0) @map("last_total")
-  box             Int       @default(1)
-  dueOn           DateTime  @map("due_on") @db.Date
-  masteredAt      DateTime? @map("mastered_at") @db.Timestamptz(3)
-  lastPracticedAt DateTime  @map("last_practiced_at") @db.Timestamptz(3)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lastCorrect           Int       @default(0) @map("last_correct")
+  lastTotal             Int       @default(0) @map("last_total")
+  box                   Int       @default(1)
+  dueOn                 DateTime  @map("due_on") @db.Date
+  masteredAt            DateTime? @map("mastered_at") @db.Timestamptz(3)
+  /// Essais manqués avant la première réussite complète (figé ensuite) : badge Persévérance.
+  failuresBeforeMastery Int       @default(0) @map("failures_before_mastery")
+  lastPracticedAt       DateTime  @map("last_practiced_at") @db.Timestamptz(3)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 

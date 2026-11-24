@@ -1039,6 +1039,8 @@ async function copyContent(
         versionId: targetVersionId,
         position: lesson.position,
         title: lesson.title,
+        // Même leçon pédagogique : la progression survit à la nouvelle version et au renommage.
+        lessonKey: lesson.lessonKey,
         content: lesson.content as Prisma.InputJsonValue,
         durationMinutes: lesson.durationMinutes,
         createdById: actorId,
