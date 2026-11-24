@@ -35,6 +35,12 @@ Calcul central `apps/api/src/modules/progression/catch-up-lock.ts`, à chaque le
 - **Inchangés** : étape actuelle (aucune rétrogradation), sortie à 21 ans, accès de l'encadrement, acquis et historiques. Après la sortie de la branche, aucun verrou (toute nouvelle activité est déjà fermée).
 - **Affichage** : bandeau « Rattrapage en cours : étape, à terminer avant le … » sur « Mes rattrapages », le parcours et le catalogue ; `GET /me/pathway` et `GET /scouts/:id/pathway` exposent `catchUpLock` (étape, échéance, modules ouverts) et `blocking` par obligation.
 
+## Alerte et rappels (D192)
+- **Alerte** : `catchUpLock.deadline` vaut `PROCHE` de `catchUpAlertDays` jours avant l'échéance de l'étape en rattrapage jusqu'à elle (bornes incluses), `DEPASSEE` dès le lendemain ; le bandeau l'affiche (« Échéance proche. », « Échéance dépassée. »). Fenêtre : 7 jours (`2026.3`, validée le 2026-11-24) ; nulle = aucune alerte préalable.
+- **Rappels** : `CatchUpRemindersService.dispatch` (traitement quotidien, après le recalcul des plans) reprend le calcul du verrou ; au plus un rappel « échéance proche » et un rappel « en retard » par routier, étape et échéance (clé `rattrapage:<fiche>:<étape>:<échéance>:<nature>`). Destinataires : le routier (compte actif) avec un message générique et un lien vers « Mes rattrapages » ; le responsable plein en fonction avec le nom du routier et un lien vers sa fiche. Routier sans compte : plein seul.
+- **Fenêtre « Notifications »** : s'ouvre à l'arrivée sur la plateforme tant qu'il reste des notifications non lues ; « J'ai compris » les marque lues (`POST /me/notifications/read`), « Plus tard » la ferme jusqu'au prochain chargement. `GET /me/notifications` : non lues du titulaire seul. Jamais en cache hors ligne.
+- **E-mail** : si le SMTP est configuré (D166), chaque notification de moins de 2 jours est envoyée au plus une fois (réservation `email_attempted_at`, confirmation `emailed_at`) ; un échec n'est pas retenté, la notification reste affichée. Ni le contenu ni l'adresse ne sont journalisés.
+
 ## Décision
 `POST /catch-ups/:id/decision` (`catchUp.decide` : responsable plein ou délégation) : `ACQUIS` ou `NON_APPLICABLE`, motif obligatoire, confirmation explicite, définitive (trigger), journalisée. Réutilise les mécanismes existants : études (`ModuleStudy`), évaluations, observations, compétences ; aucun second système d'évaluation.
 
@@ -42,4 +48,4 @@ Calcul central `apps/api/src/modules/progression/catch-up-lock.ts`, à chaque le
 Une obligation ouverte rend accessible l'évaluation publiée du module concerné, même d'une étape antérieure (`ELIGIBLE_RATTRAPAGE`), en ligne comme sur papier, avec ou sans compte ; la limite de tentatives s'applique toujours (D98, à valider).
 
 ## Écrans
-Routier : `/mes-rattrapages`. Encadrement : fiche du routier (bouton « Statuer » réservé aux personnes habilitées) ; indicateurs sur `/encadrement`.
+Routier : `/mes-rattrapages`. Encadrement : fiche du routier (bouton « Statuer » réservé aux personnes habilitées) ; indicateurs sur `/encadrement` (`summarizeOpenCatchUps` : routiers encore membres, mêmes critères que la fiche ; ouverts, en retard, sans échéance, à valider, à réexaminer).

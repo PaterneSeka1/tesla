@@ -1,6 +1,6 @@
 # Référentiel pédagogique et traçabilité des règles
 
-Dernière mise à jour : 2026-11-06 (chronologie Tesla `2026.2`, D176) ; 2026-10-30 (manuel SAPF-Route versé au dépôt, matrice manuel ↔ moteur, § 5) ; 2026-10-29 (refonte « parcours Route et mandats ») ; 2026-10-30 (mandats supprimés : fonctions désignées par l'administrateur, D132).
+Dernière mise à jour : 2026-11-24 (référentiel `2026.3` : alerte des rattrapages à 7 jours, D192) ; 2026-11-06 (chronologie Tesla `2026.2`, D176) ; 2026-10-30 (manuel SAPF-Route versé au dépôt, matrice manuel ↔ moteur, § 5) ; 2026-10-29 (refonte « parcours Route et mandats ») ; 2026-10-30 (mandats supprimés : fonctions désignées par l'administrateur, D132).
 
 **Principe** : le manuel SAPF-Route est la référence pédagogique (document d'atelier régional, non présenté comme règlement national tant qu'il n'est pas validé). Aucune règle absente du manuel ou non validée par le responsable n'est codée. Une valeur non arbitrée reste **nulle** (jamais une valeur par défaut) et l'écran l'indique (« non déterminée », « non arbitré »).
 
@@ -33,6 +33,7 @@ Statuts : **Confirmée** (règle fournie ou validée par le responsable) · **Im
 | Date civile de référence | Mission | Confirmée, implémentée | `Africa/Abidjan` (`civilDateAt`) |
 | Modules obligatoires par étape | Le manuel n'en définit aucun | **Bloquée** | Champ `obligation = OBLIGATOIRE` exigeant une source officielle (CHECK) ; aucun module ainsi marqué |
 | Délai de rattrapage | « Environ 2 à 3 semaines par étape » (responsable, 2026-11-06) | Confirmée, implémentée (**D177**) ; 21 jours retenus, à confirmer | `catch_up_delay_days = 21` (`2026.2`), étapes enchaînées, autres cours fermés pendant le rattrapage |
+| Alerte « échéance proche » d'un rattrapage | Responsable, 2026-11-24 | Confirmée, implémentée (**D192**) | `catch_up_alert_days = 7` (`2026.3`) : bandeau et rappels 7 jours avant l'échéance |
 | Rattrapage plafonné à la sortie | Mission | Confirmée, implémentée | `catchUpDueOn` |
 | Accès aux évaluations d'une étape antérieure au titre d'un rattrapage | Mission (« lorsque les règles l'autorisent ») | **À valider** (D98) | Statut `ELIGIBLE_RATTRAPAGE` si obligation ouverte |
 | Seuil d'alerte avant 21 ans | Non défini | **Bloquée** | `exit_alert_months` nul → liste par date, sans alerte |

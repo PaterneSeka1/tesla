@@ -4,6 +4,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — annonce du passage d'étape, 2026-11-24 (D193)
+- Le routier et le responsable plein sont prévenus quand le routier entre dans une nouvelle étape du parcours (fenêtre « Notifications », e-mail si configuré). Ce n'est jamais une cérémonie.
+
+### Ajouté — alerte et rappels de rattrapage, 2026-11-23 (D192)
+- Le bandeau de rattrapage signale « Échéance proche » (7 jours avant l'échéance, référentiel `2026.3`) et « Échéance dépassée ».
+- Rappels automatiques au routier et au responsable plein : fenêtre « Notifications » à l'arrivée sur la plateforme, et e-mail si l'envoi est configuré.
+
+### Corrigé — fiabilité de la progression, 2026-11-23
+- Les indicateurs « Parcours de la communauté » ne comptent plus les rattrapages des routiers sortis ou désactivés et suivent les mêmes critères que la fiche ; nouveau compteur « Rattrapages à réexaminer ».
+- La décision sur un rattrapage revérifie la fonction de responsable plein au moment de l'enregistrement.
+- Le traitement quotidien continue après une fiche en erreur et signale l'échec.
+
 ### Modifié — fiche médicale pour tout le monde, 2026-11-17 (D191)
 - Les adultes (routiers sortis de la branche compris) et l'administrateur ont désormais leur fiche médicale (Paramètres du compte), comme les routiers et l'encadrement.
 - Chacun ne voit toujours que la sienne ; l'administrateur n'a aucun accès à celle des autres.

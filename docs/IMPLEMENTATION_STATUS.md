@@ -2,6 +2,21 @@
 
 Dernière mise à jour : 2026-11-17 — **fiche médicale pour tout le monde** (D191) et **routier sorti considéré comme adulte** (D190), voir [§ Sortie vers adulte](#routier-sorti-considéré-comme-adulte-2026-11-17) ; **référencement et métadonnées** (D189), voir [§ Référencement](#référencement-et-métadonnées-2026-11-17) ; **actes du plein sans validation** (D188), voir [§ Actes du plein](#actes-du-plein-sans-validation-2026-11-17) ; **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
 
+## Audit de la progression (2026-11-23)
+
+Branche `fix/progression-audit` (commits c4dd5da à ca5d349 et documentation, non poussée). Décisions D192 (alerte et rappels, fenêtre 7 jours) et D193 (annonce du passage d'étape). Migrations additives `20261123090000_catch_up_reminders` et `20261124090000_stage_transition_notifications` appliquées sur `tesla_test` seulement ; base `tesla` et production intouchées ; aucun déploiement. Rapport : [QUALITY/AUDIT_PROGRESSION_2026-11-23.md](QUALITY/AUDIT_PROGRESSION_2026-11-23.md) (comparaison avec le suivi pédagogique CMG).
+
+### Réalisé
+- Indicateurs de rattrapage alignés sur la fiche (`summarizeOpenCatchUps`, champ `toReview`) ; `assertCanAtWrite` sur `decideCatchUp` ; garde apprenant adulte dans le plan de rattrapage ; `syncAllCatchUps` pour le traitement quotidien (chargement unique, erreurs isolées).
+- D192 : `catchUpAlertDays` au référentiel (formulaire et consultation) ; `catchUpLock.deadline` et bandeau « Échéance proche / dépassée » ; table `notifications` (trigger d'immutabilité), module `notifications` (`GET /me/notifications`, `POST /me/notifications/read`, permission `notification.own`) ; `CatchUpRemindersService` dans `jobs:daily` ; envoi SMTP au plus une fois (transport partagé `common/mail-transport.ts`) ; fenêtre « Notifications » dans le cadre de l'application, exclue du hors ligne.
+- Référentiel `2026.3` (seed, en vigueur au 2026-11-24) : alerte à 7 jours. D193 : `StageAnnouncementsService` dans `jobs:daily` (notification `ETAPE_NOUVELLE`).
+
+### Vérifications
+- `lint`, `typecheck`, `test` (API 310, web 146) ; API 312 ; intégration `tesla_test` : **200 réussis**, 1 ignoré (classeur réel absent), dont `catch-up-reminders.int-spec.ts` 6/6 ; seed vérifié sur `tesla_test` (2026.3 créé) ; `prisma migrate diff` : aucune dérive. Recette navigateur de la fenêtre non exécutée ; envoi SMTP réel non testé.
+
+### Reste
+- Sur autorisation : appliquer les deux migrations et le seed (référentiel `2026.3`) sur `tesla` ; planifier `jobs:daily` sur le serveur ; recette navigateur de la fenêtre et envoi SMTP réel.
+
 ## Routier sorti considéré comme adulte (2026-11-17)
 
 Décision D190. Aucune migration, aucun déploiement.

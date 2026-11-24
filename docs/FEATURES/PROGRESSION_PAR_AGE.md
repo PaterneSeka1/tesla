@@ -31,6 +31,9 @@ Exemple (né le 27 octobre 2008) : noviciat le 27/10/2026, apprentissage le 27/1
 
 **L'âge ne prouve aucune réalisation** : l'Engagement routier, les flots, étoiles et insignes, le Raid, l'Entreprise et la cérémonie du Départ ne sont jamais attribués automatiquement. Entrer en « Préparation au Départ routier » ne signifie pas que la cérémonie du Départ a eu lieu.
 
+## Annonce du passage d'étape (D193)
+`StageAnnouncementsService` (traitement quotidien) : quand la période de l'étape appliquée a commencé depuis au plus 7 jours, notification « Nouvelle étape du parcours » au routier (compte actif, lien vers son parcours) et au responsable plein en fonction (nom du routier, lien vers la fiche), dans la fenêtre « Notifications » et par e-mail si configuré (voir [RATTRAPAGE.md](RATTRAPAGE.md#alerte-et-rappels-d192)). Une seule fois par étape et date de début ; rien n'est stocké hormis la notification. Aucune annonce pendant une exception de secours, pour un routier sorti ou un apprenant adulte ; jamais une cérémonie.
+
 ## Procédure de secours : correction exceptionnelle de l'étape (D176)
 | Valeur | Définition |
 | --- | --- |
