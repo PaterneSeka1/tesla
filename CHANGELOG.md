@@ -4,6 +4,19 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Corrigé — fiabilité de l'entraînement, 2026-11-24 (D201, D202)
+- Un même résultat renvoyé (réseau, file hors ligne, double envoi, deux appareils) n'est plus compté plusieurs fois.
+- Un résultat obtenu sur une ancienne version d'une activité est conservé sans être recorrigé ni compté ; l'écran le dit.
+- Plus aucune perte silencieuse : chaque issue est annoncée (enregistré, en attente, à réessayer, non compté) avec « Réessayer » quand c'est utile.
+- Les badges obtenus restent acquis ; « Persévérance » récompense une réussite après de vraies difficultés ; « Retour sur les traces » n'est plus perdu après une erreur.
+- Les parties en cours ne sont plus partagées entre comptes sur un même appareil ; elles reprennent après fermeture ou changement de jour.
+- Une leçon renommée reste marquée comme lue ; les révisions d'exercices retirés ne bloquent plus les autres.
+- L'Ascension et le défi express ne sont plus proposés sans contenu suffisant.
+
+### Modifié — jeux, 2026-11-24 (D202)
+- L'Ascension : paysage de savane, étapes nommées, jokers plus lisibles, réponses prises en compte dans les révisions.
+- Jeu de mémoire et salle des défis : identité visuelle propre ; parties plus variées.
+
 ### Ajouté — expérience immersive, 2026-11-24 (D194–D200)
 - **Défis** : une nouvelle rubrique pour s'entraîner librement (défi express, vrai ou faux, cartes de mémorisation, jeu de mémoire, texte à compléter, remise en ordre, L'Ascension, associations, mises en situation), à partir des seuls contenus publiés. On peut se tromper et recommencer ; rien n'a de valeur officielle.
 - **Activités dans les leçons** : l'encadrement peut insérer une activité d'entraînement dans une leçon (menu « Bloc pédagogique »), avec un aperçu immédiat ; elle suit le circuit d'approbation du module. Les prières et textes cités, les listes numérotées et les encadrés « À retenir » donnent aussi des exercices de mémorisation, sans modifier le texte.

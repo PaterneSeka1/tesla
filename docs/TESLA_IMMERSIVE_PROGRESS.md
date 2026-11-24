@@ -114,3 +114,49 @@ Aucune dépendance ajoutée (animations en CSS, sons synthétisés, nœud Tiptap
 1. `git switch feat/tesla-immersive-learning` ; rien n'est commité ni poussé (règle du dépôt : commit sur demande).
 2. Fixture de recette : `cd apps/api && TEST_DATABASE_URL=…/tesla_test npx tsx test/immersive-browser-fixture.mts`.
 3. API (`DATABASE_URL` vers `tesla_test`, `npx nest start`), web de production (`next build && next start`), puis `node apps/web/test/immersive.browser.mjs` avec `PLAYWRIGHT_MODULE` et `CHROMIUM_PATH`.
+
+---
+
+# Chantier 2 — audit et perfectionnement (2026-11-24)
+
+Cahier des charges : prompt « Audit post-implémentation » (non versionné). Branche **`feat/tesla-immersive-audit`** créée depuis `feat/tesla-immersive-learning` (8362a4f = `origin/feat/tesla-immersive-learning`, 0 retard sur `origin/main` 3a80bea). Rien n'est commité ni poussé.
+
+## Constats vérifiés dans le code (lot A)
+| # | Constat | Fichier | Gravité |
+|---|---|---|---|
+| 1 | Aucune idempotence métier : un second envoi (nouvel identifiant d'opération, deux appareils, relance) incrémente `attempts`, déplace la boîte | `practice.service.ts` | P0 |
+| 2 | Aucune notion de version : un résultat hors ligne est recorrigé contre le contenu actuel | `practice.service.ts` | P0 |
+| 3 | Erreur serveur avalée (`saved = 'none'`, aucun message) ; réponse tardive d'une manche abandonnée écrasait la nouvelle | `activity-runner.tsx` | P0 |
+| 4 | Parties en `localStorage` non isolées par compte (`tesla.games.position`, `tesla.games.ascension`) ; Ascension perdue au changement de jour (signature datée) ; mémoire non sauvegardée | `sequence-game.tsx`, `ascension-game.tsx`, `memory-game.tsx` | P0 |
+| 5 | Badges recalculés, jamais enregistrés ; « Retour sur les traces » exige la boîte **actuelle** ≥ 4 (perdu après une erreur) ; « Persévérance » accordée après 3 réussites sans difficulté | `learning.ts` | P0 |
+| 6 | Révisions d'activités retirées comptées et proposées | `journal()` | P1 |
+| 7 | Leçon identifiée par l'empreinte de son titre : un renommage efface la lecture | `lessonReadRef` | P1 |
+| 8 | L'Ascension affichée avec une seule question (« Il faut au moins quatre questions ») ; défi express suggéré sans activité compatible | `game-room.tsx`, `home.ts` | P1 |
+| 9 | Indice du quiz utilisé sans effet sur la maîtrise ; Ascension et mémoire sans aucun lien avec le suivi | `quiz-player.tsx` | P1 |
+
+Non reproduit en navigateur pendant ce chantier (constats établis par lecture du code et par tests).
+
+## Réalisé
+- **Lot B/C (D201)** : `practice_attempts` (ajout seul, rejeu à l'identique, `PERIMEE`), verrou par compte, `fingerprint` dans la banque, modes `activity` / `ascension` / `memory`, réponses assistées, `learning_badges` (ajout seul), `failures_before_mastery`, `module_lessons.lesson_key` (reprise par module et titre), révisions réconciliées, `readLessonIds` et `mastered` dans le carnet. Web : `lib/game-session.ts` (coffre chiffré ou onglet, par compte, 14 jours, écritures en série, purge des anciennes clés), `lib/practice-results.ts` (9 états nommés, « Réessayer », renvoi au retour du réseau avec le même identifiant).
+- **Lot D** : `isPlayable` / `playableModes` / `dueInBank` ; sélection (priorité, récence locale, variété des leçons, difficulté) fixée à l'ouverture ; difficulté éditoriale facultative dans le schéma.
+- **Lot E (partiel)** : L'Ascension (`ascension-landscape.tsx`) ; dos de carte du jeu de mémoire.
+- **Lot F (partiel)** : salle des défis (deux jeux illustrés, tuiles) ; accueil et module utilisent `isPlayable`.
+
+## Non réalisé (à reprendre dans cet ordre)
+1. Recette navigateur de ce chantier (captures, `immersive.browser.mjs` à adapter : salle des défis en tuiles, libellés « Monter », « Changer »), mesures avant/après.
+2. Persistance des réponses **à l'intérieur** d'une activité (question en cours d'un quiz) : seule la position dans la partie et l'activité terminée sont reprises.
+3. Lot E restant : frise, associations, mises en situation, flashcards.
+4. Lot F : carte d'aventure illustrée (vue liste à conserver).
+5. Lot G : expéditions ; désactivation par l'encadrement d'un exercice dérivé (une liste numérotée n'est pas toujours une séquence).
+6. Lot H : saisie de la difficulté dans `practice-form.tsx`, aperçu des exercices dérivés.
+7. Lots I et J : missions, jeu collectif, carnet personnalisé — décisions métier toujours attendues (voir plus haut).
+8. Lot K : `audit:prod`, recette téléphones réels.
+
+## Migration
+`20261126090000_practice_attempts_badges` (additive) : 2 tables en ajout seul (triggers), 2 colonnes, CHECK. La reprise de `lesson_key` suspend `module_lessons_draft_guard` le temps d'une instruction (seule la nouvelle colonne technique est écrite). Appliquée sur **`tesla_test` seulement** ; `migrate diff` : aucune dérive. Ni `tesla` ni la production.
+
+## Tests (2026-11-24)
+- Référence avant travaux : typecheck OK, API 312/312, web 161/161.
+- Après : lint OK, typecheck OK, API 312/312, web **179/179** (18 nouveaux : `games.test.ts`, `game-session.test.ts`, `practice-results.test.ts`, badges et empreinte dans `practice.test.ts`), intégration `practice.int-spec.ts` **10/10** (5 nouveaux : rejeu simultané, version périmée, réponses assistées et Ascension, badges acquis, leçon renommée).
+- Non exécutés : `npm run build`, suite d'intégration complète, recettes navigateur, `audit:prod`.
+

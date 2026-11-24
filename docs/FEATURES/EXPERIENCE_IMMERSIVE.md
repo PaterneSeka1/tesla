@@ -1,4 +1,4 @@
-# Expérience immersive (D194–D200)
+# Expérience immersive (D194–D202)
 
 Cahier des charges : [../prompts/TESLA_IMMERSIVE_LEARNING.md](../prompts/TESLA_IMMERSIVE_LEARNING.md). Décisions : [../DECISIONS.md](../DECISIONS.md#expérience-immersive-2026-11-24). Suivi des lots : [../TESLA_IMMERSIVE_PROGRESS.md](../TESLA_IMMERSIVE_PROGRESS.md).
 
@@ -30,6 +30,12 @@ Apprendre (lecteur), jouer (défis), vivre (activités de la communauté, exista
 - Accueil apprenant : `components/home/learner-home.tsx`, règles `lib/home.ts` (testées).
 - Barre inférieure apprenant : Accueil, Cours, Défis, Parcours (ou Évaluations pour l'adulte), Plus.
 - Carte d'aventure : `components/modules/adventure-trail.tsx`.
+
+## Fiabilité des résultats (D201)
+- Tentative = identifiant créé sur l'appareil + empreinte du contenu ; rejouée, elle renvoie le résultat enregistré (`practice_attempts`, ajout seul). Contenu modifié : `stale`, conservé, non compté.
+- Envoi : `lib/practice-results.ts` (états nommés, « Réessayer », renvoi au retour du réseau) ; parties : `lib/game-session.ts` (coffre chiffré du compte, sinon onglet).
+- Badges enregistrés une fois (`learning_badges`) ; leçons identifiées par `lesson_key`.
+- Disponibilité des jeux : `isPlayable` (`lib/games.ts`), seule source pour l'accueil, les défis et les modules.
 
 ## Hors ligne
 - Banque et carnet passent par `apiFetch` (copie chiffrée) et sont préparés avec l'appareil (`preparation.ts`), pages `/defis/*` comprises.
