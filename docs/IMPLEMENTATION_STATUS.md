@@ -1,6 +1,21 @@
 # État d'implémentation
 
-Dernière mise à jour : 2026-11-17 — **fiche médicale pour tout le monde** (D191) et **routier sorti considéré comme adulte** (D190), voir [§ Sortie vers adulte](#routier-sorti-considéré-comme-adulte-2026-11-17) ; **référencement et métadonnées** (D189), voir [§ Référencement](#référencement-et-métadonnées-2026-11-17) ; **actes du plein sans validation** (D188), voir [§ Actes du plein](#actes-du-plein-sans-validation-2026-11-17) ; **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+Dernière mise à jour : 2026-11-24 — **expérience immersive** (D194–D200), voir [§ Expérience immersive](#expérience-immersive-2026-11-24). Le 2026-11-17 : **fiche médicale pour tout le monde** (D191) et **routier sorti considéré comme adulte** (D190), voir [§ Sortie vers adulte](#routier-sorti-considéré-comme-adulte-2026-11-17) ; **référencement et métadonnées** (D189), voir [§ Référencement](#référencement-et-métadonnées-2026-11-17) ; **actes du plein sans validation** (D188), voir [§ Actes du plein](#actes-du-plein-sans-validation-2026-11-17) ; **préparation de la migration du web vers OVH** (D187, non déployée), voir [§ Migration du web vers OVH](#migration-du-web-vers-ovh-2026-11-17) ; même jour : **lien d'activation valable 7 jours** (D186), voir [§ Lien d'activation](#lien-dactivation-de-7-jours-2026-11-17). Le 2026-11-16 : **apprenants adultes** (D185), voir [§ Apprenants adultes](#apprenants-adultes-2026-11-16). Même jour : **invitation à installer l'application, iPhone compris** (D184), voir [§ Installation](#installation-de-lapplication-2026-11-16) ; **sexe du routier** (D183), voir [§ Sexe du routier](#sexe-du-routier-2026-11-16) ; **refonte mobile : barre inférieure commune, ajout direct de leçons** (D182), voir [§ Refonte mobile](#refonte-mobile-2026-11-16) ; **parcours officiel des routiers : étape toujours déterminée, parcours antérieur reconnu, lecture libre** (D181), voir [§ Parcours officiel](#parcours-officiel-2026-11-16).
+
+## Expérience immersive (2026-11-24)
+
+Branche `feat/tesla-immersive-learning` (depuis `fix/progression-audit` + `origin/main`, **non commitée, non poussée**). Décisions D194–D200 ; documentation [FEATURES/EXPERIENCE_IMMERSIVE.md](FEATURES/EXPERIENCE_IMMERSIVE.md) ; suivi des lots [TESLA_IMMERSIVE_PROGRESS.md](TESLA_IMMERSIVE_PROGRESS.md). Migration additive `20261125090000_learning_events_practice` appliquée sur `tesla_test` seulement ; aucun déploiement.
+
+### Réalisé
+- Bloc « Activité » des leçons (7 types) dans l'éditeur, le lecteur, le PDF et la version imprimable ; banque d'entraînement issue des seules versions publiées, complétée d'activités dérivées du texte publié.
+- Défis (10 modes, registre), carnet (XP et badges serveur idempotents), révisions espacées, indicateur agrégé « Notions à retravailler » (Statistiques).
+- Lecteur en mode concentration (Découverte / lecture intégrale), accueil apprenant (une aventure, une suggestion), carte d'aventure du module, préférences de confort, barre inférieure à 4 destinations pour les apprenants.
+
+### Vérifications
+- Voir [TESLA_IMMERSIVE_PROGRESS.md § Tests exécutés](TESLA_IMMERSIVE_PROGRESS.md#tests-exécutés).
+
+### Reste
+- Missions, jeu collectif, avatar, notes et favoris (décisions attendues) ; appliquer la migration sur `tesla` et en production sur autorisation ; recette sur téléphones réels.
 
 ## Audit de la progression (2026-11-23)
 

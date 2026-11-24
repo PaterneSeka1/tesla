@@ -4,6 +4,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — expérience immersive, 2026-11-24 (D194–D200)
+- **Défis** : une nouvelle rubrique pour s'entraîner librement (défi express, vrai ou faux, cartes de mémorisation, jeu de mémoire, texte à compléter, remise en ordre, L'Ascension, associations, mises en situation), à partir des seuls contenus publiés. On peut se tromper et recommencer ; rien n'a de valeur officielle.
+- **Activités dans les leçons** : l'encadrement peut insérer une activité d'entraînement dans une leçon (menu « Bloc pédagogique »), avec un aperçu immédiat ; elle suit le circuit d'approbation du module. Les prières et textes cités, les listes numérotées et les encadrés « À retenir » donnent aussi des exercices de mémorisation, sans modifier le texte.
+- **Lecteur** : lecture sans menu ni barre, mode « Découverte » (une séquence à la fois) ou lecture intégrale, sans perdre sa place ; fin de halte avec la suite.
+- **Carnet** : XP et badges attribués par le serveur, une seule fois, sans lien avec l'étape, les résultats ou les acquis ; notions à revoir (révisions espacées).
+- **Confort** (Mon profil) : réduire les animations, sons (désactivés par défaut), vibrations.
+
+### Modifié — accueil et navigation des apprenants, 2026-11-24 (D199, D200)
+- Accueil : une aventure à reprendre en une action et au plus une suggestion, au lieu d'un tableau de bord.
+- Page d'un module : sentier des haltes (vue liste disponible), une seule action principale, téléchargements regroupés dans « Plus ».
+- Barre inférieure : Accueil, Cours, Défis, Parcours (ou Évaluations pour l'adulte), Plus ; les évaluations officielles du routier sont rangées dans « Mon parcours ».
+
 ### Ajouté — annonce du passage d'étape, 2026-11-24 (D193)
 - Le routier et le responsable plein sont prévenus quand le routier entre dans une nouvelle étape du parcours (fenêtre « Notifications », e-mail si configuré). Ce n'est jamais une cérémonie.
 
