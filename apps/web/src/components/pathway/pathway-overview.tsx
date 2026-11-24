@@ -39,6 +39,9 @@ export function PathwayOverviewPanel() {
           hint={`${d.catchUps.overdue} en retard · ${d.catchUps.withoutDeadline} sans échéance validée`}
         />
         <Figure label="Rattrapages à valider" value={d.catchUps.awaitingValidation} />
+        {d.catchUps.toReview > 0 && (
+          <Figure label="Rattrapages à réexaminer" value={d.catchUps.toReview} />
+        )}
         <Figure
           label="Dates de naissance manquantes"
           value={d.missingBirthDate}

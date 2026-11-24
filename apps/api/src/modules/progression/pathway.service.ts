@@ -21,6 +21,8 @@ import {
   createAgeRuleSetInputSchema,
   type DecideCatchUpInput,
   decideCatchUpInputSchema,
+  type LearnerKind,
+  summarizeOpenCatchUps,
   type CatchUpObligation,
   type PathwayOverview,
   type ScoutPathway,
@@ -290,9 +292,41 @@ export class PathwayService {
     return this.sync(profile, rules, today, stages);
   }
 
+  /**
+   * Traitement quotidien : référentiel, étapes et modules obligatoires chargés **une fois**, puis
+   * recalcul de chaque routier actif. L'échec d'une fiche est isolé (identifiant seulement) et
+   * n'empêche pas le traitement des suivantes ; le relancer est sans risque (idempotent).
+   */
+  async syncAllCatchUps(
+    today: string = todayCivil(),
+  ): Promise<{ created: number; failedProfileIds: string[] }> {
+    const rules = await loadRuleSetRow(this.prisma, today);
+    if (!rules) return { created: 0, failedProfileIds: [] };
+    const [stages, mandatory, profiles] = await Promise.all([
+      this.prisma.progressionStage.findMany(),
+      this.mandatoryModules(),
+      this.prisma.scoutProfile.findMany({
+        // Rattrapages : routiers seulement (D185).
+        where: { kind: 'ROUTIER', membershipStatus: 'ACTIF' },
+        select: { id: true, kind: true, birthDate: true, joinedAt: true, membershipStatus: true },
+      }),
+    ]);
+    let created = 0;
+    const failedProfileIds: string[] = [];
+    for (const profile of profiles) {
+      try {
+        created += await this.sync(profile, rules, today, stages, mandatory);
+      } catch {
+        failedProfileIds.push(profile.id);
+      }
+    }
+    return { created, failedProfileIds };
+  }
+
   private async sync(
     profile: {
       id: string;
+      kind?: LearnerKind;
       birthDate: Date | null;
       joinedAt: Date | null;
       membershipStatus: 'ACTIF' | 'SORTI';
@@ -300,7 +334,10 @@ export class PathwayService {
     rules: RuleSetRow | null,
     today: string,
     stages: readonly { code: string; position: number }[],
+    preloadedMandatory?: readonly MandatoryModule[],
   ): Promise<number> {
+    // Apprenant adulte (D185) : aucune donnée de la Route, donc aucune obligation.
+    if (profile.kind === 'ADULTE') return 0;
     if (!profile.birthDate || !rules) return 0;
     const snapshot = toSnapshot(rules);
     // Plus aucune obligation nouvelle après la sortie de la branche.
@@ -312,7 +349,7 @@ export class PathwayService {
       iso(profile.birthDate),
       snapshot,
       today,
-      await this.mandatoryModules(),
+      preloadedMandatory ?? (await this.mandatoryModules()),
     ).filter((item) => !recognized.has(item.module.stageId));
     if (expected.length === 0) return 0;
     const existing = await this.prisma.catchUpObligation.findMany({
@@ -461,18 +498,16 @@ export class PathwayService {
   ): Promise<ScoutPathway> {
     const context = await loadStageContext(this.prisma);
     const { today, ruleSet: rules, rules: snapshot } = context;
-    await this.sync(profile, rules, today, context.stages);
+    const mandatory = await this.mandatoryModules();
+    await this.sync(profile, rules, today, context.stages, mandatory);
     const computed = computedStageOf(profile, context);
     const age = computed.progression;
     const stage = computed.stage;
-    const [obligations, mandatory] = await Promise.all([
-      this.prisma.catchUpObligation.findMany({
-        where: { scoutProfileId: profile.id },
-        include: obligationInclude,
-        orderBy: [{ originStage: { position: 'asc' } }, { createdAt: 'asc' }],
-      }),
-      this.mandatoryModules(),
-    ]);
+    const obligations = await this.prisma.catchUpObligation.findMany({
+      where: { scoutProfileId: profile.id },
+      include: obligationInclude,
+      orderBy: [{ originStage: { position: 'asc' } }, { createdAt: 'asc' }],
+    });
     const moduleIds = obligations.map((row) => row.moduleId);
     const lock = await loadCatchUpLock(this.prisma, profile, context);
     const recognitions = await this.prisma.priorStageRecognition.findMany({
@@ -580,28 +615,37 @@ export class PathwayService {
     assertCan(actor, 'statistics.read');
     const context = await loadStageContext(this.prisma);
     const { today, ruleSet: rules, rules: snapshot, stages } = context;
-    const [profiles, allObligations] = await Promise.all([
-      this.prisma.scoutProfile.findMany({
-        where: {
-          kind: 'ROUTIER',
-          isActive: true,
-          ...(teamId && { teamAssignments: { some: { teamId, endedAt: null } } }),
-        },
-        include: profileInclude,
-      }),
-      this.prisma.catchUpObligation.findMany({
-        where: {
-          decision: null,
-          ...(teamId && { scoutProfile: { teamAssignments: { some: { teamId, endedAt: null } } } }),
-        },
-        select: { dueOn: true, scoutProfileId: true, moduleId: true, originStageId: true },
-      }),
-    ]);
-    const recognitions = await this.prisma.priorStageRecognition.findMany({
-      where: { revokedAt: null, scoutProfileId: { in: profiles.map((p) => p.id) } },
-      select: { scoutProfileId: true, stageId: true },
+    const profiles = await this.prisma.scoutProfile.findMany({
+      where: {
+        kind: 'ROUTIER',
+        isActive: true,
+        ...(teamId && { teamAssignments: { some: { teamId, endedAt: null } } }),
+      },
+      include: profileInclude,
     });
-    const obligations = allObligations.filter(notCovered(recognitions));
+    // Seules les obligations des routiers encore membres comptent (sortie à 21 ans, fiche
+    // désactivée ou hors de l'équipe filtrée : exclues), avec les mêmes critères que la fiche.
+    const memberProfiles = profiles.filter(
+      (profile) => effectiveMembership(profile, snapshot, today) !== 'SORTI',
+    );
+    const memberIds = memberProfiles.map((profile) => profile.id);
+    const [obligations, recognitions, mandatory] = await Promise.all([
+      this.prisma.catchUpObligation.findMany({
+        where: { decision: null, scoutProfileId: { in: memberIds } },
+        select: {
+          dueOn: true,
+          scoutProfileId: true,
+          moduleId: true,
+          originStageId: true,
+          originStage: { select: { code: true } },
+        },
+      }),
+      this.prisma.priorStageRecognition.findMany({
+        where: { revokedAt: null, scoutProfileId: { in: memberIds } },
+        select: { scoutProfileId: true, stageId: true },
+      }),
+      this.mandatoryModules(),
+    ]);
     const accepted = await this.prisma.evaluationAttempt.findMany({
       where: {
         status: 'VALIDEE',
@@ -610,11 +654,25 @@ export class PathwayService {
       },
       select: { scoutProfileId: true, evaluation: { select: { moduleId: true } } },
     });
-    const awaiting = obligations.filter((o) =>
-      accepted.some(
-        (a) => a.scoutProfileId === o.scoutProfileId && a.evaluation.moduleId === o.moduleId,
+    const catchUps = summarizeOpenCatchUps({
+      today,
+      obligations: obligations.map((o) => ({
+        scoutProfileId: o.scoutProfileId,
+        moduleId: o.moduleId,
+        originStageId: o.originStageId,
+        originStageCode: o.originStage.code,
+        dueOn: o.dueOn ? iso(o.dueOn) : null,
+      })),
+      endedStageCodes: new Map(
+        memberProfiles.map((profile) => [
+          profile.id,
+          new Set(endedStages(profile.birthDate && iso(profile.birthDate), snapshot, today).keys()),
+        ]),
       ),
-    ).length;
+      requiredModuleIds: new Set(mandatory.map((module) => module.moduleId)),
+      recognizedStageKeys: new Set(recognitions.map((r) => `${r.scoutProfileId}:${r.stageId}`)),
+      acceptedKeys: new Set(accepted.map((a) => `${a.scoutProfileId}:${a.evaluation.moduleId}`)),
+    });
 
     const stageCounts = new Map<string | null, number>();
     const upcoming: PathwayOverview['upcomingExits'] = [];
@@ -651,12 +709,7 @@ export class PathwayService {
         ...(stageCounts.has(null) ? [{ stage: null, count: stageCounts.get(null)! }] : []),
       ],
       upcomingExits: upcoming.sort((a, b) => a.daysUntilExit - b.daysUntilExit).slice(0, 8),
-      catchUps: {
-        open: obligations.length,
-        overdue: obligations.filter((o) => o.dueOn && iso(o.dueOn) < today).length,
-        awaitingValidation: awaiting,
-        withoutDeadline: obligations.filter((o) => !o.dueOn).length,
-      },
+      catchUps,
     };
   }
 
@@ -669,6 +722,9 @@ export class PathwayService {
     assertCan(actor, 'catchUp.decide');
     const data = parseInput(decideCatchUpInputSchema, input);
     return this.prisma.$transaction(async (tx) => {
+      // Décision officielle : fonction de plein revérifiée au moment de l'écriture (D173), comme
+      // les exceptions d'étape et les reconnaissances de parcours antérieur.
+      await assertCanAtWrite(tx, actor, 'catchUp.decide');
       const { count } = await tx.catchUpObligation.updateMany({
         where: { id: obligationId, decision: null },
         data: {
@@ -758,14 +814,6 @@ function toObligation(
     arrival: facts.arrival,
     blocking: facts.blocking,
   };
-}
-
-/** Obligation ouverte non couverte par une reconnaissance de l'étape d'origine (D181). */
-function notCovered(
-  recognitions: readonly { scoutProfileId: string; stageId: string }[],
-): (row: { scoutProfileId: string; originStageId: string }) => boolean {
-  const covered = new Set(recognitions.map((r) => `${r.scoutProfileId}:${r.stageId}`));
-  return (row) => !covered.has(`${row.scoutProfileId}:${row.originStageId}`);
 }
 
 function toAgeRuleSet(row: RuleSetRow): AgeRuleSet {

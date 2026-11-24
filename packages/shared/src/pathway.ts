@@ -70,6 +70,55 @@ export function catchUpStatus(facts: {
   return 'A_FAIRE';
 }
 
+/**
+ * Synthèse des obligations sans décision d'une population (indicateurs de l'encadrement), avec les
+ * **mêmes critères** que `catchUpStatus` et le verrou D177 : une obligation dont le module n'est
+ * plus obligatoire ou dont l'étape d'origine est reconnue (D181) n'est plus comptée ; celle dont
+ * l'étape d'origine n'est plus échue est « à réexaminer », pas « ouverte » ; un résultat accepté
+ * l'exclut du retard. Les clés composées valent `routier:module` et `routier:étape`.
+ */
+export function summarizeOpenCatchUps(input: {
+  today: string;
+  obligations: readonly {
+    scoutProfileId: string;
+    moduleId: string;
+    originStageId: string;
+    originStageCode: string;
+    dueOn: string | null;
+  }[];
+  /** Codes des étapes échues, par routier ; un routier absent n'a aucune obligation comptée. */
+  endedStageCodes: ReadonlyMap<string, ReadonlySet<string>>;
+  requiredModuleIds: ReadonlySet<string>;
+  recognizedStageKeys: ReadonlySet<string>;
+  acceptedKeys: ReadonlySet<string>;
+}): {
+  open: number;
+  overdue: number;
+  awaitingValidation: number;
+  withoutDeadline: number;
+  toReview: number;
+} {
+  const summary = { open: 0, overdue: 0, awaitingValidation: 0, withoutDeadline: 0, toReview: 0 };
+  for (const row of input.obligations) {
+    const ended = input.endedStageCodes.get(row.scoutProfileId);
+    if (!ended) continue;
+    if (!input.requiredModuleIds.has(row.moduleId)) continue;
+    if (input.recognizedStageKeys.has(`${row.scoutProfileId}:${row.originStageId}`)) continue;
+    if (!ended.has(row.originStageCode)) {
+      summary.toReview += 1;
+      continue;
+    }
+    summary.open += 1;
+    if (row.dueOn === null) summary.withoutDeadline += 1;
+    if (input.acceptedKeys.has(`${row.scoutProfileId}:${row.moduleId}`)) {
+      summary.awaitingValidation += 1;
+    } else if (row.dueOn !== null && row.dueOn < input.today) {
+      summary.overdue += 1;
+    }
+  }
+  return summary;
+}
+
 /** Étape d'origine échue avant l'entrée à la Route, après, ou date d'entrée non renseignée. */
 export const CATCH_UP_ARRIVALS = ['AVANT_ARRIVEE', 'APRES_ARRIVEE', 'INCONNUE'] as const;
 
@@ -219,6 +268,8 @@ export const pathwayOverviewSchema = z.object({
     overdue: z.number().int(),
     awaitingValidation: z.number().int(),
     withoutDeadline: z.number().int(),
+    /** Sans décision, mais étape d'origine plus échue d'après les données actuelles (D173). */
+    toReview: z.number().int(),
   }),
 });
 

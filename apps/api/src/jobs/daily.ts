@@ -5,7 +5,6 @@ import { LoginRateLimiter } from '../modules/auth/login-rate-limiter.js';
 import { MembershipService } from '../modules/progression/membership.service.js';
 import { PathwayService } from '../modules/progression/pathway.service.js';
 import { todayCivil } from '../modules/progression/age-rules.js';
-import { PrismaService } from '../prisma/prisma.service.js';
 import { StoredFilesService } from '../storage/stored-files.service.js';
 
 /**
@@ -27,20 +26,16 @@ async function main(): Promise<void> {
   });
   try {
     const membership = await app.get(MembershipService).applyExits(referenceDate);
-    const prisma = app.get(PrismaService);
-    const pathway = app.get(PathwayService);
-    const profiles = await prisma.scoutProfile.findMany({
-      // Rattrapages : routiers seulement (D185).
-      where: { kind: 'ROUTIER', membershipStatus: 'ACTIF' },
-      select: { id: true },
-    });
-    let created = 0;
-    for (const profile of profiles)
-      created += await pathway.syncCatchUps(profile.id, referenceDate);
+    const { created, failedProfileIds } = await app
+      .get(PathwayService)
+      .syncAllCatchUps(referenceDate);
     logger.log(
       `Terminé : ${membership.exited} sortie(s), ${created} obligation(s) de rattrapage créée(s), ${membership.anomalies.length} anomalie(s).`,
     );
     for (const anomaly of membership.anomalies) logger.warn(anomaly);
+    // Identifiants internes seulement, jamais de donnée personnelle ; relance sans risque.
+    for (const id of failedProfileIds) logger.error(`Plan de rattrapage non recalculé : ${id}.`);
+    if (failedProfileIds.length > 0) process.exitCode = 1;
     const purged = await app.get(LoginRateLimiter).purge();
     logger.log(`${purged} compteur(s) de connexion expiré(s) purgé(s).`);
     const files = app.get(StoredFilesService);
