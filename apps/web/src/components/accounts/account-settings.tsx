@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { type z } from 'zod';
 import { MedicalRecordCard } from '@/components/accounts/medical-record-card';
+import { ComfortSettings } from '@/components/accounts/comfort-settings';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { FormField, fieldA11y } from '@/components/form-field';
 import { PasswordInput } from '@/components/password-input';
@@ -40,6 +41,7 @@ export function AccountSettings() {
     <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
       <ProfileOverview />
       <ConnectionCard />
+      <ComfortSettings />
       {/* Fiche médicale : chaque titulaire habilité ; jamais le compte administrateur (D142). */}
       {userCan(user, 'medicalRecord.own') && (
         <div className="lg:col-span-2">

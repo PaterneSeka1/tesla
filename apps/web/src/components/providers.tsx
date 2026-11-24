@@ -1,11 +1,12 @@
 'use client';
 
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 import { OfflineRuntime } from '@/components/offline-runtime';
 import { meQueryOptions } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
+import { applyMotionPreference } from '@/lib/preferences';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => {
@@ -36,6 +37,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     });
     return client;
   });
+  // Réglage « réduire les animations » de cet appareil (D195).
+  useEffect(() => applyMotionPreference(), []);
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster>

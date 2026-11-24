@@ -76,6 +76,85 @@
   --animate-shake: shake 0.4s ease-in-out;
   --animate-pop: pop 0.35s cubic-bezier(0.3, 1.6, 0.6, 1);
   --animate-grow: grow 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  /* Quatre familles (D195) : micro 100–180 ms, transition 180–300 ms, accomplissement 400–800 ms. */
+  --animate-press: press 0.14s ease-out;
+  --animate-enter: enter 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-enter-back: enter-back 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-achieve: achieve 0.6s cubic-bezier(0.3, 1.4, 0.6, 1) both;
+}
+
+/* Durées de référence réutilisables dans les transitions. */
+:root {
+  --motion-micro: 150ms;
+  --motion-transition: 240ms;
+  --motion-achievement: 600ms;
+}
+
+@keyframes press {
+  50% {
+    transform: scale(0.97);
+  }
+}
+
+/* Passage à l'élément suivant (question, séquence) : glissement court depuis la droite. */
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes enter-back {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Accomplissement : apparition avec léger rebond et halo doré qui s'efface. */
+@keyframes achieve {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--tesla-or) 60%, transparent);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    transform: none;
+    box-shadow: 0 0 0 18px color-mix(in oklab, var(--tesla-or) 0%, transparent);
+  }
+}
+
+/* Carte à retourner (flashcards, mémoire) : rotation 3D, repli lisible sans animation. */
+.flip-card {
+  perspective: 1000px;
+}
+.flip-card-inner {
+  position: relative;
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform var(--motion-transition) ease-out;
+}
+.flip-card[data-flipped='true'] .flip-card-inner {
+  transform: rotateY(180deg);
+}
+.flip-card-face {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+}
+.flip-card-back {
+  transform: rotateY(180deg);
 }
 
 @keyframes rise {
@@ -215,6 +294,16 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Même effet sur choix explicite dans « Mon profil » (préférence de l'appareil, D195). */
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 /* Impression des supports de cours (A4) : le cadre de l'application est masqué (classes print:). */

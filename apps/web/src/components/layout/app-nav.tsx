@@ -179,7 +179,12 @@ export function CurrentPageTitle({ offline = false }: { offline?: boolean }) {
  * Écrans immersifs sans barre inférieure : passation d'une évaluation (classique ou en paliers).
  * Un lien de retour explicite reste affiché par la page ; la barre évite une sortie accidentelle.
  */
-const IMMERSIVE = /^\/evaluations\/[^/]+\/(passer|jeu)(\/|$)/;
+/**
+ * Mode concentration (D195) : passation, lecture d'une leçon, partie d'un défi. Le cadre (menu,
+ * en-tête, barre inférieure) s'efface ; la page porte son propre bouton de retour.
+ */
+const IMMERSIVE =
+  /^\/(evaluations\/[^/]+\/(passer|jeu)|modules\/[^/]+\/lecons\/[^/]+|defis\/[^/]+)(\/|$)/;
 
 export function isImmersivePath(pathname: string): boolean {
   return IMMERSIVE.test(pathname);
@@ -266,7 +271,7 @@ export function BottomNav({ offline = false }: { offline?: boolean }) {
         editing && 'max-lg:hidden',
       )}
     >
-      <ul className="mx-auto grid max-w-xl grid-cols-4">
+      <ul className={cn('mx-auto grid max-w-xl', tabs.length >= 4 ? 'grid-cols-5' : 'grid-cols-4')}>
         {tabs.map((tab) => {
           const current = tab.href === active?.href;
           return (
@@ -285,7 +290,7 @@ export function BottomNav({ offline = false }: { offline?: boolean }) {
             </li>
           );
         })}
-        <li className="col-start-4">
+        <li className={tabs.length >= 4 ? 'col-start-5' : 'col-start-4'}>
           <DialogPrimitive.Root open={moreOpen} onOpenChange={setMoreOpen}>
             <DialogPrimitive.Trigger
               className={cn(

@@ -1,6 +1,7 @@
 'use client';
 
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
 import { SessionGate } from '@/components/auth/session-gate';
 import { UserMenu } from '@/components/auth/user-menu';
@@ -9,7 +10,7 @@ import { NotificationsDialog } from '@/components/notifications/notifications-di
 import { DeviceStatus } from '@/components/offline/device-status';
 import { cn } from '@/lib/utils';
 import { PageTransition } from './page-transition';
-import { AppNav, BottomNav, BottomNavSpacer, CurrentPageTitle } from './app-nav';
+import { AppNav, BottomNav, BottomNavSpacer, CurrentPageTitle, isImmersivePath } from './app-nav';
 
 /** Préférence d'affichage de cet appareil seulement (aucune donnée personnelle). */
 const COLLAPSED_KEY = 'tesla.sidebar.collapsed';
@@ -56,12 +57,14 @@ export function DashboardShell({
   const collapsed = useSyncExternalStore(subscribe, readCollapsed, () => false);
   const toggle = () => writeCollapsed(!collapsed);
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
+  // Mode concentration : seul le contenu reste (hors ligne compris, pour une leçon téléchargée).
+  const focus = isImmersivePath(usePathname());
 
   return (
     <div
       className={cn(
         'min-h-dvh lg:grid print:block',
-        collapsed ? 'lg:grid-cols-[4.5rem_1fr]' : 'lg:grid-cols-[17rem_1fr]',
+        focus ? 'lg:block' : collapsed ? 'lg:grid-cols-[4.5rem_1fr]' : 'lg:grid-cols-[17rem_1fr]',
       )}
     >
       <a
@@ -75,6 +78,7 @@ export function DashboardShell({
         className={cn(
           'hidden bg-tesla-bordeaux text-white lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-5 print:hidden!',
           collapsed ? 'px-2 py-4' : 'p-4',
+          focus && 'lg:hidden',
         )}
       >
         <div className={cn('flex items-center gap-2', collapsed ? 'flex-col' : 'pl-1')}>
@@ -104,7 +108,12 @@ export function DashboardShell({
       </aside>
 
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-30 bg-tesla-bordeaux pt-[env(safe-area-inset-top)] text-white lg:hidden print:hidden">
+        <header
+          className={cn(
+            'sticky top-0 z-30 bg-tesla-bordeaux pt-[env(safe-area-inset-top)] text-white lg:hidden print:hidden',
+            focus && 'hidden',
+          )}
+        >
           <div className="flex h-12 items-center gap-2.5 px-4">
             <BrandLogo size={28} />
             <div className="min-w-0 flex-1">
@@ -116,7 +125,10 @@ export function DashboardShell({
 
         <main
           id="contenu"
-          className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8 print:p-0"
+          className={cn(
+            'mx-auto w-full flex-1 space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-8 print:p-0',
+            focus ? 'max-w-3xl pt-[max(1.25rem,env(safe-area-inset-top))]' : 'max-w-7xl',
+          )}
         >
           {offline ? (
             <PageTransition>{children}</PageTransition>
