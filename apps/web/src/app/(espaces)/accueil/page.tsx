@@ -1,10 +1,10 @@
 import { HomeDashboard } from '@/components/home-dashboard';
-import { PageHeading } from '@/components/page-heading';
 
+/** Accueil : chaque bloc porte son propre titre (aucun titre « Accueil » répété). */
 export default function Page() {
   return (
     <>
-      <PageHeading title="Accueil" />
+      <h1 className="sr-only">Accueil</h1>
       <HomeDashboard />
     </>
   );

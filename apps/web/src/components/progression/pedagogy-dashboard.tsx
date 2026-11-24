@@ -1,15 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import {
-  type ActivitySummary,
-  FOLLOW_UP_REASON_LABELS,
-  type FollowUpItem,
-  type Statistics,
-} from '@tesla/shared';
+import { FOLLOW_UP_REASON_LABELS, type FollowUpItem, type Statistics } from '@tesla/shared';
 import {
   BookOpen,
-  BookOpenText,
   CalendarCheck,
   CalendarDays,
   ChevronRight,
@@ -25,25 +19,17 @@ import {
   ShieldCheck,
   UserPlus,
   Users,
-  UserX,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { EmptyState } from '@/components/empty-state';
-import { lastReading, type LastReading } from '@/components/offline/use-offline-images';
-import { MyPathwayOverview } from '@/components/pathway/my-pathway';
 import { QueryError } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/stat-card';
-import {
-  chefDashboardQueryOptions,
-  myDashboardQueryOptions,
-  responsableDashboardQueryOptions,
-} from '@/lib/api/dashboards';
-import { formatDate, formatScore, fullName } from '@/lib/format';
+import { chefDashboardQueryOptions, responsableDashboardQueryOptions } from '@/lib/api/dashboards';
+import { formatDate, fullName } from '@/lib/format';
 import {
   type QuickAction,
   QuickActions,
@@ -125,32 +111,6 @@ function Panel({
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
-  );
-}
-
-function Upcoming({ items }: { items: ActivitySummary[] }) {
-  return (
-    <Panel title="Prochaines activités">
-      {items.length === 0 ? (
-        <EmptyState icon={CalendarDays} title="Aucune activité planifiée" />
-      ) : (
-        <ol className="space-y-3 border-l-2 border-tesla-sable pl-4">
-          {items.map((activity) => (
-            <li key={activity.id} className="relative">
-              <span
-                className="absolute top-1.5 left-[-1.4rem] size-2.5 rounded-full bg-tesla-or"
-                aria-hidden
-              />
-              <p className="text-xs font-medium text-muted-foreground">
-                {formatDate(activity.plannedOn)}
-              </p>
-              <p className="text-sm font-medium">{activity.title}</p>
-              {activity.theme && <p className="text-xs text-muted-foreground">{activity.theme}</p>}
-            </li>
-          ))}
-        </ol>
-      )}
-    </Panel>
   );
 }
 
@@ -479,118 +439,6 @@ export function ChefPedagogyDashboard() {
           icon={CalendarCheck}
         />
       </div>
-    </div>
-  );
-}
-
-/** Dernière leçon ouverte sur cet appareil (coffre local) : rien n'est affiché s'il n'y en a pas. */
-function ResumeReading() {
-  const [last, setLast] = useState<LastReading | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    void lastReading().then((value) => !cancelled && setLast(value));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  if (!last) return null;
-  return (
-    <Link
-      href={`/modules/${last.slug}/lecons/${last.lessonId}`}
-      className="flex min-h-14 items-center gap-3 rounded-xl border bg-card p-4 transition-transform hover:bg-muted active:scale-[0.99] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-    >
-      <BookOpenText className="size-6 shrink-0 text-tesla-rouge" aria-hidden />
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs text-muted-foreground">Reprendre la lecture</span>
-        <span className="block truncate font-medium">{last.moduleTitle}</span>
-        <span className="block truncate text-sm text-muted-foreground">{last.lessonTitle}</span>
-      </span>
-      <ChevronRight className="size-5 text-muted-foreground" aria-hidden />
-    </Link>
-  );
-}
-
-export function RoutierPedagogyDashboard() {
-  const query = useQuery(myDashboardQueryOptions);
-  if (query.isPending) return <DashboardSkeleton />;
-  if (query.isError) return <QueryError error={query.error} onRetry={() => void query.refetch()} />;
-  const d = query.data;
-  if (!d.linked)
-    return (
-      <EmptyState
-        icon={UserX}
-        title="Compte non rattaché"
-        description="Demandez le rattachement au responsable."
-      />
-    );
-
-  return (
-    <div className="stagger space-y-6">
-      <div className="rounded-xl bg-tesla-bordeaux p-5 text-white shadow-sm">
-        <p className="text-xs tracking-wider text-tesla-or uppercase">Étape actuelle</p>
-        <p className="mt-1 text-2xl font-semibold">{d.stage?.name ?? 'Non déterminée'}</p>
-        <p className="mt-1 text-sm text-tesla-sable">
-          {[d.stageSince && `Depuis le ${formatDate(d.stageSince)}`, d.team?.name ?? 'Sans équipe']
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
-      </div>
-
-      <ResumeReading />
-
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard
-          label="Modules étudiés"
-          value={d.studiedModules}
-          href="/progression"
-          icon={BookOpen}
-        />
-        <StatCard
-          label="Compétences validées"
-          value={d.acquiredCompetencies.length}
-          href="/mes-competences"
-          icon={Medal}
-        />
-      </div>
-
-      <MyPathwayOverview compact />
-
-      <div className="grid gap-4 empty:hidden lg:grid-cols-2">
-        {d.recommendedModules.length > 0 && (
-          <Panel title="À étudier">
-            <ul className="-mx-3">
-              {d.recommendedModules.map((module) => (
-                <li key={module.id}>
-                  <Link
-                    href={`/modules/${module.slug}`}
-                    className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 transition-transform hover:bg-muted active:scale-[0.98] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                  >
-                    <Badge variant="secondary">{module.code}</Badge>
-                    <span className="flex-1 text-sm">{module.title}</span>
-                    <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-        )}
-        {d.recentResults.length > 0 && (
-          <Panel title="Résultats récents">
-            <ul className="divide-y">
-              {d.recentResults.map((result) => (
-                <li key={result.code} className="flex items-center justify-between gap-3 py-2">
-                  <span className="min-w-0 truncate text-sm">{result.evaluationTitle}</span>
-                  <span className="text-sm font-medium tabular-nums">
-                    {formatScore(result.score, result.maxScore)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-        )}
-      </div>
-
-      {d.upcomingActivities.length > 0 && <Upcoming items={d.upcomingActivities} />}
     </div>
   );
 }

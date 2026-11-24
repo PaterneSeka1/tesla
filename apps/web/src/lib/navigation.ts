@@ -2,7 +2,9 @@ import { type Permission, type SessionUser } from '@tesla/shared';
 import {
   BarChart3,
   BookOpen,
+  NotebookPen,
   Route,
+  Target,
   Undo2,
   CalendarCheck,
   CalendarDays,
@@ -58,6 +60,9 @@ const ACCESS_RULES: readonly AccessRule[] = [
   { path: '/appareil' },
   { path: '/modules', anyOf: ['module.read'] },
   { path: '/evaluations', anyOf: ['evaluation.take'] },
+  // Entraînement libre (D198) ; carnet personnel (D196).
+  { path: '/defis', anyOf: ['practice.play'] },
+  { path: '/carnet', anyOf: ['practice.own'] },
   // Routiers et apprenants adultes (D185) : distinct du parcours Route.
   { path: '/mes-resultats', anyOf: ['results.readOwn'] },
   { path: '/progression', anyOf: OWN },
@@ -275,15 +280,23 @@ export const NAVIGATION: readonly NavGroup[] = [
     ],
   },
   {
+    // Entraînement libre (D198) : apprenants ; l'encadrement y accède en aperçu depuis les cours.
+    label: 'Défis',
+    icon: Target,
+    items: [
+      {
+        href: '/defis',
+        label: 'Défis',
+        icon: Target,
+        permission: 'practice.play',
+        hiddenWith: 'module.write',
+      },
+    ],
+  },
+  {
     label: 'Évaluations',
     icon: ClipboardCheck,
     items: [
-      {
-        href: '/evaluations',
-        label: 'Évaluations',
-        icon: ClipboardCheck,
-        permission: 'evaluation.take',
-      },
       {
         href: '/encadrement/evaluations',
         label: 'Questionnaires',
@@ -329,11 +342,24 @@ export const NAVIGATION: readonly NavGroup[] = [
     label: 'Mon parcours',
     icon: GraduationCap,
     items: [
+      // Évaluations officielles des apprenants (distinctes des défis d'entraînement, D198).
+      {
+        href: '/evaluations',
+        label: 'Évaluations',
+        icon: ClipboardCheck,
+        permission: 'evaluation.take',
+      },
       {
         href: '/progression',
         label: 'Progression',
         icon: GraduationCap,
         permission: 'progression.readOwn',
+      },
+      {
+        href: '/carnet',
+        label: 'Carnet',
+        icon: NotebookPen,
+        permission: 'practice.own',
       },
       {
         href: '/mes-rattrapages',
@@ -410,11 +436,12 @@ export interface BottomTab extends NavItem {
 }
 
 /**
- * Barre inférieure mobile (D182) : trois destinations quotidiennes déduites des permissions, puis
- * « Plus » (toujours en dernière position, géré par l'interface). Ordre stable, jamais de rôle
- * affiché ; une seule barre, même pour une personne cumulant plusieurs responsabilités.
- * - parcours personnel : Accueil, Cours (bibliothèque), Parcours ;
- * - apprenant adulte (D185) : Accueil, Cours, Évaluations ;
+ * Barre inférieure mobile (D182, D198) : trois ou quatre destinations quotidiennes déduites des
+ * permissions, puis « Plus » (toujours en dernière position, géré par l'interface). Ordre stable,
+ * jamais de rôle affiché ; une seule barre, même pour une personne cumulant plusieurs
+ * responsabilités.
+ * - parcours personnel : Accueil, Cours (bibliothèque), Défis, Parcours ;
+ * - apprenant adulte (D185) : Accueil, Cours, Défis, Évaluations ;
  * - encadrement : Accueil, Routiers, Cours (gestion pédagogique) ;
  * - administrateur : Accueil, Routiers (fiches, D173), Comptes.
  */
@@ -425,6 +452,8 @@ export function bottomTabsFor(user: NavUser): BottomTab[] {
   if (userCan(user, 'progression.readOwn')) {
     if (userCan(user, 'module.read'))
       tabs.push({ href: '/modules', label: 'Cours', icon: BookOpen, group: 'Cours' });
+    if (userCan(user, 'practice.own'))
+      tabs.push({ href: '/defis', label: 'Défis', icon: Target, group: 'Défis' });
     tabs.push({
       href: '/progression',
       label: 'Parcours',
@@ -443,13 +472,16 @@ export function bottomTabsFor(user: NavUser): BottomTab[] {
       tabs.push({ href: '/encadrement/modules', label: 'Cours', icon: BookOpen, group: 'Cours' });
     else if (userCan(user, 'module.read'))
       tabs.push({ href: '/modules', label: 'Cours', icon: BookOpen, group: 'Cours' });
+    // Apprenant adulte : les défis comme pour un routier.
+    if (userCan(user, 'practice.own') && !userCan(user, 'module.write'))
+      tabs.push({ href: '/defis', label: 'Défis', icon: Target, group: 'Défis' });
     // Apprenant adulte (D185) : pas de parcours Route, les évaluations en onglet.
     if (userCan(user, 'evaluation.take'))
       tabs.push({
         href: '/evaluations',
         label: 'Évaluations',
         icon: ClipboardCheck,
-        group: 'Évaluations',
+        group: 'Mon parcours',
       });
     else if (userCan(user, 'account.read'))
       tabs.push({
@@ -459,7 +491,9 @@ export function bottomTabsFor(user: NavUser): BottomTab[] {
         group: 'Administration',
       });
   }
-  return tabs.slice(0, 3);
+  // Apprenants : au plus quatre destinations et « Plus », cinq en tout (cahier § 23) ;
+  // encadrement et administration : trois, inchangé (D182).
+  return tabs.slice(0, userCan(user, 'practice.own') ? 4 : 3);
 }
 
 /**

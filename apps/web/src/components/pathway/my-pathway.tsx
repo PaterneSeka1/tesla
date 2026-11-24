@@ -21,11 +21,8 @@ function NotLinked() {
   );
 }
 
-/**
- * Parcours personnel : âge, étape calculée, échéances, modules par catégorie. `compact` (accueil) :
- * rattrapages et acquis seulement, l'étape étant déjà affichée en tête de l'accueil.
- */
-export function MyPathwayOverview({ compact = false }: { compact?: boolean }) {
+/** Parcours personnel : âge, étape calculée, échéances, modules par catégorie. */
+export function MyPathwayOverview() {
   const query = useQuery(myPathwayQueryOptions);
   if (query.isPending) return <TableSkeleton rows={2} />;
   if (query.error) {
@@ -42,14 +39,6 @@ export function MyPathwayOverview({ compact = false }: { compact?: boolean }) {
       </Link>
     </Button>
   );
-  if (compact) {
-    return (
-      <div className="space-y-3 empty:hidden">
-        <PathwayModules pathway={query.data} compact />
-        {catchUpLink}
-      </div>
-    );
-  }
   return (
     <section className="space-y-3" aria-labelledby="mon-parcours">
       <h2 id="mon-parcours" className="text-lg font-semibold">

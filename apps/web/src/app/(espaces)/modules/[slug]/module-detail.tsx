@@ -1,10 +1,12 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { lessonReadRef } from '@tesla/shared';
 import {
-  BookOpenText,
+  ArrowRight,
   ClipboardList,
   Clock,
+  Ellipsis,
   FileDown,
   Printer,
   ScrollText,
@@ -24,6 +26,14 @@ import { QueryError, TableSkeleton } from '@/components/query-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { AdventureTrail } from '@/components/modules/adventure-trail';
+import { journalQueryOptions, practiceBankQueryOptions } from '@/lib/api/practice';
 import { catalogModuleQueryOptions, modulePdfUrl, practicalSheetPdfUrl } from '@/lib/api/modules';
 import { formatDate, formatDuration } from '@/lib/format';
 import { userCan } from '@/lib/navigation';
@@ -32,7 +42,10 @@ import { type ReadingPosition, resumeLesson } from '@/lib/reading-position';
 export function ModuleDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { data: module, error, isPending, refetch } = useQuery(catalogModuleQueryOptions(slug));
-  const distribute = userCan(useSessionUser(), 'attempt.preparePaper');
+  const user = useSessionUser();
+  const distribute = userCan(user, 'attempt.preparePaper');
+  const journal = useQuery({ ...journalQueryOptions, enabled: userCan(user, 'practice.own') });
+  const bank = useQuery({ ...practiceBankQueryOptions, enabled: userCan(user, 'practice.play') });
   // Dernière leçon lue sur cet appareil (coffre local ; absente si verrouillé).
   const [last, setLast] = useState<ReadingPosition | null>(null);
   useEffect(() => {
@@ -53,6 +66,7 @@ export function ModuleDetail() {
   const recommended = module.myStageId !== null && module.stage?.id === module.myStageId;
   const resumed = resumeLesson(module.lessons, last);
   const first = resumed ?? module.lessons[0];
+  const readRefs = new Set(journal.data?.readLessons ?? []);
 
   return (
     <>
@@ -74,7 +88,7 @@ export function ModuleDetail() {
         )}
         <p className="flex flex-wrap gap-4 text-sm text-tesla-sable">
           <span>
-            {module.lessons.length} leçon{module.lessons.length > 1 ? 's' : ''}
+            {module.lessons.length} halte{module.lessons.length > 1 ? 's' : ''}
           </span>
           {module.durationMinutes && (
             <span className="inline-flex items-center gap-1">
@@ -82,83 +96,75 @@ export function ModuleDetail() {
               {formatDuration(module.durationMinutes)}
             </span>
           )}
-          <span>
-            Version {module.version} · publiée le {formatDate(module.publishedAt)}
-          </span>
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
           {first && (
-            <Button asChild variant="secondary">
-              <Link href={`/modules/${module.slug}/lecons/${first.id}`}>
-                <BookOpenText aria-hidden />
-                {resumed ? 'Reprendre la lecture' : 'Commencer la lecture'}
-              </Link>
-            </Button>
-          )}
-          <Button
-            asChild
-            variant="outline"
-            className="border-tesla-sable bg-transparent text-white hover:bg-white/10"
-          >
-            <a href={modulePdfUrl(module.slug)} download>
-              <FileDown aria-hidden />
-              Télécharger le cours (PDF)
-            </a>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="border-tesla-sable bg-transparent text-white hover:bg-white/10"
-          >
-            <Link href={`/modules/${module.slug}/imprimer`}>
-              <Printer aria-hidden />
-              Version imprimable
-            </Link>
-          </Button>
-          {distribute && (
             <Button
               asChild
-              variant="outline"
-              className="border-tesla-sable bg-transparent text-white hover:bg-white/10"
+              size="lg"
+              className="bg-tesla-or text-tesla-bordeaux hover:bg-tesla-or/90"
             >
-              <Link href={`/encadrement/distribution/${module.slug}`}>
-                <Users aria-hidden />
-                Préparer une distribution
+              <Link href={`/modules/${module.slug}/lecons/${first.id}`}>
+                {resumed ? 'Reprendre' : 'Commencer'}
+                <ArrowRight aria-hidden />
               </Link>
             </Button>
           )}
+          {/* Actions secondaires regroupées : une seule action principale à l'écran. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="lg"
+                className="text-tesla-sable hover:bg-white/10 hover:text-white"
+              >
+                <Ellipsis aria-hidden />
+                Plus
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem asChild>
+                <a href={modulePdfUrl(module.slug)} download>
+                  <FileDown aria-hidden />
+                  Télécharger le cours (PDF)
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/modules/${module.slug}/imprimer`}>
+                  <Printer aria-hidden />
+                  Version imprimable
+                </Link>
+              </DropdownMenuItem>
+              {distribute && (
+                <DropdownMenuItem asChild>
+                  <Link href={`/encadrement/distribution/${module.slug}`}>
+                    <Users aria-hidden />
+                    Préparer une distribution
+                  </Link>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
       <DownloadModuleButton slug={module.slug} />
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Leçons</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-2">
-              {module.lessons.map((lesson, index) => (
-                <li key={lesson.id}>
-                  <Link
-                    href={`/modules/${module.slug}/lecons/${lesson.id}`}
-                    className="flex items-center gap-3 rounded-md border p-3 transition-colors hover:border-tesla-or focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                  >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-tesla-sable font-semibold text-tesla-bordeaux">
-                      {index + 1}
-                    </span>
-                    <span className="flex-1 font-medium">{lesson.title}</span>
-                    {lesson.durationMinutes && (
-                      <span className="text-xs text-muted-foreground">
-                        {formatDuration(lesson.durationMinutes)}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
+        <AdventureTrail
+          stops={module.lessons.map((lesson) => ({
+            id: lesson.id,
+            title: lesson.title,
+            href: `/modules/${module.slug}/lecons/${lesson.id}`,
+            durationMinutes: lesson.durationMinutes,
+            done: readRefs.has(lessonReadRef(module.slug, lesson.title)),
+            current: lesson.id === resumed?.id,
+          }))}
+          practiceHref={
+            bank.data?.modules.some((item) => item.slug === module.slug)
+              ? `/defis?module=${encodeURIComponent(module.slug)}`
+              : null
+          }
+        />
         <div className="space-y-6">
           {module.objectives.length > 0 && (
             <Card>
@@ -257,6 +263,9 @@ export function ModuleDetail() {
           )}
         </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Version {module.version} · publiée le {formatDate(module.publishedAt)}
+      </p>
     </>
   );
 }

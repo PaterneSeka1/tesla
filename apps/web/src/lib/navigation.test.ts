@@ -217,13 +217,9 @@ describe('navigation', () => {
 
   it('cinq rubriques pour le routier et l’encadrement, quatre pour l’administrateur', () => {
     const rubriques = (user: NavUser) => navigationFor(user).map((group) => group.label);
-    expect(rubriques(routier)).toEqual([
-      'Accueil',
-      'Cours',
-      'Évaluations',
-      'Mon parcours',
-      'Mon profil',
-    ]);
+    // Routier (D198) : Accueil, Cours, Défis, Mon parcours (évaluations officielles comprises),
+    // Mon profil.
+    expect(rubriques(routier)).toEqual(['Accueil', 'Cours', 'Défis', 'Mon parcours', 'Mon profil']);
     for (const user of [encadrant, adjoint, assistant]) {
       expect(rubriques(user)).toEqual([
         'Accueil',
@@ -249,7 +245,9 @@ describe('navigation', () => {
     expect(hrefs(adulte)).toEqual([
       HOME_ROUTE,
       '/modules',
+      '/defis',
       '/evaluations',
+      '/carnet',
       '/mes-resultats',
       '/compte',
       '/communaute',
@@ -262,6 +260,7 @@ describe('navigation', () => {
     expect(bottomTabsFor(adulte).map((tab) => tab.href)).toEqual([
       HOME_ROUTE,
       '/modules',
+      '/defis',
       '/evaluations',
     ]);
   });
@@ -297,9 +296,9 @@ describe('navigation', () => {
     expect(hrefs(encadrant).every((href) => hrefs(plein).includes(href))).toBe(true);
   });
 
-  it('barre mobile : trois destinations selon les permissions, « Plus » en dernier (D182)', () => {
+  it('barre mobile : destinations selon les permissions, « Plus » en dernier (D182, D198)', () => {
     const labels = (user: NavUser) => bottomTabsFor(user).map((tab) => tab.label);
-    expect(labels(routier)).toEqual(['Accueil', 'Cours', 'Parcours']);
+    expect(labels(routier)).toEqual(['Accueil', 'Cours', 'Défis', 'Parcours']);
     for (const user of [encadrant, adjoint, assistant, plein])
       expect(labels(user)).toEqual(['Accueil', 'Routiers', 'Cours']);
     expect(labels(admin)).toEqual(['Accueil', 'Routiers', 'Comptes']);
@@ -334,7 +333,8 @@ describe('navigation', () => {
     expect(active(routier, '/accueil')).toBe('Accueil');
     expect(active(routier, '/modules/priere/lecons/abc')).toBe('Cours');
     expect(active(routier, '/mes-rattrapages')).toBe('Parcours');
-    expect(active(routier, '/evaluations')).toBe('Plus');
+    expect(active(routier, '/evaluations')).toBe('Parcours');
+    expect(active(routier, '/defis/express')).toBe('Défis');
     expect(active(routier, '/compte')).toBe('Plus');
     expect(active(plein, '/administration/routiers/123')).toBe('Routiers');
     expect(active(plein, '/administration/equipes')).toBe('Routiers');
