@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { CatchUpRemindersService } from './catch-up-reminders.service.js';
+import { StageAnnouncementsService } from './stage-announcements.service.js';
 import { CompetenciesService } from './competencies.service.js';
 import { CompetencyProposalsService } from './competency-proposals.service.js';
 import { MembershipService } from './membership.service.js';
@@ -50,7 +51,8 @@ import { StageOverridesService } from './stage-overrides.service.js';
     StageOverridesService,
     PriorStagesService,
     CatchUpRemindersService,
+    StageAnnouncementsService,
   ],
-  exports: [PathwayService, MembershipService, CatchUpRemindersService],
+  exports: [PathwayService, MembershipService, CatchUpRemindersService, StageAnnouncementsService],
 })
 export class ProgressionModule {}

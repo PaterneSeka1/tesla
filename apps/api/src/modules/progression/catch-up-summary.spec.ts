@@ -1,4 +1,4 @@
-import { catchUpReminderKind, summarizeOpenCatchUps } from '@tesla/shared';
+import { catchUpReminderKind, stageAnnouncementDue, summarizeOpenCatchUps } from '@tesla/shared';
 import { describe, expect, it } from 'vitest';
 
 // Indicateurs « Parcours de la communauté » : mêmes critères que la fiche et le verrou D177.
@@ -95,5 +95,18 @@ describe('catchUpReminderKind (D192)', () => {
   });
   it('fenêtre non arbitrée : aucun rappel préalable', () => {
     expect(catchUpReminderKind('2026-11-25', today, null)).toBeNull();
+  });
+});
+
+describe('stageAnnouncementDue (D193)', () => {
+  const today = '2026-11-24';
+  it('annonce le jour même et jusqu’à 7 jours après le début de la période', () => {
+    expect(stageAnnouncementDue('2026-11-24', today)).toBe(true);
+    expect(stageAnnouncementDue('2026-11-17', today)).toBe(true);
+    expect(stageAnnouncementDue('2026-11-16', today)).toBe(false);
+  });
+  it('jamais pour une période future ou inconnue', () => {
+    expect(stageAnnouncementDue('2026-11-25', today)).toBe(false);
+    expect(stageAnnouncementDue(null, today)).toBe(false);
   });
 });

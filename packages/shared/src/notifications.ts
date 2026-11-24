@@ -4,12 +4,15 @@ import { compareCivilDates, daysBetween } from './age-progression.js';
 // Notifications de la plateforme et rappels de rattrapage (D192). Voir docs/FEATURES/RATTRAPAGE.md.
 
 /** Synchronisé avec l'enum Prisma `NotificationKind`. */
-export const NOTIFICATION_KINDS = ['RATTRAPAGE_ECHEANCE_PROCHE', 'RATTRAPAGE_EN_RETARD'] as const;
+export const NOTIFICATION_KINDS = [
+  'RATTRAPAGE_ECHEANCE_PROCHE',
+  'RATTRAPAGE_EN_RETARD',
+  'ETAPE_NOUVELLE',
+] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
-/** Natures des rappels de rattrapage (toutes les notifications, à ce stade). */
-export type CatchUpReminderKind = NotificationKind;
+export type CatchUpReminderKind = Exclude<NotificationKind, 'ETAPE_NOUVELLE'>;
 
 export const notificationSchema = z.object({
   id: z.uuid(),
@@ -51,6 +54,23 @@ export function catchUpReminderKind(
     return 'RATTRAPAGE_ECHEANCE_PROCHE';
   }
   return null;
+}
+
+/**
+ * Rattrapage d'un traitement quotidien manqué (D193) : un passage d'étape est encore annoncé tant que
+ * la nouvelle période a commencé depuis au plus ce nombre de jours. Valeur technique (fiabilité du
+ * traitement), sans portée pédagogique.
+ */
+export const STAGE_ANNOUNCEMENT_WINDOW_DAYS = 7;
+
+/**
+ * Passage d'étape à annoncer (calcul pur, D193) : la période de l'étape appliquée a commencé
+ * aujourd'hui ou dans les `STAGE_ANNOUNCEMENT_WINDOW_DAYS` derniers jours. Jamais une cérémonie :
+ * l'annonce dit seulement que la période d'âge a commencé.
+ */
+export function stageAnnouncementDue(periodStartsOn: string | null, today: string): boolean {
+  if (periodStartsOn === null || compareCivilDates(periodStartsOn, today) > 0) return false;
+  return daysBetween(periodStartsOn, today) <= STAGE_ANNOUNCEMENT_WINDOW_DAYS;
 }
 
 /** Date civile lisible « 14 décembre 2026 » (sans fuseau : date civile d'Abidjan). */

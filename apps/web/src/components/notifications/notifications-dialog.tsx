@@ -18,7 +18,7 @@ import { userCan } from '@/lib/navigation';
 
 /**
  * Fenêtre « Notifications » (D192) : s'ouvre à l'arrivée sur la plateforme lorsqu'il reste des
- * notifications non lues (rappels de rattrapage). « J'ai compris » les marque lues ; « Plus tard »
+ * notifications non lues (rappels de rattrapage, nouvelle étape du parcours). « J'ai compris » les marque lues ; « Plus tard »
  * la ferme jusqu'au prochain chargement. Hors ligne : rien n'est affiché (aucune copie locale).
  */
 export function NotificationsDialog() {
@@ -51,8 +51,8 @@ export function NotificationsDialog() {
           <DialogTitle>Notifications</DialogTitle>
           <DialogDescription>
             {items.length === 1
-              ? 'Un rappel vous attend.'
-              : `${items.length} rappels vous attendent.`}
+              ? 'Une notification vous attend.'
+              : `${items.length} notifications vous attendent.`}
           </DialogDescription>
         </DialogHeader>
         <ul className="max-h-[50dvh] space-y-3 overflow-y-auto">

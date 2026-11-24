@@ -16,10 +16,11 @@ import { validateEnv } from '../src/config/env.js';
 import { hashPassword } from '../src/modules/auth/password.js';
 import { NotificationsService } from '../src/modules/notifications/notifications.service.js';
 import { CatchUpRemindersService } from '../src/modules/progression/catch-up-reminders.service.js';
+import { StageAnnouncementsService } from '../src/modules/progression/stage-announcements.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createTestPrisma, resetDatabase, testDatabaseUrl } from './int-database.js';
 
-// Rappels de rattrapage et notifications (D192). PostgreSQL réel, données fictives : arrivée à
+// Rappels de rattrapage et notifications (D192), annonce du passage d'étape (D193). PostgreSQL réel, données fictives : arrivée à
 // 20 ans, rattrapage du Noviciat échu dans 20 jours (21 jours par étape).
 const PASSWORD = 'mot-de-passe-fictif-de-test';
 const today = civilDateAt(new Date());
@@ -276,5 +277,80 @@ describe('Rappels de rattrapage et notifications (intégration PostgreSQL)', () 
     await expect(
       prisma.notification.update({ where: { id: row.id }, data: { body: 'modifié' } }),
     ).rejects.toThrow();
+  });
+
+  /** Routier dont la période d'Apprentissage (18 ans + 1 mois) a commencé il y a `days` jours. */
+  async function apprentice(days: number, withAccount = true) {
+    const account = withAccount ? await login('ROUTIER') : null;
+    const birth = addCalendarMonths(addCalendarDays(today, -days), -(12 * 18 + 1));
+    const profile = await prisma.scoutProfile.create({
+      data: {
+        userId: account?.user.id ?? null,
+        firstName: 'Fictif',
+        lastName: `Apprenti ${days}`,
+        birthDate: new Date(`${birth}T00:00:00Z`),
+      },
+    });
+    return { account, profile };
+  }
+
+  async function withPlein() {
+    await ruleSet(7);
+    const admin = await login('ADMINISTRATEUR');
+    const plein = await login('ENCADREMENT');
+    await admin
+      .post('/leadership/assignments', {
+        userId: plein.user.id,
+        function: 'PLEIN',
+        confirmReplacement: true,
+      })
+      .expect(201);
+    return plein;
+  }
+
+  const announcements = () => app.get(StageAnnouncementsService);
+
+  it('passage d’étape récent : routier et plein notifiés une fois, sans parler de cérémonie', async () => {
+    const plein = await withPlein();
+    const { account, profile } = await apprentice(3);
+    expect(await announcements().dispatch(today)).toEqual({ created: 2 });
+    expect(await announcements().dispatch(today)).toEqual({ created: 0 });
+    expect(await announcements().dispatch(addCalendarDays(today, 1))).toEqual({ created: 0 });
+
+    const mine = notificationListSchema.parse(
+      (await account!.get('/me/notifications').expect(200)).body,
+    );
+    expect(mine.items).toHaveLength(1);
+    expect(mine.items[0]).toMatchObject({ kind: 'ETAPE_NOUVELLE', link: '/progression' });
+    expect(mine.items[0]!.body).toContain('Apprentissage');
+    expect(mine.items[0]!.body).not.toMatch(/cérémonie|engagement|validé/i);
+
+    const lead = notificationListSchema.parse(
+      (await plein.get('/me/notifications').expect(200)).body,
+    );
+    expect(lead.items[0]!.link).toBe(`/administration/routiers/${profile.id}`);
+  });
+
+  it('passage ancien, exception de secours ou sortie : aucune annonce', async () => {
+    const plein = await withPlein();
+    await apprentice(30, false);
+    const { profile } = await apprentice(2, false);
+    await plein
+      .post(`/scouts/${profile.id}/stage-overrides`, {
+        stageCode: 'NOVICIAT',
+        startsOn: today,
+        endsOn: addCalendarDays(today, 30),
+        reason: 'Retour après une longue absence (motif fictif).',
+        confirm: true,
+      })
+      .expect(201);
+    await prisma.scoutProfile.create({
+      data: {
+        firstName: 'Fictif',
+        lastName: 'Sorti',
+        birthDate: new Date(`${addCalendarMonths(addCalendarDays(today, -2), -12 * 21)}T00:00:00Z`),
+      },
+    });
+    expect(await announcements().dispatch(today)).toEqual({ created: 0 });
   });
 });

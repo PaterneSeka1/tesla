@@ -5,14 +5,15 @@ import { LoginRateLimiter } from '../modules/auth/login-rate-limiter.js';
 import { MembershipService } from '../modules/progression/membership.service.js';
 import { CatchUpRemindersService } from '../modules/progression/catch-up-reminders.service.js';
 import { PathwayService } from '../modules/progression/pathway.service.js';
+import { StageAnnouncementsService } from '../modules/progression/stage-announcements.service.js';
 import { NotificationsService } from '../modules/notifications/notifications.service.js';
 import { todayCivil } from '../modules/progression/age-rules.js';
 import { StoredFilesService } from '../storage/stored-files.service.js';
 
 /**
  * Traitement quotidien idempotent (à planifier une fois par jour, ex. cron du serveur) :
- * sorties de branche échues, recalcul des plans de rattrapage, puis rappels de rattrapage (D192)
- * et envoi facultatif par e-mail. Les statuts restent calculés
+ * sorties de branche échues, recalcul des plans de rattrapage, rappels de rattrapage (D192) et
+ * annonces de passage d'étape (D193), puis envoi facultatif par e-mail. Les statuts restent calculés
  * à la lecture : ce traitement ne fait qu'enregistrer les événements et les obligations.
  * Une date de référence future est refusée : une sortie enregistrée est définitive.
  * Purge aussi les compteurs de limitation des tentatives de connexion expirés, efface du stockage
@@ -41,9 +42,11 @@ async function main(): Promise<void> {
     if (failedProfileIds.length > 0) process.exitCode = 1;
     // Rappels de rattrapage (D192) après le recalcul des plans, puis envoi facultatif par e-mail.
     const reminders = await app.get(CatchUpRemindersService).dispatch(referenceDate);
+    // Annonce des passages d'étape (D193), avant l'envoi des e-mails.
+    const announcements = await app.get(StageAnnouncementsService).dispatch(referenceDate);
     const mails = await app.get(NotificationsService).deliverEmails();
     logger.log(
-      `Rappels : ${reminders.created} rattrapage(s), ${mails.sent} e-mail(s) envoyé(s), ${mails.failed} échec(s).`,
+      `Rappels : ${reminders.created} rattrapage(s), ${announcements.created} passage(s) d’étape, ${mails.sent} e-mail(s) envoyé(s), ${mails.failed} échec(s).`,
     );
     const purged = await app.get(LoginRateLimiter).purge();
     logger.log(`${purged} compteur(s) de connexion expiré(s) purgé(s).`);

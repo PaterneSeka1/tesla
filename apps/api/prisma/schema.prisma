@@ -2125,6 +2125,7 @@ model PriorStageRecognition {
 enum NotificationKind {
   RATTRAPAGE_ECHEANCE_PROCHE
   RATTRAPAGE_EN_RETARD
+  ETAPE_NOUVELLE
 }
 
 /// Notification personnelle (D192) : affichée dans la fenêtre « Notifications » à la connexion et
