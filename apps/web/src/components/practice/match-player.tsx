@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { feedback } from '@/lib/feedback';
 import { cn } from '@/lib/utils';
-import { type ChoiceState, ChoiceButton, type PlayerProps } from './kit';
+import { type ChoiceState, ChoiceButton, type PlayerProps, useSaved } from './kit';
 
 type Match = Extract<PracticeActivity, { kind: 'match' }>;
 
@@ -14,7 +14,8 @@ type Match = Extract<PracticeActivity, { kind: 'match' }>;
  * Associations : toucher un élément à gauche puis sa correspondance à droite (clavier : Tab et
  * Entrée). Aucun glisser-déposer requis. Une paire juste se fige ; une erreur se défait aussitôt.
  */
-export function MatchPlayer({ activity, onDone }: PlayerProps<Match>) {
+export function MatchPlayer(props: PlayerProps<Match>) {
+  const { activity, onDone } = props;
   const rights = useMemo(
     () =>
       stableShuffle(
@@ -23,16 +24,16 @@ export function MatchPlayer({ activity, onDone }: PlayerProps<Match>) {
       ),
     [activity],
   );
-  const [selected, setSelected] = useState<number | null>(null);
-  const [matched, setMatched] = useState<Record<number, number>>({});
-  const [firstTry, setFirstTry] = useState<Record<number, number>>({});
+  const [selected, setSelected] = useSaved<number | null>(props, 'selected', null);
+  const [matched, setMatched] = useSaved<Record<number, number>>(props, 'matched', {});
+  const [firstTry, setFirstTry] = useSaved<Record<number, number>>(props, 'firstTry', {});
   const [wrong, setWrong] = useState<number | null>(null);
   const done = Object.keys(matched).length === activity.pairs.length;
 
   const pick = (right: number) => {
     if (selected === null) return;
     // Première proposition retenue pour la correction (l'élève peut ensuite corriger).
-    setFirstTry((current) => (selected in current ? current : { ...current, [selected]: right }));
+    if (!(selected in firstTry)) setFirstTry({ ...firstTry, [selected]: right });
     if (right === selected) {
       setMatched({ ...matched, [selected]: right });
       setSelected(null);

@@ -1,9 +1,8 @@
 'use client';
 
 import { type PracticeActivity } from '@tesla/shared';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { AnswerFeedback, ChoiceButton, type PlayerProps } from './kit';
+import { AnswerFeedback, ChoiceButton, type PlayerProps, useSaved } from './kit';
 
 type Scenario = Extract<PracticeActivity, { kind: 'scenario' }>;
 
@@ -11,9 +10,10 @@ type Scenario = Extract<PracticeActivity, { kind: 'scenario' }>;
  * Mise en situation : plusieurs choix peuvent être raisonnables. Chaque choix reçoit l'éclairage
  * rédigé par l'encadrement, sans « bonne » ni « mauvaise » réponse ; on peut explorer les autres.
  */
-export function ScenarioPlayer({ activity, onDone }: PlayerProps<Scenario>) {
-  const [chosen, setChosen] = useState<number | null>(null);
-  const [first, setFirst] = useState<number | null>(null);
+export function ScenarioPlayer(props: PlayerProps<Scenario>) {
+  const { activity, onDone } = props;
+  const [chosen, setChosen] = useSaved<number | null>(props, 'chosen', null);
+  const [first, setFirst] = useSaved<number | null>(props, 'first', null);
   return (
     <div className="space-y-4">
       <p className="rounded-2xl bg-tesla-sable/40 p-4 leading-relaxed whitespace-pre-line">
@@ -27,7 +27,7 @@ export function ScenarioPlayer({ activity, onDone }: PlayerProps<Scenario>) {
             state={chosen === index ? 'selected' : 'idle'}
             onClick={() => {
               setChosen(index);
-              setFirst((current) => current ?? index);
+              if (first === null) setFirst(index);
             }}
           >
             {choice.label}

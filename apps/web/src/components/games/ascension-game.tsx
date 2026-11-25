@@ -2,7 +2,7 @@
 
 import { ArrowRight, BookOpen, Lightbulb, RotateCcw, SkipForward, Split } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnswerFeedback, ChoiceButton } from '@/components/practice/kit';
 import { Button } from '@/components/ui/button';
 import { feedback } from '@/lib/feedback';
@@ -29,6 +29,8 @@ export interface AscensionData {
   assisted: boolean;
   /** Paliers franchis sans aucun joker. */
   autonomous: number;
+  /** Identifiant de tentative de la réponse en cours, créé une fois (renvois idempotents). */
+  answerId?: string;
 }
 
 export const ascensionStart = (picked: AscensionQuestion[]): AscensionData => ({
@@ -86,7 +88,12 @@ export function AscensionGame({
   onRestart: () => void;
   onFinish: () => void;
   /** Envoi de la réponse (aperçu : rien). Renvoie l'issue de l'enregistrement. */
-  onAnswer: (question: AscensionQuestion, answer: number, assisted: boolean) => Promise<SaveState>;
+  onAnswer: (
+    question: AscensionQuestion,
+    answer: number,
+    assisted: boolean,
+    attemptId: string,
+  ) => Promise<SaveState>;
 }) {
   const state = session.data;
   const byId = new Map(pool.map((question) => [question.id, question]));
@@ -101,8 +108,9 @@ export function AscensionGame({
     if (state.chosen !== null) return;
     const correct = option === question.answer;
     feedback(correct ? 'success' : 'error');
-    onUpdate({ ...state, chosen: option });
-    void onAnswer(question, option, state.assisted).then((saved) => {
+    const attemptId = crypto.randomUUID();
+    onUpdate({ ...state, chosen: option, answerId: attemptId });
+    void onAnswer(question, option, state.assisted, attemptId).then((saved) => {
       if (RETRYABLE.includes(saved)) setUnsent((count) => count + 1);
     });
     if (!correct) onFinish();
@@ -117,6 +125,7 @@ export function AscensionGame({
       removed: [],
       hintShown: false,
       chosen: null,
+      answerId: undefined,
       assisted: false,
       autonomous: state.autonomous + (state.assisted ? 0 : 1),
     });
@@ -125,6 +134,15 @@ export function AscensionGame({
       onFinish();
     }
   };
+
+  // Reprise après une fermeture juste après la réponse : même identifiant, aucun double comptage.
+  const resent = useRef(false);
+  useEffect(() => {
+    if (resent.current || state.chosen === null || !state.answerId) return;
+    resent.current = true;
+    void onAnswer(question, state.chosen, state.assisted, state.answerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- une seule fois, à l'ouverture.
+  }, []);
 
   const hasReserve = state.question + 1 < questions.length && questions.length > total;
   const canUse = (joker: Joker) =>

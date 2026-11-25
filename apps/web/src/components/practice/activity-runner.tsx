@@ -9,13 +9,13 @@ import {
   type PracticeKind,
 } from '@tesla/shared';
 import { ArrowRight, Award, CloudOff, RefreshCw, RotateCcw } from 'lucide-react';
-import { type ComponentType, useEffect, useRef, useState } from 'react';
+import { type ComponentType, useCallback, useEffect, useRef, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { Button } from '@/components/ui/button';
 import { feedback } from '@/lib/feedback';
+import { useGameSession } from '@/lib/game-session';
 import { userCan } from '@/lib/navigation';
 import {
-  flushPendingResults,
   RETRYABLE,
   SAVE_MESSAGES,
   type SaveState,
@@ -23,7 +23,7 @@ import {
 } from '@/lib/practice-results';
 import { ClozePlayer } from './cloze-player';
 import { FlashcardsPlayer } from './flashcards-player';
-import { type PlayerProps } from './kit';
+import { type PlayerProps, type PlayerSnapshot } from './kit';
 import { MatchPlayer } from './match-player';
 import { OrderPlayer } from './order-player';
 import { QuizPlayer } from './quiz-player';
@@ -51,6 +51,12 @@ export interface RunnableActivity {
   fingerprint?: string;
   activity: PracticeActivity;
   reverent?: boolean;
+}
+
+interface RunnerData {
+  /** Empreinte du contenu au début de la partie : une partie d'un autre contenu n'est pas reprise. */
+  fingerprint: string | null;
+  snapshot: PlayerSnapshot;
 }
 
 /** Éléments à revoir (questions manquées), pour l'écran de fin. */
@@ -87,28 +93,59 @@ export function ActivityRunner({
 }) {
   const user = useSessionUser();
   const queryClient = useQueryClient();
-  const [round, setRound] = useState(0);
   const [answers, setAnswers] = useState<PracticeAnswers | null>(null);
   const [assisted, setAssisted] = useState(false);
   const [saved, setSaved] = useState<SaveState | 'idle'>('idle');
   const [reward, setReward] = useState<{ xp: number; badges: EarnedBadge[] } | null>(null);
-  // Une tentative par manche : son identifiant accompagne chaque nouvel essai d'envoi.
-  const attempt = useRef<string>(crypto.randomUUID());
   const Player = PLAYERS[item.activity.kind];
   // Aperçu (rédaction, sans module publié) : jamais d'enregistrement.
   const records = item.moduleSlug !== '' && userCan(user, 'practice.own');
+  const fingerprint = item.fingerprint ?? null;
 
-  // Résultats gardés dans l'onglet : renvoyés à l'ouverture et au retour du réseau.
+  // Partie en cours enregistrée pour ce compte (D204) : question, réponses, saisies, indices.
+  // Son identifiant est celui de la tentative, conservé à chaque nouvel essai d'envoi.
+  const { session, update, restart, finish } = useGameSession<RunnerData>(
+    records ? user.id : null,
+    `activity:${item.moduleSlug}:${item.key}`,
+    () => ({ fingerprint, snapshot: {} }),
+  );
+  const outdated =
+    !!session &&
+    session.data.fingerprint !== fingerprint &&
+    Object.keys(session.data.snapshot).length > 0;
+
+  // Écritures regroupées (saisie au clavier) ; enregistrées immédiatement en quittant la page.
+  const pending = useRef<PlayerSnapshot | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const flushSnapshot = useCallback(() => {
+    clearTimeout(timer.current);
+    if (pending.current) update({ fingerprint, snapshot: pending.current });
+    pending.current = null;
+  }, [update, fingerprint]);
   useEffect(() => {
-    if (!records) return;
-    const flush = () => void flushPendingResults(user.id);
-    flush();
-    window.addEventListener('online', flush);
-    return () => window.removeEventListener('online', flush);
-  }, [records, user.id]);
+    const hide = () => flushSnapshot();
+    window.addEventListener('pagehide', hide);
+    return () => {
+      window.removeEventListener('pagehide', hide);
+      flushSnapshot();
+    };
+  }, [flushSnapshot]);
+  const onSnapshot = useCallback(
+    (field: string, value: unknown) => {
+      pending.current = { ...(pending.current ?? session?.data.snapshot ?? {}), [field]: value };
+      clearTimeout(timer.current);
+      timer.current = setTimeout(flushSnapshot, 300);
+    },
+    [session, flushSnapshot],
+  );
 
-  const send = async (result: PracticeAnswers, help: boolean) => {
-    const attemptId = attempt.current;
+  // Réponse arrivée après un changement de compte ou une nouvelle manche : ignorée.
+  const current = useRef({ userId: user.id, attemptId: session?.id });
+  useEffect(() => {
+    current.current = { userId: user.id, attemptId: session?.id };
+  });
+
+  const send = async (attemptId: string, result: PracticeAnswers, help: boolean) => {
     setSaved('saving');
     const outcome = await submitPracticeResult(user.id, {
       attemptId,
@@ -119,8 +156,7 @@ export function ActivityRunner({
       assisted: help,
       answers: result,
     });
-    // Réponse d'une manche abandonnée (« Recommencer » entre-temps) : ignorée.
-    if (attempt.current !== attemptId) return;
+    if (current.current.userId !== user.id || current.current.attemptId !== attemptId) return;
     setSaved(outcome.state);
     const response = outcome.result;
     if (response && (response.xpAwarded > 0 || response.newBadges.length > 0)) {
@@ -131,20 +167,47 @@ export function ActivityRunner({
       void queryClient.invalidateQueries({ queryKey: ['me', 'journal'] });
   };
 
-  const finish = (result: PracticeAnswers, meta?: { assisted?: boolean }) => {
+  const done = (result: PracticeAnswers, meta?: { assisted?: boolean }) => {
+    if (!session || answers) return;
+    clearTimeout(timer.current);
+    pending.current = null;
     setAnswers(result);
     setAssisted(!!meta?.assisted);
+    // La partie est terminée : le résultat passe dans la file des résultats (enregistré avant envoi).
+    finish();
     if (!records) return setSaved('preview');
-    void send(result, !!meta?.assisted);
+    void send(session.id, result, !!meta?.assisted);
   };
+
+  const again = () => {
+    setAnswers(null);
+    setAssisted(false);
+    setReward(null);
+    setSaved('idle');
+    restart({ fingerprint, snapshot: {} });
+  };
+
+  if (!session) return <div className="h-24 animate-pulse rounded-xl bg-muted/60" aria-hidden />;
+
+  if (outdated)
+    return (
+      <div className="animate-enter space-y-3 rounded-xl border bg-card p-4" role="status">
+        <p className="font-medium">Cette activité a été mise à jour.</p>
+        <Button onClick={again} autoFocus>
+          Commencer
+        </Button>
+      </div>
+    );
 
   if (!answers)
     return (
       <Player
-        key={round}
+        key={session.id}
         activity={item.activity}
         reverent={item.reverent}
-        onDone={(result, meta) => finish(result, meta)}
+        snapshot={session.data.snapshot}
+        onSnapshot={onSnapshot}
+        onDone={done}
       />
     );
 
@@ -208,7 +271,7 @@ export function ActivityRunner({
               variant="link"
               size="sm"
               className="h-auto p-0 text-xs"
-              onClick={() => void send(answers, assisted)}
+              onClick={() => void send(session.id, answers, assisted)}
             >
               <RefreshCw className="size-3" aria-hidden />
               Réessayer
@@ -224,17 +287,7 @@ export function ActivityRunner({
             <ArrowRight aria-hidden />
           </Button>
         )}
-        <Button
-          variant={onContinue ? 'outline' : 'default'}
-          onClick={() => {
-            attempt.current = crypto.randomUUID();
-            setAnswers(null);
-            setAssisted(false);
-            setReward(null);
-            setSaved('idle');
-            setRound(round + 1);
-          }}
-        >
+        <Button variant={onContinue ? 'outline' : 'default'} onClick={again}>
           <RotateCcw aria-hidden />
           Recommencer
         </Button>

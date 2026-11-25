@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const vault = vi.hoisted(() => ({
   owner: null as string | null,
   records: new Map<string, unknown>(),
+  failWrites: false,
 }));
 vi.mock('./offline/vault', () => ({
   ensureVaultRestored: async () => {},
@@ -13,6 +14,7 @@ vi.mock('./offline/vault', () => ({
       ? { value: vault.records.get(`${vault.owner}:${id}`), revision: 1 }
       : null,
   putRecord: async (id: string, value: unknown) => {
+    if (vault.failWrites) throw new Error('QuotaExceededError');
     vault.records.set(`${vault.owner}:${id}`, structuredClone(value));
     return true;
   },
@@ -25,8 +27,10 @@ const {
   clearGameSession,
   forgetOtherAccounts,
   loadGameSession,
+  newest,
   purgeLegacyGameStorage,
   saveGameSession,
+  validSession,
 } = await import('./game-session');
 
 function memoryStorage() {
@@ -52,6 +56,7 @@ describe('sauvegarde des parties (D201)', () => {
   beforeEach(() => {
     vault.owner = null;
     vault.records.clear();
+    vault.failWrites = false;
     vi.stubGlobal('window', { sessionStorage: memoryStorage(), localStorage: memoryStorage() });
   });
 
@@ -92,5 +97,31 @@ describe('sauvegarde des parties (D201)', () => {
     window.localStorage.setItem('tesla.games.position', '{}');
     purgeLegacyGameStorage();
     expect(window.localStorage.length).toBe(0);
+  });
+
+  it('coffre en échec : copie de l’onglet ; la plus récente l’emporte au chargement (D204)', async () => {
+    vault.owner = 'compte-a';
+    await saveGameSession('compte-a', 'express:*', { ...session({ index: 1 }), rev: 1 });
+    vault.failWrites = true;
+    expect(
+      await saveGameSession('compte-a', 'express:*', { ...session({ index: 3 }), rev: 2 }),
+    ).toBe(false);
+    // Le coffre garde l'ancienne révision, l'onglet la nouvelle : la progression n'est pas perdue.
+    expect((await loadGameSession('compte-a', 'express:*'))?.data).toEqual({ index: 3 });
+    // Une fois le coffre rétabli, l'écriture suivante retire la copie de l'onglet.
+    vault.failWrites = false;
+    await saveGameSession('compte-a', 'express:*', { ...session({ index: 4 }), rev: 3 });
+    expect(window.sessionStorage.length).toBe(0);
+    expect((await loadGameSession('compte-a', 'express:*'))?.data).toEqual({ index: 4 });
+  });
+
+  it('validation : format inconnu, données absentes ou révision invalide ignorés', () => {
+    const now = Date.now();
+    expect(validSession({ ...session({}), v: 99 }, now)).toBeNull();
+    expect(validSession({ id: 'x', savedAt: new Date().toISOString() }, now)).toBeNull();
+    expect(validSession({ ...session({}), rev: 1.5 }, now)).toBeNull();
+    // Ancien format (sans version ni révision) : repris.
+    expect(validSession(session({ index: 1 }), now)?.data).toEqual({ index: 1 });
+    expect(newest({ ...session('a'), rev: 2 }, { ...session('b'), rev: 5 })?.data).toBe('b');
   });
 });

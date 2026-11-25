@@ -8,11 +8,11 @@ import {
   stableShuffle,
 } from '@tesla/shared';
 import { Eye } from 'lucide-react';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { feedback } from '@/lib/feedback';
 import { cn } from '@/lib/utils';
-import { type PlayerProps } from './kit';
+import { type PlayerProps, useSaved } from './kit';
 
 type Cloze = Extract<PracticeActivity, { kind: 'cloze' }>;
 
@@ -34,15 +34,16 @@ function segments(text: string): (string | { blank: number })[] {
  * Texte à compléter : propositions affichées par défaut (aide), saisie libre possible. Pour un
  * texte de référence (prière, loi), aucun score : on compare simplement avec le texte original.
  */
-export function ClozePlayer({ activity, reverent, onDone }: PlayerProps<Cloze>) {
+export function ClozePlayer(props: PlayerProps<Cloze>) {
+  const { activity, reverent, onDone } = props;
   const blanks = useMemo(() => clozeBlanks(activity.text), [activity.text]);
   const parts = useMemo(() => segments(activity.text), [activity.text]);
   const bank = useMemo(() => stableShuffle(blanks, activity.id), [blanks, activity.id]);
-  const [values, setValues] = useState<string[]>(() => blanks.map(() => ''));
-  const [active, setActive] = useState(0);
-  const [checked, setChecked] = useState(false);
-  const [withBank, setWithBank] = useState(true);
-  const [original, setOriginal] = useState(false);
+  const [values, setValues] = useSaved<string[]>(props, 'values', () => blanks.map(() => ''));
+  const [active, setActive] = useSaved(props, 'active', 0);
+  const [checked, setChecked] = useSaved(props, 'checked', false);
+  const [withBank, setWithBank] = useSaved(props, 'withBank', true);
+  const [original, setOriginal] = useSaved(props, 'original', false);
   const results = blanks.map((word, index) => sameWord(values[index] ?? '', word));
   const used = new Set(values.map((value) => value.toLocaleLowerCase('fr')));
 

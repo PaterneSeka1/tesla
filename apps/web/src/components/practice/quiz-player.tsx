@@ -2,20 +2,22 @@
 
 import { type PracticeActivity } from '@tesla/shared';
 import { ArrowRight, Lightbulb } from 'lucide-react';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { feedback } from '@/lib/feedback';
-import { AnswerFeedback, ChoiceButton, type PlayerProps, StepProgress } from './kit';
+import { AnswerFeedback, ChoiceButton, type PlayerProps, StepProgress, useSaved } from './kit';
 
 type Quiz = Extract<PracticeActivity, { kind: 'quiz' }>;
 type TrueFalse = Extract<PracticeActivity, { kind: 'truefalse' }>;
 
 /** Questions à choix et vrai ou faux : une question à la fois, retour immédiat, aucune minuterie. */
-export function QuizPlayer({ activity, onDone }: PlayerProps<Quiz | TrueFalse>) {
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<(number | boolean)[]>([]);
-  const [hint, setHint] = useState(false);
-  const [assisted, setAssisted] = useState(false);
+export function QuizPlayer(props: PlayerProps<Quiz | TrueFalse>) {
+  const { activity, onDone } = props;
+  const [index, setIndex] = useSaved(props, 'index', 0);
+  const [answers, setAnswers] = useSaved<(number | boolean)[]>(props, 'answers', [], {
+    variable: true,
+  });
+  const [hint, setHint] = useSaved(props, 'hint', false);
+  const [assisted, setAssisted] = useSaved(props, 'assisted', false);
   const items = activity.kind === 'quiz' ? activity.items : activity.items;
   const answer = answers[index];
   const answered = answer !== undefined;

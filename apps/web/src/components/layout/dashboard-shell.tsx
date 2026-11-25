@@ -8,6 +8,7 @@ import { UserMenu } from '@/components/auth/user-menu';
 import { BrandLogo } from '@/components/brand-logo';
 import { NotificationsDialog } from '@/components/notifications/notifications-dialog';
 import { DeviceStatus } from '@/components/offline/device-status';
+import { PracticeSync } from '@/components/practice/practice-sync';
 import { cn } from '@/lib/utils';
 import { PageTransition } from './page-transition';
 import { AppNav, BottomNav, BottomNavSpacer, CurrentPageTitle, isImmersivePath } from './app-nav';
@@ -135,6 +136,7 @@ export function DashboardShell({
           ) : (
             <SessionGate>
               <NotificationsDialog />
+              <PracticeSync />
               <PageTransition>{children}</PageTransition>
             </SessionGate>
           )}

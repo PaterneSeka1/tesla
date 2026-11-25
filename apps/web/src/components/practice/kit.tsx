@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, X } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { ProgressBar } from '@/components/progress-bar';
 import { cn } from '@/lib/utils';
 
@@ -101,10 +102,56 @@ export function StepProgress({ current, total }: { current: number; total: numbe
   );
 }
 
+/** État interne enregistré d'une activité en cours (question, réponses, saisies, indices…). */
+export type PlayerSnapshot = Record<string, unknown>;
+
 export interface PlayerProps<A> {
   activity: A;
   /** Texte religieux ou officiel cité : mémorisation sans score ni jugement (§ 34). */
   reverent?: boolean;
   /** `assisted` : une aide (indice) a été utilisée ; jamais comptée comme une maîtrise. */
   onDone: (answers: (number | boolean | string)[], meta?: { assisted?: boolean }) => void;
+  /** Reprise (D204) : état enregistré de la partie interrompue, pour ce contenu exact. */
+  snapshot?: PlayerSnapshot;
+  /** Chaque changement d'état utile à la reprise est signalé ici (sauvegarde par le lanceur). */
+  onSnapshot?: (field: string, value: unknown) => void;
+}
+
+/** Même forme que la valeur initiale (type, tableau ou objet) : une sauvegarde altérée est ignorée. */
+export function sameShape(value: unknown, initial: unknown): boolean {
+  if (value === undefined) return false;
+  if (initial === null) return true;
+  if (Array.isArray(initial)) return Array.isArray(value) && value.length === initial.length;
+  if (typeof initial === 'object')
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+  return typeof value === typeof initial;
+}
+
+/**
+ * Contrat commun de persistance des lecteurs (D204) : remplace `useState` pour tout état utile à
+ * la reprise exacte. La valeur enregistrée est reprise si elle a la forme attendue ; chaque
+ * changement est transmis au lanceur, qui l'enregistre (coffre de l'appareil, sinon onglet).
+ * Un tableau initial de longueur variable (réponses au fil des questions) passe `variable`.
+ */
+export function useSaved<T>(
+  props: Pick<PlayerProps<unknown>, 'snapshot' | 'onSnapshot'>,
+  field: string,
+  initial: T | (() => T),
+  { variable = false }: { variable?: boolean } = {},
+): [T, (value: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    const start = typeof initial === 'function' ? (initial as () => T)() : initial;
+    const saved = props.snapshot?.[field];
+    const fits = variable ? Array.isArray(saved) : sameShape(saved, start);
+    return fits ? (saved as T) : start;
+  });
+  const onSnapshot = props.onSnapshot;
+  const set = useCallback(
+    (next: T) => {
+      setValue(next);
+      onSnapshot?.(field, next);
+    },
+    [field, onSnapshot],
+  );
+  return [value, set];
 }

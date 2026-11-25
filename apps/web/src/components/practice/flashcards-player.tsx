@@ -2,10 +2,9 @@
 
 import { type PracticeActivity } from '@tesla/shared';
 import { RotateCw } from 'lucide-react';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { feedback } from '@/lib/feedback';
-import { type PlayerProps, StepProgress } from './kit';
+import { type PlayerProps, StepProgress, useSaved } from './kit';
 
 type Flashcards = Extract<PracticeActivity, { kind: 'flashcards' }>;
 
@@ -13,10 +12,11 @@ type Flashcards = Extract<PracticeActivity, { kind: 'flashcards' }>;
  * Cartes de mémorisation : on se pose la question, on retourne la carte, on indique honnêtement si
  * on savait. Cette auto-évaluation règle seulement la prochaine révision (aucun jugement).
  */
-export function FlashcardsPlayer({ activity, onDone }: PlayerProps<Flashcards>) {
-  const [index, setIndex] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [answers, setAnswers] = useState<number[]>([]);
+export function FlashcardsPlayer(props: PlayerProps<Flashcards>) {
+  const { activity, onDone } = props;
+  const [index, setIndex] = useSaved(props, 'index', 0);
+  const [flipped, setFlipped] = useSaved(props, 'flipped', false);
+  const [answers, setAnswers] = useSaved<number[]>(props, 'answers', [], { variable: true });
   const card = activity.cards[index]!;
 
   const rate = (knew: boolean) => {
