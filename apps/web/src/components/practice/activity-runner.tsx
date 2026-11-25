@@ -23,6 +23,7 @@ import {
 } from '@/lib/practice-results';
 import { ClozePlayer } from './cloze-player';
 import { FlashcardsPlayer } from './flashcards-player';
+import { InvestigationPlayer } from './investigation-player';
 import { type PlayerProps, type PlayerSnapshot } from './kit';
 import { MatchPlayer } from './match-player';
 import { OrderPlayer } from './order-player';
@@ -42,6 +43,7 @@ export const PLAYERS: Record<PracticeKind, ComponentType<PlayerProps<any>>> = {
   flashcards: FlashcardsPlayer,
   cloze: ClozePlayer,
   scenario: ScenarioPlayer,
+  investigation: InvestigationPlayer,
 };
 
 export interface RunnableActivity {

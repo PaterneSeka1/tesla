@@ -15,6 +15,7 @@ export const PRACTICE_KINDS = [
   'flashcards',
   'cloze',
   'scenario',
+  'investigation',
 ] as const;
 export type PracticeKind = (typeof PRACTICE_KINDS)[number];
 
@@ -26,6 +27,7 @@ export const PRACTICE_KIND_LABELS: Record<PracticeKind, string> = {
   flashcards: 'Cartes de mémorisation',
   cloze: 'Texte à compléter',
   scenario: 'Mise en situation',
+  investigation: 'Enquête',
 };
 
 const text = (max: number) => z.string().trim().min(1, 'Champ obligatoire.').max(max);
@@ -133,6 +135,28 @@ export const practiceActivitySchema = z.discriminatedUnion('kind', [
       .min(2)
       .max(5),
   }),
+  z
+    .object({
+      kind: z.literal('investigation'),
+      id: activityId,
+      title: optionalText(120),
+      difficulty: practiceDifficulty,
+      /** Ce qu'il faut découvrir (personnage, événement, symbole…). */
+      mission: text(400),
+      /** Indices révélés un à un, dans l'ordre de l'auteur : chacun doit apporter une information. */
+      clues: z
+        .array(z.object({ label: optionalText(60), text: text(600) }))
+        .min(2)
+        .max(6),
+      question: text(300),
+      options: z.array(text(200)).min(2).max(6),
+      answer: z.number().int().min(0),
+      /** Solution expliquée, toujours accessible à la fin. */
+      explanation: optionalText(800),
+    })
+    .refine((activity) => activity.answer < activity.options.length, {
+      message: 'La bonne réponse doit faire partie des propositions.',
+    }),
 ]);
 
 export type PracticeActivity = z.infer<typeof practiceActivitySchema>;
@@ -177,6 +201,16 @@ export function emptyPracticeActivity(kind: PracticeKind): PracticeActivity {
           { label: '', insight: '' },
           { label: '', insight: '' },
         ],
+      };
+    case 'investigation':
+      return {
+        kind,
+        id,
+        mission: '',
+        clues: [{ text: '' }, { text: '' }],
+        question: '',
+        options: ['', ''],
+        answer: 0,
       };
   }
 }
@@ -232,6 +266,8 @@ export function practiceItemCount(activity: PracticeActivity): number {
       return clozeBlanks(activity.text).length;
     case 'scenario':
       return 0;
+    case 'investigation':
+      return 1;
   }
 }
 
@@ -262,13 +298,19 @@ export function gradePractice(activity: PracticeActivity, answers: PracticeAnswe
     }
     case 'scenario':
       return [];
+    case 'investigation':
+      // Première proposition retenue (on peut ensuite chercher encore) ; indices jamais pénalisés.
+      return [at(0) === activity.answer];
   }
 }
 
-/** Maîtrise : tous les éléments notés réussis (une mise en situation est « explorée »). */
+/**
+ * Maîtrise : tous les éléments notés réussis. Une activité sans élément noté (mise en situation
+ * ouverte) est seulement « explorée », jamais maîtrisée (D204).
+ */
 export function isMastered(activity: PracticeActivity, answers: PracticeAnswers): boolean {
   const graded = gradePractice(activity, answers);
-  return graded.length === 0 ? answers.length > 0 : graded.every(Boolean);
+  return graded.length > 0 && graded.every(Boolean);
 }
 
 /** Ordre de présentation déterministe (impression, première présentation) : rotation stable. */
@@ -341,6 +383,16 @@ export function practicePrintLines(activity: PracticeActivity): { title: string;
       return {
         title,
         lines: [activity.situation, ...activity.choices.map((choice) => `[ ] ${choice.label}`)],
+      };
+    case 'investigation':
+      return {
+        title,
+        lines: [
+          activity.mission,
+          ...activity.clues.map((clue, index) => `Indice ${index + 1} : ${clue.text}`),
+          activity.question,
+          ...activity.options.map((option) => `[ ] ${option}`),
+        ],
       };
   }
 }

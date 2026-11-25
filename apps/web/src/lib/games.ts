@@ -6,6 +6,7 @@ import { type DueReview, type PracticeBank, type PracticeKind, stableShuffle } f
  * un mode = une entrée ici (et, si besoin, un composant de jeu).
  */
 export type GameKey =
+  | 'enquetes'
   | 'revisions'
   | 'express'
   | 'vrai-faux'
@@ -49,7 +50,7 @@ export const GAME_MODES: readonly GameMode[] = [
     tagline: 'Les notions à revoir aujourd’hui.',
     group: null,
     engine: 'sequence',
-    kinds: ['quiz', 'truefalse', 'match', 'order', 'flashcards', 'cloze'],
+    kinds: ['quiz', 'truefalse', 'match', 'order', 'flashcards', 'cloze', 'investigation'],
     size: 5,
     minutes: 5,
   },
@@ -107,8 +108,8 @@ export const GAME_MODES: readonly GameMode[] = [
   },
   {
     key: 'frises',
-    title: 'Remise en ordre',
-    tagline: 'Replacer les étapes et les dates.',
+    title: 'Frises et étapes',
+    tagline: 'Replacer les événements et les étapes dans l’ordre.',
     group: 'memoire',
     engine: 'sequence',
     kinds: ['order'],
@@ -138,6 +139,18 @@ export const GAME_MODES: readonly GameMode[] = [
     minutes: 5,
   },
   {
+    key: 'enquetes',
+    title: 'Enquêtes',
+    tagline: 'Rassembler les indices, résoudre l’énigme.',
+    group: 'defi',
+    engine: 'sequence',
+    kinds: ['investigation'],
+    size: 1,
+    minutes: 5,
+    rules:
+      'Une mission, des indices à révéler un à un dans le carnet, puis une énigme. Répondez quand vous êtes prêt ; une erreur n’arrête rien et la solution reste accessible. C’est un entraînement : aucun résultat officiel.',
+  },
+  {
     key: 'situations',
     title: 'Mises en situation',
     tagline: 'Que feriez-vous à sa place ?',
@@ -160,6 +173,8 @@ export interface BankEntry {
   fingerprint: string;
   lessonId: string;
   lessonTitle: string;
+  /** Rédigée dans la leçon (jouée dans le lecteur) ou dérivée du texte publié. */
+  origin: 'authored' | 'derived';
   reverent?: boolean;
   activity: PracticeBank['modules'][number]['activities'][number]['activity'];
 }
@@ -176,6 +191,7 @@ export function flattenBank(bank: PracticeBank, moduleSlug?: string | null): Ban
         fingerprint: entry.fingerprint,
         lessonId: entry.lessonId,
         lessonTitle: entry.lessonTitle,
+        origin: entry.origin,
         reverent: entry.reverent,
         activity: entry.activity,
       })),

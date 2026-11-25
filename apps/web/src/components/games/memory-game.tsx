@@ -108,6 +108,11 @@ export function MemoryGame({
   const [open, setOpen] = useState<string[]>([]);
   const found = new Set(state.found);
   const pairs = cards.length / 2;
+  // Textes longs (définitions) : cartes plus larges, jamais de contenu coupé à 320 px.
+  const long = cards.some((card) => card.label.length > 48);
+  const last = state.found.at(-1);
+  const lastPair =
+    last !== undefined && entry.activity.kind === 'match' ? entry.activity.pairs[last] : undefined;
 
   useEffect(() => {
     if (open.length !== 2) return;
@@ -138,7 +143,6 @@ export function MemoryGame({
       <div className="animate-achieve space-y-4 rounded-2xl border bg-card p-5 text-center">
         <Brain className="mx-auto size-8 text-tesla-rouge" aria-hidden />
         <p className="text-lg font-semibold text-tesla-bordeaux">Toutes les paires trouvées</p>
-        <p className="text-sm text-muted-foreground">En {state.turns} essais.</p>
         <div className="flex flex-wrap justify-center gap-2">
           <Button onClick={onRestart} autoFocus>
             <RotateCcw aria-hidden />
@@ -157,7 +161,12 @@ export function MemoryGame({
         {found.size} paire{found.size > 1 ? 's' : ''} sur {pairs}
         {entry.activity.title ? ` · ${entry.activity.title}` : ''}
       </p>
-      <ul className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+      <ul
+        className={cn(
+          'grid gap-2.5',
+          long ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-3 sm:grid-cols-4',
+        )}
+      >
         {cards.map((card) => {
           const visible = found.has(card.pair) || open.includes(card.id);
           return (
@@ -192,6 +201,15 @@ export function MemoryGame({
           );
         })}
       </ul>
+      {lastPair && (
+        <p
+          key={last}
+          className="animate-enter rounded-xl bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900"
+          role="status"
+        >
+          <span className="font-semibold">{lastPair.left}</span> — {lastPair.right}
+        </p>
+      )}
     </div>
   );
 }

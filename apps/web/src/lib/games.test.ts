@@ -24,6 +24,7 @@ const quiz = (id: string, count: number, difficulty?: number): PracticeActivity 
 });
 
 const entry = (key: string, activity: PracticeActivity, lessonId = `lecon-${key}`): BankEntry => ({
+  origin: 'authored',
   moduleSlug: 'module-fictif',
   moduleTitle: 'Module fictif',
   key,

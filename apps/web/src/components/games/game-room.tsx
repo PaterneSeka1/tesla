@@ -13,6 +13,7 @@ import {
   TextCursorInput,
   Users,
   Zap,
+  FileSearch,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -38,14 +39,15 @@ export const GAME_ICONS: Record<GameKey, LucideIcon> = {
   frises: ListOrdered,
   textes: TextCursorInput,
   situations: Users,
+  enquetes: FileSearch,
 };
 
 /** Jeux mis en avant, avec une illustration propre. */
 const FEATURED: GameKey[] = ['ascension', 'memoire'];
 
 /**
- * Salle des défis (D198, D202) : les révisions du jour, deux jeux emblématiques illustrés, puis
- * les autres jeux en tuiles (nom et pictogramme seulement). Seuls les jeux réellement jouables
+ * Salle des défis (D198, D202, D206) : les révisions du jour, un jeu emblématique illustré mis en
+ * avant, puis les autres jeux en tuiles compactes (nom et pictogramme seulement). Seuls les jeux réellement jouables
  * apparaissent (`isPlayable`) ; un thème (module) peut être choisi.
  */
 export function GameRoom() {
@@ -70,8 +72,12 @@ export function GameRoom() {
   const due = dueInBank(entries, journal?.data?.dueReviews ?? []);
   const query = moduleSlug ? `?module=${encodeURIComponent(moduleSlug)}` : '';
   const available = playableModes(entries, due).filter((mode) => mode.group);
-  const featured = available.filter((mode) => FEATURED.includes(mode.key));
-  const others = available.filter((mode) => !FEATURED.includes(mode.key));
+  // Une seule expérience mise en avant (§ 45) : la première disponible parmi les jeux illustrés.
+  const featured = FEATURED.flatMap((key) => available.filter((mode) => mode.key === key)).slice(
+    0,
+    1,
+  );
+  const others = available.filter((mode) => !featured.includes(mode));
 
   return (
     <>
@@ -125,9 +131,9 @@ export function GameRoom() {
       ) : (
         <>
           {featured.length > 0 && (
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-3">
               {featured.map((mode) => (
-                <li key={mode.key}>
+                <li key={mode.key} className="min-w-0">
                   <Link
                     href={`/defis/${mode.key}${query}`}
                     className="group block overflow-hidden rounded-2xl border bg-card shadow-sm transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
@@ -157,20 +163,22 @@ export function GameRoom() {
             </ul>
           )}
           {others.length > 0 && (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {others.map((mode) => {
                 const Icon = GAME_ICONS[mode.key];
                 return (
-                  <li key={mode.key}>
+                  <li key={mode.key} className="min-w-0">
                     <Link
                       href={`/defis/${mode.key}${query}`}
                       title={mode.tagline}
-                      className="group flex h-full min-h-24 flex-col justify-between gap-3 rounded-2xl border bg-card p-4 transition-[transform,background-color] duration-200 hover:bg-tesla-sable/30 active:scale-[0.98] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                      className="group flex h-full min-h-14 items-center gap-2.5 rounded-xl border bg-card px-3 py-2 transition-[transform,background-color] duration-200 hover:bg-tesla-sable/30 active:scale-[0.98] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                     >
-                      <span className="flex size-10 items-center justify-center rounded-xl bg-tesla-sable/70 text-tesla-bordeaux transition-transform duration-200 group-hover:-rotate-6">
-                        <Icon className="size-5" aria-hidden />
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-tesla-sable/70 text-tesla-bordeaux transition-transform duration-200 group-hover:-rotate-6 max-[359px]:hidden">
+                        <Icon className="size-4" aria-hidden />
                       </span>
-                      <span className="text-sm leading-tight font-medium">{mode.title}</span>
+                      <span className="min-w-0 text-sm leading-tight font-medium">
+                        {mode.title}
+                      </span>
                     </Link>
                   </li>
                 );

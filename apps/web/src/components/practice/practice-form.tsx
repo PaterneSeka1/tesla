@@ -4,6 +4,8 @@ import {
   clozeBlanks,
   type PracticeActivity,
   practiceActivitySchema,
+  PRACTICE_DIFFICULTIES,
+  PRACTICE_DIFFICULTY_LABELS,
   PRACTICE_KIND_LABELS,
 } from '@tesla/shared';
 import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
@@ -31,6 +33,7 @@ const HINTS: Record<PracticeActivity['kind'], string> = {
   flashcards: 'Une question au recto, la réponse au verso.',
   cloze: 'Un texte dont les mots à retrouver sont entre doubles crochets : Toujours [[prêt]].',
   scenario: 'Une situation et des choix possibles, chacun avec son éclairage (pas de note).',
+  investigation: 'Une énigme à résoudre : des indices vérifiés révélés un à un, puis une question.',
 };
 
 const textarea =
@@ -100,6 +103,35 @@ export function PracticeFormDialog({
               )}
             </Field>
             <KindFields draft={draft} update={update} />
+            <details className="text-sm">
+              <summary className="cursor-pointer text-muted-foreground">Paramètres</summary>
+              <div className="mt-2">
+                <Field label="Difficulté (facultatif)">
+                  {(id) => (
+                    <select
+                      id={id}
+                      className="h-9 w-full max-w-xs rounded-md border border-input bg-card px-3 text-sm"
+                      value={draft.difficulty ?? ''}
+                      onChange={(event) =>
+                        update({
+                          ...draft,
+                          difficulty: event.target.value
+                            ? (Number(event.target.value) as 1 | 2 | 3)
+                            : undefined,
+                        })
+                      }
+                    >
+                      <option value="">Non précisée</option>
+                      {PRACTICE_DIFFICULTIES.map((level) => (
+                        <option key={level} value={level}>
+                          {PRACTICE_DIFFICULTY_LABELS[level]}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+              </div>
+            </details>
           </div>
         )}
 
@@ -137,6 +169,7 @@ function describePath(path: PropertyKey[]): string {
     cards: 'carte',
     choices: 'choix',
     options: 'proposition',
+    clues: 'indice',
   };
   return path
     .map((part, index) =>
@@ -250,65 +283,12 @@ function KindFields({
                   />
                 )}
               </Field>
-              <fieldset className="space-y-1.5">
-                <legend className="text-sm font-medium">Propositions (cochez la bonne)</legend>
-                {item.options.map((option, optionIndex) => (
-                  <div key={optionIndex} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name={`answer-${draft.id}-${index}`}
-                      checked={item.answer === optionIndex}
-                      onChange={() => set({ ...item, answer: optionIndex })}
-                      aria-label={`Bonne réponse : proposition ${optionIndex + 1}`}
-                      className="size-4 accent-tesla-rouge"
-                    />
-                    <Input
-                      value={option}
-                      aria-label={`Proposition ${optionIndex + 1}`}
-                      onChange={(e) =>
-                        set({
-                          ...item,
-                          options: item.options.map((o, i) =>
-                            i === optionIndex ? e.target.value : o,
-                          ),
-                        })
-                      }
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      disabled={item.options.length <= 2}
-                      aria-label={`Retirer la proposition ${optionIndex + 1}`}
-                      onClick={() =>
-                        set({
-                          ...item,
-                          options: item.options.filter((_, i) => i !== optionIndex),
-                          answer:
-                            item.answer === optionIndex
-                              ? 0
-                              : item.answer > optionIndex
-                                ? item.answer - 1
-                                : item.answer,
-                        })
-                      }
-                    >
-                      <Trash2 aria-hidden />
-                    </Button>
-                  </div>
-                ))}
-                {item.options.length < 6 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => set({ ...item, options: [...item.options, ''] })}
-                  >
-                    <Plus aria-hidden />
-                    Proposition
-                  </Button>
-                )}
-              </fieldset>
+              <ChoiceOptions
+                name={`answer-${draft.id}-${index}`}
+                options={item.options}
+                answer={item.answer}
+                onChange={(options, answer) => set({ ...item, options, answer })}
+              />
               <details className="text-sm">
                 <summary className="cursor-pointer text-muted-foreground">
                   Indice et explication
@@ -525,5 +505,137 @@ function KindFields({
           />
         </div>
       );
+    case 'investigation':
+      return (
+        <div className="space-y-4">
+          <Field label="Mission : ce qu’il faut découvrir">
+            {(id) => (
+              <textarea
+                id={id}
+                className={textarea}
+                value={draft.mission}
+                onChange={(e) => update({ ...draft, mission: e.target.value })}
+              />
+            )}
+          </Field>
+          <Rows
+            rows={draft.clues}
+            min={2}
+            max={6}
+            addLabel="Ajouter un indice"
+            add={() => ({ text: '' })}
+            onChange={(clues) => update({ ...draft, clues })}
+            render={(clue, set, index) => (
+              <>
+                <Input
+                  aria-label={`Nature de l’indice ${index + 1} (facultatif)`}
+                  placeholder="Document, date, symbole… (facultatif)"
+                  value={clue.label ?? ''}
+                  onChange={(e) => set({ ...clue, label: e.target.value })}
+                />
+                <textarea
+                  aria-label={`Indice ${index + 1}`}
+                  placeholder={`Indice ${index + 1} (information vérifiée)`}
+                  className={textarea}
+                  value={clue.text}
+                  onChange={(e) => set({ ...clue, text: e.target.value })}
+                />
+              </>
+            )}
+          />
+          <Field label="Question finale">
+            {(id) => (
+              <Input
+                id={id}
+                value={draft.question}
+                onChange={(e) => update({ ...draft, question: e.target.value })}
+              />
+            )}
+          </Field>
+          <ChoiceOptions
+            name={`answer-${draft.id}`}
+            options={draft.options}
+            answer={draft.answer}
+            onChange={(options, answer) => update({ ...draft, options, answer })}
+          />
+          <Field label="Solution expliquée">
+            {(id) => (
+              <textarea
+                id={id}
+                className={textarea}
+                value={draft.explanation ?? ''}
+                onChange={(e) => update({ ...draft, explanation: e.target.value })}
+              />
+            )}
+          </Field>
+        </div>
+      );
   }
+}
+
+/** Propositions d'une question, la bonne cochée (quiz, enquête). */
+function ChoiceOptions({
+  name,
+  options,
+  answer,
+  onChange,
+}: {
+  name: string;
+  options: string[];
+  answer: number;
+  onChange: (options: string[], answer: number) => void;
+}) {
+  return (
+    <fieldset className="space-y-1.5">
+      <legend className="text-sm font-medium">Propositions (cochez la bonne)</legend>
+      {options.map((option, optionIndex) => (
+        <div key={optionIndex} className="flex items-center gap-2">
+          <input
+            type="radio"
+            name={name}
+            checked={answer === optionIndex}
+            onChange={() => onChange(options, optionIndex)}
+            aria-label={`Bonne réponse : proposition ${optionIndex + 1}`}
+            className="size-4 accent-tesla-rouge"
+          />
+          <Input
+            value={option}
+            aria-label={`Proposition ${optionIndex + 1}`}
+            onChange={(e) =>
+              onChange(
+                options.map((o, i) => (i === optionIndex ? e.target.value : o)),
+                answer,
+              )
+            }
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={options.length <= 2}
+            aria-label={`Retirer la proposition ${optionIndex + 1}`}
+            onClick={() =>
+              onChange(
+                options.filter((_, i) => i !== optionIndex),
+                answer === optionIndex ? 0 : answer > optionIndex ? answer - 1 : answer,
+              )
+            }
+          >
+            <Trash2 aria-hidden />
+          </Button>
+        </div>
+      ))}
+      {options.length < 6 && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => onChange([...options, ''], answer)}
+        >
+          <Plus aria-hidden />
+          Proposition
+        </Button>
+      )}
+    </fieldset>
+  );
 }
