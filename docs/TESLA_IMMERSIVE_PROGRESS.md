@@ -160,3 +160,135 @@ Non reproduit en navigateur pendant ce chantier (constats établis par lecture d
 - Après : lint OK, typecheck OK, API 312/312, web **179/179** (18 nouveaux : `games.test.ts`, `game-session.test.ts`, `practice-results.test.ts`, badges et empreinte dans `practice.test.ts`), intégration `practice.int-spec.ts` **10/10** (5 nouveaux : rejeu simultané, version périmée, réponses assistées et Ascension, badges acquis, leçon renommée).
 - Non exécutés : `npm run build`, suite d'intégration complète, recettes navigateur, `audit:prod`.
 
+
+---
+
+# Chantier 3 — Excellence immersive (2026-11-25)
+
+Cahier des charges : `docs/prompts/TESLA_IMMERSIVE_EXCELLENCE.md` (127 sections, lots 0–15). **Après une compaction : relire ce bloc, puis la section du cahier correspondant au lot en cours.**
+Branche **`feat/tesla-immersive-excellence`**, créée depuis `feat/tesla-immersive-audit` (58b231f). Rien n'est commité ni poussé (règle du dépôt : commit sur demande). Aucun déploiement.
+
+## Lot 0 — Audit Git et référence — TERMINÉ
+| Branche | vs `origin/main` (3a80bea) | Contenue dans la base ? |
+|---|---|---|
+| `main` locale (c752164) | 0 / −1 | oui |
+| `feat/sortie-adulte-fiche-medicale` (97c74ea, 1 commit local non poussé) | 0 / −7 | oui |
+| `fix/progression-audit` (3be47a7) | +7 / −1 | oui |
+| `feat/tesla-immersive-learning` (8362a4f) | +20 / 0 | oui |
+| `feat/tesla-immersive-audit` (58b231f = origin) | +28 / 0 | **base** |
+Aucune fusion nécessaire (toutes les branches sont des ancêtres de la base). Aucun stash, aucun worktree, aucune suppression. Écart doc : la section « Chantier 2 » disait « rien n'est commité ni poussé » ; en réalité 58b231f est poussé sur `origin/feat/tesla-immersive-audit`.
+
+Référence (avant travaux, 2026-11-25) : `format:check` 3 écarts préexistants (mêmes fichiers) ; lint OK ; typecheck OK ; API 312/312 ; web 179/179. `build` : exécuté pendant les premières modifications, donc **non représentatif** (à refaire sur un arbre propre de 58b231f pour les mesures avant/après).
+
+## Lot 1 — Sauvegardes et isolation — TERMINÉ (code + unitaires ; recette navigateur au lot 15)
+Écarts reproduits (lecture du code) : rejeu serveur ne comparant que module + activité ; état interne des activités (question en cours, saisies, indices) non sauvegardé ; écriture de coffre échouée → copie d'onglet jamais relue si le coffre est ouvert ; effets de bord (sauvegarde) dans un `setState(updater)` (doublés en Strict Mode) ; même expiration (14 j) pour toutes les données.
+Réalisé :
+- Contrat commun `useSaved(props, champ, initial)` (`components/practice/kit.tsx`) adopté par les 6 lecteurs (quiz/vrai-faux, texte à compléter, flashcards, associations, remise en ordre, mise en situation).
+- `ActivityRunner` : partie enregistrée par compte (`activity:<module>:<clé>`), identifiant de partie = identifiant de tentative, écritures regroupées (300 ms, immédiate à `pagehide`), contenu modifié → « Cette activité a été mise à jour. » + « Commencer ».
+- `game-session.ts` : révision `rev`, format `v`, `validSession`, `newest` (coffre vs onglet), suppression de la copie d'onglet après écriture réussie dans le coffre, écritures hors des fonctions de mise à jour React, `durable` exposé. Conservation : partie abandonnée 14 j, souvenir de variété 60 j, résultats : aucune expiration.
+- L'Ascension : identifiant de tentative de la réponse stocké dans la partie (`answerId`), renvoyé à la reprise (idempotent).
+
+## Lot 2 — Résultats et synchronisation — TERMINÉ (code + tests)
+- `practice-results.ts` réécrit : un enregistrement par tentative (`result:<id>` dans le coffre, sinon `tesla.result:<compte>:<id>`), **écrit avant l'envoi**, aucune limite, aucune liste partagée en lecture-modification-écriture, essais comptés + dernière erreur + attente croissante (10 s → 15 min), une seule requête par tentative (double clic), état `unsaved` si aucun stockage possible. Hors ligne avec coffre : la file d'opérations existante (D110) prend le relais, l'enregistrement local est retiré (pas de doublon).
+- `PracticeSync` (monté sous `SessionGate`) : ouverture, retour réseau, premier plan, déverrouillage, nouveau résultat, échéance ; réponse d'un ancien compte ignorée.
+- API : `sameAttempt` — un rejeu n'est accepté que si module, activité, empreinte, mode, question, assistance et réponses sont identiques ; sinon 409 `PRACTICE_ATTEMPT_REUSED` (D204). Anciens clients sans `attemptId` : inchangés (identifiant serveur).
+Tests : web 186/186 (+7), API 312/312, `practice.int-spec.ts` 10/10 sur `tesla_test` (cas « requête modifiée » ajoutés).
+
+## Lot 3 — Intégrité pédagogique — TERMINÉ
+Écarts reproduits (code + test) : un texte respectueux dérivé (prière, loi) était noté par le serveur, pouvait être « maîtrisé », faire monter Leitner, rapporter l'XP de maîtrise et compter des « difficultés » (Persévérance) ; une mise en situation ouverte était « maîtrisée » dès qu'un choix était fait.
+Correctif (D204) : activité **non notée** = `reverent` ou `scenario` → `correct 0 / total 0`, jamais maîtrisée, aucune difficulté comptée, XP de participation seulement ; la répétition espacée avance quand l'activité est refaite à l'échéance (mémorisation douce). `isMastered` partagé : sans élément noté → `false`.
+Déjà en place et revérifié : badges persistés jamais retirés (`learning_badges`), Persévérance sur vraies difficultés, révisions réconciliées avec les versions publiées, `lesson_key`, `isPlayable` (accueil, module, défis), sélection (échéances, récence, variété des leçons, difficulté), Ascension triée par difficulté éditoriale sans prétendre à une progression (« de plus en plus loin » = distance). Fuseau : échéances en UTC = heure d'Abidjan (UTC+0), à revoir si l'application sort de cette zone.
+Tests : `practice.int-spec.ts` 11/11 (+ prière dérivée), web 186/186, API 312/312.
+
+## ⚠ Incident (2026-11-25 16:30)
+`npx prisma migrate deploy` lancé avec `TEST_DATABASE_URL` seulement : Prisma lit `DATABASE_URL` du `.env` racine → la migration additive `20261126090000_practice_attempts_badges` a été appliquée à la base **locale `tesla`** (non autorisé ; production non concernée). Pas de retour arrière manuel tenté (migration additive, retour plus risqué). À arbitrer par l'utilisateur. Règle : toujours préfixer `DATABASE_URL=<…tesla_test…>` pour toute commande Prisma.
+
+## Lots 4 à 7 — Direction artistique, jeux, carte, expéditions — TERMINÉS (recette navigateur faite, voir lot 15)
+- **Lot 4 (D205)** : bibliothèque graphique `components/illustrations/scenery.tsx` (baobab, acacia, tente, feu, rose des vents, fanion, herbes ; SVG originaux, couleurs du thème, décoratifs `aria-hidden`), 3 compositions (`savane`, `camp`, `piste`) choisies de façon stable par module ; animation `animate-draw` (tracé du chemin parcouru, neutralisée par la réduction des animations).
+- **Lot 5 (D206)** : nouveau type **Enquête** (`investigation` : mission, 2–6 indices vérifiés révélés un à un, énigme, solution expliquée ; première proposition notée, indices jamais pénalisés), mode de jeu `enquetes`, formulaire de l'éditeur ; **frise** : une remise en ordre dont toutes les étapes portent un repère temporel (année, mois, siècle) devient une frise, repères révélés à la vérification ; **mémoire** : grille à 2 colonnes pour les textes longs (rien de coupé à 320 px), paire trouvée réaffichée en clair, plus de décompte d'essais à la fin ; difficulté facultative dans le formulaire (volet « Paramètres »).
+- **Lot 6** : **carte d'aventure illustrée** (lacets, relief, décor, départ, tronçon parcouru doré, défis, arrivée ; haltes = vraie liste de liens ; « Halte en cours » au-delà de 5 haltes ; vue liste conservée, libellé « Carte ») ; **salle des défis** : un seul jeu mis en avant, les autres en tuiles compactes ; débordement horizontal **préexistant** à 320 px corrigé (grille implicite + `truncate`).
+- **Lot 7 (D207)** : **expéditions** `/modules/[slug]/expedition` (mode concentration) : haltes lues dans le lecteur existant (retour « Continuer l'expédition »), exercices dérivés de chaque halte joués sur place (notions à revoir d'abord, étape facultative si tout est maîtrisé), L'Ascension du module si jouable (retour automatique), synthèse (objectifs publiés), fin. Sauvegarde par compte (`expedition:<slug>`), préparée hors ligne. Action principale du module « Partir en expédition » quand il y a de quoi s'entraîner (« Lire » en secondaire). Expédition de référence : module de recette `recette-entrainement` ; dans le catalogue réel, toute expédition dépend des exercices publiés (aucun contenu ajouté).
+Tests : web 190/190 (+ `expedition.test.ts`, enquête dans `practice.test.ts`) ; recette `excellence.browser.mjs` 5/5 à 390 px (reprise d'une réponse après actualisation, carte, enquête, expédition avec reprise).
+Limites : la carte place les libellés à côté des haltes ; au-delà d'une quinzaine de haltes la carte reste longue (vue liste disponible). Le jeu de mémoire ne sauvegarde pas une carte retournée isolée (se referme en < 1 s).
+
+## Lot 8 — Contenus et éditeur — TERMINÉ (partiel assumé)
+- **Exercices dérivés (D208)** : attribut `noPractice` sur liste numérotée, citation, titre « À retenir » (Tiptap `NoPracticeAttribute`, schéma en liste blanche) ; panneau « Exercices tirés du texte (n/m) » sous l'éditeur : aperçu dans le rendu apprenant (rien d'enregistré) et case « proposé ». La décision vit dans la leçon → versionnée, soumise à approbation ; le texte n'est jamais modifié. `buildPracticeBank(…, { includeDisabled })` pour l'éditeur seulement.
+- Difficulté facultative (lot 5), type Enquête dans l'éditeur, frise via repères temporels.
+- Non réalisé : modèles réutilisables (§58), indicateur de couverture pédagogique (§59 — le panneau donne déjà le nombre d'exercices par leçon), aperçu mobile/desktop côte à côte (§57 ; l'aperçu actuel est le rendu apprenant).
+
+## Lot 9 — Carnet et personnalisation — TERMINÉ (favoris, notes) ; avatar et compagnon non faits
+- **D209** : tables `learner_bookmarks`, `learner_notes` (migration additive `20261127090000_learner_notebook`, CHECK longueur 1–4000 et révision ≥ 1) appliquée sur **`tesla_test` seulement**. API `GET /me/notebook`, `PUT /me/bookmarks` (idempotent), `PUT /me/notes` (révision attendue → 409 `NOTE_CONFLICT`, texte vide = suppression), `DELETE /me/bookmarks/:id` et `/me/notes/:id` (titulaire seul, contenu retiré compris). Permission `practice.own` (routier, adulte) ; aucune route par compte, encadrement refusé (403).
+- Identité stable `lesson_key` : renommage et nouvelle version suivis ; leçon retirée → « plus disponible », jamais supprimée en silence.
+- Web : icônes favori / note dans l'en-tête du lecteur ; volets « Favoris » et « Mes notes » repliés dans le carnet ; écritures différables hors ligne (`bookmark.set`, `note.save` avec révision de référence) ; préparées hors ligne (copie chiffrée).
+- Tests : `practice.int-spec.ts` 12/12 (carnet : idempotence, conflit, création simultanée, isolation, 403 encadrement, renommage, retrait, suppression).
+- **Non fait (décision attendue)** : avatar et emblèmes (liste à valider), compagnon « Requin de Sable » (étude seulement : dessin, ton et moments d'apparition à valider ; désactivable).
+
+## Lots 10 et 11 — Missions et jeux collectifs — NON ACTIVÉS (décisions métier attendues, D210, D211)
+Aucun code ajouté (pas de fonctionnalité factice ni de code inactif). Propositions détaillées dans `docs/DECISIONS.md` (D210 missions, D211 sessions collectives).
+
+## Lot 12 — Encadrement — TERMINÉ (périmètre : tableau communautaire)
+- Constat reproduit en navigateur : `/administration/parcours` en colonnes horizontales sur téléphone (2e colonne coupée, défilement latéral).
+- Correctif : sur téléphone, les quatre compteurs sont des boutons bascule (`aria-pressed`) qui affichent **une étape à la fois** en pleine largeur (par défaut la première qui compte des routiers) ; bureau inchangé (4 colonnes). Aucun déplacement d'étape possible (étapes calculées).
+- Non fait : filtre par équipe (§75), indicateur de couverture pédagogique (§59).
+- Éditeur : panneau des exercices dérivés (lot 8) ; anomalie trouvée en recette (document brut de Tiptap passé à la dérivation → page en erreur) corrigée par validation préalable du document.
+
+## Lot 15 (en cours) — Recettes exécutées le 2026-11-25 (build de production, base `tesla_test`)
+- `excellence.browser.mjs` : **12/12** à 320, 390 et 1440 px ; axe-core (WCAG 2.0/2.1/2.2 A et AA) sur 14 écrans nouveaux ou modifiés : **0 violation** ; aucune erreur de page, aucun défilement horizontal.
+- `immersive.browser.mjs` (non-régression chantiers 1–2) : **18/18**, après adaptation de 4 attentes devenues caduques (libellé « Carte », action « Partir en expédition »/« Lire », salle des défis en tuiles — déjà caduque depuis le chantier 2 —, palier de L'Ascension lu dans l'illustration).
+- Fixture : la suite d'intégration remet `tesla_test` à zéro ; regénérer `immersive-browser-fixture.mts` avant chaque recette navigateur.
+
+## Lots 13 à 15 — Hors ligne, sécurité et performances, recette finale — TERMINÉS (2026-11-25)
+
+### Vérifications finales (build de production, base `tesla_test`)
+| Contrôle | Résultat |
+|---|---|
+| `format:check` | 3 écarts **préexistants** (fichiers non modifiés : `module-publication.ts`, `editeur-pedagogique.browser.mjs`, `offline-auth.browser.mjs`) |
+| `lint`, `typecheck` | OK |
+| Tests unitaires | API **312/312**, web **191/191** (179 au départ) |
+| `build` | OK |
+| Intégration PostgreSQL complète (`test:int`) | **213/213**, 1 ignoré préexistant (classeur réel absent) |
+| `audit:prod` | **non exécuté** : l'API d'audit du registre npm coupe la connexion TLS (3 essais), alors que le registre répond |
+| `excellence.browser.mjs` | **20/20** à 320, 360, 390, 430, 768, 1024, 1440 px ; axe-core WCAG A/AA : 14 écrans, **0 violation** |
+| `immersive.browser.mjs` (non-régression) | **18/18** |
+
+### Hors ligne (lot 13)
+Vérifié en navigateur : appareil activé → préparation complète ; sans réseau : expédition, enquête, carnet (notes) rouverts ; parties jouées, résultat conservé puis synchronisé une seule fois (non-régression 18/18). Non vérifié : infrastructure réelle OVH/Nginx/Vercel en HTTPS (préproduction à prévoir), téléphones réels.
+
+### Sécurité (lot 14)
+- Nouvelles routes : `practice.own` contrôlée côté serveur (encadrement et administrateur refusés), aucune route par compte, suppression limitée au titulaire (un identifiant d'autrui = 404), entrées validées par Zod, conflits explicites (409).
+- Rejeu : identité sémantique complète (D204). Corrigés officiels : aucune nouvelle route ne lit un questionnaire officiel ; la banque reste issue des seules versions publiées.
+- Données personnelles : notes sans expiration automatique (suppression par le titulaire) — politique de purge à arrêter (décision attendue) ; tables `practice_attempts`/`learning_events` toujours en ajout seul sans rétention définie (déjà signalé).
+
+### Performances (laboratoire : Chromium, 390 px, CPU ×4, 1,6 Mbit/s / 150 ms, cache actif)
+| Écran | LCP | CLS | Interaction | JS |
+|---|---|---|---|---|
+| Accueil | 728 ms (700 au chantier 1) | 0 | — | 262 ko (261) |
+| Module (carte illustrée) | 608 ms (600) | 0 | — | 185 ko (157) |
+| Défis | 576 ms (560) | 0 | — | 152 ko (150) |
+| Vrai ou faux (réponse) | 960 ms | 0 | 64 ms (48) | 63 ko (70) |
+| Carnet | 536 ms (600) | 0 | — | 72 ko (69) |
+| Expédition | non relevé* | 0 | — | 59 ko |
+| Enquête (indice) | non relevé* | 0 | 40 ms | 83 ko |
+\* navigation interne sans nouvel élément LCP. Indicatif ; aucune garantie sur tous les appareils. Carte : +28 ko de JS (illustration et expédition). Pas de mesure sans cache, ni de session longue de 60–120 min (non réalisée).
+
+### Audit final de simplicité
+| Écran | Action principale | Retiré / regroupé |
+|---|---|---|
+| Module | Partir en expédition (« Lire » secondaire) | durée des haltes retirée de la carte |
+| Carte | toucher une halte | libellés courts, décor décoratif, liste à la demande |
+| Expédition | une action par étape | aucune statistique ; progression = une barre |
+| Défis | un jeu mis en avant | tuiles compactes, pictogramme masqué sous 360 px |
+| Enquête | répondre / indice suivant | un seul indice affiché au départ |
+| Mémoire | retourner une carte | décompte d'essais supprimé |
+| Lecteur | continuer | favori et note en deux icônes |
+| Carnet | consulter | favoris et notes repliés |
+| Parcours des routiers (mobile) | choisir une étape | colonnes horizontales supprimées |
+
+## Restes et décisions attendues (chantier 3)
+1. ⚠ Incident : migration `20261126090000_practice_attempts_badges` appliquée par erreur à la base locale `tesla` (conserver ou restaurer ?).
+2. Missions (D210) et sessions collectives (D211) : règles à valider avant toute activation.
+3. Avatar, emblèmes, compagnon : à valider ; non réalisés.
+4. Politique de conservation des notes, tentatives et événements d'apprentissage.
+5. Non réalisés : modèles réutilisables, indicateur de couverture, filtre par équipe, aperçu mobile/bureau côte à côte, recette longue 60–120 min, recette téléphones réels, `audit:prod`, préproduction HTTPS.
+6. Migration `20261127090000_learner_notebook` : sur `tesla_test` seulement.
+7. Rien n'est commité ni poussé ; aucun déploiement.

@@ -61,3 +61,12 @@ Risques traités : score falsifié (recorrection), XP dupliqués (index unique, 
 - Jeu collectif animé par un chef, missions individuelles et d'équipe, avatar, notes et favoris : non implémentés (voir le suivi).
 - Barème XP et intervalles de révision : valeurs ludiques par défaut, à confirmer à l'usage.
 - Les activités dérivées n'existent que si le contenu publié s'y prête ; les activités rédigées passent par l'approbation du plein.
+
+## Chantier 3 — excellence immersive (2026-11-25, D204–D211)
+
+- **Reprise exacte** : chaque activité garde son état (question, réponses, saisies, indices) pour le compte connecté ; une activité modifiée depuis affiche « Cette activité a été mise à jour. ».
+- **Résultats** : enregistrés sur l'appareil avant l'envoi, renvoyés automatiquement (attente croissante), jamais supprimés pour une raison de place ou d'ancienneté ; un identifiant réutilisé avec un autre contenu est refusé (409).
+- **Activités non notées** : prières, loi, textes officiels et mises en situation ne sont jamais notés ni « maîtrisés ».
+- **Carte d'aventure illustrée** (liste conservée), **enquêtes**, **frises** datées, **expéditions** (`/modules/<module>/expedition`), **favoris et notes** privés.
+- **Éditeur** : panneau « Exercices tirés du texte » (aperçu, case « proposé »), difficulté facultative (volet « Paramètres »), type « Enquête ».
+- Missions et sessions collectives : propositions D210 et D211, non activées.

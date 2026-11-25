@@ -4,6 +4,22 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — excellence immersive, 2026-11-25 (D204–D209)
+- **Expéditions** : un module se parcourt comme une aventure guidée (haltes, exercices tirés du texte, L'Ascension, synthèse), à son rythme, avec reprise exacte et sans réseau.
+- **Enquêtes** : un nouveau jeu où l'on rassemble des indices vérifiés pour résoudre une énigme ; solution toujours accessible.
+- **Frises** : les remises en ordre datées deviennent des frises, les dates se révèlent à la vérification.
+- **Carte d'aventure illustrée** : le module se lit comme un sentier dans un paysage ; la vue liste reste disponible.
+- **Favoris et notes personnelles** depuis le lecteur, privés, retrouvés dans le carnet, utilisables hors ligne.
+- **Éditeur** : aperçu et désactivation des exercices tirés du texte ; difficulté facultative ; formulaire d'enquête.
+
+### Corrigé — fiabilité, 2026-11-25 (D204)
+- Une activité interrompue reprend exactement (question, réponses, saisies, indices), après actualisation ou fermeture.
+- Un résultat terminé est enregistré sur l'appareil avant son envoi et renvoyé automatiquement ; plus de limite de 50 résultats en attente.
+- Un identifiant de tentative réutilisé avec un autre contenu est refusé explicitement.
+- Les prières et textes officiels ne sont plus jamais notés ni « maîtrisés » ; les mises en situation non plus.
+- Salle des défis : plus de défilement horizontal à 320 px ; un seul jeu mis en avant.
+- Parcours des routiers : une étape à la fois sur téléphone (plus de colonnes coupées).
+
 ### Ajouté — parcours des routiers, 2026-11-25 (D203)
 - **Parcours des routiers** (encadrement) : chaque routier dans la colonne de son étape, avec la date de son prochain passage, la mention « Ancien » si son parcours antérieur est reconnu et son rattrapage en cours ; les fiches sans date de naissance apparaissent en tête. Accessible depuis Routiers et depuis l'accueil.
 
