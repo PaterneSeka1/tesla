@@ -81,10 +81,18 @@ export interface LessonListItem {
 
 export type LessonBlock =
   | { type: 'paragraph'; content?: LessonInline[] }
-  | { type: 'heading'; attrs: { level: 2 | 3 }; content?: LessonInline[] }
+  | {
+      type: 'heading';
+      attrs: { level: 2 | 3; noPractice?: boolean | null };
+      content?: LessonInline[];
+    }
   | { type: 'bulletList'; content: LessonListItem[] }
-  | { type: 'orderedList'; attrs?: { start?: number }; content: LessonListItem[] }
-  | { type: 'blockquote'; content: LessonBlock[] }
+  | {
+      type: 'orderedList';
+      attrs?: { start?: number; noPractice?: boolean | null };
+      content: LessonListItem[];
+    }
+  | { type: 'blockquote'; attrs?: { noPractice?: boolean | null }; content: LessonBlock[] }
   | { type: 'horizontalRule' }
   | { type: 'image'; attrs: { src: string; alt?: string | null } }
   /** Activité d'entraînement (D194) : suit le circuit de publication du module. */
@@ -125,21 +133,34 @@ const listItemSchema: z.ZodType<LessonListItem> = z.lazy(() =>
   z.object({ type: z.literal('listItem'), content: z.array(blockSchema).min(1).max(50) }),
 );
 
+/**
+ * Exercice dérivé désactivé par l'encadrement (D208) : le bloc source (liste numérotée, citation,
+ * titre « À retenir ») reste intact, aucun exercice n'en est tiré. Enregistré dans la leçon, donc
+ * versionné et soumis à approbation comme le reste du contenu.
+ */
+const noPractice = z.boolean().nullish();
+
 const blockSchema: z.ZodType<LessonBlock> = z.lazy(() =>
   z.discriminatedUnion('type', [
     z.object({ type: z.literal('paragraph'), content: z.array(inlineSchema).max(500).optional() }),
     z.object({
       type: z.literal('heading'),
-      attrs: z.object({ level: z.union([z.literal(2), z.literal(3)]) }),
+      attrs: z.object({ level: z.union([z.literal(2), z.literal(3)]), noPractice }),
       content: z.array(inlineSchema).max(100).optional(),
     }),
     z.object({ type: z.literal('bulletList'), content: z.array(listItemSchema).min(1).max(200) }),
     z.object({
       type: z.literal('orderedList'),
-      attrs: z.object({ start: z.number().int().min(0).max(10_000).optional() }).optional(),
+      attrs: z
+        .object({ start: z.number().int().min(0).max(10_000).optional(), noPractice })
+        .optional(),
       content: z.array(listItemSchema).min(1).max(200),
     }),
-    z.object({ type: z.literal('blockquote'), content: z.array(blockSchema).min(1).max(50) }),
+    z.object({
+      type: z.literal('blockquote'),
+      attrs: z.object({ noPractice }).optional(),
+      content: z.array(blockSchema).min(1).max(50),
+    }),
     z.object({ type: z.literal('horizontalRule') }),
     z.object({
       type: z.literal('image'),

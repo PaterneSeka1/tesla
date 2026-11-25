@@ -15,6 +15,7 @@ import {
 import Image from '@tiptap/extension-image';
 import { type Editor, EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { DerivedPracticePanel, NoPracticeAttribute } from './derived-practice-panel';
 import {
   Bold,
   Heading2,
@@ -112,6 +113,7 @@ export function LessonEditor({
       }),
       LessonImage.configure({ inline: false, allowBase64: false }),
       PracticeNode,
+      NoPracticeAttribute,
     ],
     content: value,
     editorProps: {
@@ -135,6 +137,7 @@ export function LessonEditor({
     <div>
       {editable && <Toolbar editor={editor} moduleId={moduleId} />}
       <EditorContent editor={editor} />
+      {editable && <DerivedPracticePanel editor={editor} />}
     </div>
   );
 }

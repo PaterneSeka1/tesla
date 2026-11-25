@@ -21,6 +21,10 @@ export interface BankActivity {
   origin: 'authored' | 'derived';
   /** Texte religieux ou officiel cité : mémorisation sans score ni compétition (cahier § 34). */
   reverent?: boolean;
+  /** Dérivée : index du bloc source dans la leçon (éditeur : aperçu et désactivation, D208). */
+  source?: number;
+  /** Dérivée désactivée par l'encadrement (renvoyée seulement avec `includeDisabled`). */
+  disabled?: boolean;
   activity: PracticeActivity;
 }
 
@@ -86,6 +90,14 @@ const SACRED = /prière|seigneur|dieu|jésus|amen|marie|notre père|promesse|loi
  * Mots à masquer pour mémoriser un texte : un mot significatif (≥ 5 lettres) sur `step`, au plus
  * `max`. Le texte original est conservé à l'identique autour des trous.
  */
+/** Le bloc source porte la décision « aucun exercice dérivé » (D208). */
+export function isPracticeOff(block: LessonBlock | undefined): boolean {
+  if (!block) return false;
+  const attrs =
+    'attrs' in block ? (block.attrs as { noPractice?: boolean | null } | undefined) : undefined;
+  return attrs?.noPractice === true;
+}
+
 export function clozeFromText(value: string, step = 4, max = 12): string | null {
   const tokens = value.split(/(\s+)/);
   let seen = 0;
@@ -101,13 +113,29 @@ export function clozeFromText(value: string, step = 4, max = 12): string | null 
   return blanks >= 2 ? out.join('') : null;
 }
 
-export function buildPracticeBank(lessons: readonly BankLesson[]): BankActivity[] {
+/**
+ * `includeDisabled` (éditeur seulement) : les exercices dérivés désactivés sont renvoyés, marqués
+ * `disabled`, pour pouvoir les réactiver. La banque des routiers ne les contient jamais.
+ */
+export function buildPracticeBank(
+  lessons: readonly BankLesson[],
+  { includeDisabled = false }: { includeDisabled?: boolean } = {},
+): BankActivity[] {
   const bank: BankActivity[] = [];
   const keys = new Set<string>();
+  let current: LessonBlock | undefined;
+  let currentIndex = 0;
   const push = (entry: Omit<BankActivity, 'fingerprint'>) => {
     if (keys.has(entry.key)) return;
+    const off = entry.origin === 'derived' && isPracticeOff(current);
+    if (off && !includeDisabled) return;
     keys.add(entry.key);
-    bank.push({ ...entry, fingerprint: activityFingerprint(entry.activity) });
+    bank.push({
+      ...entry,
+      ...(entry.origin === 'derived' && { source: currentIndex }),
+      ...(off && { disabled: true }),
+      fingerprint: activityFingerprint(entry.activity),
+    });
   };
 
   for (const lesson of lessons) {
@@ -116,6 +144,8 @@ export function buildPracticeBank(lessons: readonly BankLesson[]): BankActivity[
     let heading = '';
     for (let index = 0; index < blocks.length; index++) {
       const block = blocks[index]!;
+      current = block;
+      currentIndex = index;
       if (block.type === 'heading') heading = plain(block.content);
       if (block.type === 'practice') {
         push({

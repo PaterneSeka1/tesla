@@ -10,6 +10,7 @@ import {
   type LessonDocument,
   lessonDocumentSchema,
   nextReview,
+  practiceActivitySchema,
   practicePrintLines,
   sameWord,
 } from '@tesla/shared';
@@ -77,7 +78,7 @@ describe('activités d’entraînement (D194)', () => {
       ],
     };
     expect(gradePractice(scenario, [1])).toEqual([]);
-    expect(isMastered(scenario, [1])).toBe(true);
+    expect(isMastered(scenario, [1])).toBe(false);
   });
 
   it('compare les mots sans tenir compte de la casse, des accents ni de la ponctuation', () => {
@@ -217,5 +218,52 @@ describe('révisions et badges (D196, D197)', () => {
     });
     expect(a).toBe(b);
     expect(a).not.toBe(c);
+  });
+
+  it('enquête : indices obligatoires, première proposition notée, impression sans réponse (D206)', () => {
+    const investigation = {
+      kind: 'investigation' as const,
+      id: 'enquete-fictive',
+      mission: 'Retrouver le personnage fictif.',
+      clues: [{ text: 'Premier indice fictif.' }, { label: 'Date', text: 'Deuxième indice.' }],
+      question: 'Qui est-ce ?',
+      options: ['Personne A', 'Personne B'],
+      answer: 1,
+    };
+    expect(practiceActivitySchema.safeParse(investigation).success).toBe(true);
+    expect(
+      practiceActivitySchema.safeParse({ ...investigation, clues: [{ text: 'Seul' }] }).success,
+    ).toBe(false);
+    expect(practiceActivitySchema.safeParse({ ...investigation, answer: 2 }).success).toBe(false);
+    expect(gradePractice(investigation, [1])).toEqual([true]);
+    expect(gradePractice(investigation, [0])).toEqual([false]);
+    // Solution consultée sans réponse : jamais comptée comme réussie.
+    expect(isMastered(investigation, [-1])).toBe(false);
+    const lines = practicePrintLines(investigation).lines.join('\n');
+    expect(lines).toContain('Indice 2 : Deuxième indice.');
+    expect(lines).not.toMatch(/\[x\]/i);
+  });
+
+  it('exercice dérivé désactivé par l’encadrement : absent de la banque, texte intact (D208)', () => {
+    const list = (noPractice?: boolean) => ({
+      type: 'orderedList' as const,
+      ...(noPractice !== undefined && { attrs: { noPractice } }),
+      content: ['Premier', 'Deuxième', 'Troisième'].map((text) => ({
+        type: 'listItem' as const,
+        content: [paragraph(text)],
+      })),
+    });
+    const lesson = (block: ReturnType<typeof list>) => ({
+      id: 'l1',
+      title: 'Leçon fictive',
+      content: lessonDocumentSchema.parse({ type: 'doc', content: [block] }) as LessonDocument,
+    });
+    expect(buildPracticeBank([lesson(list())]).map((entry) => entry.source)).toEqual([0]);
+    expect(buildPracticeBank([lesson(list(true))])).toEqual([]);
+    const editor = buildPracticeBank([lesson(list(true))], { includeDisabled: true });
+    expect(editor).toHaveLength(1);
+    expect(editor[0]).toMatchObject({ disabled: true, origin: 'derived' });
+    // L'attribut survit à la validation du document (liste blanche).
+    expect(lesson(list(true)).content.content[0]).toMatchObject({ attrs: { noPractice: true } });
   });
 });
