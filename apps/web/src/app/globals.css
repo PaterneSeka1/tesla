@@ -222,6 +222,22 @@
   }
 }
 
+/* Tracé d'un chemin parcouru (SVG avec pathLength=1). */
+@keyframes draw {
+  from {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+}
+.animate-draw {
+  stroke-dasharray: 1;
+  animation: draw 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes grow {
   from {
     transform: scaleX(0);
