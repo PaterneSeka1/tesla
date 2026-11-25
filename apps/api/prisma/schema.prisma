@@ -133,6 +133,8 @@ model User {
   practiceProgress             PracticeProgress[]
   practiceAttempts             PracticeAttempt[]
   learningBadges               LearningBadge[]
+  learnerBookmarks             LearnerBookmark[]
+  learnerNotes                 LearnerNote[]
 
   @@index([role])
   @@map("users")
@@ -2264,4 +2266,38 @@ model PracticeProgress {
   @@unique([userId, moduleSlug, activityKey])
   @@index([userId, dueOn])
   @@map("practice_progress")
+}
+
+/// Favori personnel (D209) : un module (`lesson_key` vide) ou une leçon, par identité stable
+/// (`lesson_key`, renommages et nouvelles versions compris). Visible du titulaire seul.
+model LearnerBookmark {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  moduleSlug String   @map("module_slug")
+  /// Identité stable de la leçon (`module_lessons.lesson_key`) ; chaîne vide pour le module.
+  lessonKey  String   @default("") @map("lesson_key")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, moduleSlug, lessonKey])
+  @@map("learner_bookmarks")
+}
+
+/// Note personnelle sur une leçon (D209) : privée, jamais visible de l'encadrement ; révision
+/// croissante (deux appareils : conflit explicite, jamais d'écrasement silencieux).
+model LearnerNote {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  moduleSlug String   @map("module_slug")
+  lessonKey  String   @map("lesson_key")
+  body       String
+  revision   Int      @default(1)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, moduleSlug, lessonKey])
+  @@map("learner_notes")
 }

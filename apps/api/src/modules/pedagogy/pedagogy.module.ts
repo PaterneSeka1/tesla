@@ -9,6 +9,7 @@ import { ModuleFilesService } from './module-files.service.js';
 import { ModuleReviewController } from './module-review.controller.js';
 import { ModuleReviewService } from './module-review.service.js';
 import { PracticeController } from './practice.controller.js';
+import { NotebookService } from './notebook.service.js';
 import { PracticeService } from './practice.service.js';
 
 /**
@@ -31,6 +32,7 @@ import { PracticeService } from './practice.service.js';
     ModuleReviewService,
     ModuleFilesService,
     PracticeService,
+    NotebookService,
   ],
 })
 export class PedagogyModule {}

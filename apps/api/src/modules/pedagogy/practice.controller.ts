@@ -1,7 +1,24 @@
-import { Body, Controller, Get, Header, HttpCode, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { ApiBody, ApiCookieAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  bookmarkInputSchema,
   learningJournalSchema,
+  type Notebook,
+  notebookSchema,
+  noteInputSchema,
+  type NoteSaveResult,
+  noteSaveResultSchema,
   lessonReadInputSchema,
   type LearningJournal,
   type PracticeBank,
@@ -17,6 +34,7 @@ import {
 import { type Actor } from '../../common/actor.js';
 import { openApiSchema } from '../../common/openapi.js';
 import { CurrentActor } from '../auth/auth.decorators.js';
+import { NotebookService } from './notebook.service.js';
 import { PracticeService } from './practice.service.js';
 
 /** Entraînement libre (banque des modules publiés) et progression ludique du compte connecté. */
@@ -24,7 +42,10 @@ import { PracticeService } from './practice.service.js';
 @ApiCookieAuth()
 @Controller()
 export class PracticeController {
-  constructor(private readonly practice: PracticeService) {}
+  constructor(
+    private readonly practice: PracticeService,
+    private readonly notes: NotebookService,
+  ) {}
 
   @Get('practice/bank')
   @ApiOperation({ summary: 'Activités d’entraînement des modules publiés' })
@@ -65,5 +86,49 @@ export class PracticeController {
   @ApiOkResponse({ schema: openApiSchema(learningJournalSchema) })
   journal(@CurrentActor() actor: Actor): Promise<LearningJournal> {
     return this.practice.journal(actor);
+  }
+
+  @Get('me/notebook')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Favoris et notes personnelles (titulaire seul)' })
+  @ApiOkResponse({ schema: openApiSchema(notebookSchema) })
+  notebook(@CurrentActor() actor: Actor): Promise<Notebook> {
+    return this.notes.notebook(actor);
+  }
+
+  @Put('me/bookmarks')
+  @ApiOperation({ summary: 'Ajouter ou retirer un favori (idempotent)' })
+  @ApiBody({ schema: openApiSchema(bookmarkInputSchema, 'input') })
+  @ApiOkResponse({ schema: openApiSchema(notebookSchema) })
+  bookmark(@CurrentActor() actor: Actor, @Body() body: unknown): Promise<Notebook> {
+    return this.notes.setBookmark(actor, body);
+  }
+
+  @Put('me/notes')
+  @ApiOperation({ summary: 'Enregistrer ou supprimer sa note sur une leçon' })
+  @ApiBody({ schema: openApiSchema(noteInputSchema, 'input') })
+  @ApiOkResponse({ schema: openApiSchema(noteSaveResultSchema) })
+  note(@CurrentActor() actor: Actor, @Body() body: unknown): Promise<NoteSaveResult> {
+    return this.notes.saveNote(actor, body);
+  }
+
+  @Delete('me/bookmarks/:id')
+  @ApiOperation({ summary: 'Retirer un favori (titulaire seul)' })
+  @ApiOkResponse({ schema: openApiSchema(notebookSchema) })
+  removeBookmark(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<Notebook> {
+    return this.notes.remove(actor, 'bookmark', id);
+  }
+
+  @Delete('me/notes/:id')
+  @ApiOperation({ summary: 'Supprimer sa note (titulaire seul)' })
+  @ApiOkResponse({ schema: openApiSchema(notebookSchema) })
+  removeNote(
+    @CurrentActor() actor: Actor,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<Notebook> {
+    return this.notes.remove(actor, 'note', id);
   }
 }
