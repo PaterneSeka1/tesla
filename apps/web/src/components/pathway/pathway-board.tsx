@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import {
   type PathwayBoard as Board,
   type PathwayBoardScout,
@@ -105,7 +106,8 @@ function ScoutCard({ row }: { row: PathwayBoardScout }) {
 /**
  * Sentier de la communauté (D203) : chaque routier actif dans la colonne de son étape appliquée,
  * calculée par l'API (âge, exception éventuelle). Les fiches sans étape sont en tête, à régulariser.
- * Aucun classement : ordre alphabétique dans chaque étape. Défilement horizontal sur téléphone.
+ * Aucun classement : ordre alphabétique dans chaque étape. Téléphone : une étape à la fois,
+ * choisie par les compteurs (onglets) ; bureau : les quatre colonnes côte à côte.
  */
 export function PathwayBoard({ data }: { data: Board }) {
   const pending = data.scouts.filter((row) => !row.stage);
@@ -116,7 +118,13 @@ export function PathwayBoard({ data }: { data: Board }) {
     ]),
   );
 
+  const [active, setActive] = useState<string | null>(null);
   if (data.scouts.length === 0) return <EmptyState icon={Users} title="Aucun routier actif" />;
+  // Étape affichée sur téléphone : celle choisie, sinon la première qui compte des routiers.
+  const shown =
+    active ??
+    data.stages.find((stage) => (counts.get(stage.id) ?? 0) > 0)?.id ??
+    data.stages[0]?.id;
 
   return (
     <div className="space-y-4">
@@ -152,22 +160,18 @@ export function PathwayBoard({ data }: { data: Board }) {
         </section>
       )}
 
-      {/* Téléphone : les quatre étapes d'un coup d'œil, un toucher amène à la colonne. */}
-      <div
-        className="grid grid-cols-4 gap-1.5 lg:hidden"
-        role="group"
-        aria-label="Aller à une étape"
-      >
+      {/* Téléphone : les quatre étapes d'un coup d'œil ; un toucher affiche l'étape choisie. */}
+      <div className="grid grid-cols-4 gap-1.5 lg:hidden" role="group" aria-label="Étape affichée">
         {data.stages.map((stage, index) => (
           <button
             key={stage.id}
             type="button"
-            onClick={() =>
-              document
-                .getElementById(`etape-${stage.code}`)
-                ?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })
-            }
-            className="flex min-h-14 flex-col items-center justify-center rounded-xl border bg-card px-1 py-1.5 text-center transition-transform active:scale-95 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+            aria-pressed={shown === stage.id}
+            onClick={() => setActive(stage.id)}
+            className={cn(
+              'flex min-h-14 flex-col items-center justify-center rounded-xl border bg-card px-1 py-1.5 text-center transition-[transform,background-color] active:scale-95 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
+              shown === stage.id && 'border-tesla-rouge bg-tesla-sable/50',
+            )}
           >
             <span className="text-lg leading-none font-semibold text-tesla-bordeaux tabular-nums">
               {counts.get(stage.id)}
@@ -179,17 +183,14 @@ export function PathwayBoard({ data }: { data: Board }) {
         ))}
       </div>
 
-      <ol
-        className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0"
-        aria-label="Étapes du parcours"
-      >
+      <ol className="lg:grid lg:grid-cols-4 lg:gap-3" aria-label="Étapes du parcours">
         {data.stages.map((stage, index) => {
           const rows = data.scouts.filter((row) => row.stage?.id === stage.id);
           return (
             <li
               key={stage.id}
               id={`etape-${stage.code}`}
-              className="w-[78vw] max-w-[18rem] shrink-0 snap-start space-y-2.5 lg:w-auto lg:max-w-none"
+              className={cn('space-y-2.5 lg:block', shown === stage.id ? 'block' : 'hidden')}
             >
               <div className="flex items-center gap-2 rounded-xl bg-tesla-bordeaux px-3 py-2 text-white">
                 <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-tesla-or text-xs font-semibold text-tesla-bordeaux">
