@@ -4,6 +4,9 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 
 ## [Non publié]
 
+### Ajouté — parcours des routiers, 2026-11-25 (D203)
+- **Parcours des routiers** (encadrement) : chaque routier dans la colonne de son étape, avec la date de son prochain passage, la mention « Ancien » si son parcours antérieur est reconnu et son rattrapage en cours ; les fiches sans date de naissance apparaissent en tête. Accessible depuis Routiers et depuis l'accueil.
+
 ### Corrigé — fiabilité de l'entraînement, 2026-11-24 (D201, D202)
 - Un même résultat renvoyé (réseau, file hors ligne, double envoi, deux appareils) n'est plus compté plusieurs fois.
 - Un résultat obtenu sur une ancienne version d'une activité est conservé sans être recorrigé ni compté ; l'écran le dit.

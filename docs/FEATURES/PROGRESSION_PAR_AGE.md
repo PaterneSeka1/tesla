@@ -83,6 +83,7 @@ Fonctions pures, déterministes, sur des dates civiles « AAAA-MM-JJ » :
 
 ## Écrans
 - Routier : bloc « Mon parcours » sur l'accueil et `/progression` (âge, étape actuelle, temps restant, prochaine échéance) puis trois catégories distinctes : **modules de mon étape**, **modules à rattraper**, **modules déjà acquis** ; « Mon profil » (`/compte`, `GET /auth/profile`) : identité, date de naissance, âge, date d'entrée, ancienneté, étape, prochaine transition, sortie prévue, rattrapages — en lecture seule.
+- Encadrement, vue d'ensemble (D203) : **« Parcours des routiers »** (`/administration/parcours`, lien « Voir chaque routier » sur l'accueil) — une colonne par étape, chaque routier avec son prochain passage, « Ancien » (parcours antérieur reconnu), rattrapage en cours et échéance ; fiches à régulariser en tête ; sur téléphone, quatre compteurs mènent à chaque colonne.
 - Encadrement : section « Âge, parcours et rattrapages » de la fiche (mêmes trois catégories) ; indicateurs « Parcours de la communauté » (`GET /statistics/pathways` : effectif actif, sortis, répartition par étape calculée, prochaines sorties, rattrapages ouverts / en retard / en attente, dates de naissance manquantes).
 
 ## Tests
