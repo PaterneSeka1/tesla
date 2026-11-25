@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { userSummarySchema } from './api.js';
-import { ageProgressionSchema, ageRuleSetSchema, MEMBERSHIP_STATUSES } from './age-progression.js';
+import {
+  ageProgressionSchema,
+  ageRuleSetSchema,
+  MEMBERSHIP_STATUSES,
+  THEORETICAL_STAGE_REASONS,
+} from './age-progression.js';
 import { scoutRefSchema } from './progression.js';
 import { pathwayStepSchema, priorStageRecognitionSchema } from './prior-stages.js';
 import { stageSummarySchema } from './scouts.js';
@@ -279,3 +284,48 @@ export const pathwayOverviewSchema = z.object({
 });
 
 export type PathwayOverview = z.infer<typeof pathwayOverviewSchema>;
+
+// ─── Sentier de la communauté (vue d'ensemble par routier) ─────────────────
+
+/**
+ * Sentier par étape de l'encadrement (D203) : où en est chaque routier actif, d'un coup d'œil.
+ * Étape **appliquée** calculée par l'API (âge, exception éventuelle), prochain passage, étapes
+ * reconnues au titre du parcours antérieur (« ancien »), rattrapage en cours. Aucun score, aucun
+ * classement : les routiers sont rangés par nom dans chaque étape.
+ */
+export const pathwayBoardSchema = z.object({
+  referenceDate: z.iso.date(),
+  /** Étapes du parcours, dans l'ordre (colonnes du sentier). */
+  stages: z.array(stageSummarySchema),
+  scouts: z.array(
+    z.object({
+      scout: scoutRefSchema,
+      /** Nulle : fiche à régulariser (motif dans `reason`). */
+      stage: stageSummarySchema.nullable(),
+      reason: z.enum(THEORETICAL_STAGE_REASONS),
+      /** Prochain passage d'étape ou sortie de la branche. */
+      next: z
+        .object({
+          kind: z.enum(['ETAPE', 'SORTIE']),
+          stage: stageSummarySchema.nullable(),
+          on: z.iso.date(),
+        })
+        .nullable(),
+      /** Étapes reconnues au titre du parcours antérieur (D181) : le routier est un « ancien ». */
+      recognizedStages: z.array(stageSummarySchema),
+      /** Étape en cours de rattrapage (D177), nulle sinon. */
+      catchUp: z
+        .object({
+          stage: stageSummarySchema,
+          dueOn: z.iso.date().nullable(),
+          deadline: z.enum(['PROCHE', 'DEPASSEE']).nullable(),
+        })
+        .nullable(),
+      /** Exception de secours en cours : transmise au seul responsable plein (D176). */
+      exceptional: z.boolean(),
+    }),
+  ),
+});
+
+export type PathwayBoard = z.infer<typeof pathwayBoardSchema>;
+export type PathwayBoardScout = PathwayBoard['scouts'][number];

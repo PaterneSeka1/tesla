@@ -7,6 +7,7 @@ import {
   catalogPageSchema,
   civilDateAt,
   CSRF_HEADER,
+  pathwayBoardSchema,
   pathwayOverviewSchema,
   priorStageListSchema,
   priorStageRecognitionSchema,
@@ -332,6 +333,54 @@ describe('Parcours officiel et parcours antérieur (intégration PostgreSQL)', (
       'priorStage.recognized',
       'priorStage.revoked',
     ]);
+  });
+
+  it('sentier de la communauté : étape de chaque routier, ancien, rattrapage, fiche à régulariser', async () => {
+    const { plein, assistant } = await community();
+    await mandatoryModule('sentier-noviciat', 'NOVICIAT');
+    await mandatoryModule('sentier-apprentissage', 'APPRENTISSAGE');
+    const ancien = await json(
+      plein.post('/scouts', scout(1, { priorStages: [{ stageId: stages.NOVICIAT }] })),
+      201,
+      scoutDetailSchema,
+    );
+    const nouveau = await json(plein.post('/scouts', scout(2)), 201, scoutDetailSchema);
+    // Lecture des parcours : plan de rattrapage créé (idempotent), comme à l'usage.
+    for (const id of [ancien.id, nouveau.id])
+      await json(plein.get(`/scouts/${id}/pathway`), 200, scoutPathwaySchema);
+    // Fiche historique sans date de naissance (antérieure à D181).
+    const legacy = await prisma.scoutProfile.create({
+      data: { firstName: 'Fictif', lastName: 'Parcours 0', sex: 'GARCON' },
+    });
+
+    const board = await json(assistant.get('/statistics/pathways/board'), 200, pathwayBoardSchema);
+    expect(board.stages.map((stage) => stage.code)).toEqual([
+      'NOVICIAT',
+      'APPRENTISSAGE',
+      'COMPAGNONNAGE',
+      'DEPART_ROUTIER',
+    ]);
+    const row = (id: string) => board.scouts.find((item) => item.scout.id === id)!;
+    expect(row(legacy.id)).toMatchObject({ stage: null, reason: 'DATE_NAISSANCE_MANQUANTE' });
+    expect(row(nouveau.id)).toMatchObject({
+      stage: { code: 'COMPAGNONNAGE' },
+      recognizedStages: [],
+      catchUp: { stage: { code: 'NOVICIAT' } },
+      next: { kind: 'ETAPE', stage: { code: 'DEPART_ROUTIER' } },
+      exceptional: false,
+    });
+    // Ancien : noviciat reconnu, seul l'apprentissage reste à rattraper.
+    expect(row(ancien.id)).toMatchObject({
+      stage: { code: 'COMPAGNONNAGE' },
+      recognizedStages: [{ code: 'NOVICIAT' }],
+      catchUp: { stage: { code: 'APPRENTISSAGE' } },
+    });
+    // Aucun motif, aucune note, aucune donnée de santé ni de contact.
+    expect(JSON.stringify(board)).not.toMatch(/note|reason":"REGLE".*motif|email|birthDate/);
+    // Les routiers n'y ont pas accès.
+    expect(await errorCode((await login('ROUTIER')).get('/statistics/pathways/board'), 403)).toBe(
+      'FORBIDDEN',
+    );
   });
 
   it('scénarios C, D, E : lecture libre sans validation ; le routier ne valide rien lui-même', async () => {

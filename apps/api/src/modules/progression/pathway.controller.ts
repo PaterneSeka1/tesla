@@ -13,6 +13,8 @@ import {
   createAgeRuleSetInputSchema,
   type DecideCatchUpInput,
   decideCatchUpInputSchema,
+  type PathwayBoard,
+  pathwayBoardSchema,
   type PathwayOverview,
   pathwayOverviewSchema,
   type ScoutPathway,
@@ -81,6 +83,16 @@ export class PathwayController {
     @Query('teamId') teamId?: string,
   ): Promise<PathwayOverview> {
     return this.pathway.overview(actor, teamId ? parseId(teamId) : undefined);
+  }
+
+  @Get('statistics/pathways/board')
+  @ApiOperation({ summary: 'Sentier de la communauté : étape appliquée de chaque routier actif' })
+  @ApiOkResponse({ schema: openApiSchema(pathwayBoardSchema) })
+  pathwayBoard(
+    @CurrentActor() actor: Actor,
+    @Query('teamId') teamId?: string,
+  ): Promise<PathwayBoard> {
+    return this.pathway.board(actor, teamId ? parseId(teamId) : undefined);
   }
 
   @Get('me/pathway')

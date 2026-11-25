@@ -24,6 +24,7 @@ import {
   type LearnerKind,
   summarizeOpenCatchUps,
   type CatchUpObligation,
+  type PathwayBoard,
   type PathwayOverview,
   type ScoutPathway,
   stagePeriods,
@@ -711,6 +712,84 @@ export class PathwayService {
       ],
       upcomingExits: upcoming.sort((a, b) => a.daysUntilExit - b.daysUntilExit).slice(0, 8),
       catchUps,
+    };
+  }
+
+  /**
+   * Sentier de la communauté (D203) : une ligne par routier actif, rangée par étape appliquée.
+   * Même calcul que la fiche (`computedStageOf`, `loadCatchUpLock`) ; aucune seconde vérité.
+   * L'exception de secours n'est signalée qu'au responsable plein (D176).
+   */
+  async board(actor: Actor, teamId?: string): Promise<PathwayBoard> {
+    assertCan(actor, 'statistics.read');
+    const context = await loadStageContext(this.prisma);
+    const { today, rules } = context;
+    const supervise = can(actor, 'progression.supervise');
+    const profiles = await this.prisma.scoutProfile.findMany({
+      where: {
+        kind: 'ROUTIER',
+        isActive: true,
+        ...(teamId && { teamAssignments: { some: { teamId, endedAt: null } } }),
+      },
+      include: profileInclude,
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+    const members = profiles.filter(
+      (profile) => computedStageOf(profile, context).reason !== 'SORTI',
+    );
+    const recognitions = await this.prisma.priorStageRecognition.findMany({
+      where: { revokedAt: null, scoutProfileId: { in: members.map((profile) => profile.id) } },
+      select: { scoutProfileId: true, stage: true },
+      orderBy: { stage: { position: 'asc' } },
+    });
+    const byCode = new Map(context.stages.map((stage) => [stage.code, stage]));
+    const scouts = [];
+    // Quelques dizaines de routiers : calcul du verrou par fiche, comme sur la fiche elle-même.
+    for (const profile of members) {
+      const computed = computedStageOf(profile, context);
+      const lock = toCatchUpLock(
+        await loadCatchUpLock(this.prisma, profile, context),
+        today,
+        rules?.catchUpAlertDays ?? null,
+      );
+      const milestone = computed.progression.nextMilestone;
+      const following =
+        milestone?.kind === 'DEBUT_ETAPE' && milestone.stageCode
+          ? (byCode.get(milestone.stageCode) ?? null)
+          : computed.stage
+            ? (context.stages.find((stage) => stage.position === computed.stage!.position + 1) ??
+              null)
+            : null;
+      // Pendant une exception, l'échéance affichée trahirait son existence : réservée au plein.
+      const next =
+        !milestone || !computed.stage || (computed.override && !supervise)
+          ? null
+          : milestone.kind === 'SORTIE_BRANCHE' || !following
+            ? {
+                kind: 'SORTIE' as const,
+                stage: null,
+                on: computed.progression.branchExitOn ?? milestone.date,
+              }
+            : { kind: 'ETAPE' as const, stage: toStageSummary(following), on: milestone.date };
+      scouts.push({
+        scout: toScoutRef(profile),
+        stage: toStageSummary(computed.stage) ?? null,
+        reason: computed.reason,
+        next,
+        recognizedStages: recognitions
+          .filter((row) => row.scoutProfileId === profile.id)
+          .map((row) => toStageSummary(row.stage)!),
+        catchUp:
+          lock.active && lock.stage
+            ? { stage: lock.stage, dueOn: lock.dueOn, deadline: lock.deadline }
+            : null,
+        exceptional: supervise && computed.override !== null,
+      });
+    }
+    return {
+      referenceDate: today,
+      stages: context.stages.map((stage) => toStageSummary(stage)!),
+      scouts,
     };
   }
 
