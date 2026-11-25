@@ -129,8 +129,8 @@ export class PracticeService {
         where: { userId_attemptId: { userId, attemptId } },
       });
       if (replay) {
-        if (replay.moduleSlug !== input.moduleSlug || replay.activityKey !== input.activityKey)
-          throw attemptReused();
+        // Rejeu : seule une requête sémantiquement identique renvoie le résultat enregistré.
+        if (!sameAttempt(replay, input)) throw attemptReused();
         return practiceResultSchema.parse(replay.result);
       }
       const attempt = {
@@ -163,7 +163,13 @@ export class PracticeService {
       }
 
       const before = await this.badgeFacts(tx, userId);
-      const graded = gradeAttempt(entry.activity, input);
+      // Activité non notée (D204) : prière, loi ou texte officiel (mémorisation respectueuse, § 41)
+      // et mise en situation ouverte (appréciation humaine, § 42). Jamais notée ni « maîtrisée » ;
+      // la pratique est enregistrée, la répétition espacée avance quand elle est refaite à l'échéance.
+      const unscored = !!entry.reverent || entry.activity.kind === 'scenario';
+      const graded = unscored
+        ? { correct: 0, total: 0, mastered: false }
+        : gradeAttempt(entry.activity, input);
       const where = {
         userId_moduleSlug_activityKey: {
           userId,
@@ -182,10 +188,11 @@ export class PracticeService {
       if (input.mode === 'activity') {
         // Leitner : une réussite avant l'échéance ne fait pas monter la notion ; une réponse
         // assistée ne déplace rien ; une erreur ramène toujours à la première boîte.
-        const early = existing && graded.mastered && existing.dueOn.getTime() > now.getTime();
-        if (!(input.assisted || early))
-          review = nextReview(existing?.box ?? 0, graded.mastered, now);
-        const failed = !graded.mastered && !input.assisted && !existing?.masteredAt;
+        const succeeded = graded.mastered || unscored;
+        const early = existing && succeeded && existing.dueOn.getTime() > now.getTime();
+        if (!(input.assisted || early)) review = nextReview(existing?.box ?? 0, succeeded, now);
+        // Activité non notée : aucune « difficulté » comptée (badge Persévérance).
+        const failed = !graded.mastered && !input.assisted && !unscored && !existing?.masteredAt;
         const data = {
           activityKind: entry.activity.kind,
           lastCorrect: graded.correct,
@@ -538,10 +545,46 @@ async function lockLearner(tx: Tx, userId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`practice:${userId}`}))`;
 }
 
+/**
+ * Identité sémantique d'une tentative (D204) : module, activité, empreinte, mode, question,
+ * assistance et réponses. Un même identifiant porteur d'un autre contenu est un conflit explicite,
+ * jamais un rejeu silencieux.
+ */
+export function sameAttempt(
+  stored: {
+    moduleSlug: string;
+    activityKey: string;
+    activityFingerprint: string | null;
+    mode: string;
+    item: number | null;
+    assisted: boolean;
+    answers: unknown;
+  },
+  input: {
+    moduleSlug: string;
+    activityKey: string;
+    fingerprint?: string;
+    mode: string;
+    item?: number;
+    assisted: boolean;
+    answers: unknown;
+  },
+): boolean {
+  return (
+    stored.moduleSlug === input.moduleSlug &&
+    stored.activityKey === input.activityKey &&
+    stored.activityFingerprint === (input.fingerprint ?? null) &&
+    stored.mode === input.mode &&
+    stored.item === (input.item ?? null) &&
+    stored.assisted === input.assisted &&
+    JSON.stringify(stored.answers) === JSON.stringify(input.answers)
+  );
+}
+
 function attemptReused(): ConflictException {
   return new ConflictException({
     code: 'PRACTICE_ATTEMPT_REUSED',
-    message: 'Cette tentative a déjà été enregistrée pour une autre activité.',
+    message: 'Cet identifiant de tentative a déjà servi pour un autre résultat.',
   });
 }
 
@@ -571,9 +614,8 @@ function gradeAttempt(
   const graded = gradePractice(activity, input.answers);
   const correct = graded.filter(Boolean).length;
   const total = graded.length;
-  // Mise en situation : explorée dès qu'un choix est fait (aucune note, aucune « bonne » réponse).
-  const complete = total === 0 ? input.answers.length > 0 : correct === total;
-  return { correct, total, mastered: complete && !input.assisted };
+  // Sans élément noté (mise en situation) : jamais une maîtrise (traitée en amont, D204).
+  return { correct, total, mastered: total > 0 && correct === total && !input.assisted };
 }
 
 /** Banque d'une version publiée ; une activité hors schéma (contenu ancien altéré) est ignorée. */
