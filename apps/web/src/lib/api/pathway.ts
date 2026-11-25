@@ -8,6 +8,7 @@ import {
   type DecideCatchUpInput,
   type CreateStageOverrideInput,
   type LiftStageOverrideInput,
+  pathwayBoardSchema,
   pathwayOverviewSchema,
   priorStageListSchema,
   priorStageRecognitionSchema,
@@ -39,6 +40,14 @@ export const pathwayOverviewQueryOptions = (teamId?: string) =>
     queryKey: ['pathway', 'overview', teamId ?? null],
     queryFn: () =>
       apiFetch(`/statistics/pathways${toQueryString({ teamId })}`, pathwayOverviewSchema),
+  });
+
+/** Sentier de la communauté : étape appliquée de chaque routier actif (D203). */
+export const pathwayBoardQueryOptions = (teamId?: string) =>
+  queryOptions({
+    queryKey: ['pathway', 'board', teamId ?? null],
+    queryFn: () =>
+      apiFetch(`/statistics/pathways/board${toQueryString({ teamId })}`, pathwayBoardSchema),
   });
 
 export const ageRuleSetsQueryOptions = queryOptions({

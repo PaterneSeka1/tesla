@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
+  Footprints,
   FileCheck2,
   FilePenLine,
   GraduationCap,
@@ -79,6 +80,7 @@ const ACCESS_RULES: readonly AccessRule[] = [
   { path: '/administration/equipes', anyOf: ['team.read'] },
   { path: '/administration/programme-annuel', anyOf: ['activity.read'] },
   { path: '/administration/statistiques', anyOf: ['statistics.read'] },
+  { path: '/administration/parcours', anyOf: ['statistics.read'] },
   { path: '/administration/activites', anyOf: ['activity.read'] },
   { path: '/administration/presences', anyOf: ['attendance.record'] },
   { path: '/administration/competences', anyOf: ['competency.read'] },
@@ -176,6 +178,12 @@ export const NAVIGATION: readonly NavGroup[] = [
         label: 'Routiers',
         icon: Users,
         permission: 'scout.read',
+      },
+      {
+        href: '/administration/parcours',
+        label: 'Parcours des routiers',
+        icon: Footprints,
+        permission: 'statistics.read',
       },
       {
         href: '/administration/adultes',

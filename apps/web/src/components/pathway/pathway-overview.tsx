@@ -51,7 +51,15 @@ export function PathwayOverviewPanel() {
       <div className="grid gap-3 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Étapes</CardTitle>
+            <CardTitle className="flex items-center justify-between gap-2 text-base">
+              Étapes
+              <Link
+                href="/administration/parcours"
+                className="text-sm font-medium text-tesla-rouge underline-offset-4 hover:underline"
+              >
+                Voir chaque routier
+              </Link>
+            </CardTitle>
             {/* Version du référentiel : transmise au seul responsable plein (D176). */}
             {d.ruleSetVersion && <CardDescription>Référentiel {d.ruleSetVersion}</CardDescription>}
           </CardHeader>
