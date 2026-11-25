@@ -35,7 +35,10 @@ export type OperationType =
   | 'team.assign'
   // Entraînement libre (D196) : rejouable, recorrigé et dédupliqué par le serveur.
   | 'practice.result'
-  | 'lesson.read';
+  | 'lesson.read'
+  // Carnet personnel (D209) : favori (dernier choix retenu) et note (révision de référence).
+  | 'bookmark.set'
+  | 'note.save';
 
 export interface LocalOperation {
   id: string;
@@ -132,6 +135,13 @@ export const OPERATION_TYPES: Record<OperationType, OperationTypeDefinition> = {
   'observation.create': { permission: 'observation.create' },
   'practice.result': { permission: 'practice.own' },
   'lesson.read': { permission: 'practice.own' },
+  'bookmark.set': { permission: 'practice.own', merge: (_previous, next) => next },
+  'note.save': {
+    permission: 'practice.own',
+    // Dernier texte saisi, révision de référence de la première saisie (conflit détecté au serveur).
+    merge: (previous, next) => ({ ...next, revision: previous.revision }),
+    rebase: rebaseRevision,
+  },
   'scout.create': { permission: 'scout.create' },
   'scout.update': {
     permission: 'scout.update',

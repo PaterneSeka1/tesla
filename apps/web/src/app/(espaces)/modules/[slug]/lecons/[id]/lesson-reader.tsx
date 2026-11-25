@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
+import { LessonNotebookActions } from '@/components/notebook/lesson-notebook-actions';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { EmptyState } from '@/components/empty-state';
@@ -157,6 +158,7 @@ function Reader({
               {discovering ? 'Lecture intégrale' : 'Découverte'}
             </Button>
           )}
+          <LessonNotebookActions moduleSlug={module.slug} lessonId={lesson.id} />
         </div>
         <ProgressBar
           label={discovering ? 'Progression dans la leçon' : 'Position dans le module'}

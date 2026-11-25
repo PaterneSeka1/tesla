@@ -1,3 +1,4 @@
+import { notebookQueryOptions } from '@/lib/api/notebook';
 import { journalQueryOptions, practiceBankQueryOptions } from '@/lib/api/practice';
 import { GAME_MODES } from '@/lib/games';
 import { type QueryClient } from '@tanstack/react-query';
@@ -196,6 +197,8 @@ async function prepare(
     for (const mode of GAME_MODES) pages.add(`/defis/${mode.key}`);
     if (userCan(user, 'practice.own')) {
       await get(journalQueryOptions, 'Carnet');
+      // Favoris et notes (D209) : copie chiffrée du titulaire, consultables hors ligne.
+      await get(notebookQueryOptions, 'Favoris et notes');
     }
   }
 

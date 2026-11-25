@@ -10,6 +10,7 @@ import { QueryError, TableSkeleton } from '@/components/query-state';
 import { journalQueryOptions } from '@/lib/api/practice';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { NotebookSections } from '@/components/notebook/notebook-sections';
 import { BadgeMedal } from './badge-medal';
 
 /**
@@ -96,6 +97,7 @@ export function Journal() {
           </div>
         )}
       </section>
+      <NotebookSections />
       <p className="text-xs text-muted-foreground">
         XP et badges récompensent la découverte et l’entraînement ; ils ne changent ni l’étape, ni
         les résultats, ni les acquis.
