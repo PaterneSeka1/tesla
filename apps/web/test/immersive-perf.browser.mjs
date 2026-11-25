@@ -71,12 +71,19 @@ async function measure(label, path, interact) {
 }
 
 await measure('Accueil', '/accueil');
-await measure('Module (sentier)', '/modules/recette-entrainement');
+await measure('Module (carte illustrée)', '/modules/recette-entrainement');
 await measure('Défis', '/defis');
 await measure('Vrai ou faux (réponse)', '/defis/vrai-faux', async () => {
   await page.getByRole('button', { name: 'Vrai', exact: true }).click();
   await page.getByText(/Bien vu|Pas tout à fait/).waitFor();
 });
 await measure('Carnet', '/carnet');
+// Chantier 3 (D206, D207) : expédition et enquête.
+await measure('Expédition', '/modules/recette-entrainement/expedition');
+await measure('Enquête (indice)', '/defis/enquetes', async () => {
+  const rules = page.getByRole('button', { name: /c’est parti/i });
+  if (await rules.isVisible().catch(() => false)) await rules.click();
+  await page.getByRole('button', { name: /indice suivant/i }).click();
+});
 console.table(rows);
 await browser.close();

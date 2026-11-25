@@ -106,12 +106,15 @@ await page.getByRole('link', { name: 'Défis du module' }).waitFor();
 await shot(page, '02-sentier-390');
 await noHorizontalScroll(page, 'sentier 390');
 await page.getByRole('button', { name: 'Liste' }).click();
-await page.getByRole('button', { name: 'Sentier' }).waitFor();
-await page.getByRole('button', { name: 'Sentier' }).click();
+// Libellé « Carte » depuis la carte illustrée (D205).
+await page.getByRole('button', { name: 'Carte' }).waitFor();
+await page.getByRole('button', { name: 'Carte' }).click();
 check('carte d’aventure : haltes, défis du module, vue liste disponible');
 
 // ─── 3. Lecteur : mode concentration, Découverte, activité intégrée, fin de halte ─────────
-await page.getByRole('link', { name: /^Commencer/ }).click();
+// Action principale : l'expédition (D207) ; la lecture reste accessible (« Lire »).
+await page.getByRole('link', { name: 'Partir en expédition' }).waitFor();
+await page.getByRole('link', { name: /^(Lire|Reprendre la lecture)$/ }).click();
 await page.waitForURL(/\/lecons\//);
 await page.getByRole('heading', { name: 'Repères fictifs' }).waitFor();
 assert.equal(await bottomNav(page).count(), 0, 'barre inférieure masquée pendant la lecture');
@@ -157,7 +160,10 @@ check('lecture intégrale : contenu complet, halte terminée, récompense de lec
 
 // ─── 4. Défis : salle, vrai ou faux, L'Ascension, mémoire, remise en ordre ────────────────
 await page.goto(`${origin}/defis`);
-await page.getByRole('heading', { name: 'Réviser rapidement' }).waitFor();
+await page
+  .getByRole('link', { name: /L’Ascension/ })
+  .first()
+  .waitFor();
 await shot(page, '07-defis-390');
 await noHorizontalScroll(page, 'défis 390');
 await page.getByRole('link', { name: /Vrai ou faux/ }).click();
@@ -177,7 +183,7 @@ check('vrai ou faux : réponses, erreur, écran de fin');
 
 await page.goto(`${origin}/defis/ascension`);
 await page.getByRole('button', { name: 'C’est parti' }).click();
-await page.getByText('Palier 1 sur').waitFor();
+await page.getByRole('img', { name: /Palier 1 sur/ }).waitFor();
 await page.getByRole('button', { name: 'Deux de moins' }).click();
 const remaining = await page
   .getByRole('group', { name: 'Propositions' })
@@ -304,7 +310,10 @@ await adult.context.close();
 // ─── 9. Encadrement : éditeur, insertion d'une activité ; administrateur sans accès ───────
 const chef = await session('chef', 1280);
 await chef.page.goto(`${origin}/defis`);
-await chef.page.getByRole('heading', { name: 'Réviser rapidement' }).waitFor();
+await chef.page
+  .getByRole('link', { name: /L’Ascension/ })
+  .first()
+  .waitFor();
 assert.equal(
   (await send(chef.page, 'GET', '/me/journal')).status(),
   403,

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import {
@@ -6,6 +7,7 @@ import {
   type LessonDocument,
   practiceBankSchema,
   practiceInsightsSchema,
+  notebookSchema,
   practiceResultSchema,
   rewardSummarySchema,
   XP_RULES,
@@ -118,6 +120,9 @@ describe('Entraînement libre et récompenses (intégration PostgreSQL)', () => 
     return {
       user,
       get: (path: string) => agent.get(`/api/v1${path}`),
+      delete: (path: string) => agent.delete(`/api/v1${path}`).set(CSRF_HEADER, '1'),
+      put: (path: string, body: object = {}) =>
+        agent.put(`/api/v1${path}`).set(CSRF_HEADER, '1').send(body),
       post: (path: string, body: object = {}, operationId?: string) => {
         const call = agent.post(`/api/v1${path}`).set(CSRF_HEADER, '1');
         if (operationId) call.set('x-tesla-operation-id', operationId);
@@ -391,6 +396,19 @@ describe('Entraînement libre et récompenses (intégration PostgreSQL)', () => 
         answers: [0, 2],
       })
       .expect(409);
+    // Même activité mais requête modifiée (réponses, assistance, empreinte) : conflit (D204).
+    for (const changed of [
+      { answers: [false, false] },
+      { assisted: true },
+      { fingerprint: '00000000' },
+    ])
+      await routier
+        .post('/me/practice/results', { ...body, ...changed })
+        .expect(409)
+        .expect((response) =>
+          expect((response.body as { code: string }).code).toBe('PRACTICE_ATTEMPT_REUSED'),
+        );
+    expect(await prisma.practiceAttempt.count({ where: { userId: routier.user.id } })).toBe(1);
     // Un autre compte peut utiliser le même identifiant sans collision.
     const other = await login('ROUTIER');
     await other.post('/me/practice/results', body).expect(200);
@@ -525,6 +543,57 @@ describe('Entraînement libre et récompenses (intégration PostgreSQL)', () => 
     await expect(prisma.learningBadge.delete({ where: { id: stored.id } })).rejects.toThrow();
   });
 
+  it('texte respectueux (prière) : pratique enregistrée, jamais notée ni maîtrisée (D204)', async () => {
+    const prayer =
+      'Seigneur Jésus, apprenez-nous à être généreux, à vous servir comme vous le méritez, à donner sans compter.';
+    await publishedModule('priere-fictive', {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Prière' }] },
+        {
+          type: 'blockquote',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: prayer }] }],
+        },
+      ],
+    });
+    const routier = await login('ROUTIER');
+    const bank = practiceBankSchema.parse((await routier.get('/practice/bank').expect(200)).body);
+    const entry = bank.modules
+      .find((module) => module.slug === 'priere-fictive')!
+      .activities.find((item) => item.activity.kind === 'cloze');
+    expect(entry?.reverent).toBe(true);
+    // Toutes les réponses fausses, puis toutes justes : jamais de note, de maîtrise ni de difficulté.
+    for (const word of ['x', null]) {
+      const blanks = (entry!.activity.kind === 'cloze' ? entry!.activity.text : '').match(
+        /\[\[([^\]]+)\]\]/g,
+      )!;
+      const answers = blanks.map((blank) => word ?? blank.slice(2, -2));
+      const response = practiceResultSchema.parse(
+        (
+          await routier
+            .post('/me/practice/results', {
+              attemptId: randomUUID(),
+              moduleSlug: 'priere-fictive',
+              activityKey: entry!.key,
+              fingerprint: entry!.fingerprint,
+              answers,
+            })
+            .expect(200)
+        ).body,
+      );
+      expect(response).toMatchObject({ status: 'counted', correct: 0, total: 0, mastered: false });
+    }
+    const progress = await prisma.practiceProgress.findFirstOrThrow({
+      where: { userId: routier.user.id, moduleSlug: 'priere-fictive' },
+    });
+    expect(progress).toMatchObject({
+      attempts: 2,
+      failuresBeforeMastery: 0,
+      masteredAt: null,
+      box: 1,
+    });
+  });
+
   it('leçon renommée dans une nouvelle version : déjà lue, aucune récompense en double', async () => {
     const adulte = await login('ADULTE');
     await adulte
@@ -546,5 +615,70 @@ describe('Entraînement libre et récompenses (intégration PostgreSQL)', () => 
       ).body,
     );
     expect(again.xpAwarded).toBe(0);
+  });
+
+  it('carnet personnel : favoris idempotents, notes privées, conflits, leçon renommée ou retirée (D209)', async () => {
+    const routier = await login('ROUTIER');
+    const other = await login('ROUTIER');
+    const lesson = { moduleSlug: 'entrainement-fictif', lessonId };
+    // Favoris : ajout répété sans doublon, retrait d'un favori absent sans erreur.
+    for (let index = 0; index < 2; index++)
+      await routier.put('/me/bookmarks', { ...lesson, on: true }).expect(200);
+    await routier.put('/me/bookmarks', { moduleSlug: 'entrainement-fictif', on: true }).expect(200);
+    let book = notebookSchema.parse((await routier.get('/me/notebook').expect(200)).body);
+    expect(book.bookmarks.map((item) => item.kind).sort()).toEqual(['lesson', 'module']);
+    await other.put('/me/bookmarks', { moduleSlug: 'entrainement-fictif', on: false }).expect(200);
+    // Contenu non publié : refusé.
+    await routier.put('/me/bookmarks', { moduleSlug: 'brouillon-fictif', on: true }).expect(404);
+
+    // Note : création (révision 0), modification, conflit d'un autre appareil, suppression.
+    const created: unknown = (
+      await routier.put('/me/notes', { ...lesson, body: ' Ma note ', revision: 0 }).expect(200)
+    ).body;
+    expect(created).toMatchObject({ revision: 1, note: { body: 'Ma note', available: true } });
+    await routier.put('/me/notes', { ...lesson, body: 'Version 2', revision: 1 }).expect(200);
+    await routier
+      .put('/me/notes', { ...lesson, body: 'Appareil en retard', revision: 1 })
+      .expect(409)
+      .expect((response) => expect((response.body as { code: string }).code).toBe('NOTE_CONFLICT'));
+    // Création simultanée sur deux appareils : une seule réussit.
+    const racing = await Promise.all(
+      [1, 2].map((n) => other.put('/me/notes', { ...lesson, body: `Appareil ${n}`, revision: 0 })),
+    );
+    expect(racing.map((response) => response.status).sort()).toEqual([200, 409]);
+    // Isolation : chaque compte ne voit que ses notes ; l'encadrement n'y a aucun accès.
+    book = notebookSchema.parse((await routier.get('/me/notebook').expect(200)).body);
+    expect(book.notes.map((note) => note.body)).toEqual(['Version 2']);
+    const chef = await login('ENCADREMENT');
+    await chef.get('/me/notebook').expect(403);
+    await chef.put('/me/notes', { ...lesson, body: 'x', revision: 0 }).expect(403);
+
+    // Nouvelle version, leçon renommée (même identité) : favori et note suivent.
+    const original = await prisma.moduleLesson.findUniqueOrThrow({ where: { id: lessonId } });
+    const renamedId = await publishedModule('entrainement-fictif', LESSON, {
+      lessonTitle: 'Leçon renommée',
+      versionNumber: 2,
+      lessonKey: original.lessonKey,
+    });
+    book = notebookSchema.parse((await routier.get('/me/notebook').expect(200)).body);
+    expect(book.notes[0]).toMatchObject({
+      lessonId: renamedId,
+      lessonTitle: 'Leçon renommée',
+      available: true,
+    });
+    // Version sans cette leçon : conservée, marquée indisponible.
+    await publishedModule('entrainement-fictif', LESSON, { versionNumber: 3 });
+    book = notebookSchema.parse((await routier.get('/me/notebook').expect(200)).body);
+    expect(book.notes[0]).toMatchObject({ body: 'Version 2', available: false, lessonId: null });
+    // Suppression par le titulaire (texte vide).
+    await routier
+      .put('/me/notes', { ...lesson, lessonId: renamedId, body: '', revision: 2 })
+      .expect(404);
+    expect(await prisma.learnerNote.count({ where: { userId: routier.user.id } })).toBe(1);
+    // Note d'une leçon retirée : supprimable par son titulaire seul.
+    const noteId = book.notes[0]!.id;
+    await other.delete(`/me/notes/${noteId}`).expect(404);
+    await routier.delete(`/me/notes/${noteId}`).expect(200);
+    expect(await prisma.learnerNote.count({ where: { userId: routier.user.id } })).toBe(0);
   });
 });

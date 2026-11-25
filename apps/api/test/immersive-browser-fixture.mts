@@ -102,6 +102,15 @@ const lessons: { title: string; content: LessonBlock[] }[] = [
       }),
       h('Troisième partie'),
       p('Texte fictif de recette : une troisième notion pour conclure.'),
+      {
+        type: 'orderedList',
+        content: [
+          'Arriver au camp fictif',
+          'Monter la tente',
+          'Allumer le feu',
+          'Partager le repas',
+        ].map((text) => ({ type: 'listItem', content: [p(text)] })),
+      },
       practice({
         kind: 'truefalse',
         id: 'recette-vf-1',
@@ -127,6 +136,31 @@ const lessons: { title: string; content: LessonBlock[] }[] = [
           { left: 'Notion C', right: 'Définition fictive C' },
           { left: 'Notion D', right: 'Définition fictive D' },
         ],
+      }),
+      practice({
+        kind: 'order',
+        id: 'recette-frise-1',
+        title: 'Frise fictive',
+        steps: [
+          { label: 'Premier événement fictif', marker: '1907' },
+          { label: 'Deuxième événement fictif', marker: '1920' },
+          { label: 'Troisième événement fictif', marker: '1937' },
+        ],
+      }),
+      practice({
+        kind: 'investigation',
+        id: 'recette-enquete-1',
+        title: 'Enquête fictive',
+        mission: 'Retrouver le personnage fictif décrit par les indices.',
+        clues: [
+          { label: 'Document', text: 'Indice fictif : il a fondé un mouvement fictif.' },
+          { label: 'Date', text: 'Indice fictif : l’événement a lieu en 1907.' },
+          { text: 'Indice fictif : son symbole est une boussole.' },
+        ],
+        question: 'Qui est ce personnage fictif ?',
+        options: ['Personnage A', 'Personnage B', 'Personnage C'],
+        answer: 1,
+        explanation: 'Solution fictive : le personnage B réunit tous les indices.',
       }),
       practice({
         kind: 'order',
