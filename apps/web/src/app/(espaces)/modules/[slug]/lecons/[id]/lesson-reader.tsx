@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSessionUser } from '@/components/auth/session-gate';
 import { EmptyState } from '@/components/empty-state';
@@ -84,6 +84,7 @@ function Reader({
   offlineImages: Record<string, string> | undefined;
 }) {
   const { module, lesson, previous, next, lessonCount } = data;
+  const fromExpedition = useSearchParams().get('expedition') === '1';
   const sections = useMemo(() => lessonSections(lesson.content), [lesson.content]);
   const canDiscover = sections.length >= 2;
   const [mode, setMode] = useState<'decouverte' | 'integrale'>(() =>
@@ -143,7 +144,7 @@ function Reader({
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="icon" className="-ml-2">
             <Link
-              href={`/modules/${module.slug}`}
+              href={`/modules/${module.slug}${fromExpedition ? '/expedition' : ''}`}
               aria-label={`Quitter la leçon (${module.title})`}
             >
               <X aria-hidden />
@@ -262,6 +263,7 @@ function Reader({
         </nav>
       ) : (
         <LessonEnd
+          lessonId={lesson.id}
           moduleSlug={module.slug}
           previous={previous}
           next={next}
@@ -289,7 +291,9 @@ function LessonEnd({
   reward,
   showDone,
   onReplay,
+  lessonId,
 }: {
+  lessonId: string;
   moduleSlug: string;
   previous: { id: string; title: string } | null;
   next: { id: string; title: string } | null;
@@ -297,6 +301,8 @@ function LessonEnd({
   showDone: boolean;
   onReplay?: () => void;
 }) {
+  // Halte ouverte depuis une expédition (D207) : la suite naturelle est l'expédition.
+  const expedition = useSearchParams().get('expedition') === '1';
   return (
     <section className="animate-enter space-y-4 rounded-2xl border bg-card p-5 pb-6">
       {showDone && (
@@ -314,7 +320,14 @@ function LessonEnd({
         </p>
       )}
       <div className="flex flex-col gap-2 sm:flex-row">
-        {next ? (
+        {expedition ? (
+          <Button asChild className="sm:flex-1" autoFocus>
+            <Link href={`/modules/${moduleSlug}/expedition?fait=lesson:${lessonId}`}>
+              Continuer l’expédition
+              <ArrowRight aria-hidden />
+            </Link>
+          </Button>
+        ) : next ? (
           <Button asChild className="h-auto justify-between py-2.5 whitespace-normal sm:flex-1">
             <Link href={`/modules/${moduleSlug}/lecons/${next.id}`}>
               <span className="text-left">
@@ -332,9 +345,11 @@ function LessonEnd({
             </Link>
           </Button>
         )}
-        <Button asChild variant="outline">
-          <Link href={`/modules/${moduleSlug}`}>Sommaire</Link>
-        </Button>
+        {!expedition && (
+          <Button asChild variant="outline">
+            <Link href={`/modules/${moduleSlug}`}>Sommaire</Link>
+          </Button>
+        )}
         {previous && (
           <Button asChild variant="ghost">
             <Link href={`/modules/${moduleSlug}/lecons/${previous.id}`}>

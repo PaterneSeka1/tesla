@@ -179,6 +179,8 @@ async function prepare(
         `Module ${item.slug}`,
       );
       pages.add(`/modules/${item.slug}`);
+      // Expédition (D207) : même module, mêmes données (banque et carnet préparés plus bas).
+      if (userCan(user, 'practice.play')) pages.add(`/modules/${item.slug}/expedition`);
       for (const lesson of detail?.lessons ?? []) {
         await get(catalogLessonQueryOptions(item.slug, lesson.id), `Leçon de ${item.slug}`);
         pages.add(`/modules/${item.slug}/lecons/${lesson.id}`);
@@ -192,7 +194,9 @@ async function prepare(
     progress('Défis…');
     await get(practiceBankQueryOptions, 'Défis');
     for (const mode of GAME_MODES) pages.add(`/defis/${mode.key}`);
-    if (userCan(user, 'practice.own')) await get(journalQueryOptions, 'Carnet');
+    if (userCan(user, 'practice.own')) {
+      await get(journalQueryOptions, 'Carnet');
+    }
   }
 
   if (userCan(user, 'progression.readOwn')) {

@@ -13,6 +13,7 @@ import {
   Sparkles,
   Target,
   Users,
+  Compass,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -70,6 +71,11 @@ export function ModuleDetail() {
   const readIds = new Set(journal.data?.readLessonIds ?? []);
   const readRefs = new Set(journal.data?.readLessons ?? []);
   const moduleEntries = bank.data ? flattenBank(bank.data, module.slug) : [];
+  // Expédition (D207) proposée quand le module a de quoi s'entraîner au-delà de la lecture.
+  const expedition =
+    userCan(user, 'practice.play') &&
+    module.lessons.length > 0 &&
+    playableModes(moduleEntries).some((mode) => mode.group);
 
   return (
     <>
@@ -101,15 +107,38 @@ export function ModuleDetail() {
           )}
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
-          {first && (
+          {expedition && (
             <Button
               asChild
               size="lg"
               className="bg-tesla-or text-tesla-bordeaux hover:bg-tesla-or/90"
             >
+              <Link href={`/modules/${module.slug}/expedition`}>
+                <Compass aria-hidden />
+                Partir en expédition
+              </Link>
+            </Button>
+          )}
+          {first && (
+            <Button
+              asChild
+              size="lg"
+              variant={expedition ? 'ghost' : 'default'}
+              className={
+                expedition
+                  ? 'text-tesla-sable hover:bg-white/10 hover:text-white'
+                  : 'bg-tesla-or text-tesla-bordeaux hover:bg-tesla-or/90'
+              }
+            >
               <Link href={`/modules/${module.slug}/lecons/${first.id}`}>
-                {resumed ? 'Reprendre' : 'Commencer'}
-                <ArrowRight aria-hidden />
+                {expedition
+                  ? resumed
+                    ? 'Reprendre la lecture'
+                    : 'Lire'
+                  : resumed
+                    ? 'Reprendre'
+                    : 'Commencer'}
+                {!expedition && <ArrowRight aria-hidden />}
               </Link>
             </Button>
           )}
@@ -154,6 +183,7 @@ export function ModuleDetail() {
       <DownloadModuleButton slug={module.slug} />
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <AdventureTrail
+          seed={module.slug}
           stops={module.lessons.map((lesson) => ({
             id: lesson.id,
             title: lesson.title,

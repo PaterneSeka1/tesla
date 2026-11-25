@@ -180,11 +180,11 @@ export function CurrentPageTitle({ offline = false }: { offline?: boolean }) {
  * Un lien de retour explicite reste affiché par la page ; la barre évite une sortie accidentelle.
  */
 /**
- * Mode concentration (D195) : passation, lecture d'une leçon, partie d'un défi. Le cadre (menu,
+ * Mode concentration (D195) : passation, lecture d'une leçon, expédition, partie d'un défi. Le cadre (menu,
  * en-tête, barre inférieure) s'efface ; la page porte son propre bouton de retour.
  */
 const IMMERSIVE =
-  /^\/(evaluations\/[^/]+\/(passer|jeu)|modules\/[^/]+\/lecons\/[^/]+|defis\/[^/]+)(\/|$)/;
+  /^\/(evaluations\/[^/]+\/(passer|jeu)|modules\/[^/]+\/(lecons\/[^/]+|expedition)|defis\/[^/]+)(\/|$)/;
 
 export function isImmersivePath(pathname: string): boolean {
   return IMMERSIVE.test(pathname);

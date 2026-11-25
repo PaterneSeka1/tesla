@@ -72,7 +72,8 @@ interface HostProps {
  */
 export function GamePlay() {
   const { mode: key } = useParams<{ mode: string }>();
-  const moduleSlug = useSearchParams().get('module');
+  const search = useSearchParams();
+  const moduleSlug = search.get('module');
   const mode = gameMode(key);
   const user = useSessionUser();
   const records = userCan(user, 'practice.own');
@@ -80,7 +81,14 @@ export function GamePlay() {
   const journalData = journal?.data;
   const [showRules, setShowRules] = useState(() => !!mode?.rules && !rulesSeen(mode.key));
   const [recent, setRecent] = useState<Set<string> | null>(records ? null : new Set());
-  const back = moduleSlug ? `/defis?module=${encodeURIComponent(moduleSlug)}` : '/defis';
+  // Partie lancée depuis une expédition (D207) : on y revient, l'étape franchie à la fin.
+  const expedition = !!moduleSlug && search.get('expedition') === '1';
+  const back = expedition
+    ? `/modules/${moduleSlug}/expedition`
+    : moduleSlug
+      ? `/defis?module=${encodeURIComponent(moduleSlug)}`
+      : '/defis';
+  const finishedHref = expedition ? `${back}?fait=${mode?.key ?? ''}` : back;
 
   useEffect(() => {
     if (records) void recentPlays(user.id).then(setRecent);
@@ -166,7 +174,7 @@ export function GamePlay() {
       mastered: new Set(journalData?.mastered ?? []),
       recent,
     },
-    exitHref: back,
+    exitHref: finishedHref,
     empty,
   };
 
@@ -245,11 +253,11 @@ function AscensionHost({ mode, userId, sessionKey, entries, context, exitHref }:
       onUpdate={update}
       onRestart={() => restart()}
       onFinish={finish}
-      onAnswer={async (question, answer, assisted) =>
+      onAnswer={async (question, answer, assisted, attemptId) =>
         userId
           ? (
               await submitPracticeResult(userId, {
-                attemptId: crypto.randomUUID(),
+                attemptId,
                 moduleSlug: question.moduleSlug,
                 activityKey: question.activityKey,
                 fingerprint: question.fingerprint,
