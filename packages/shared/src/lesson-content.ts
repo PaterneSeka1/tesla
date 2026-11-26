@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import {
+  type LyricSegment,
+  lyricSegmentSchema,
+  MAX_LYRIC_SEGMENTS,
+  timelineIssues,
+} from './lyrics.js';
 import { type PracticeActivity, practiceActivitySchema } from './practice.js';
 
 /**
@@ -32,6 +38,36 @@ export function lessonFileImageSrc(fileId: string): string {
 /** Identifiant du fichier stocké par Tesla, ou null pour une image externe. */
 export function lessonImageFileId(src: string): string | null {
   return LESSON_FILE_IMAGE.exec(src)?.[1] ?? null;
+}
+
+/**
+ * Droits de diffusion d'un enregistrement (D221) : inconnus par défaut ; un enregistrement dont les
+ * droits sont inconnus ne peut être ni soumis ni publié.
+ */
+export const AUDIO_RIGHTS = ['INCONNUS', 'AUTORISES'] as const;
+export type AudioRights = (typeof AUDIO_RIGHTS)[number];
+
+export interface LessonAudioAttrs {
+  /** Enregistrement stocké par Tesla : chemin interne strict (jamais une URL externe ou signée). */
+  src: string;
+  title?: string | null;
+  /** Auteur, interprète ou source, lorsque connus. */
+  credit?: string | null;
+  rights: AudioRights;
+  /** Téléchargement autorisé (écoute hors ligne sur l'appareil). */
+  download: boolean;
+  /** Paroles ou texte narré, dans l'ordre (une occurrence par phrase chantée, refrains répétés compris). */
+  segments: LyricSegment[];
+  /**
+   * Enregistrement pour lequel les repères ont été posés et vérifiés ; null = non synchronisé
+   * (texte intégral seulement). Différent de `src` après un remplacement : repères ignorés.
+   */
+  syncedSrc: string | null;
+}
+
+/** Vrai si les repères valent pour l'enregistrement actuel (défilement synchronisé possible). */
+export function isAudioSynchronized(attrs: LessonAudioAttrs): boolean {
+  return attrs.syncedSrc !== null && attrs.syncedSrc === attrs.src && attrs.segments.length > 0;
 }
 
 /** Images : URL https externe, ou image stockée par Tesla (chemin interne strict). */
@@ -88,7 +124,9 @@ export type LessonBlock =
   | { type: 'horizontalRule' }
   | { type: 'image'; attrs: { src: string; alt?: string | null } }
   /** Activité d'entraînement (D194) : suit le circuit de publication du module. */
-  | { type: 'practice'; attrs: { activity: PracticeActivity } };
+  | { type: 'practice'; attrs: { activity: PracticeActivity } }
+  /** Enregistrement audio et ses paroles éventuellement synchronisées (D221). */
+  | { type: 'audio'; attrs: LessonAudioAttrs };
 
 export interface LessonDocument {
   type: 'doc';
@@ -125,6 +163,40 @@ const listItemSchema: z.ZodType<LessonListItem> = z.lazy(() =>
   z.object({ type: z.literal('listItem'), content: z.array(blockSchema).min(1).max(50) }),
 );
 
+const internalFileSrc = z
+  .string()
+  .max(200)
+  .refine((src) => lessonImageFileId(src) !== null, {
+    message: 'Enregistrement non autorisé : fichier envoyé depuis l’appareil uniquement.',
+  });
+
+const audioAttrsSchema: z.ZodType<LessonAudioAttrs> = z
+  .object({
+    src: internalFileSrc,
+    title: z.string().trim().max(200).nullable().optional(),
+    credit: z.string().trim().max(300).nullable().optional(),
+    rights: z.enum(AUDIO_RIGHTS),
+    download: z.boolean(),
+    segments: z.array(lyricSegmentSchema).max(MAX_LYRIC_SEGMENTS),
+    syncedSrc: internalFileSrc.nullable(),
+  })
+  .superRefine((attrs, ctx) => {
+    if (new Set(attrs.segments.map((segment) => segment.id)).size !== attrs.segments.length) {
+      ctx.addIssue({ code: 'custom', path: ['segments'], message: 'Phrases en double.' });
+    }
+    // Une synchronisation enregistrée doit être cohérente : jamais de repères désordonnés publiés.
+    if (attrs.syncedSrc !== null && attrs.syncedSrc === attrs.src) {
+      const issues = timelineIssues(attrs.segments);
+      if (attrs.segments.length === 0 || issues.length > 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['segments'],
+          message: issues[0] ?? 'Synchronisation sans paroles.',
+        });
+      }
+    }
+  });
+
 const blockSchema: z.ZodType<LessonBlock> = z.lazy(() =>
   z.discriminatedUnion('type', [
     z.object({ type: z.literal('paragraph'), content: z.array(inlineSchema).max(500).optional() }),
@@ -154,6 +226,7 @@ const blockSchema: z.ZodType<LessonBlock> = z.lazy(() =>
       type: z.literal('practice'),
       attrs: z.object({ activity: practiceActivitySchema }),
     }),
+    z.object({ type: z.literal('audio'), attrs: audioAttrsSchema }),
   ]),
 );
 
@@ -178,7 +251,7 @@ export function emptyLessonDocument(): LessonDocument {
 /** Vrai si la leçon ne contient ni texte ni image (soumission refusée dans ce cas). */
 export function isLessonDocumentEmpty(doc: LessonDocument): boolean {
   const hasContent = (node: LessonBlock | LessonListItem | LessonInline): boolean => {
-    if (node.type === 'image' || node.type === 'practice') return true;
+    if (node.type === 'image' || node.type === 'practice' || node.type === 'audio') return true;
     if (node.type === 'text') return node.text.trim() !== '';
     return 'content' in node && Array.isArray(node.content) && node.content.some(hasContent);
   };

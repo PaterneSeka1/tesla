@@ -30,3 +30,6 @@ export * from './notifications.js';
 export * from './practice.js';
 export * from './practice-bank.js';
 export * from './learning.js';
+export * from './lyrics.js';
+export * from './reference.js';
+export * from './ceremony.js';
