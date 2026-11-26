@@ -531,6 +531,18 @@ export class ModuleEditorService {
           message: `La leçon « ${empty.title} » est vide : complétez-la avant de soumettre.`,
         });
       }
+      // D221 : un enregistrement dont les droits de diffusion sont inconnus n'est jamais publié.
+      const unknownRights = lessons.find((lesson) =>
+        toLessonDocument(lesson.content).content.some(
+          (block) => block.type === 'audio' && block.attrs.rights !== 'AUTORISES',
+        ),
+      );
+      if (unknownRights) {
+        throw new UnprocessableEntityException({
+          code: 'AUDIO_RIGHTS_UNKNOWN',
+          message: `Leçon « ${unknownRights.title} » : indiquez que la diffusion de l’enregistrement est autorisée avant de soumettre.`,
+        });
+      }
       const now = new Date();
       await tx.moduleVersion.update({
         where: { id: versionId },
@@ -1112,9 +1124,10 @@ async function assertResourceFile(
 }
 
 /**
- * Images envoyées depuis l'appareil et insérées dans le texte d'une leçon : chaque fichier cité doit
- * être une image vérifiée de ce module, ou figurer déjà dans la leçon (copie par nouvelle version ou
- * duplication). Empêche de citer le fichier d'un autre module pour le rendre lisible à la publication.
+ * Fichiers envoyés depuis l'appareil et insérés dans le texte d'une leçon (images ; enregistrements
+ * audio, D221) : chaque fichier cité doit être un fichier vérifié de ce module, de la nature attendue,
+ * ou figurer déjà dans la leçon (copie par nouvelle version ou duplication). Empêche de citer le
+ * fichier d'un autre module pour le rendre lisible à la publication.
  */
 async function assertLessonImages(
   tx: Prisma.TransactionClient,
@@ -1128,32 +1141,45 @@ async function assertLessonImages(
     ? await tx.moduleLesson.findUnique({ where: { id: lessonId }, select: { content: true } })
     : null;
   const kept = lessonFileIds(previous?.content);
-  const fresh = [...cited].filter((id) => !kept.has(id));
+  const fresh = [...cited].filter(([id, kind]) => kept.get(id) !== kind);
   if (fresh.length === 0) return;
   const files = await tx.storedFile.findMany({
-    where: { id: { in: fresh }, moduleId, category: 'MODULE_RESOURCE', status: 'VALIDE' },
+    where: {
+      id: { in: fresh.map(([id]) => id) },
+      moduleId,
+      category: 'MODULE_RESOURCE',
+      status: 'VALIDE',
+    },
     select: { id: true, mimeType: true },
   });
-  const valid = files.filter(
-    (file) => resourceKindForMime(file.mimeType as StoredFileMimeType) === 'IMAGE',
+  const kinds = new Map(
+    files.map((file) => [file.id, resourceKindForMime(file.mimeType as StoredFileMimeType)]),
   );
-  if (valid.length !== fresh.length) {
+  const invalid = fresh.find(([id, kind]) => kinds.get(id) !== kind);
+  if (invalid) {
     throw new UnprocessableEntityException({
       code: 'FILE_NOT_AVAILABLE',
-      message: 'Une image de la leçon est introuvable ou non vérifiée. Envoyez-la de nouveau.',
+      message:
+        invalid[1] === 'AUDIO'
+          ? 'Un enregistrement de la leçon est introuvable ou non vérifié. Envoyez-le de nouveau.'
+          : 'Une image de la leçon est introuvable ou non vérifiée. Envoyez-la de nouveau.',
     });
   }
 }
 
-/** Identifiants des images stockées par Tesla citées dans un contenu de leçon. */
-function lessonFileIds(content: unknown): Set<string> {
-  const ids = new Set<string>();
+/** Fichiers stockés par Tesla cités dans un contenu de leçon, avec la nature attendue. */
+function lessonFileIds(content: unknown): Map<string, 'IMAGE' | 'AUDIO'> {
+  const ids = new Map<string, 'IMAGE' | 'AUDIO'>();
   const walk = (node: unknown) => {
     if (!node || typeof node !== 'object') return;
-    const n = node as { type?: unknown; attrs?: { src?: unknown }; content?: unknown };
-    if (n.type === 'image' && typeof n.attrs?.src === 'string') {
+    const n = node as {
+      type?: unknown;
+      attrs?: { src?: unknown; syncedSrc?: unknown };
+      content?: unknown;
+    };
+    if ((n.type === 'image' || n.type === 'audio') && typeof n.attrs?.src === 'string') {
       const id = lessonImageFileId(n.attrs.src);
-      if (id) ids.add(id);
+      if (id) ids.set(id, n.type === 'image' ? 'IMAGE' : 'AUDIO');
     }
     if (Array.isArray(n.content)) n.content.forEach(walk);
   };

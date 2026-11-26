@@ -333,6 +333,37 @@ function blockNode(doc: Doc, block: LessonBlock, indent: number): void {
       doc.moveDown(0.45);
       break;
     }
+    case 'audio': {
+      // Enregistrement (D221) : sur papier, son titre et ses paroles ; jamais le fichier ni son chemin.
+      ensureSpace(doc, 40);
+      doc
+        .fillColor(COLORS.gris)
+        .font('Helvetica-Oblique')
+        .fontSize(9)
+        .text(
+          clean(`[Enregistrement${block.attrs.title ? ` : ${block.attrs.title}` : ''}]`),
+          x,
+          doc.y,
+          { width: w },
+        );
+      doc.moveDown(0.3);
+      let part: string | null = null;
+      for (const segment of block.attrs.segments) {
+        const current = segment.part ?? null;
+        if (current !== part && current === 'REFRAIN') doc.moveDown(0.3);
+        part = current;
+        ensureSpace(doc, 18);
+        doc
+          .fillColor(COLORS.texte)
+          .font(current === 'REFRAIN' ? 'Helvetica-Oblique' : 'Helvetica')
+          .fontSize(BODY_SIZE);
+        doc.text(clean(segment.text), x, doc.y, { width: w });
+        doc.moveDown(0.1);
+      }
+      doc.x = MARGIN;
+      doc.moveDown(0.45);
+      break;
+    }
   }
 }
 

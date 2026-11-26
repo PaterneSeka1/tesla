@@ -13,6 +13,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PedagogyModule } from './modules/pedagogy/pedagogy.module.js';
 import { ProgrammesModule } from './modules/programmes/programmes.module.js';
 import { ProgressionModule } from './modules/progression/progression.module.js';
+import { ReferenceModule } from './modules/reference/reference.module.js';
 import { ScoutsModule } from './modules/scouts/scouts.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -36,6 +37,7 @@ import { StorageModule } from './storage/storage.module.js';
     AuditModule,
     MedicalModule,
     NotificationsModule,
+    ReferenceModule,
   ],
   /** Écritures rejouées par la file de synchronisation des appareils (D110). */
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],

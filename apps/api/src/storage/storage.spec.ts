@@ -30,6 +30,14 @@ describe('detectMimeType', () => {
     expect(detectMimeType(text('GIF89a'))).toBe('image/gif');
     expect(detectMimeType(text('RIFF\0\0\0\0WEBPVP8 '))).toBe('image/webp');
     expect(detectMimeType(text('%PDF-1.7'))).toBe('application/pdf');
+    expect(detectMimeType(text('ID3\x04\0'))).toBe('audio/mpeg');
+    expect(detectMimeType(bytes(0xff, 0xfb, 0x90, 0x64))).toBe('audio/mpeg');
+    expect(detectMimeType(text('\0\0\0\x20ftypM4A '))).toBe('audio/mp4');
+    expect(detectMimeType(text('OggS\0\x02'))).toBe('audio/ogg');
+    expect(detectMimeType(text('RIFF\0\0\0\0WAVEfmt '))).toBe('audio/wav');
+    // Flux AAC brut (ADTS) et vidéo MP4 non reconnus comme audio autorisé.
+    expect(detectMimeType(bytes(0xff, 0xf1, 0x50, 0x80))).toBeNull();
+    expect(detectMimeType(text('\0\0\0\x20ftypqt  '))).toBeNull();
   });
 
   it('refuse les contenus actifs ou exécutables, même renommés', () => {
