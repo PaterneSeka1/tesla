@@ -902,3 +902,7 @@ Non vérifié :
 - Parcours navigateur de l'envoi (sélection, progression, téléchargement) : non recetté ; seulement types, lint, build et tests API.
 - Images insérées dans le texte des leçons : toujours des URL externes (non migrées vers R2).
 - Pas d'écran d'administration du stockage (indicateurs dans le journal du traitement quotidien, D143).
+
+## Référentiel scout (2026-11-25, chantier parallèle)
+
+Branche `feat/tesla-scout-reference` (worktree `../tesla-scout-reference`, depuis 58b231f, **non commitée**). Décisions D220–D222 ; documentation [FEATURES/REFERENTIEL_SCOUT.md](FEATURES/REFERENTIEL_SCOUT.md) ; suivi, tests et stratégie d'intégration avec le chantier immersif : [TESLA_SCOUT_REFERENCE_PROGRESS.md](TESLA_SCOUT_REFERENCE_PROGRESS.md). Migration additive `20261130090000_scout_reference` appliquée sur `tesla_scout` et `tesla_scout_test` seulement.
