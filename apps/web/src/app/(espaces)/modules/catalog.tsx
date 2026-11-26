@@ -52,6 +52,12 @@ export function Catalog() {
         title="Bibliothèque"
         description="Tout module publié est accessible, quelle que soit votre étape."
       />
+      <Link
+        href="/referentiel"
+        className="inline-flex w-fit items-center gap-1 text-sm text-tesla-rouge underline-offset-4 hover:underline"
+      >
+        Prières, cérémonies et chants : le référentiel scout
+      </Link>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Catégorie">
         {(['', ...MODULE_CATEGORIES] as const).map((value) => (
           <Button

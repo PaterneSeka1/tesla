@@ -52,6 +52,7 @@ import { MAX_ASSET_BYTES } from '@/lib/offline/downloads';
 import { cn } from '@/lib/utils';
 import { PracticeFormDialog } from '@/components/practice/practice-form';
 import { PracticeNode } from '@/components/practice/practice-node';
+import { AudioFileInput, AudioNode } from '@/components/reference/audio-node';
 
 /**
  * Image Tiptap dont l'adresse d'affichage est résolue (image stockée par Tesla) ; le document
@@ -112,6 +113,8 @@ export function LessonEditor({
       }),
       LessonImage.configure({ inline: false, allowBase64: false }),
       PracticeNode,
+      // Enregistrement et paroles synchronisées (D221).
+      AudioNode.configure({ moduleId }),
     ],
     content: value,
     editorProps: {
@@ -160,6 +163,8 @@ function Toolbar({ editor, moduleId }: { editor: Editor; moduleId?: string }) {
   const [panel, setPanel] = useState<'link' | 'image' | null>(null);
   // Nouvelle activité : insérée seulement une fois le formulaire validé (jamais de bloc vide).
   const [newActivity, setNewActivity] = useState<PracticeActivity | null>(null);
+  const audioInput = useRef<HTMLInputElement>(null);
+  const [audioStatus, setAudioStatus] = useState<string | null>(null);
   const chain = () => editor.chain().focus();
 
   const insertBlock = (key: PedagogicalBlockKey) => {
@@ -368,6 +373,20 @@ function Toolbar({ editor, moduleId }: { editor: Editor; moduleId?: string }) {
                 <span className="text-xs text-muted-foreground">{block.hint}</span>
               </DropdownMenuItem>
             ))}
+            {moduleId && (
+              <>
+                <DropdownMenuLabel>Enregistrement</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onSelect={() => audioInput.current?.click()}
+                  className="flex-col items-start gap-0"
+                >
+                  <span className="font-medium">Chant ou récit audio</span>
+                  <span className="text-xs text-muted-foreground">
+                    MP3, M4A, OGG ou WAV ; paroles synchronisables.
+                  </span>
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuLabel>Activité d’entraînement</DropdownMenuLabel>
             {PRACTICE_KINDS.map((kind) => (
               <DropdownMenuItem
@@ -380,6 +399,19 @@ function Toolbar({ editor, moduleId }: { editor: Editor; moduleId?: string }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {moduleId && (
+        <AudioFileInput
+          editor={editor}
+          moduleId={moduleId}
+          ref={audioInput}
+          onStatus={setAudioStatus}
+        />
+      )}
+      {audioStatus && (
+        <p role="status" className="px-1 text-xs text-muted-foreground">
+          {audioStatus}
+        </p>
+      )}
       {newActivity && (
         <PracticeFormDialog
           initial={newActivity}

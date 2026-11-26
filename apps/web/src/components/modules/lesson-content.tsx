@@ -10,6 +10,7 @@ import { Fragment } from 'react';
 import { resolveImageSrc } from '@/lib/api/assets';
 import { type CalloutVariant, structureLesson } from './lesson-structure';
 import { PracticeBlock } from '@/components/practice/practice-block';
+import { AudioPlayer } from '@/components/reference/audio-player';
 
 /**
  * Rendu d'un contenu de leçon (document structuré validé par l'API) en éléments React.
@@ -76,6 +77,11 @@ interface RenderContext {
   onPracticeContinue?: () => void;
 }
 
+/** Rendu de blocs isolés (répliques et indications d'une cérémonie, D220). */
+export function LessonBlocks({ blocks }: { blocks: LessonBlock[] }) {
+  return <>{renderBlocks(blocks, {})}</>;
+}
+
 function renderBlocks(blocks: LessonBlock[], ctx: RenderContext) {
   return blocks.map((block, index) => <Block key={index} block={block} ctx={ctx} />);
 }
@@ -91,6 +97,9 @@ function Block({ block, ctx }: { block: LessonBlock; ctx: RenderContext }) {
           onContinue={ctx.onPracticeContinue}
         />
       );
+    case 'audio':
+      // Enregistrement et paroles (D221) ; lien interne uniquement (revérifié par le schéma).
+      return <AudioPlayer attrs={block.attrs} />;
     case 'paragraph':
       return <p>{renderInline(block.content)}</p>;
     case 'heading':

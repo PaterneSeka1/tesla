@@ -66,6 +66,7 @@ export const PRIVATE_PATH_PREFIXES = [
   '/encadrement',
   '/administration',
   '/modules',
+  '/referentiel',
   '/evaluations',
   '/defis',
   '/carnet',

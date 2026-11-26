@@ -19,7 +19,9 @@ import {
   catalogLessonQueryOptions,
   catalogModuleQueryOptions,
   catalogQueryOptions,
+  printableModuleQueryOptions,
 } from '@/lib/api/modules';
+import { referenceCatalogQueryOptions } from '@/lib/api/reference';
 import {
   ageRuleSetsQueryOptions,
   myPathwayQueryOptions,
@@ -184,6 +186,17 @@ async function prepare(
         pages.add(`/modules/${item.slug}/lecons/${lesson.id}`);
       }
     }
+    // Référentiel scout (D220) : prières, cérémonies et chants consultables au camp, sans réseau.
+    // Les enregistrements audio se téléchargent un par un depuis leur lecteur (D221).
+    progress('Référentiel scout…');
+    const reference = await get<{
+      categories: { entries: { id: string; moduleSlug: string }[] }[];
+    }>(referenceCatalogQueryOptions(''), 'Référentiel scout');
+    const entries = reference?.categories.flatMap((category) => category.entries) ?? [];
+    for (const slug of new Set(entries.map((entry) => entry.moduleSlug))) {
+      await get(printableModuleQueryOptions(slug), `Référentiel ${slug}`);
+    }
+    for (const entry of entries) pages.add(`/referentiel/${entry.id}`);
   }
 
   // Entraînement libre (D198) : banque des modules publiés et parties jouables hors ligne ;
