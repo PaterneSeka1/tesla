@@ -13,6 +13,7 @@ import {
   Footprints,
   FileCheck2,
   FilePenLine,
+  FolderTree,
   GraduationCap,
   History,
   KeyRound,
@@ -22,6 +23,7 @@ import {
   type LucideIcon,
   Medal,
   PenLine,
+  ScrollText,
   Printer,
   Send,
   ShieldCheck,
@@ -60,6 +62,8 @@ const ACCESS_RULES: readonly AccessRule[] = [
   { path: '/compte' },
   { path: '/appareil' },
   { path: '/modules', anyOf: ['module.read'] },
+  // Référentiel scout (D220) : lecture comme la bibliothèque ; gestion par les rédacteurs.
+  { path: '/referentiel', anyOf: ['module.read'] },
   { path: '/evaluations', anyOf: ['evaluation.take'] },
   // Entraînement libre (D198) ; carnet personnel (D196).
   { path: '/defis', anyOf: ['practice.play'] },
@@ -72,6 +76,7 @@ const ACCESS_RULES: readonly AccessRule[] = [
   { path: '/mes-activites', anyOf: OWN },
   { path: '/encadrement', anyOf: ['module.write'] },
   { path: '/encadrement/evaluations', anyOf: ['evaluation.write'] },
+  { path: '/encadrement/referentiel', anyOf: ['module.write'] },
   { path: '/encadrement/evaluations/papier', anyOf: ['attempt.preparePaper'] },
   { path: '/encadrement/corrections', anyOf: ['attempt.record'] },
   { path: '/encadrement/distribution', anyOf: ['attempt.preparePaper'] },
@@ -253,6 +258,12 @@ export const NAVIGATION: readonly NavGroup[] = [
     items: [
       { href: '/modules', label: 'Bibliothèque', icon: Library, permission: 'module.read' },
       {
+        href: '/referentiel',
+        label: 'Référentiel scout',
+        icon: ScrollText,
+        permission: 'module.read',
+      },
+      {
         href: '/encadrement/modules',
         label: 'Rédaction',
         icon: FilePenLine,
@@ -262,6 +273,12 @@ export const NAVIGATION: readonly NavGroup[] = [
         href: '/encadrement/soumissions',
         label: 'Mes soumissions',
         icon: Send,
+        permission: 'module.write',
+      },
+      {
+        href: '/encadrement/referentiel',
+        label: 'Rubriques du référentiel',
+        icon: FolderTree,
         permission: 'module.write',
       },
       {

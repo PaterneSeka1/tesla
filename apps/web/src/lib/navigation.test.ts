@@ -245,6 +245,8 @@ describe('navigation', () => {
     expect(hrefs(adulte)).toEqual([
       HOME_ROUTE,
       '/modules',
+      // Référentiel scout (D220) : même public que la bibliothèque.
+      '/referentiel',
       '/defis',
       '/evaluations',
       '/carnet',

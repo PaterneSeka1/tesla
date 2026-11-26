@@ -360,8 +360,11 @@ export const createResourceInputSchema = z
     }
   });
 
-/** Nature de ressource attendue pour un type de fichier (une image n'est pas un document). */
-export function resourceKindForMime(mimeType: StoredFileMimeType): 'IMAGE' | 'DOCUMENT' {
+/**
+ * Nature d'un type de fichier (une image n'est pas un document). Un enregistrement audio n'est
+ * jamais une ressource : il s'insère dans le texte d'une leçon (bloc audio, D221).
+ */
+export function resourceKindForMime(mimeType: StoredFileMimeType): 'IMAGE' | 'DOCUMENT' | 'AUDIO' {
   return STORED_FILE_TYPES[mimeType].kind;
 }
 

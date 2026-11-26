@@ -24,8 +24,9 @@ export const STORED_FILE_STATUSES = [
 export type StoredFileStatus = (typeof STORED_FILE_STATUSES)[number];
 
 /**
- * Types acceptés (liste blanche) : formats d'image passifs et PDF. Jamais de SVG, HTML ou
- * exécutable. L'extension du nom d'origine et la signature réelle du contenu doivent concorder.
+ * Types acceptés (liste blanche) : formats d'image passifs, PDF et enregistrements audio (D221,
+ * chants et récits du référentiel). Jamais de SVG, HTML ou exécutable. L'extension du nom d'origine
+ * et la signature réelle du contenu doivent concorder.
  */
 export const STORED_FILE_TYPES = {
   'image/png': { extensions: ['png'], kind: 'IMAGE' },
@@ -33,7 +34,16 @@ export const STORED_FILE_TYPES = {
   'image/webp': { extensions: ['webp'], kind: 'IMAGE' },
   'image/gif': { extensions: ['gif'], kind: 'IMAGE' },
   'application/pdf': { extensions: ['pdf'], kind: 'DOCUMENT' },
-} as const satisfies Record<string, { extensions: readonly string[]; kind: 'IMAGE' | 'DOCUMENT' }>;
+  'audio/mpeg': { extensions: ['mp3'], kind: 'AUDIO' },
+  'audio/mp4': { extensions: ['m4a'], kind: 'AUDIO' },
+  'audio/ogg': { extensions: ['ogg', 'oga', 'opus'], kind: 'AUDIO' },
+  'audio/wav': { extensions: ['wav'], kind: 'AUDIO' },
+} as const satisfies Record<
+  string,
+  { extensions: readonly string[]; kind: 'IMAGE' | 'DOCUMENT' | 'AUDIO' }
+>;
+
+export type StoredFileKind = (typeof STORED_FILE_TYPES)[keyof typeof STORED_FILE_TYPES]['kind'];
 
 export type StoredFileMimeType = keyof typeof STORED_FILE_TYPES;
 export const STORED_FILE_MIME_TYPES = Object.keys(STORED_FILE_TYPES) as [
@@ -45,6 +55,8 @@ export const STORED_FILE_MIME_TYPES = Object.keys(STORED_FILE_TYPES) as [
 export const STORED_FILE_MAX_BYTES = {
   IMAGE: 5 * 1024 * 1024,
   DOCUMENT: 20 * 1024 * 1024,
+  /** Un chant compressé tient largement dans 20 Mo ; R2_UPLOAD_MAX_BYTES peut l'abaisser. */
+  AUDIO: 20 * 1024 * 1024,
 } as const;
 
 /** Extension en minuscules, sans le point ; chaîne vide si absente. */
@@ -79,7 +91,7 @@ export const requestModuleFileUploadInputSchema = z
   .object({
     fileName: z.string().trim().min(1, { error: 'Nom de fichier requis.' }).max(255),
     mimeType: z.enum(STORED_FILE_MIME_TYPES, {
-      error: 'Type de fichier non autorisé (PNG, JPEG, WebP, GIF ou PDF).',
+      error: 'Type de fichier non autorisé (PNG, JPEG, WebP, GIF, PDF, MP3, M4A, OGG ou WAV).',
     }),
     sizeBytes: z.number().int().min(1, { error: 'Fichier vide.' }),
     sha256: sha256Hex,

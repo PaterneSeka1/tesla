@@ -19,6 +19,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:seed:pedagogy": "tsx prisma/seeds/pedagogy.ts",
+    "db:seed:reference": "tsx prisma/seeds/reference.ts",
     "db:studio": "prisma studio",
     "jobs:daily": "node dist/jobs/daily.js",
     "admin:create": "node dist/jobs/create-admin.js",

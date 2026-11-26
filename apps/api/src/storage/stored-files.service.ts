@@ -161,8 +161,9 @@ export class StoredFilesService {
       storage.presignDownload(file.storageKey, {
         contentType: file.mimeType,
         fileName: file.originalName,
-        // Images affichées ; documents toujours téléchargés (aucun rendu dans l'origine de l'application).
-        disposition: kind === 'IMAGE' ? 'inline' : 'attachment',
+        // Images affichées, audio lu par le lecteur ; documents toujours téléchargés (aucun rendu
+        // dans l'origine de l'application).
+        disposition: kind === 'IMAGE' || kind === 'AUDIO' ? 'inline' : 'attachment',
         expiresInSeconds: this.env.R2_SIGNED_URL_EXPIRATION,
       }),
     );

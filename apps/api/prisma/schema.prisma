@@ -52,6 +52,10 @@ model User {
   medicalRecord  MedicalRecord?
   auditLogs      AuditLog[]
 
+  /// Référentiel scout (D220).
+  referenceCategoriesCreated ReferenceCategory[] @relation("ReferenceCategoryCreatedBy")
+  referenceEntriesCreated    ReferenceEntry[]    @relation("ReferenceEntryCreatedBy")
+
   teamAssignmentsMade  TeamAssignment[]           @relation("TeamAssignmentAssignedBy")
   teamAssignmentsEnded TeamAssignment[]           @relation("TeamAssignmentEndedBy")
   evaluationsPublished EvaluationVersion[]        @relation("EvaluationVersionPublishedBy")
@@ -859,6 +863,8 @@ model PedagogicalModule {
   catchUps         CatchUpObligation[]
   citedBy          ModuleTextLink[]
   files            StoredFile[]
+  /// Rangements dans le référentiel scout (D220).
+  referenceEntries ReferenceEntry[]
 
   @@index([createdById])
   @@map("pedagogical_modules")
@@ -2300,4 +2306,66 @@ model LearnerNote {
 
   @@unique([userId, moduleSlug, lessonKey])
   @@map("learner_notes")
+}
+
+// ─── Référentiel scout (D220) ──────────────────────────────────────────────
+
+/// Ambiance de présentation d'une rubrique du référentiel (interne, jamais affichée aux apprenants).
+enum ReferenceAmbiance {
+  SOLENNEL
+  RECUEILLI
+  MUSICAL
+  NARRATIF
+  DOCUMENTAIRE
+}
+
+/// Rubrique dynamique du référentiel scout (Cérémonies, Prières, Chants…). Visible des apprenants
+/// seulement si elle range au moins un module publié. Jamais supprimée : retirée (`archivedAt`).
+model ReferenceCategory {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  slug        String            @unique
+  title       String
+  description String?
+  /// Nom d'icône de la liste blanche `REFERENCE_ICONS` (@tesla/shared) ; null = icône par défaut.
+  icon        String?
+  ambiance    ReferenceAmbiance
+  position    Int
+  /// Null = système (seed).
+  createdById String?           @map("created_by_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  archivedAt  DateTime?         @map("archived_at") @db.Timestamptz(3)
+
+  createdBy User?            @relation("ReferenceCategoryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  entries   ReferenceEntry[]
+
+  @@index([createdById])
+  @@map("reference_categories")
+}
+
+/// Rangement d'un module (texte fondamental, D125) ou d'une de ses leçons dans une rubrique. Le contenu
+/// reste celui du module (versions, publication, historique) : aucune copie. La leçon est désignée par
+/// son identité stable (`lesson_key`), valable de version en version.
+model ReferenceEntry {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  moduleId    String   @map("module_id") @db.Uuid
+  /// Null = module entier.
+  lessonKey   String?  @map("lesson_key") @db.Uuid
+  position    Int
+  /// Null = système (seed).
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  category  ReferenceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  module    PedagogicalModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  createdBy User?             @relation("ReferenceEntryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  /// Un module ou une leçon n'est rangé qu'une fois par rubrique.
+  @@unique([categoryId, moduleId, lessonKey])
+  @@unique([categoryId, moduleId], map: "reference_entries_one_whole_module", where: raw("lesson_key IS NULL"))
+  @@index([categoryId, position])
+  @@index([moduleId])
+  @@index([createdById])
+  @@map("reference_entries")
 }

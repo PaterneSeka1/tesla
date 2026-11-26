@@ -20,6 +20,13 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Ver
 - Salle des défis : plus de défilement horizontal à 320 px ; un seul jeu mis en avant.
 - Parcours des routiers : une étape à la fois sur téléphone (plus de colonnes coupées).
 
+### Ajouté — référentiel scout, 2026-11-25 (D220–D222)
+- **Référentiel scout** (menu Cours) : prières, cérémonies et textes de référence, avec recherche ; seules les rubriques contenant une ressource publiée apparaissent.
+- **Cérémonial de la Route** : les neuf cérémonies transcrites fidèlement, une fiche chacune, lecture intégrale, mode « Mon rôle », préparation personnelle et mode cérémonie (grand texte, écran allumé si possible, reprise de la position).
+- **Prière scoute** et mémorisation facultative (révéler, compléter, remettre en ordre), sans chronomètre ni score.
+- **Enregistrements audio** dans les leçons : lecteur, vitesse, paroles intégrales ou synchronisées qui défilent avec la voix, mode chant collectif, écoute hors ligne si autorisée ; atelier de synchronisation pour l'encadrement (marquage pendant l'écoute, import LRC/WebVTT/SRT).
+- Gestion des rubriques et rangements (encadrement) ; droits de diffusion obligatoires avant soumission d'un enregistrement.
+
 ### Ajouté — parcours des routiers, 2026-11-25 (D203)
 - **Parcours des routiers** (encadrement) : chaque routier dans la colonne de son étape, avec la date de son prochain passage, la mention « Ancien » si son parcours antérieur est reconnu et son rattrapage en cours ; les fiches sans date de naissance apparaissent en tête. Accessible depuis Routiers et depuis l'accueil.
 

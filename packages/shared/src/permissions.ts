@@ -78,6 +78,11 @@ export const PERMISSIONS = {
   'module.writeAny': OFFICIEL,
   /** Approuver, demander des corrections, refuser, publier, archiver. */
   'module.review': OFFICIEL,
+  /**
+   * Référentiel scout (D220) : créer, renommer, ordonner et retirer les rubriques. Lecture : celle
+   * de la bibliothèque (`module.read`) ; ranger une ressource : rédacteur du module (`module.write`).
+   */
+  'reference.manage': OFFICIEL,
   'evaluation.read': ['ROUTIER', 'ADULTE', 'ENCADREMENT'],
   /** Passer une évaluation : routier (selon son étape) ou adulte (toute évaluation publiée, D185). */
   'evaluation.take': ['ROUTIER', 'ADULTE'],
